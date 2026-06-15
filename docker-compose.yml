@@ -1,0 +1,109 @@
+# slot4u — fejlesztői Docker Compose stack (prod-azonos szolgáltatások).
+# Futtatás a WSL2 (Ubuntu) Linux fájlrendszeréről, NEM /mnt/c-ről (teljesítmény).
+# Bring-up: lásd docker/README.md
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+      args:
+        UID: ${UID:-1000}
+        GID: ${GID:-1000}
+    image: slot4u/php
+    restart: unless-stopped
+    working_dir: /var/www/html
+    volumes:
+      - ./:/var/www/html
+    env_file: .env
+    depends_on:
+      mariadb:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./:/var/www/html
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+
+  mariadb:
+    image: mariadb:11.4
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: ${DB_DATABASE:-slot4u}
+      MARIADB_USER: ${DB_USERNAME:-slot4u}
+      MARIADB_PASSWORD: ${DB_PASSWORD:-secret}
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  # Háttér-feldolgozás (email, emlékeztetők, számlázás): Laravel Horizon
+  # FIGYELEM: a laravel/horizon csomag telepítése után aktiválódik (SLO-8 utáni M1 lépés).
+  # Addig opt-in: `docker compose --profile workers up -d`
+  horizon:
+    image: slot4u/php
+    profiles: ["workers"]
+    restart: unless-stopped
+    working_dir: /var/www/html
+    command: php artisan horizon
+    volumes:
+      - ./:/var/www/html
+    env_file: .env
+    depends_on:
+      - app
+      - redis
+
+  # Realtime: Laravel Reverb (élő admin foglalás-értesítés)
+  # FIGYELEM: a laravel/reverb csomag telepítése után aktiválódik (SLO-8 utáni M1 lépés).
+  # Addig opt-in: `docker compose --profile workers up -d`
+  reverb:
+    image: slot4u/php
+    profiles: ["workers"]
+    restart: unless-stopped
+    working_dir: /var/www/html
+    command: php artisan reverb:start --host=0.0.0.0 --port=8080
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./:/var/www/html
+    env_file: .env
+    depends_on:
+      - app
+      - redis
+
+  # Frontend dev szerver (Inertia + React + Vite, HMR)
+  vite:
+    image: node:22-alpine
+    restart: unless-stopped
+    working_dir: /var/www/html
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./:/var/www/html
+
+volumes:
+  db_data:
+  redis_data:
