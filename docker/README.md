@@ -43,7 +43,7 @@ make migrate     # MariaDB migrációk
 |---|---|
 | App (nginx) | http://slot4u.test (és `*.slot4u.test` tenant subdomainek) |
 | Vite HMR | http://localhost:5173 |
-| Reverb (WS) | ws://localhost:8080 |
+| Reverb (WS) | ws://localhost:8080 (csak `--profile workers` után) |
 | MariaDB | localhost:3306 (`slot4u` / `secret`) |
 | Redis | localhost:6379 |
 
@@ -64,3 +64,12 @@ A `boost:mcp` a konténer PHP 8.3-jával fusson (nem a Windows XAMPP PHP-vel). A
 ## Gyakori parancsok
 
 `make help` — teljes lista. `make sh` (shell), `make migrate`, `make test`, `make pint`, `make stan`, `make fresh`.
+
+## Horizon + Reverb (workers profile)
+
+A `horizon` és `reverb` szolgáltatások a `laravel/horizon` ill. `laravel/reverb` csomagok
+telepítéséig (SLO-8 utáni M1 lépés) opt-in profil mögött vannak, hogy ne crash-loopoljanak:
+
+```bash
+docker compose --profile workers up -d   # miután a csomagok telepítve vannak
+```

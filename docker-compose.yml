@@ -60,8 +60,11 @@ services:
       - redis_data:/data
 
   # Háttér-feldolgozás (email, emlékeztetők, számlázás): Laravel Horizon
+  # FIGYELEM: a laravel/horizon csomag telepítése után aktiválódik (SLO-8 utáni M1 lépés).
+  # Addig opt-in: `docker compose --profile workers up -d`
   horizon:
     image: slot4u/php
+    profiles: ["workers"]
     restart: unless-stopped
     working_dir: /var/www/html
     command: php artisan horizon
@@ -73,8 +76,11 @@ services:
       - redis
 
   # Realtime: Laravel Reverb (élő admin foglalás-értesítés)
+  # FIGYELEM: a laravel/reverb csomag telepítése után aktiválódik (SLO-8 utáni M1 lépés).
+  # Addig opt-in: `docker compose --profile workers up -d`
   reverb:
     image: slot4u/php
+    profiles: ["workers"]
     restart: unless-stopped
     working_dir: /var/www/html
     command: php artisan reverb:start --host=0.0.0.0 --port=8080
