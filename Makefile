@@ -44,4 +44,13 @@ pint: ## Pint formázás-ellenőrzés
 stan: ## Larastan statikus analízis
 	$(DC) exec app vendor/bin/phpstan analyse
 
-.PHONY: help build up down logs sh install key migrate fresh test pint stan
+lint: ## ESLint a frontend kódon
+	$(DC) exec vite npm run lint
+
+types: ## TypeScript típusellenőrzés
+	$(DC) exec vite npm run types
+
+format: ## Prettier formázás
+	$(DC) exec vite npm run format
+
+.PHONY: help build up down logs sh install key migrate fresh test pint stan lint types format
