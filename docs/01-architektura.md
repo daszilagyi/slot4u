@@ -31,6 +31,47 @@
 IdentifyTenant → EnsureTenantActive → EnsureFeatureEnabled:{feature} → can:{permission}
 ```
 
+**M1-ben megvalósítva (SLO-10):** az első két láncszem. A `routes/tenant.php` minden route-ja az
+`identify.tenant` → `ensure.tenant.active` aliasokon megy keresztül; a `EnsureFeatureEnabled` (Pennant)
+és a `can:` (spatie) későbbi issue-kban kerül be.
+
+- `IdentifyTenant`: a `{tenant}` subdomain-paraméterből keresi a tenantot. Foglalt label
+  (`config('tenancy.reserved_subdomains')` + `admin_subdomain`) vagy nem létező/archivált (soft-deleted)
+  slug → `abort(404)` (a cross-tenant próbálkozás létezést sem szivárogtat). Találat → `TenantManager`
+  singletonba kötés + `app()->setLocale($tenant->locale)` (timezone NEM — UTC marad, csak megjelenítéskor).
+- `EnsureTenantActive`: `trial`/`active` → tovább; `suspended` → `Tenant/Suspended` Inertia státuszoldal
+  **503**-mal; `archived` → 404 (defenzív, a lookup amúgy is elbukik).
+- A `tenant_id` izoláció a `BelongsToTenant` traiten keresztül (`app/Models/Concerns/`): global scope
+  (`TenantScope`) szűr a `TenantManager` aktuális tenantjára, `creating` eventnél auto-kitölti a
+  `tenant_id`-t. Tenant nélküli kontextusban (konzol, seeder, superadmin, queue) **no-op**. Egy modellt
+  egyetlen sorral teszünk tenant-tulajdonúvá: `use BelongsToTenant;`. A `User` szándékosan NEM használja
+  (megtörné a superadmint és a login-lookupot).
+
+### Lokális fejlesztés — wildcard dev DNS
+
+A központi domain `APP_CENTRAL_DOMAIN=slot4u.test` (`.env`). A séma:
+
+| Host | Felület |
+|---|---|
+| `slot4u.test` | központi (apex) Welcome |
+| `admin.slot4u.test` | superadmin panel |
+| `{slug}.slot4u.test` | tenant felület (pl. `acme.slot4u.test`) |
+
+Az nginx már wildcardol (`*.slot4u.test`), de a Windows/WSL `hosts` fájl nem. Két lehetőség:
+
+1. **Statikus hosts bejegyzések** (Windows `C:\Windows\System32\drivers\etc\hosts`):
+   ```
+   127.0.0.1 slot4u.test admin.slot4u.test acme.slot4u.test suspended-demo.slot4u.test
+   ```
+2. **dnsmasq** (wildcard, ha sok tenant kell): `address=/slot4u.test/127.0.0.1`.
+
+A `SESSION_DOMAIN=.slot4u.test` (vezető pont) megosztja a session cookie-t a subdomainek közt
+(egyszeri bejelentkezés; a bejelentkezett user tenant-szűrése policy-kérdés, nem session).
+
+**Demo tenantok** (`TenantDemoSeeder`, `make fresh` után): `acme` (active → tenant home),
+`suspended-demo` (suspended → 503 státuszoldal). Tenant-admin loginok: `admin@acme.test` /
+`admin@suspended-demo.test`, jelszó `password`.
+
 ## Mappastruktúra (lényegi részek)
 
 ```

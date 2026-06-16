@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Tenancy\TenantManager;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -11,7 +12,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Scoped (not singleton): reset per request AND between queue jobs via
+        // the worker's forgetScopedInstances(), so tenant state never leaks
+        // across jobs on a long-running worker.
+        $this->app->scoped(TenantManager::class);
     }
 
     /**

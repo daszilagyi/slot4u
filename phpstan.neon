@@ -8,3 +8,11 @@ parameters:
         - routes
 
     level: 6
+
+    ignoreErrors:
+        # BelongsToTenant is consumed by tenant-owned models (added from SLO-15+)
+        # and by the test fixture; tests are outside the analysed paths, so the
+        # trait reads as unused until the first real tenant model lands.
+        -
+            identifier: trait.unused
+            path: app/Models/Concerns/BelongsToTenant.php
