@@ -15,8 +15,9 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // User::factory(10)->create();
+        $this->call(TenantDemoSeeder::class);
 
+        // Tenant-less user (acts as a placeholder superadmin until SLO-14).
         User::factory()->create([
             'name' => 'Test User',
             'email' => 'test@example.com',
