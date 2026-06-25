@@ -29,7 +29,7 @@ package_usage      id, customer_package_id, booking_id, used_sessions, created_a
 - Lemondáskor tenant-szabály szerint visszakerül az alkalom (beállítás: mindig / lemondási határidőn belül soha).
 - Lejárt bérlet nem használható; lejárat-figyelő job + emlékeztető email ("3 alkalom maradt", "1 hét múlva lejár").
 - Egy ügyfélnek több aktív bérlete lehet — fogyasztási sorrend: legkorábban lejáró először.
-- Bérlet-vásárlás = no_time_slot jellegű flow online fizetéssel (Max csomagnál), számlával.
+- Bérlet-vásárlás = no_time_slot jellegű flow online fizetéssel (ha `feature_online_payment` aktív), számlával.
 
 **Érintett felületek:** bérlet CRUD (admin), bérlet-vásárlás (publikus), "bérleteim" (members area), ügyfélkarton bővítés, riport (eladott bérletek, beváltási arány).
 
@@ -47,7 +47,7 @@ customer_memberships      id, tenant_id, customer_id, membership_plan_id, starts
 
 **Üzleti szabályok:**
 - Aktív tagság → ingyenes vagy kedvezményes foglalás a plan-hez rendelt szolgáltatásokra.
-- Automatikus megújítás a PaymentProvider recurring flow-ján (ugyanaz az infrastruktúra, mint a tenant-előfizetésnél — SLO-39); sikertelen terhelés → past_due → kedvezmény felfüggesztve.
+- Automatikus megújítás a PaymentProvider **ügyfél-oldali** recurring flow-ján (a tenant ügyfeleinek tagsági terhelése — `feature_online_payment` / SLO-40 infrastruktúrája). Megjegyzés: a slot4u→tenant irányú recurring havidíj megszűnt (docs/10), így ez nem arra épül; sikertelen terhelés → past_due → kedvezmény felfüggesztve.
 - `session_limit`-es plan (havi 8 alkalom): periódusonként resetelő számláló, a limit felett normál ár.
 - Elszámolási sorrend foglaláskor: 1. membership (ingyenes/kedvezmény) → 2. bérlet → 3. pénz. **Implementáció előtt PM-döntés:** ez a sorrend felülbírálható-e ügyfél által.
 
@@ -90,6 +90,6 @@ form_submissions  id, tenant_id, form_id, booking_id(nullable), customer_id,
 
 ## Közös fejlesztői megjegyzések
 
-- Mindegyik modul feature flag mögé kerül: `feature_packages`, `feature_memberships`, `feature_custom_fields`, `feature_forms` — csomag-hozzárendelés PM-döntés (javaslat: Közepes+, a membership Max).
+- Mindegyik modul feature flag mögé kerül: `feature_packages`, `feature_memberships`, `feature_custom_fields`, `feature_forms` — tenant-onként kapcsolható (superadmin / `tenant_features`); nincs csomag-tiering (egyetlen base plan, docs/10).
 - A bérlet/membership elszámolás közös `PriceResolver` szolgáltatásba kerüljön (bemenet: service + customer → kimenet: ár + fizetési forrás), hogy a booking flow ne ágazzon szét.
 - Riport-hatás: a statisztika modul (SLO-45) bevétel-számítása bővítendő bérlet/membership bevétel-elhatárolással (eladáskor vs felhasználáskor — könyvelési döntés, tisztázandó).

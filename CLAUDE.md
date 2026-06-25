@@ -1,6 +1,6 @@
 # slot4u — Multi-tenant foglalási SaaS
 
-Általános célú, bérelhető foglalási rendszer (SaaS). Cégek (tenantok) előfizetnek, saját felületükön kezelik helyszíneiket, helyiségeiket, dolgozóikat, szolgáltatásaikat és ügyfeleik foglalásait. Branding: lajhár logó (slot/sloth szójáték), startup feeling, dark mode default.
+Általános célú, bérelhető foglalási rendszer (SaaS). Cégek (tenantok) regisztrálnak, saját felületükön kezelik helyszíneiket, helyiségeiket, dolgozóikat, szolgáltatásaikat és ügyfeleik foglalásait. A foglalási motor ingyenes; a slot4u **forgalom-alapú jutalékkal** monetizál (havi jutalékszámla — `docs/10-arazasi-modell-jutalek.md`). Branding: lajhár logó (slot/sloth szójáték), startup feeling, dark mode default.
 
 **Munkamodell:** Claude implementál, Daniel review-z és merge-öl. Claude teljes autonómiával kezeli a Lineart (státusz, komment, issue-bontás). Cél: minden milestone önállóan demózható, deployolható állapotban zárul.
 
@@ -44,12 +44,12 @@ Az issue acceptance criteriája teljesül, ÉS: tesztek zöldek, Pint/Larastan/E
 
 ## Architektúra alapelvek
 
-1. **Multi-tenancy:** subdomain alapú tenant-azonosítás (`{tenant}.slot4u.hu`), Max csomagnál egyedi domain. Minden tenant-adatra `BelongsToTenant` trait + global scope. Tenant nélküli kontextus CSAK a superadmin panelben. Cross-tenant ID-próbálkozásra `404`, nem `403`.
-2. **Jogosultság ≠ Feature ≠ Csomag.** Három külön réteg:
+1. **Multi-tenancy:** subdomain alapú tenant-azonosítás (`{tenant}.slot4u.hu`), egyedi domain a `feature_custom_domain`-nel. Minden tenant-adatra `BelongsToTenant` trait + global scope. Tenant nélküli kontextus CSAK a superadmin panelben. Cross-tenant ID-próbálkozásra `404`, nem `403`.
+2. **Jogosultság ≠ Feature ≠ Plan limit.** Három külön réteg:
    - Permission/Role (spatie): mit tehet a USER a tenanton belül
    - Feature flag (Pennant): mi van bekapcsolva a TENANT-nak
-   - Subscription plan limit: milyen mennyiségi korlátokkal fut a tenant (`PlanLimitService`)
-   Middleware sorrend: tenant feloldás → subscription aktív? → feature engedélyezett? → permission megvan?
+   - Plan limit: az egyetlen ingyenes `base` plan mennyiségi korlátai (`PlanLimitService`) — a háromlépcsős csomag (Alap/Közepes/Max) mint funkció-bundle **megszűnt**; a monetizáció **forgalom-alapú jutalék** (`docs/10`)
+   Middleware sorrend: tenant feloldás → tenant aktív (jutalékszámla rendezve)? → feature engedélyezett? → permission megvan?
 3. **Foglalási motor:** a 6 szolgáltatástípus (docs/04) EGY egységes `bookings` modellre épül, `booking_mode` diszkriminátorral és Strategy osztályokkal (`app/Services/Booking/Modes/`). Ütközésvizsgálat DB-szinten is védve (lock / atomi kapacitás-update).
 4. **API-ready kód már MVP-ben:** minden üzleti logika Action/Service rétegben, controller-függetlenül — a Phase 2 Public API így csak új belépési pont, nem újraírás.
 5. **i18n KÖTELEZŐ:** minden felhasználói szöveg lang fájlból (`lang/hu/...`), frontend oldalon Inertia shared props fordítási objektumból (`t()` helper). Hardcoded string TILOS. Tenant-szinten testreszabható sablonszövegek (email) szintén kulcs-alapúak.
@@ -61,7 +61,7 @@ Az issue acceptance criteriája teljesül, ÉS: tesztek zöldek, Pint/Larastan/E
 - Kód, commit, változónevek, DB oszlopok: **angol**. UI szövegek: lang fájl (hu).
 - Vékony controller → Action/Service osztályok (`app/Actions`, `app/Services`)
 - Form Request validáció mindenhol; Policy minden modellre
-- Enum-ok PHP backed enumként (`BookingStatus`, `BookingMode`, `PlanTier`, `TenantStatus`)
+- Enum-ok PHP backed enumként (`BookingStatus`, `BookingMode`, `TenantStatus`, `BillingPeriodStatus`, `CommissionInvoiceStatus`)
 - Eseményvezérelt mellékhatások: `BookingCreated` event → listeners (email, Reverb broadcast, statisztika)
 - Tesztelési fókusz: a docs/04 edge case-lista (race condition, DST, várólista, lemondási határ, suspended tenant...) tételesen lefedve Pest tesztekkel; tenant-izolációs teszt minden új modellre.
 
@@ -83,7 +83,7 @@ A docs az igazság forrása. Viselkedésbeli változás = docs-frissítés ugyan
 
 ## Milestone-térkép (deployolható fázisok)
 
-M1 infra+tenant alap → M2 törzsadatok → M3 foglalási motor → M4 publikus felület → M5 értesítések/realtime → M6 fizetés/számlázás → M7 dashboard/statisztika → M8 hardening+launch. Részletek és demó-kritériumok: `docs/05-fazisterv.md`. Phase 2 ötletek a P2 milestone-ba kerülnek, MVP-scope-ba NEM szivárognak be.
+M1 infra+tenant alap → M2 törzsadatok → M3 foglalási motor → M4 publikus felület → M5 értesítések/realtime → M6 forgalom-alapú jutalék/számlázás → M7 dashboard/statisztika → M8 hardening+launch. Részletek és demó-kritériumok: `docs/05-fazisterv.md`. Phase 2 ötletek a P2 milestone-ba kerülnek, MVP-scope-ba NEM szivárognak be.
 
 gstack
 use the /browse skill from gstack for all web browsing, never use mcp__claude-in-chrome__* tools, and lists the available skills: /office-hours, /plan-ceo-review, /plan-eng-review, /plan-design-review, /design-consultation, /design-shotgun, /design-html, /review, /ship, /land-and-deploy, /canary, /benchmark, /browse, /connect-chrome, /qa, /qa-only, /design-review, /setup-browser-cookies, /setup-deploy, /setup-gbrain, /retro, /investigate, /document-release, /document-generate, /codex, /cso, /autoplan, /plan-devex-review, /devex-review, /careful, /freeze, /guard, /unfreeze, /gstack-upgrade, /learn. Then ask the user if they also want to add gstack to the current project so teammates get it.

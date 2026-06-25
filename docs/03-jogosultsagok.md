@@ -41,7 +41,7 @@ Super Admin (tenant_id = NULL, admin.slot4u.hu)
 
 Egyedi felülírás: user-szintű direct permission (spatie `model_has_permissions`) — a projektkövetelmény szerint "minden szolgáltatást szabadon lehessen engedélyezni userenként vagy csoportonként". Csoport = role; egyén = direct permission.
 
-Superadmin extra: tenant CRUD + felfüggesztés/aktiválás, csomag- és feature-kezelés tenantonként, globális role/permission kezelés, globális statisztikák (aktív előfizetések, foglalásszám, userszám, MRR), impersonation (belépés tenant adminként, auditolva).
+Superadmin extra: tenant CRUD + felfüggesztés/aktiválás, csomag- és feature-kezelés tenantonként, globális role/permission kezelés, globális statisztikák (aktív tenantok, foglalásszám, userszám, havi jutalékbevétel mint MRR-proxy — docs/10 §10), impersonation (belépés tenant adminként, auditolva).
 
 ## Feature flagek (Pennant, tenant scope)
 
@@ -49,26 +49,25 @@ Superadmin extra: tenant CRUD + felfüggesztés/aktiválás, csomag- és feature
 
 Alapérték a csomagból (`plan_features`), superadmin tenantonként felülírhatja (`tenant_features`).
 
-## Csomagok
+## Csomag (egyetlen base plan) + forgalom-alapú jutalék
 
-| | **Alap** | **Közepes** | **Max** |
-|---|---|---|---|
-| Admin user | 1 | 10 | korlátlan |
-| Dolgozó (staff) | 3 | 15 | korlátlan |
-| Helyszín / helyiség | 1 / 3 | 5 / 25 | korlátlan |
-| Cégprofil + foglalófelület | ✔ | ✔ | ✔ |
-| Foglalási módok | mind a 6 | mind a 6 | mind a 6 |
-| Email értesítések | ✔ | ✔ | ✔ |
-| Foglalófelület testreszabás (branding) | — | ✔ | ✔ |
-| Statisztika modul (költések, dolgozói aktivitás) | — | ✔ | ✔ |
-| Üzenetküldés, várólista, jóváhagyás, ajánlatkérés | — | ✔ | ✔ |
-| Online fizetés (Barion/Stripe) | — | — | ✔ |
-| Számlázás (Számlázz.hu) | — | — | ✔ |
-| Egyedi subdomain/domain | — | — | ✔ |
-| SMS, API, dokumentumtár | — | — | ✔ (fázis 2) |
+> A háromlépcsős fix előfizetés (Alap/Közepes/Max) **megszűnt**. A monetizáció **forgalom-alapú jutalék** havi jutalékszámlán — igazság-forrás: `10-arazasi-modell-jutalek.md`. Itt csak a jogosultság/limit-réteg szempontjából lényeges rész.
 
-Limit-érvényesítés: `PlanLimitService::check(tenant, 'max_employees')` minden létrehozó actionben + UI-ban előre jelezve ("Elérted a csomagod limitjét — válts nagyobbra").
+A foglalási motor **mindenkinek ingyenes**, egyetlen `base` plan nagyvonalú limitekkel. Minden funkció (branding, statisztika, üzenetküldés, várólista, jóváhagyás, ajánlatkérés, online fizetés, számlázás, egyedi domain) **feature flagen** (Pennant, `tenant_features`) keresztül kapcsolható — nem csomaghoz kötött. A rátaemelő integrációk (`feature_online_payment`, `feature_invoicing`) bekapcsolása nem fizetős add-on, csak a jutalékrátát emeli 1,0% → 1,5% (docs/10 §2.1).
+
+**Base plan limitek (default javaslat, superadmin felülírható — docs/10 §15.2):**
+
+| | **base** |
+|---|---|
+| Admin user | nagyvonalú default |
+| Dolgozó (staff) | 3 |
+| Helyszín / helyiség | 1 / 3 |
+| Foglalási módok | mind a 6 |
+
+Limit-érvényesítés: `PlanLimitService::check(tenant, 'max_employees')` minden létrehozó actionben + UI-ban előre jelezve ("Elérted a csomagod limitjét"). A pontos default limiteket a J3 (SLO-66) base-plan átállás véglegesíti.
 
 ## Trial és státuszátmenetek
 
-Regisztráció → 14 nap trial (Közepes csomag funkciói) → fizetés vagy lefokozás. `suspended` tenant: admin belép, csak figyelmeztető + fizetés oldal; publikus foglalófelület "átmenetileg nem elérhető" oldalt mutat. `archived`: 90 nap után anonimizálás/törlés (GDPR).
+Regisztráció → 14 nap trial (a base plan teljes funkciókészletével) → trial végén **nincs csomag-lefokozás** (nincs mire), a tenant a base planen `active`-ba lép. A monetizáció a forgalom-alapú jutalékon keresztül történik, nem havidíjas előfizetésen.
+
+`suspended` tenant a **jutalékszámla nemfizetése** miatt (docs/10 §6.6: határidő → emlékeztetők → türelmi idő → felfüggesztés): admin belép, csak figyelmeztető + jutalékszámla-fizetés oldal; publikus foglalófelület "átmenetileg nem elérhető" oldalt mutat. `archived`: 90 nap után anonimizálás/törlés (GDPR).
