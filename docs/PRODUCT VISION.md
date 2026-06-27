@@ -193,25 +193,11 @@ customer.edit
 service.create
 
 billing.view
-9. Subscription Model
+9. Monetizációs modell
 
-Előfizetés alapú SaaS.
+> **Frissítve (2026-06):** az eredeti előfizetés-alapú, többlépcsős csomag-ötlet (Basic/Professional/Business/Enterprise) **elvetve**. Igazság-forrás: `10-arazasi-modell-jutalek.md`.
 
-Basic
-
-Kis szolgáltatók.
-
-Professional
-
-Növekvő vállalkozások.
-
-Business
-
-Klinikák, stúdiók.
-
-Enterprise
-
-Nagyvállalatok.
+**Forgalom-alapú jutalék (Pay-as-you-grow).** A foglalási motor mindenkinek **ingyenes**, egyetlen base plan. A slot4u a tenant havi **jutalékköteles foglalási forgalma** után számol jutalékot (ingyenes küszöb felett, marginálisan, havi plafonnal), és **havi jutalékszámlán** szedi be. Nincs fix havidíj, nincs csomagválasztás.
 
 10. Feature Flag System
 

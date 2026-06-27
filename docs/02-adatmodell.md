@@ -6,15 +6,20 @@ Minden tenant-tulajdonú táblán: `tenant_id` (indexelt, FK), `created_at/updat
 
 ## Tenant & előfizetés
 
+> **Monetizáció:** a slot4u **forgalom-alapú jutalékkal** (havi jutalékszámla) monetizál, NEM fix havidíjas háromlépcsős csomaggal. Igazság-forrás: `10-arazasi-modell-jutalek.md`. A `plans`/`plan_limits`/`plan_features` táblák megmaradnak, de **egyetlen `base` plan**-t írnak le nagyvonalú limitekkel (a basic/mid/max **megszűnt**). A jutalék-séma a „Forgalom-alapú jutalék" szekcióban.
+
 ```
 tenants            id, name, slug(subdomain), status(trial|active|suspended|archived),
                    timezone, locale, branding(json: logó, színek), settings(json)
-tenant_domains     id, tenant_id, domain, is_primary, verified_at        -- Max csomag
-plans              id, code(basic|mid|max), name, monthly_price_minor, currency, is_active
+tenant_domains     id, tenant_id, domain, is_primary, verified_at        -- egyedi domain (feature_custom_domain)
+plans              id, code(base), name, monthly_price_minor(=0), currency, is_active
+                   -- egyetlen ingyenes base plan; a háromlépcsős basic/mid/max megszűnt (docs/10 §5.6)
 plan_limits        id, plan_id, key(max_admins|max_employees|max_customers|max_locations|...), value
-plan_features      plan_id, feature_code                                 -- mely feature jár a csomaggal
+plan_features      plan_id, feature_code                                 -- mely feature jár a base plannel
 subscriptions      id, tenant_id, plan_id, status(trialing|active|past_due|canceled),
                    trial_ends_at, current_period_end, canceled_at
+                   -- státusz-jelző; a past_due mostantól a JUTALÉKSZÁMLA nemfizetését tükrözi (docs/10 §6.6),
+                   -- nem recurring havidíj-bukást
 tenant_features    tenant_id, feature_code, enabled, overridden_by       -- superadmin felülírás
 ```
 
@@ -79,7 +84,36 @@ quote_requests     id, tenant_id, service_id, customer_id, parameters(json), sta
 
 **Ütközésvédelem:** foglaláskor `SELECT ... FOR UPDATE` az érintett staff/room idősávjára tranzakcióban + alkalmazás-szintű ütközésvizsgálat. Event kapacitás: atomi `UPDATE events SET booked_count = booked_count+1 WHERE booked_count < capacity`.
 
-## Fizetés & számlázás (Max csomag, M6)
+## Forgalom-alapú jutalék (docs/10, M6)
+
+A slot4u bevételi modellje. Teljes spec és üzleti szabályok: `10-arazasi-modell-jutalek.md`. Minden összeg `*_minor` int + `currency`, minden ráta `*_bps` int (nincs float). A `commission_settings` platform-szintű (tenant_id NÉLKÜL, superadmin), a többi tenant-tulajdonú (`BelongsToTenant`).
+
+```
+commission_settings          id, free_threshold_minor, rate_bps, rate_with_integration_bps,
+                             monthly_cap_minor(nullable), currency, effective_from, created_by, created_at
+                             -- platform-default, VERZIÓZOTT (új sor = új konfig); a régit nem írjuk felül
+tenant_commission_overrides  tenant_id(PK,FK), free_threshold_minor(nullable), rate_bps(nullable),
+                             rate_with_integration_bps(nullable), monthly_cap_minor(nullable),
+                             note, overridden_by, updated_at      -- null mező = öröklés a settings-ből
+booking_commission_items     id, tenant_id, booking_id(FK, unique), period(YYYY-MM, idx),
+                             amount_minor(snapshot listaár), rate_bps(snapshot), realized_at,
+                             state(billable|removed), settings_id(FK), currency, timestamps
+                             -- ledger / forrás-igazság: minden jutalékköteles foglalásra egy sor
+tenant_billing_periods       id, tenant_id, period(YYYY-MM), turnover_minor, commission_minor,
+                             cap_reached(bool), status(open|invoiced|paid|overdue|void),
+                             invoice_id(nullable FK), recomputed_at, updated_at  -- unique(tenant_id, period)
+                             -- DERIVÁLT cache a booking_commission_items-ből újraszámolva
+commission_invoices          id, tenant_id, period(YYYY-MM, unique a tenanton belül), turnover_minor,
+                             billable_base_minor, commission_net_minor, vat_bps, vat_minor,
+                             total_gross_minor, currency, status(draft|issued|paid|overdue|void),
+                             issued_at, due_at, paid_at, paid_method(nullable),
+                             provider(nullable), provider_ref(nullable), pdf_path(nullable), created_at
+                             -- slot4u → tenant havi jutalékszámla (saját, ÁFA-s SaaS-bevétel)
+```
+
+## Ügyfél-oldali fizetés & számlázás (opcionális, M6)
+
+> Ez a tenant **saját** ügyfél-fizetése (Barion/Stripe a tenant javára) és a tenant ügyfél-számlázása — **független** a slot4u jutalék-beszedésétől (docs/10 §4). A `feature_online_payment` / `feature_invoicing` aktiválása a tenant jutalékrátáját 1,0%-ról 1,5%-ra emeli (docs/10 §2.1).
 
 ```
 payments           id, tenant_id, booking_id, provider(barion|stripe), provider_ref,

@@ -19,7 +19,7 @@
 **Döntés: shared database + `tenant_id` + global scope.** (Alternatíva — tenantonkénti DB — elvetve: üzemeltetési teher, migrációk N-szer, cross-tenant statisztika nehéz. A superadmin statisztikákhoz és a központi számlázáshoz a shared modell egyszerűbb.)
 
 - Tenant-azonosítás: subdomain (`functionalfit.slot4u.hu`). Központi marketing/regisztrációs oldal: `slot4u.hu`, superadmin: `admin.slot4u.hu`.
-- Max csomag: egyedi domain CNAME-mel (`booking.functionalfit.hu`) — `tenant_domains` tábla.
+- Egyedi domain CNAME-mel (`booking.functionalfit.hu`) — `tenant_domains` tábla, `feature_custom_domain` feature flag.
 - `IdentifyTenant` middleware: subdomain → tenant betöltés → container singleton + global scope aktiválás.
 - Minden tenant-tulajdonú modell: `BelongsToTenant` trait (creating eventnél tenant_id kitöltés, global scope szűrés).
 - Tenant státuszok: `trial`, `active`, `suspended` (lejárt fizetés — csak olvasás/figyelmeztető oldal), `archived` (soft delete, 90 nap megőrzés GDPR szerint).
@@ -77,7 +77,7 @@ A `SESSION_DOMAIN=.slot4u.test` (vezető pont) megosztja a session cookie-t a su
 ```
 app/
   Actions/            # egy-célú üzleti műveletek (CreateBooking, ApproveBooking...)
-  Enums/              # BookingMode, BookingStatus, PlanTier, TenantStatus...
+  Enums/              # BookingMode, BookingStatus, TenantStatus, BillingPeriodStatus, CommissionInvoiceStatus...
   Models/
   Models/Concerns/BelongsToTenant.php
   Services/Booking/   # AvailabilityService + BookingModeStrategy implementációk
@@ -103,5 +103,5 @@ docs/                 # ez a dokumentáció
 - Saját hosting (nem self-hosted ügyfeleknél!): 1 produkciós környezet + staging.
 - Docker Compose (PHP-FPM, nginx, MariaDB, Redis, Reverb, Horizon worker) — fejlesztésre és prod-ra is.
 - CI: GitHub Actions — Pint, Larastan, Pest, build.
-- Wildcard TLS `*.slot4u.hu` + Max csomag egyedi domainekhez Let's Encrypt automatika (pl. Caddy vagy certbot DNS hook) — külön issue.
+- Wildcard TLS `*.slot4u.hu` + egyedi domainekhez (`feature_custom_domain`) Let's Encrypt automatika (pl. Caddy vagy certbot DNS hook) — külön issue.
 - Backup: napi DB dump + storage sync, visszaállási teszt negyedévente.

@@ -31,10 +31,13 @@ Tenant publikus oldal: szolgáltatáslista, naptár/slot-választó, szűrés (h
 Email sablonrendszer (tenant-szerkeszthető), visszaigazoló/módosító/lemondó emailek, 24 órás emlékeztető (ütemezett job), notifications_log, tenant↔ügyfél üzenetküldés, Reverb élő admin-értesítés + hangjelzés.
 **Demó:** foglaláskor email megy ki és élőben felugrik az admin dashboardon.
 
-## M6 — Előfizetés, fizetés, számlázás (Max funkciók)
+## M6 — Forgalom-alapú jutalék, fizetés, számlázás
 
-Csomagválasztás+trial flow, tenant előfizetés-fizetés (Barion/Stripe recurring), plan limit érvényesítés UI-val, ügyfél-oldali online fizetés foglaláskor (pending_payment flow, webhook, refund-jelzés), Számlázz.hu integráció, egyedi subdomain/domain kezelés.
-**Demó:** Max csomagos tenant ügyfele fizet és számlát kap.
+Fő scope (docs/10, SLO-63 epic): **forgalom-alapú jutalék-motor** (CommissionCalculator + ledger + havi újraszámolás), **havi jutalékszámlázás** (period-zárás, ÁFA, jutalékszámla-generálás) és **dunning** (emlékeztetők → türelmi idő → tenant felfüggesztés); **base-plan átállás** (háromlépcsős csomag eltávolítása, egyetlen ingyenes base plan) + plan limit érvényesítés UI-val. Opcionális, feature-flagelt **ügyfél-oldali fizetés** (Barion/Stripe `pending_payment` flow, webhook, refund) és **Számlázz.hu** tenant-számlázás (ezek a tenant jutalékrátáját 1,5%-ra emelik), egyedi subdomain/domain kezelés.
+
+> A v1 online-fizetés-alapú application-fee modell visszavonva; nincs payment-facilitator jogi kapu (docs/10 §4) — a slot4u nem kezeli a foglalás ellenértékét, csak a saját havi jutalékát számlázza.
+
+**Demó:** tenant forgalmat termel → a dashboard valós időben mutatja a felhalmozott jutalékot (ingyenes keret, plafon, effektív ráta) → hónapforduló után a slot4u havi jutalékszámlát állít ki, nemfizetésnél dunning indul.
 
 ## M7 — Admin dashboard & statisztika
 

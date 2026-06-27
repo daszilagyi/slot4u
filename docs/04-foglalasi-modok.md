@@ -26,14 +26,14 @@ Példa: csoportos jóga, workshop, webinár.
 - Admin eseményt hirdet (`events`): fix kezdés/vég, kapacitás, opcionális ismétlődés (RRULE-szerű: heti/napi, végdátumig — MVP-ben heti ismétlés elég).
 - Foglalás = jelentkezés, `party_size` támogatás, atomi kapacitás-csökkentés.
 - **Várólista** (ha `waitlist_enabled` + feature): kapacitás betelte után FIFO várólista; lemondáskor az első várakozó automatikus értesítést és X óra foglalási ablakot kap (`offered_until`), lejáratkor a következő jön. Job kezeli.
-- Esemény törlésekor: minden jelentkező értesítése + (Max csomagnál) automatikus refund-jelzés.
+- Esemény törlésekor: minden jelentkező értesítése + (ha `feature_online_payment` aktív) automatikus refund-jelzés.
 
 ## 4. `resource_rental` — Erőforrás-foglalás
 
 Példa: teremfoglalás, pálya, szauna, eszközbérlés.
 - Nem staffot, hanem roomot/eszközt foglal az ügyfél. `resource = room` (MVP-ben az eszközt is room-rekordként kezeljük `type` mezővel — külön equipment tábla NEM kell MVP-be).
 - Időtartam: fix vagy szabad (min/max korlátokkal, `settings` json-ban).
-- Opcionális kaució (`deposit_minor`) — Max csomagnál online előleg.
+- Opcionális kaució (`deposit_minor`) — online előleg, ha `feature_online_payment` aktív.
 - Elérhetőség: room nyitvatartása − foglalások; ütközésvédelem ugyanaz, mint 2-nél.
 
 ## 5. `manual_approval` — Jóváhagyáshoz kötött foglalás
