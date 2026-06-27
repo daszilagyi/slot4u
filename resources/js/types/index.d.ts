@@ -4,10 +4,22 @@ export type Translations = {
     [key: string]: string | Translations;
 };
 
+export type AuthUser = {
+    id: number;
+    name: string;
+    email: string;
+};
+
+export type Auth = {
+    user: AuthUser | null;
+    permissions: string[];
+};
+
 declare module '@inertiajs/core' {
     interface PageProps {
         locale: string;
         translations: Translations;
+        auth: Auth;
     }
 }
 
