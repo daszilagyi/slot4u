@@ -2,7 +2,9 @@
 
 namespace App\Providers;
 
+use App\Models\User;
 use App\Tenancy\TenantManager;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -23,6 +25,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        // Platform super-admins bypass all tenant permission checks.
+        Gate::before(fn ($user) => $user instanceof User && $user->isSuperAdmin() ? true : null);
     }
 }
