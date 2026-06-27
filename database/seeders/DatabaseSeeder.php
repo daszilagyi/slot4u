@@ -19,6 +19,8 @@ class DatabaseSeeder extends Seeder
 
         $this->call(BasePlanSeeder::class);
 
+        $this->call(CommissionSettingSeeder::class);
+
         $this->call(TenantDemoSeeder::class);
 
         // Tenant-less user (acts as a placeholder superadmin until SLO-14).
