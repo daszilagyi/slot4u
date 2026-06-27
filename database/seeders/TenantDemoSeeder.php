@@ -2,11 +2,14 @@
 
 namespace Database\Seeders;
 
+use App\Enums\Role;
 use App\Enums\TenantStatus;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\Rbac\TenantRoleSeeder;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use Spatie\Permission\PermissionRegistrar;
 
 /**
  * Seeds two demo tenants for manual subdomain verification:
@@ -30,7 +33,11 @@ class TenantDemoSeeder extends Seeder
             ['name' => $name, 'status' => $status],
         );
 
-        User::query()->updateOrCreate(
+        // Model events are muted during seeding, so the Tenant observer does not
+        // fire — seed the tenant's roles explicitly.
+        app(TenantRoleSeeder::class)->seed($tenant);
+
+        $admin = User::query()->updateOrCreate(
             ['email' => $email],
             [
                 'tenant_id' => $tenant->id,
@@ -38,5 +45,10 @@ class TenantDemoSeeder extends Seeder
                 'password' => Hash::make('password'),
             ],
         );
+
+        $registrar = app(PermissionRegistrar::class);
+        $registrar->setPermissionsTeamId($tenant->id);
+        $admin->syncRoles([Role::TenantAdmin->value]);
+        $registrar->setPermissionsTeamId(null);
     }
 }

@@ -8,11 +8,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, HasRoles, Notifiable;
 
     /**
      * The attributes that are mass assignable.
@@ -25,6 +26,18 @@ class User extends Authenticatable
         'email',
         'password',
     ];
+
+    /**
+     * Whether the user is a platform super-admin. In the MVP a tenant-less user
+     * is a super-admin by invariant (every real tenant user carries a tenant_id);
+     * super-admins bypass tenant permission checks via the Gate::before hook in
+     * AppServiceProvider. The formal global super-admin role + assignment UI lands
+     * with the superadmin panel (SLO-14).
+     */
+    public function isSuperAdmin(): bool
+    {
+        return $this->tenant_id === null;
+    }
 
     /**
      * The tenant this user belongs to (null for superadmins).

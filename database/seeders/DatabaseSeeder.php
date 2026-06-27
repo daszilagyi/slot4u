@@ -15,6 +15,8 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        $this->call(PermissionSeeder::class);
+
         $this->call(TenantDemoSeeder::class);
 
         // Tenant-less user (acts as a placeholder superadmin until SLO-14).

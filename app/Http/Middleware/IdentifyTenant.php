@@ -6,6 +6,7 @@ use App\Models\Tenant;
 use App\Tenancy\TenantManager;
 use Closure;
 use Illuminate\Http\Request;
+use Spatie\Permission\PermissionRegistrar;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
@@ -36,6 +37,9 @@ class IdentifyTenant
 
         $this->tenants->set($tenant);
         app()->setLocale($tenant->locale);
+
+        // Scope spatie role/permission checks to this tenant's team.
+        app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getKey());
 
         return $next($request);
     }

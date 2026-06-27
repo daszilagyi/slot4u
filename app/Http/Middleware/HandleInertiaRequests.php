@@ -2,6 +2,8 @@
 
 namespace App\Http\Middleware;
 
+use App\Enums\Permission;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -35,10 +37,39 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $user = $request->user();
+
         return [
             ...parent::share($request),
             'locale' => app()->getLocale(),
             'translations' => (array) trans('app'),
+            'auth' => [
+                'user' => $user === null ? null : [
+                    'id' => $user->id,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                ],
+                'permissions' => $this->permissionsFor($user),
+            ],
         ];
+    }
+
+    /**
+     * The permission codes the frontend may gate UI on. Super-admins receive
+     * every code (they bypass checks server-side via Gate::before).
+     *
+     * @return list<string>
+     */
+    private function permissionsFor(?User $user): array
+    {
+        if ($user === null) {
+            return [];
+        }
+
+        if ($user->isSuperAdmin()) {
+            return Permission::values();
+        }
+
+        return $user->getAllPermissions()->pluck('name')->values()->all();
     }
 }
