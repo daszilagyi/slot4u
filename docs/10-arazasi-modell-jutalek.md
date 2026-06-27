@@ -412,15 +412,17 @@ Acceptance criteria + : Pest zöld, Pint/Larastan/ESLint tiszta, i18n betartva (
 
 ---
 
-## 15. Nyitott döntések (Daniel dönt — defaultot javaslok)
+## 15. Döntések (Daniel döntött — 2026-06-27)
 
-1. **ÁFA a jutalékon:** a `commission_minor` nettó, a havi számla 27% ÁFÁ-t számít rá. *Javaslat:* igen, nettó + ÁFA. (Alternatíva: a 10 000 / 50 000 értékek bruttóban értendők — egyszerűbb kommunikálni a tenantnak. Daniel döntsön: nettó vagy bruttó számok.)
-2. **Base-tier limitek:** mennyi admin/dolgozó/helyszín jár az ingyenes base tieren? *Javaslat:* nagyvonalú (pl. 3 dolgozó, 1 helyszín, 3 helyiség), efelett későbbi limit-emelés/add-on.
-3. **Fizetési határidő + dunning:** jutalékszámla fizetési határideje és a felfüggesztésig tartó türelmi idő. *Javaslat:* 8 nap határidő, +14 nap türelem, majd felfüggesztés.
-4. **Period-zárási türelmi idő:** hány órával/nappal a hónapforduló után zárjuk a period-ot (hogy a hónap végi foglalások állapota véglegesüljön). *Javaslat:* a következő hónap 2. napján.
-5. **Lezárt period korrekciója:** negatív korrekciós tétel az aktuális period-ban (a régi zárva marad). *Javaslat:* igen, jóváírás az aktuális period-ban / következő számlán.
-6. **Időpont nélküli mód 24h-szabálya:** a `confirmed`-be lépéstől számított 24h grace a default (§3.1). *Javaslat:* elfogadni, módspecifikus finomítással.
-7. **Multi-currency:** MVP-ben tenantonként egy pénznem; vegyes pénznemű forgalom kizárva. Külön projekt, ha kell.
+> Mind a 7 pont eldöntve. Az alábbi értékek a kötelező defaultok az implementációhoz.
+
+1. **ÁFA a jutalékon: ✅ NETTÓ + 27% ÁFA.** A `commission_minor` a nettó szolgáltatási díj; a 10 000 / 50 000 Ft küszöb/plafon **nettó** értékek; a havi jutalékszámla erre számít rá 27% ÁFÁ-t (`vat_bps=2700`, `vat_minor`, `total_gross_minor` integer).
+2. **Base-tier limitek: ✅ 3 dolgozó / 1 helyszín / 3 helyiség** az ingyenes `base` planen, efelett későbbi limit-emelés/add-on. (A `PlanLimitService` és a J3 base-plan seed ezt használja.)
+3. **Fizetési határidő + dunning: ✅ 8 nap határidő + 14 nap türelem,** majd felfüggesztés (J6 dunning).
+4. **Period-zárási türelmi idő: ✅ a következő hónap 2. napján** zárjuk a period-ot (a hónap végi foglalások állapota addigra véglegesül).
+5. **Lezárt period korrekciója: ✅ negatív korrekciós tétel az aktuális (nyitott) period-ban;** a lezárt period változatlan marad (jóváírás a következő számlán).
+6. **Időpont nélküli mód 24h-szabálya: ✅ a `confirmed`-be lépéstől számított 24h grace** a default (§3.1), módspecifikus finomítással.
+7. **Multi-currency: ✅ MVP-ben tenantonként egy pénznem;** vegyes pénznemű forgalom kizárva. Külön projekt, ha kell.
 
 ## 16. Kötelező doc-frissítések (J1 része, ugyanabban a PR-ban)
 
