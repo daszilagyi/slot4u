@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\User;
+use App\Services\Feature\FeatureResolver;
 use App\Tenancy\TenantManager;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -18,6 +19,10 @@ class AppServiceProvider extends ServiceProvider
         // the worker's forgetScopedInstances(), so tenant state never leaks
         // across jobs on a long-running worker.
         $this->app->scoped(TenantManager::class);
+
+        // Scoped so the base-plan default lookup is memoised once per request/job
+        // and shared across the Pennant feature definitions and the Inertia share.
+        $this->app->scoped(FeatureResolver::class);
     }
 
     /**

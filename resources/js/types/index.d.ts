@@ -20,6 +20,7 @@ declare module '@inertiajs/core' {
         locale: string;
         translations: Translations;
         auth: Auth;
+        features: string[];
     }
 }
 

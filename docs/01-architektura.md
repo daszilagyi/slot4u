@@ -31,9 +31,18 @@
 IdentifyTenant → EnsureTenantActive → EnsureFeatureEnabled:{feature} → can:{permission}
 ```
 
-**M1-ben megvalósítva (SLO-10):** az első két láncszem. A `routes/tenant.php` minden route-ja az
-`identify.tenant` → `ensure.tenant.active` aliasokon megy keresztül; a `EnsureFeatureEnabled` (Pennant)
-és a `can:` (spatie) későbbi issue-kban kerül be.
+**M1-ben megvalósítva:** az első három láncszem. A `routes/tenant.php` minden route-ja az
+`identify.tenant` → `ensure.tenant.active` aliasokon megy keresztül (SLO-10); a feature-kapuzás az
+`ensure.feature:{feature}` aliassal opcionálisan ráhúzható egy route-ra (SLO-13). A `can:` (spatie)
+gate az erőforrás-végpontokkal (M2) kerül be.
+
+- `EnsureFeatureEnabled` (`ensure.feature:{feature}`): a megadott feature-kódot a Pennant az aktuális
+  tenantra oldja fel (`FeatureServiceProvider` + `FeatureResolver`: `tenant_features` felülírás →
+  `plan_features` default). Kikapcsolt vagy ismeretlen feature → `abort(403)` lang-üzenettel
+  (`errors.feature_disabled`) — a képesség egyszerűen nincs bekapcsolva, nem rejtett, ezért 403 (nem 404).
+  A frontend a tenantra engedélyezett kódokat az Inertia `features` shared propból kapja
+  (`useFeatures()`/`feature()` helper). A Pennant store `array` (per-request feloldás a saját
+  authoritatív tábláinkból, nincs külön elavuló cache).
 
 - `IdentifyTenant`: a `{tenant}` subdomain-paraméterből keresi a tenantot. Foglalt label
   (`config('tenancy.reserved_subdomains')` + `admin_subdomain`) vagy nem létező/archivált (soft-deleted)
