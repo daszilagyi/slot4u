@@ -62,6 +62,9 @@ class HandleInertiaRequests extends Middleware
             // the `identify.tenant` route middleware binds the tenant, so the
             // closure is evaluated at render time when the tenant is available.
             'features' => fn (): array => $this->enabledFeatures(),
+            // One-off flash status (e.g. password-reset-link sent), already
+            // translated by Fortify / the password broker.
+            'status' => fn (): ?string => $request->session()->get('status'),
         ];
     }
 

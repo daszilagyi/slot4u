@@ -21,6 +21,7 @@ declare module '@inertiajs/core' {
         translations: Translations;
         auth: Auth;
         features: string[];
+        status: string | null;
     }
 }
 
