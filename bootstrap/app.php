@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Middleware\EnsureFeatureEnabled;
+use App\Http\Middleware\EnsureSuperAdmin;
 use App\Http\Middleware\EnsureTenantActive;
+use App\Http\Middleware\EnsureUserBelongsToTenant;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\IdentifyTenant;
 use Illuminate\Foundation\Application;
@@ -40,6 +42,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'identify.tenant' => IdentifyTenant::class,
             'ensure.tenant.active' => EnsureTenantActive::class,
+            'ensure.user.tenant' => EnsureUserBelongsToTenant::class,
+            'ensure.superadmin' => EnsureSuperAdmin::class,
             'ensure.feature' => EnsureFeatureEnabled::class,
             // `can:` is built in; these add spatie's role/permission gates.
             'role' => RoleMiddleware::class,

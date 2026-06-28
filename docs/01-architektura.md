@@ -28,13 +28,30 @@
 ## Middleware lánc (tenant route-okon)
 
 ```
-IdentifyTenant → EnsureTenantActive → EnsureFeatureEnabled:{feature} → can:{permission}
+IdentifyTenant → EnsureTenantActive → [auth] → EnsureUserBelongsToTenant → EnsureFeatureEnabled:{feature} → can:{permission}
 ```
 
-**M1-ben megvalósítva:** az első három láncszem. A `routes/tenant.php` minden route-ja az
-`identify.tenant` → `ensure.tenant.active` aliasokon megy keresztül (SLO-10); a feature-kapuzás az
-`ensure.feature:{feature}` aliassal opcionálisan ráhúzható egy route-ra (SLO-13). A `can:` (spatie)
-gate az erőforrás-végpontokkal (M2) kerül be.
+**M1-ben megvalósítva:** a publikus láncszemek (SLO-10) + az auth-guard (SLO-75) + a feature-kapu
+(SLO-13). A `routes/tenant.php` publikus route-jai az `identify.tenant` → `ensure.tenant.active`
+aliasokon mennek; a hitelesített tenant-terület (`/dashboard`) ezeken túl `auth` → `ensure.user.tenant`
+mögött van. A feature-kapuzás az `ensure.feature:{feature}` aliassal opcionálisan ráhúzható. A `can:`
+(spatie) gate az erőforrás-végpontokkal (M2) kerül be.
+
+**Auth és domainek (SLO-75/76):** Laravel Fortify (headless) adja a login/logout/jelszó-reset/email-
+verifikáció backendet; a nézetek saját Inertia React oldalak (`Auth/*`, i18n a lang fájlokból). A
+self-service **regisztráció** (SLO-76) a központi oldalon megy: a `CreateNewUser` action egy tranzakcióban
+hozza létre a tenantot (`status=trial`, `trial_ends_at=+14 nap`), az admin usert (`tenant_id` az új
+tenantból, SOHA a request-inputból) és ad neki tenant-admin role-t; a slug egyedi + nem foglalt
+(`reserved_subdomains` + admin). A 14 nap leteltével a `tenants:expire-trials` ütemezett parancs
+`trial → active`-ra vált (nincs lefokozás, docs/03). A session-cookie a központi domain + összes
+subdomain közt megosztott (`SESSION_DOMAIN=.{central}`). Login/regisztráció után a `LoginResponse` /
+`RegisterResponse` (közös `RedirectsToUserHome`) domain-tudatosan irányít: super-admin → `admin.{central}`,
+tenant-user → a saját `{slug}.{central}/dashboard`-ja (cross-origin esetben Inertia location-redirect).
+
+- `EnsureUserBelongsToTenant` (`ensure.user.tenant`): az `auth` után fut. Super-admin → redirect az
+  admin panelre (tenant-impersonation az SLO-14-gyel jön); másik tenant usere → `abort(403)`.
+- `EnsureSuperAdmin` (`ensure.superadmin`): az admin panelt (`admin.{central}`) a platform super-
+  adminokra (`tenant_id = null`) szűkíti; tenant-user → `abort(403)`.
 
 - `EnsureFeatureEnabled` (`ensure.feature:{feature}`): a megadott feature-kódot a Pennant az aktuális
   tenantra oldja fel (`FeatureServiceProvider` + `FeatureResolver`: `tenant_features` felülírás →
