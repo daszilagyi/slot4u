@@ -8,8 +8,12 @@
  * running as `local` (no CSRF test bypass, dev cache/mail/session drivers).
  *
  * Re-exporting the test values with putenv() here — before Laravel boots — makes
- * them authoritative. DB_* is intentionally left to the container (MariaDB,
- * matching CI), so it is not overridden.
+ * them authoritative.
+ *
+ * The DB is forced to an isolated in-memory SQLite so the suite NEVER touches the
+ * container's dev MariaDB (RefreshDatabase would otherwise wipe the developer's
+ * data on every run). Migrations are verified to run on SQLite; it is also faster
+ * and makes the test DB independent of any service in CI.
  */
 
 require __DIR__.'/../vendor/autoload.php';
@@ -21,6 +25,9 @@ $testEnv = [
     'BCRYPT_ROUNDS' => '4',
     'BROADCAST_CONNECTION' => 'null',
     'CACHE_STORE' => 'array',
+    'DB_CONNECTION' => 'sqlite',
+    'DB_DATABASE' => ':memory:',
+    'DB_FOREIGN_KEYS' => 'true',
     'MAIL_MAILER' => 'array',
     'PENNANT_STORE' => 'array',
     'QUEUE_CONNECTION' => 'sync',
