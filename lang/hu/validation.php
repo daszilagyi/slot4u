@@ -22,6 +22,16 @@ return [
     'unique' => 'Ez a(z) :attribute már foglalt.',
 
     /*
+     * Custom per-field messages.
+     */
+    'custom' => [
+        'slug' => [
+            'reserved' => 'Ez az aldomén foglalt, kérjük válassz másikat.',
+            'regex' => 'Az aldomén csak kisbetűket, számokat és kötőjelet tartalmazhat.',
+        ],
+    ],
+
+    /*
      * Human-readable attribute names substituted into the messages above.
      */
     'attributes' => [
@@ -29,5 +39,7 @@ return [
         'password' => 'jelszó',
         'name' => 'név',
         'token' => 'token',
+        'company_name' => 'cégnév',
+        'slug' => 'aldomén',
     ],
 ];

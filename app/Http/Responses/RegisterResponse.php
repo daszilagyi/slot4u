@@ -3,13 +3,14 @@
 namespace App\Http\Responses;
 
 use App\Http\Responses\Concerns\RedirectsToUserHome;
-use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
+use Laravel\Fortify\Contracts\RegisterResponse as RegisterResponseContract;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Domain-aware post-login redirect (see RedirectsToUserHome).
+ * After registration the new tenant admin is logged in and sent to their own
+ * subdomain dashboard (see RedirectsToUserHome).
  */
-class LoginResponse implements LoginResponseContract
+class RegisterResponse implements RegisterResponseContract
 {
     use RedirectsToUserHome;
 
