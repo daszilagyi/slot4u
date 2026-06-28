@@ -4,11 +4,18 @@ namespace App\Http\Middleware;
 
 use App\Enums\Permission;
 use App\Models\User;
+use App\Services\Feature\FeatureResolver;
+use App\Tenancy\TenantManager;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
 {
+    public function __construct(
+        private readonly TenantManager $tenants,
+        private readonly FeatureResolver $features,
+    ) {}
+
     /**
      * The root template that's loaded on the first page visit.
      *
@@ -51,7 +58,25 @@ class HandleInertiaRequests extends Middleware
                 ],
                 'permissions' => $this->permissionsFor($user),
             ],
+            // Lazily resolved: this middleware runs in the `web` group, before
+            // the `identify.tenant` route middleware binds the tenant, so the
+            // closure is evaluated at render time when the tenant is available.
+            'features' => fn (): array => $this->enabledFeatures(),
         ];
+    }
+
+    /**
+     * Enabled feature codes for the current tenant, so the frontend can gate UI
+     * on them (mirrors the server-side EnsureFeatureEnabled middleware). Empty
+     * outside tenant context (central/admin domains).
+     *
+     * @return list<string>
+     */
+    private function enabledFeatures(): array
+    {
+        $tenant = $this->tenants->current();
+
+        return $tenant === null ? [] : $this->features->enabledCodes($tenant);
     }
 
     /**
