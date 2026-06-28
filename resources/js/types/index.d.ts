@@ -15,6 +15,33 @@ export type Auth = {
     permissions: string[];
 };
 
+export type TenantStatusValue = 'trial' | 'active' | 'suspended' | 'archived';
+
+export type TenantSummary = {
+    id: number;
+    name: string;
+    slug: string;
+    status: TenantStatusValue;
+    trial_ends_at: string | null;
+    users_count: number;
+    archived: boolean;
+    created_at: string | null;
+};
+
+export type PaginationLink = {
+    url: string | null;
+    label: string;
+    active: boolean;
+};
+
+export type Paginator<T> = {
+    data: T[];
+    links: PaginationLink[];
+    current_page: number;
+    last_page: number;
+    total: number;
+};
+
 declare module '@inertiajs/core' {
     interface PageProps {
         locale: string;

@@ -1,6 +1,7 @@
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 
 import AppLayout from '@/Layouts/AppLayout';
+import { Button } from '@/components/ui/button';
 import { useTranslations } from '@/lib/i18n';
 
 export default function SuperDashboard() {
@@ -22,6 +23,10 @@ export default function SuperDashboard() {
                 <p className="text-lg text-muted-foreground">
                     {t('super.dashboard.subtitle')}
                 </p>
+
+                <Button asChild size="lg">
+                    <Link href="/tenants">{t('super.dashboard.tenants_link')}</Link>
+                </Button>
             </div>
         </AppLayout>
     );
