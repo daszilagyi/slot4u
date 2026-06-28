@@ -22,9 +22,14 @@ export default function Login() {
             title={t('auth.login.title')}
             subtitle={t('auth.login.subtitle')}
             footer={
-                <Link href="/forgot-password" className="hover:text-foreground">
-                    {t('auth.login.forgot')}
-                </Link>
+                <div className="flex flex-col gap-1">
+                    <Link href="/forgot-password" className="hover:text-foreground">
+                        {t('auth.login.forgot')}
+                    </Link>
+                    <Link href="/register" className="hover:text-foreground">
+                        {t('auth.login.register')}
+                    </Link>
+                </div>
             }
         >
             <Head title={t('auth.login.title')} />

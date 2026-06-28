@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 
 /**
  * @property int $id
@@ -18,6 +19,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property TenantStatus $status
  * @property string $timezone
  * @property string $locale
+ * @property Carbon|null $trial_ends_at
  * @property array<string, mixed>|null $branding
  * @property array<string, mixed>|null $settings
  */
@@ -36,6 +38,7 @@ class Tenant extends Model
         'status',
         'timezone',
         'locale',
+        'trial_ends_at',
         'branding',
         'settings',
     ];
@@ -47,6 +50,7 @@ class Tenant extends Model
     {
         return [
             'status' => TenantStatus::class,
+            'trial_ends_at' => 'datetime',
             'branding' => 'array',
             'settings' => 'array',
         ];

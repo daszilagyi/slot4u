@@ -33,7 +33,10 @@ class TenantFactory extends Factory
 
     public function trial(): static
     {
-        return $this->state(fn () => ['status' => TenantStatus::Trial]);
+        return $this->state(fn () => [
+            'status' => TenantStatus::Trial,
+            'trial_ends_at' => now()->addDays(14),
+        ]);
     }
 
     public function active(): static

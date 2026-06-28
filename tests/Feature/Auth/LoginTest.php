@@ -54,13 +54,6 @@ it('rejects invalid credentials', function () {
     $this->assertGuest();
 });
 
-it('does not expose self-service registration (SLO-76)', function () {
-    // Fortify's generic registration is disabled; registration is a custom
-    // tenant-aware flow (SLO-76).
-    $this->get('http://'.config('tenancy.central_domain').'/register')->assertNotFound();
-    $this->post('http://'.config('tenancy.central_domain').'/register', [])->assertNotFound();
-});
-
 it('logs the user out', function () {
     $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
     $user = User::factory()->create(['tenant_id' => $tenant->id]);

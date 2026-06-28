@@ -116,6 +116,7 @@ return [
 
     'limiters' => [
         'login' => 'login',
+        'register' => 'register',
     ],
 
     /*
@@ -136,14 +137,15 @@ return [
     | Features
     |--------------------------------------------------------------------------
     |
-    | slot4u (SLO-75) enables only login (always on), password reset and email
-    | verification. Self-service registration is a custom tenant-aware flow
-    | (SLO-76), so Fortify's generic registration stays off; 2FA, passkeys and
-    | profile/password self-service are out of MVP scope.
+    | slot4u enables login (always on), tenant registration (SLO-76, backed by a
+    | custom tenant-aware CreateNewUser action), password reset and email
+    | verification. 2FA, passkeys and profile/password self-service are out of
+    | MVP scope.
     |
     */
 
     'features' => [
+        Features::registration(),
         Features::resetPasswords(),
         Features::emailVerification(),
     ],
