@@ -43,6 +43,8 @@ Egyedi felülírás: user-szintű direct permission (spatie `model_has_permissio
 
 Superadmin extra: tenant CRUD + felfüggesztés/aktiválás, csomag- és feature-kezelés tenantonként, globális role/permission kezelés, globális statisztikák (aktív tenantok, foglalásszám, userszám, havi jutalékbevétel mint MRR-proxy — docs/10 §10), impersonation (belépés tenant adminként, auditolva).
 
+**Megvalósítás (SLO-77):** az `admin.{central}` panel `auth` + `ensure.superadmin` mögött. Tenant-kezelés: lista (keresés/szűrés/lapozás, `withCount('users')`, N+1-mentes), részletek/szerkesztés (`UpdateTenantRequest`: név/slug/timezone/locale; slug egyedi + nem foglalt), státusz-átmenetek Action-ökön (`ChangeTenantStatus` felfüggesztés/aktiválás/archiválás[soft delete]; `ExtendTrial`; `SetTenantFeature` a `tenant_features` override-ra). Csomag-hozzárendelés tárgytalan (egyetlen `base` plan). Az audit log (SLO-78) és az impersonation (SLO-79) ezekre az Action-ökre épül.
+
 ## Feature flagek (Pennant, tenant scope)
 
 `feature_online_payment`, `feature_invoicing`, `feature_custom_domain`, `feature_waitlist`, `feature_quote_request`, `feature_approval_flow`, `feature_messages`, `feature_documents`, `feature_reports`, `feature_sms`, `feature_api`, `feature_nlp_booking` (AI foglalás, később), `feature_google_meet` (később).
