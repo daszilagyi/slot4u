@@ -120,8 +120,10 @@ docs/                 # ez a dokumentáció
 
 ## i18n architektúra
 
-- Backend: Laravel lang fájlok, `hu` default, struktúra felkészítve `en`-re.
-- Frontend: lang fájlok JSON-ként megosztva Inertia shared props-on keresztül (`usePage().props.translations`), `t('booking.confirm')` helper. Build-time nem fordítunk be szövegeket.
+- Backend: Laravel lang fájlok, `hu` default (`APP_LOCALE=hu`), struktúra felkészítve `en`-re. Új nyelv = csak `lang/{locale}/*.php` hozzáadása, kódváltozás nélkül.
+- Frontend: a `lang/hu/app.php` katalógus JSON-ként megosztva Inertia shared props-on keresztül (`usePage().props.translations`), `t('super.tenants.title')` helper (pont-jelölés + `:token` paraméter-behelyettesítés, `resources/js/lib/i18n.ts`). A `locale` és `translations` shared prop **lazy** (záró closure), így a tenant-feloldás (locale-beállítás) UTÁN értékelődik ki — a tenant-locale oldalak a helyes katalógust kapják. Build-time nem fordítunk be szövegeket.
+- **Locale-feloldás (SLO-9):** `tenant locale → user locale → app default`. Tenant subdomainen az `IdentifyTenant` a tenant `locale`-ját állítja be; tenant nélküli kontextusban (admin/központi domain) a `SetLocale` middleware a bejelentkezett felhasználó `users.locale` preferenciáját, ennek hiányában az app default-ot alkalmazza. A `users.locale` nullable (alapból a fallback dönt).
+- **Hardcoded-string tilalom (CI-ben kényszerítve):** ESLint `no-restricted-syntax` szabály tiltja a JSX-ben a nyers, felhasználónak szóló szöveget (2+ betűs szó) — minden UI string a `t()` helperen át jön. Kivétel a `resources/js/components/ui/**` (shadcn primitívek).
 - Tenant-szintű felülírható szövegek (email sablonok, visszaigazolások): DB-ben tárolt, kulcs+nyelv alapú `tenant_translations` később — MVP-ben elég a sablon-szerkesztő (lásd 04/értesítések).
 
 ## Környezetek és üzemeltetés
