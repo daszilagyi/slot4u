@@ -11,6 +11,21 @@ export function formatDate(iso: string | null): string {
     });
 }
 
+/** Format an ISO-8601 timestamp as a Hungarian short date+time, or em dash if null. */
+export function formatDateTime(iso: string | null): string {
+    if (!iso) {
+        return '—';
+    }
+
+    return new Date(iso).toLocaleString('hu-HU', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+}
+
 /** Tailwind classes for a tenant status badge. */
 export function statusBadgeClass(status: string): string {
     const map: Record<string, string> = {

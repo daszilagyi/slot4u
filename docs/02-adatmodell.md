@@ -142,7 +142,7 @@ message_templates  id, tenant_id, key(booking_confirmed|booking_modified|booking
                    locale, subject, body, enabled
 messages           id, tenant_id, sender_id, recipient_id, booking_id(nullable), body, read_at
 notifications_log  id, tenant_id, type, recipient, channel, status, sent_at, error
-audit_logs         id, tenant_id(nullable), user_id, action, auditable_type/id, old/new(json), ip
+audit_logs         id, tenant_id(nullable), user_id(nullable), action, auditable_type/id(nullable), old_values/new_values(json), ip_address, created_at(immutable, nincs updated_at)
 ```
 
 ## Statisztika

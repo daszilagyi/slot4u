@@ -28,6 +28,17 @@ export type TenantSummary = {
     created_at: string | null;
 };
 
+export type AuditLogEntry = {
+    id: number;
+    action: string;
+    actor: { id: number; name: string; email: string } | null;
+    tenant: { id: number; name: string; slug: string } | null;
+    old_values: Record<string, unknown> | null;
+    new_values: Record<string, unknown> | null;
+    ip_address: string | null;
+    created_at: string | null;
+};
+
 export type PaginationLink = {
     url: string | null;
     label: string;

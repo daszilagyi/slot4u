@@ -24,9 +24,14 @@ export default function SuperDashboard() {
                     {t('super.dashboard.subtitle')}
                 </p>
 
-                <Button asChild size="lg">
-                    <Link href="/tenants">{t('super.dashboard.tenants_link')}</Link>
-                </Button>
+                <div className="flex flex-wrap justify-center gap-3">
+                    <Button asChild size="lg">
+                        <Link href="/tenants">{t('super.dashboard.tenants_link')}</Link>
+                    </Button>
+                    <Button asChild size="lg" variant="outline">
+                        <Link href="/audit-logs">{t('super.audit.title')}</Link>
+                    </Button>
+                </div>
             </div>
         </AppLayout>
     );

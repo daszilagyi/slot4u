@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Super;
 use App\Actions\Tenant\ChangeTenantStatus;
 use App\Actions\Tenant\ExtendTrial;
 use App\Actions\Tenant\SetTenantFeature;
+use App\Actions\Tenant\UpdateTenant;
 use App\Enums\Feature;
 use App\Enums\TenantStatus;
 use App\Http\Controllers\Controller;
@@ -75,9 +76,9 @@ class TenantController extends Controller
         ]);
     }
 
-    public function update(UpdateTenantRequest $request, Tenant $tenant): RedirectResponse
+    public function update(UpdateTenantRequest $request, Tenant $tenant, UpdateTenant $updateTenant): RedirectResponse
     {
-        $tenant->update($request->validated());
+        $updateTenant($tenant, $request->validated());
 
         return back();
     }
