@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -44,7 +45,20 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something()
+/** Base URL of the superadmin panel (admin.{central}). */
+function superUrl(string $path = '/'): string
 {
-    // ..
+    return 'http://'.config('tenancy.admin_subdomain').'.'.config('tenancy.central_domain').$path;
+}
+
+/** Base URL of a tenant's subdomain. */
+function tenantHost(string $slug, string $path = '/'): string
+{
+    return 'http://'.$slug.'.'.config('tenancy.central_domain').$path;
+}
+
+/** A platform super-admin (no tenant). */
+function superAdmin(): User
+{
+    return User::factory()->create(['tenant_id' => null]);
 }

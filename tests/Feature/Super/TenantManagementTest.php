@@ -9,20 +9,7 @@ use App\Services\Feature\FeatureResolver;
 use Database\Seeders\BasePlanSeeder;
 use Inertia\Testing\AssertableInertia as Assert;
 
-function superUrl(string $path = '/'): string
-{
-    return 'http://'.config('tenancy.admin_subdomain').'.'.config('tenancy.central_domain').$path;
-}
-
-function tenantHost(string $slug, string $path = '/'): string
-{
-    return 'http://'.$slug.'.'.config('tenancy.central_domain').$path;
-}
-
-function superAdmin(): User
-{
-    return User::factory()->create(['tenant_id' => null]);
-}
+// superUrl(), tenantHost() and superAdmin() live in tests/Pest.php.
 
 it('lists tenants for a super-admin', function () {
     Tenant::factory()->active()->create(['slug' => 'acme', 'name' => 'Acme']);

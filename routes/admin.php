@@ -1,12 +1,12 @@
 <?php
 
+use App\Http\Controllers\Super\AuditLogController;
 use App\Http\Controllers\Super\TenantController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 // Superadmin panel (admin.{central}) — no tenant context. Gated to platform
-// super-admins (tenant_id = null); audit log + impersonation arrive with
-// SLO-78 / SLO-79.
+// super-admins (tenant_id = null); impersonation arrives with SLO-79.
 Route::middleware(['auth', 'ensure.superadmin'])->group(function () {
     Route::get('/', fn () => Inertia::render('Super/Dashboard'))->name('super.dashboard');
 
@@ -20,4 +20,7 @@ Route::middleware(['auth', 'ensure.superadmin'])->group(function () {
     Route::post('/tenants/{tenant}/archive', [TenantController::class, 'archive'])->withTrashed()->name('super.tenants.archive');
     Route::post('/tenants/{tenant}/extend-trial', [TenantController::class, 'extendTrial'])->withTrashed()->name('super.tenants.extend-trial');
     Route::post('/tenants/{tenant}/features', [TenantController::class, 'toggleFeature'])->withTrashed()->name('super.tenants.features');
+
+    // Audit log viewer (SLO-78).
+    Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('super.audit-logs.index');
 });
