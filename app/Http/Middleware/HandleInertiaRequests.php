@@ -48,8 +48,11 @@ class HandleInertiaRequests extends Middleware
 
         return [
             ...parent::share($request),
-            'locale' => app()->getLocale(),
-            'translations' => (array) trans('app'),
+            // Lazy: resolved at response render, after IdentifyTenant/SetLocale
+            // have set the request locale, so tenant-locale pages get the right
+            // catalog. share() itself runs before those route middleware.
+            'locale' => fn (): string => app()->getLocale(),
+            'translations' => fn (): array => (array) trans('app'),
             'auth' => [
                 'user' => $user === null ? null : [
                     'id' => $user->id,

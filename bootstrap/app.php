@@ -6,6 +6,7 @@ use App\Http\Middleware\EnsureTenantActive;
 use App\Http\Middleware\EnsureUserBelongsToTenant;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\IdentifyTenant;
+use App\Http\Middleware\SetLocale;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -36,6 +37,10 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [
+            // SetLocale before Inertia sharing so the `locale`/`translations`
+            // props reflect the resolved locale. On tenant domains IdentifyTenant
+            // (route middleware) runs after and overrides with the tenant locale.
+            SetLocale::class,
             HandleInertiaRequests::class,
         ]);
 
