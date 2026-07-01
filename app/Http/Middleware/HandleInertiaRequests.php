@@ -67,6 +67,9 @@ class HandleInertiaRequests extends Middleware
             // the `identify.tenant` route middleware binds the tenant, so the
             // closure is evaluated at render time when the tenant is available.
             'features' => fn (): array => $this->enabledFeatures(),
+            // Current tenant identity for admin branding (name/slug in the
+            // sidebar). Null outside tenant context (central/admin domains).
+            'tenant' => fn (): ?array => $this->tenantIdentity(),
             // One-off flash status (e.g. password-reset-link sent), already
             // translated by Fortify / the password broker.
             'status' => fn (): ?string => $request->session()->get('status'),
@@ -115,6 +118,18 @@ class HandleInertiaRequests extends Middleware
         $tenant = $this->tenants->current();
 
         return $tenant === null ? [] : $this->features->enabledCodes($tenant);
+    }
+
+    /**
+     * Minimal current-tenant identity for admin branding, or null off-tenant.
+     *
+     * @return array{name: string, slug: string}|null
+     */
+    private function tenantIdentity(): ?array
+    {
+        $tenant = $this->tenants->current();
+
+        return $tenant === null ? null : ['name' => $tenant->name, 'slug' => $tenant->slug];
     }
 
     /**

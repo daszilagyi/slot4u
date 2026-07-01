@@ -3,6 +3,8 @@ import createServer from '@inertiajs/react/server';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import ReactDOMServer from 'react-dom/server';
 
+import AppProviders from '@/components/AppProviders';
+
 createServer((page) =>
     createInertiaApp({
         page,
@@ -13,6 +15,10 @@ createServer((page) =>
                 `./Pages/${name}.tsx`,
                 import.meta.glob<ResolvedComponent>('./Pages/**/*.tsx'),
             ),
-        setup: ({ App, props }) => <App {...props} />,
+        setup: ({ App, props }) => (
+            <AppProviders>
+                <App {...props} />
+            </AppProviders>
+        ),
     }),
 );

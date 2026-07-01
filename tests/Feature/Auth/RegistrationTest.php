@@ -58,7 +58,7 @@ it('lets the freshly registered admin reach their dashboard', function () {
 
     $this->get('http://acme.'.config('tenancy.central_domain').'/dashboard')
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->component('Tenant/Dashboard'));
+        ->assertInertia(fn (Assert $page) => $page->component('Admin/Dashboard'));
 });
 
 it('never lets the registration payload inject tenant_id (no super-admin minting)', function () {
