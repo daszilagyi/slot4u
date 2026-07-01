@@ -37,6 +37,13 @@ aliasokon mennek; a hitelesített tenant-terület (`/dashboard`) ezeken túl `au
 mögött van. A feature-kapuzás az `ensure.feature:{feature}` aliassal opcionálisan ráhúzható. A `can:`
 (spatie) gate az erőforrás-végpontokkal (M2) kerül be.
 
+**Middleware-prioritás — scope-olt route-model binding (SLO-16):** a tenant-lánc (`IdentifyTenant` →
+`EnsureTenantActive` → `auth` → `EnsureUserBelongsToTenant`) a `bootstrap/app.php` `priority()`
+listájában a `SubstituteBindings` **elé** van rögzítve. Így mire a route-model binding lefut, a
+`TenantManager` már fel van töltve, és a `BelongsToTenant` global scope a kötést az aktuális tenantra
+szűkíti — egy másik tenant `{id}`-ja `404`-et ad (nem szivárog). E rögzítés nélkül a `SubstituteBindings`
+a tenant-feloldás előtt futna, és a scope üresen (mindent látva) engedné a keresztbe-kötést.
+
 **Auth és domainek (SLO-75/76):** Laravel Fortify (headless) adja a login/logout/jelszó-reset/email-
 verifikáció backendet; a nézetek saját Inertia React oldalak (`Auth/*`, i18n a lang fájlokból). A
 self-service **regisztráció** (SLO-76) a központi oldalon megy: a `CreateNewUser` action egy tranzakcióban

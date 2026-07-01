@@ -38,7 +38,7 @@ Alap szerepkörök (tenant létrehozáskor seedelve): `tenant-admin`, `manager`,
 
 ```
 locations          id, tenant_id, name, address(json), phone, sort_order, active
-rooms              id, tenant_id, location_id, name, capacity, description, active
+rooms              id, tenant_id, location_id, name, type(room|equipment), capacity, description, active
 staff              id, tenant_id, user_id(nullable), name, title, bio, photo, color, active
                    -- dolgozó ≠ user kötelezően: lehet naptár-erőforrás login nélkül
 staff_locations    staff_id, location_id        -- egy dolgozó több telephelyen (SLO-51)

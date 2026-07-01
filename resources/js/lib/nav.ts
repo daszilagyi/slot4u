@@ -40,7 +40,7 @@ export const navItems: NavItem[] = [
         href: '/locations',
         icon: MapPinIcon,
         permission: 'location.manage',
-        ready: false,
+        ready: true,
     },
     {
         key: 'services',
