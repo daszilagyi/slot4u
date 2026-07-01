@@ -25,6 +25,36 @@ export type TenantIdentity = {
     slug: string;
 };
 
+export type RoomTypeValue = 'room' | 'equipment';
+
+export type Room = {
+    id: number;
+    location_id: number;
+    name: string;
+    type: RoomTypeValue;
+    capacity: number;
+    description: string | null;
+    active: boolean;
+};
+
+export type LocationAddress = {
+    line: string | null;
+    city: string | null;
+    postal_code: string | null;
+} | null;
+
+export type Location = {
+    id: number;
+    name: string;
+    address: LocationAddress;
+    phone: string | null;
+    sort_order: number;
+    active: boolean;
+    rooms: Room[];
+};
+
+export type ResourceLimit = { used: number; max: number | null };
+
 export type TenantStatusValue = 'trial' | 'active' | 'suspended' | 'archived';
 
 export type TenantSummary = {
