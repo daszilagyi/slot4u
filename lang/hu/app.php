@@ -103,6 +103,7 @@ return [
                 'extend_trial' => 'Trial +14 nap',
                 'save' => 'Mentés',
                 'back' => 'Vissza a listához',
+                'impersonate' => 'Belépés adminként',
             ],
             'show' => [
                 'edit_title' => 'Alapadatok',
@@ -138,6 +139,10 @@ return [
             'new_label' => 'Új',
         ],
     ],
+    'impersonation' => [
+        'banner' => 'Impersonation aktív – :tenant adminjaként vagy bejelentkezve.',
+        'exit' => 'Kilépés',
+    ],
     'locale' => [
         'hu' => 'Magyar',
         'en' => 'English',
@@ -156,6 +161,12 @@ return [
         'tenant.trial_extended' => 'Trial meghosszabbítva',
         'tenant.feature_toggled' => 'Funkció átállítva',
         'tenant.updated' => 'Tenant adatok módosítva',
+        // Nested so the frontend t('audit_action.impersonation.started') dot-path
+        // resolves (the tenant.* keys above are flat literals — see SLO-80).
+        'impersonation' => [
+            'started' => 'Impersonation indítva',
+            'stopped' => 'Impersonation leállítva',
+        ],
     ],
     'features' => [
         'feature_online_payment' => 'Online fizetés',

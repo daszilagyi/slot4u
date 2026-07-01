@@ -17,4 +17,6 @@ enum AuditAction: string
     case TenantTrialExtended = 'tenant.trial_extended';
     case TenantFeatureToggled = 'tenant.feature_toggled';
     case TenantUpdated = 'tenant.updated';
+    case ImpersonationStarted = 'impersonation.started';
+    case ImpersonationStopped = 'impersonation.stopped';
 }
