@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Super\ImpersonationController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -10,8 +11,18 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
     Route::get('/', fn () => Inertia::render('Tenant/Home'))->name('tenant.home');
 
     // Authenticated tenant area: only members of this tenant (super-admins are
-    // redirected to the admin panel). Extendable with ensure.feature + can:.
+    // redirected to the admin panel unless impersonating). Extendable with
+    // ensure.feature + can:.
     Route::middleware(['auth', 'ensure.user.tenant'])->group(function () {
         Route::get('/dashboard', fn () => Inertia::render('Tenant/Dashboard'))->name('tenant.dashboard');
     });
+});
+
+// Impersonation exit (SLO-79). Same-origin with the tenant pages that show the
+// exit banner, so no cross-origin XHR. Deliberately outside ensure.tenant.active
+// (a superadmin must be able to leave even a suspended tenant) and outside
+// ensure.user.tenant (the actor is a tenant-less superadmin). Only `auth` +
+// tenant resolution are needed.
+Route::middleware(['identify.tenant', 'auth'])->group(function () {
+    Route::delete('/impersonation', [ImpersonationController::class, 'stop'])->name('tenant.impersonation.stop');
 });

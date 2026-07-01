@@ -1,12 +1,13 @@
 <?php
 
 use App\Http\Controllers\Super\AuditLogController;
+use App\Http\Controllers\Super\ImpersonationController;
 use App\Http\Controllers\Super\TenantController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 // Superadmin panel (admin.{central}) — no tenant context. Gated to platform
-// super-admins (tenant_id = null); impersonation arrives with SLO-79.
+// super-admins (tenant_id = null).
 Route::middleware(['auth', 'ensure.superadmin'])->group(function () {
     Route::get('/', fn () => Inertia::render('Super/Dashboard'))->name('super.dashboard');
 
@@ -20,6 +21,12 @@ Route::middleware(['auth', 'ensure.superadmin'])->group(function () {
     Route::post('/tenants/{tenant}/archive', [TenantController::class, 'archive'])->withTrashed()->name('super.tenants.archive');
     Route::post('/tenants/{tenant}/extend-trial', [TenantController::class, 'extendTrial'])->withTrashed()->name('super.tenants.extend-trial');
     Route::post('/tenants/{tenant}/features', [TenantController::class, 'toggleFeature'])->withTrashed()->name('super.tenants.features');
+
+    // Impersonation start (SLO-79). No withTrashed: an archived tenant 404s on
+    // binding here (and would 404 on its subdomain anyway), so it can't be
+    // impersonated. The matching stop route lives on the tenant domain
+    // (routes/tenant.php) so the exit button is same-origin.
+    Route::post('/tenants/{tenant}/impersonate', [ImpersonationController::class, 'store'])->name('super.tenants.impersonate');
 
     // Audit log viewer (SLO-78).
     Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('super.audit-logs.index');

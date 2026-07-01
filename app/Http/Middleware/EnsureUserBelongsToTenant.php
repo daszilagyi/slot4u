@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\Impersonation\Impersonation;
 use App\Tenancy\TenantManager;
 use Closure;
 use Illuminate\Http\RedirectResponse;
@@ -15,7 +16,8 @@ use Symfony\Component\HttpFoundation\Response;
  *
  * Keeps tenant context private to its own members:
  * - a super-admin has no tenant home, so they are redirected to the admin panel
- *   (tenant impersonation arrives with SLO-14);
+ *   — unless they are impersonating *this* tenant (SLO-79), in which case they
+ *   are let through and act inside it (audited under their own identity);
  * - a user from another tenant gets 403 (they may not operate inside a tenant
  *   that is not theirs).
  *
@@ -24,7 +26,10 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class EnsureUserBelongsToTenant
 {
-    public function __construct(private readonly TenantManager $tenants) {}
+    public function __construct(
+        private readonly TenantManager $tenants,
+        private readonly Impersonation $impersonation,
+    ) {}
 
     public function handle(Request $request, Closure $next): Response
     {
@@ -37,6 +42,12 @@ class EnsureUserBelongsToTenant
         $user = $request->user();
 
         if ($user->isSuperAdmin()) {
+            // An impersonating superadmin may enter the tenant they started a
+            // session for; any other tenant sends them back to the admin panel.
+            if ($this->impersonation->tenantId() === $tenant->getKey()) {
+                return $next($request);
+            }
+
             $scheme = $request->getScheme();
             $central = config('tenancy.central_domain');
 

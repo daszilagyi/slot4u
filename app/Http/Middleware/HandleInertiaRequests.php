@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Enums\Permission;
 use App\Models\User;
 use App\Services\Feature\FeatureResolver;
+use App\Services\Impersonation\Impersonation;
 use App\Tenancy\TenantManager;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -14,6 +15,7 @@ class HandleInertiaRequests extends Middleware
     public function __construct(
         private readonly TenantManager $tenants,
         private readonly FeatureResolver $features,
+        private readonly Impersonation $impersonation,
     ) {}
 
     /**
@@ -68,6 +70,36 @@ class HandleInertiaRequests extends Middleware
             // One-off flash status (e.g. password-reset-link sent), already
             // translated by Fortify / the password broker.
             'status' => fn (): ?string => $request->session()->get('status'),
+            // Impersonation banner data (SLO-79): present only while a superadmin
+            // is inside the tenant they are impersonating, so the layout can show
+            // the "impersonation active" bar with a same-origin exit action.
+            'impersonation' => fn (): ?array => $this->impersonationState(),
+        ];
+    }
+
+    /**
+     * Banner state for an active impersonation, or null. Scoped to the tenant
+     * actually being impersonated so the bar never leaks onto the admin panel
+     * or an unrelated tenant.
+     *
+     * @return array{tenant: array{id: int, name: string}, stopUrl: string}|null
+     */
+    private function impersonationState(): ?array
+    {
+        $tenantId = $this->impersonation->tenantId();
+        $current = $this->tenants->current();
+
+        if ($tenantId === null || $current === null || $current->getKey() !== $tenantId) {
+            return null;
+        }
+
+        return [
+            'tenant' => [
+                'id' => $tenantId,
+                'name' => (string) $this->impersonation->tenantName(),
+            ],
+            // Same-origin (this tenant subdomain); see routes/tenant.php.
+            'stopUrl' => '/impersonation',
         ];
     }
 
