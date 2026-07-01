@@ -14,7 +14,11 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
     // redirected to the admin panel unless impersonating). Extendable with
     // ensure.feature + can:.
     Route::middleware(['auth', 'ensure.user.tenant'])->group(function () {
-        Route::get('/dashboard', fn () => Inertia::render('Tenant/Dashboard'))->name('tenant.dashboard');
+        Route::get('/dashboard', fn () => Inertia::render('Admin/Dashboard'))->name('tenant.dashboard');
+
+        // Sample CRUD assembled from the shared admin building blocks (SLO-15).
+        // Real törzsadat pages (SLO-16+) follow this scaffold.
+        Route::get('/showcase', fn () => Inertia::render('Admin/Showcase'))->name('tenant.showcase');
     });
 });
 

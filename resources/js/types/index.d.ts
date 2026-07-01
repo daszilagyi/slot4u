@@ -20,6 +20,11 @@ export type ImpersonationState = {
     stopUrl: string;
 };
 
+export type TenantIdentity = {
+    name: string;
+    slug: string;
+};
+
 export type TenantStatusValue = 'trial' | 'active' | 'suspended' | 'archived';
 
 export type TenantSummary = {
@@ -66,6 +71,7 @@ declare module '@inertiajs/core' {
         features: string[];
         status: string | null;
         impersonation: ImpersonationState | null;
+        tenant: TenantIdentity | null;
     }
 }
 

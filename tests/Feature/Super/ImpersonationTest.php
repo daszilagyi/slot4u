@@ -38,7 +38,7 @@ it('lets an impersonating superadmin into the tenant dashboard with the banner p
         ->get(tenantHost('acme', '/dashboard'))
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
-            ->component('Tenant/Dashboard')
+            ->component('Admin/Dashboard')
             ->where('impersonation.tenant.id', $tenant->id)
             ->where('impersonation.tenant.name', 'Acme')
             ->where('impersonation.stopUrl', '/impersonation'));

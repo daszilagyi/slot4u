@@ -21,7 +21,7 @@ it('lets a tenant user reach their own dashboard', function () {
     $this->actingAs($user)
         ->get(authTenantUrl('acme', '/dashboard'))
         ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page->component('Tenant/Dashboard'));
+        ->assertInertia(fn (Assert $page) => $page->component('Admin/Dashboard'));
 });
 
 it('forbids a user from accessing another tenant\'s dashboard (403)', function () {
