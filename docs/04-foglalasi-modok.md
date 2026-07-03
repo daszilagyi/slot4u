@@ -50,6 +50,14 @@ Példa: rendezvény, catering, komplex csomag.
 - Admin flow: `new → in_progress → quoted` (ár + érvényesség) `→ accepted` (ekkor opcionálisan booking generálódik) `| rejected`.
 - Üzenetváltás a kérelmen belül (messages, booking_id helyett quote_request_id kapcsolattal).
 
+## Szolgáltatás-törzsadat implementáció (SLO-18, M2)
+
+A `BookingMode` enum **öt** értéket tartalmaz (`no_time_slot`, `duration_based`, `event_based`, `resource_rental`, `quote_request`) — a `manual_approval` **nem** önálló diszkriminátor-érték, hanem a `requires_approval` boolean flag bármely fenti módra rétegezve (lásd §5). A hatodik „mód" tehát flag, nem enum-case.
+
+A `services` tábla mód-specifikus oszlopai (`duration_minutes`, `capacity`, `buffer_*`, `waitlist_enabled`) csak a saját módjuknál értelmezettek; a `ServiceRequest` mód-függően validál (pl. `duration_based`→duration kötelező, `event_based`→capacity kötelező), a `CreateService`/`UpdateService` action pedig a `NormalizesServiceData` traiten át kinullázza a mód-idegen mezőket, így egy szolgáltatás sosem hordoz elavult adatot módváltás után. A szabad-formátumú, mód-függő beállítások a `settings` json-ban élnek (`fulfillment_type` / `min_duration_minutes`+`max_duration_minutes`+`deposit_minor` / `quote_fields`).
+
+**Feature-függés** (docs/03): a `quote_request` mód a `feature_quote_request`, a `waitlist_enabled` a `feature_waitlist` (és csak `event_based`), a `requires_approval` a `feature_approval_flow`, az `online_payment_required` a `feature_online_payment` engedélyezését igényli — a `ServiceRequest` `withValidator` ága 422-vel utasít el, ha a feature ki van kapcsolva. A `service_staff`/`service_rooms` pivotok a szolgáltatás nyújtóit/helyszíneit kötik; a hozzárendelt id-k tenant-scope-olt `exists` szabállyal validáltak. Ütközésvédelem, slot-generálás és a booking-strategyk M3-ban jönnek.
+
 ## Közös állapotgép
 
 ```

@@ -74,6 +74,59 @@ export type StaffProfile = {
     color: string;
 };
 
+export type BookingModeValue =
+    | 'no_time_slot'
+    | 'duration_based'
+    | 'event_based'
+    | 'resource_rental'
+    | 'quote_request';
+
+export type ServiceCategory = {
+    id: number;
+    name: string;
+    sort_order: number;
+};
+
+export type FulfillmentTypeValue = 'digital' | 'manual' | 'downloadable';
+
+export type ServiceSettings = {
+    fulfillment_type?: FulfillmentTypeValue;
+    min_duration_minutes?: number;
+    max_duration_minutes?: number;
+    deposit_minor?: number;
+    quote_fields?: string[];
+} | null;
+
+export type Service = {
+    id: number;
+    category_id: number | null;
+    name: string;
+    description: string | null;
+    booking_mode: BookingModeValue;
+    duration_minutes: number | null;
+    buffer_before_minutes: number;
+    buffer_after_minutes: number;
+    price_minor: number;
+    currency: string;
+    capacity: number | null;
+    requires_staff: boolean;
+    requires_room: boolean;
+    requires_approval: boolean;
+    waitlist_enabled: boolean;
+    online_payment_required: boolean;
+    settings: ServiceSettings;
+    active: boolean;
+    staff_ids: number[];
+    room_ids: number[];
+};
+
+export type AssignableStaff = { id: number; name: string };
+export type AssignableRoom = {
+    id: number;
+    name: string;
+    location_name: string | null;
+};
+
 export type TenantStatusValue = 'trial' | 'active' | 'suspended' | 'archived';
 
 export type TenantSummary = {

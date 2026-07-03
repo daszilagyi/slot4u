@@ -3,6 +3,8 @@
 use App\Enums\Permission;
 use App\Http\Controllers\Admin\LocationController;
 use App\Http\Controllers\Admin\RoomController;
+use App\Http\Controllers\Admin\ServiceCategoryController;
+use App\Http\Controllers\Admin\ServiceController;
 use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\StaffProfileController;
 use App\Http\Controllers\Super\ImpersonationController;
@@ -47,6 +49,20 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
             Route::post('/staff', [StaffController::class, 'store'])->name('tenant.staff.store');
             Route::put('/staff/{staff}', [StaffController::class, 'update'])->name('tenant.staff.update');
             Route::delete('/staff/{staff}', [StaffController::class, 'destroy'])->name('tenant.staff.destroy');
+        });
+
+        // Services + categories master data (SLO-18). Gated by service.manage
+        // (tenant-admin per docs/03). Route-bound models are tenant-scoped
+        // (BelongsToTenant global scope → cross-tenant 404).
+        Route::middleware('can:'.Permission::ServiceManage->value)->group(function () {
+            Route::get('/services', [ServiceController::class, 'index'])->name('tenant.services.index');
+            Route::post('/services', [ServiceController::class, 'store'])->name('tenant.services.store');
+            Route::put('/services/{service}', [ServiceController::class, 'update'])->name('tenant.services.update');
+            Route::delete('/services/{service}', [ServiceController::class, 'destroy'])->name('tenant.services.destroy');
+
+            Route::post('/service-categories', [ServiceCategoryController::class, 'store'])->name('tenant.service_categories.store');
+            Route::put('/service-categories/{category}', [ServiceCategoryController::class, 'update'])->name('tenant.service_categories.update');
+            Route::delete('/service-categories/{category}', [ServiceCategoryController::class, 'destroy'])->name('tenant.service_categories.destroy');
         });
 
         // Employee self-service profile (SLO-17). Available to every tenant user
