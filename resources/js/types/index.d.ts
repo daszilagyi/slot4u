@@ -55,6 +55,25 @@ export type Location = {
 
 export type ResourceLimit = { used: number; max: number | null };
 
+export type StaffMember = {
+    id: number;
+    name: string;
+    title: string | null;
+    bio: string | null;
+    photo: string | null;
+    color: string;
+    active: boolean;
+    user: { email: string } | null;
+};
+
+export type StaffProfile = {
+    id: number;
+    name: string;
+    title: string | null;
+    bio: string | null;
+    color: string;
+};
+
 export type TenantStatusValue = 'trial' | 'active' | 'suspended' | 'archived';
 
 export type TenantSummary = {

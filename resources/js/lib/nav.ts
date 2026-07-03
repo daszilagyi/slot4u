@@ -56,7 +56,7 @@ export const navItems: NavItem[] = [
         href: '/staff',
         icon: UsersIcon,
         permission: 'staff.manage',
-        ready: false,
+        ready: true,
     },
     {
         key: 'schedule',
