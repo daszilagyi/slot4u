@@ -48,7 +48,7 @@ export const navItems: NavItem[] = [
         href: '/services',
         icon: SparklesIcon,
         permission: 'service.manage',
-        ready: false,
+        ready: true,
     },
     {
         key: 'staff',

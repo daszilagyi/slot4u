@@ -40,6 +40,15 @@ class RoomFactory extends Factory
         ]);
     }
 
+    /** Place the room in a tenant, creating a location in the same tenant. */
+    public function forTenant(Tenant $tenant): static
+    {
+        return $this->state([
+            'tenant_id' => $tenant->id,
+            'location_id' => Location::factory()->forTenant($tenant),
+        ]);
+    }
+
     public function equipment(): static
     {
         return $this->state(['type' => RoomType::Equipment->value]);
