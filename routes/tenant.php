@@ -3,6 +3,8 @@
 use App\Enums\Permission;
 use App\Http\Controllers\Admin\LocationController;
 use App\Http\Controllers\Admin\RoomController;
+use App\Http\Controllers\Admin\StaffController;
+use App\Http\Controllers\StaffProfileController;
 use App\Http\Controllers\Super\ImpersonationController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -36,6 +38,22 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
             Route::put('/rooms/{room}', [RoomController::class, 'update'])->name('tenant.rooms.update');
             Route::delete('/rooms/{room}', [RoomController::class, 'destroy'])->name('tenant.rooms.destroy');
         });
+
+        // Staff master data + employee invitations (SLO-17). Gated by
+        // staff.manage (tenant-admin per docs/03). Route-bound Staff is
+        // tenant-scoped (BelongsToTenant global scope → cross-tenant 404).
+        Route::middleware('can:'.Permission::StaffManage->value)->group(function () {
+            Route::get('/staff', [StaffController::class, 'index'])->name('tenant.staff.index');
+            Route::post('/staff', [StaffController::class, 'store'])->name('tenant.staff.store');
+            Route::put('/staff/{staff}', [StaffController::class, 'update'])->name('tenant.staff.update');
+            Route::delete('/staff/{staff}', [StaffController::class, 'destroy'])->name('tenant.staff.destroy');
+        });
+
+        // Employee self-service profile (SLO-17). Available to every tenant user
+        // (not staff.manage): a user linked to a staff record edits their own
+        // profile; ownership is enforced by the StaffPolicy update ability.
+        Route::get('/profile', [StaffProfileController::class, 'edit'])->name('tenant.profile.edit');
+        Route::put('/profile', [StaffProfileController::class, 'update'])->name('tenant.profile.update');
     });
 });
 

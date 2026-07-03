@@ -1,5 +1,5 @@
 import { Link, router, usePage } from '@inertiajs/react';
-import { LogOutIcon, MenuIcon } from 'lucide-react';
+import { LogOutIcon, MenuIcon, UserRoundIcon } from 'lucide-react';
 
 import ThemeToggle from '@/components/ThemeToggle';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -102,6 +102,12 @@ export default function AdminTopbar({
                         </span>
                     </DropdownMenuLabel>
                     <DropdownMenuSeparator />
+                    <DropdownMenuItem asChild>
+                        <Link href="/profile">
+                            <UserRoundIcon className="size-4" />
+                            {t('admin.topbar.profile')}
+                        </Link>
+                    </DropdownMenuItem>
                     <DropdownMenuItem onSelect={() => router.post('/logout')}>
                         <LogOutIcon className="size-4" />
                         {t('admin.topbar.logout')}

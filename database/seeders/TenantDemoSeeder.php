@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Enums\Role;
 use App\Enums\TenantStatus;
+use App\Models\Staff;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\Rbac\TenantRoleSeeder;
@@ -22,11 +23,18 @@ class TenantDemoSeeder extends Seeder
 {
     public function run(): void
     {
-        $this->makeTenant('Acme Studio', 'acme', TenantStatus::Active, 'admin@acme.test');
+        $acme = $this->makeTenant('Acme Studio', 'acme', TenantStatus::Active, 'admin@acme.test');
         $this->makeTenant('Suspended Demo', 'suspended-demo', TenantStatus::Suspended, 'admin@suspended-demo.test');
+
+        // A couple of staff members on the active tenant (SLO-17), as plain
+        // calendar resources — the invitation flow is exercised from the UI.
+        if (Staff::query()->where('tenant_id', $acme->id)->doesntExist()) {
+            Staff::factory()->forTenant($acme)->create(['name' => 'Kis Anna', 'title' => 'Fodrász', 'color' => '#ec4899']);
+            Staff::factory()->forTenant($acme)->create(['name' => 'Nagy Béla', 'title' => 'Masszőr', 'color' => '#3b82f6']);
+        }
     }
 
-    private function makeTenant(string $name, string $slug, TenantStatus $status, string $email): void
+    private function makeTenant(string $name, string $slug, TenantStatus $status, string $email): Tenant
     {
         $tenant = Tenant::query()->updateOrCreate(
             ['slug' => $slug],
@@ -50,5 +58,7 @@ class TenantDemoSeeder extends Seeder
         $registrar->setPermissionsTeamId($tenant->id);
         $admin->syncRoles([Role::TenantAdmin->value]);
         $registrar->setPermissionsTeamId(null);
+
+        return $tenant;
     }
 }
