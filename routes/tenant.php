@@ -1,13 +1,14 @@
 <?php
 
 use App\Enums\Permission;
+use App\Http\Controllers\Admin\EventController;
 use App\Http\Controllers\Admin\LocationController;
 use App\Http\Controllers\Admin\RoomController;
 use App\Http\Controllers\Admin\ScheduleController;
 use App\Http\Controllers\Admin\ScheduleExceptionController;
 use App\Http\Controllers\Admin\ServiceCategoryController;
-use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\ServiceController;
+use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\StaffProfileController;
 use App\Http\Controllers\Super\ImpersonationController;
@@ -80,6 +81,14 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
 
             Route::post('/schedule/exceptions', [ScheduleExceptionController::class, 'store'])->name('tenant.schedule_exceptions.store');
             Route::delete('/schedule/exceptions/{exception}', [ScheduleExceptionController::class, 'destroy'])->name('tenant.schedule_exceptions.destroy');
+
+            // Announced events for event_based services (SLO-20). Same gate as
+            // schedules (meghirdetett alkalmak = operatív scheduling).
+            Route::get('/events', [EventController::class, 'index'])->name('tenant.events.index');
+            Route::post('/events', [EventController::class, 'store'])->name('tenant.events.store');
+            Route::put('/events/{event}', [EventController::class, 'update'])->name('tenant.events.update');
+            Route::delete('/events/{event}', [EventController::class, 'destroy'])->name('tenant.events.destroy');
+            Route::post('/events/{event}/cancel', [EventController::class, 'cancel'])->name('tenant.events.cancel');
         });
 
         // Company profile + branding settings (SLO-21). Gated by settings.edit
