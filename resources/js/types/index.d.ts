@@ -172,6 +172,25 @@ export type ScheduleConflict = {
     starts_at: string;
 };
 
+export type EventStatusValue = 'scheduled' | 'canceled';
+
+export type EventItem = {
+    id: number;
+    service_id: number;
+    service_name: string | null;
+    staff_id: number | null;
+    staff_name: string | null;
+    room_id: number | null;
+    room_name: string | null;
+    starts_at: string;
+    ends_at: string;
+    capacity: number;
+    booked_count: number;
+    waitlist_enabled: boolean;
+    status: EventStatusValue;
+    is_recurring: boolean;
+};
+
 export type TenantStatusValue = 'trial' | 'active' | 'suspended' | 'archived';
 
 export type TenantSummary = {

@@ -61,8 +61,9 @@ schedules          id, tenant_id, schedulable_type/id (staff|room), location_id(
 schedule_exceptions id, tenant_id, schedulable_type/id, date, start/end_time(nullable=egész nap),
                    type(off|extra), note     -- szabadság, ünnep, extra nyitás
 events             id, tenant_id, service_id, staff_id, room_id, starts_at, ends_at,
-                   capacity, booked_count, waitlist_enabled, status, recurrence_rule(nullable)
-                   -- a 3-as (eseményalapú) módhoz: meghirdetett alkalmak
+                   capacity, booked_count, waitlist_enabled, status, recurrence_rule(nullable),
+                   series_id(nullable, uuid)   -- a 3-as (eseményalapú) módhoz: meghirdetett alkalmak
+                   -- series_id: heti sorozat generált alkalmait csoportosítja (SLO-20)
 ```
 
 ## Foglalások
