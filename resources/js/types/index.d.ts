@@ -64,6 +64,7 @@ export type StaffMember = {
     color: string;
     active: boolean;
     user: { email: string } | null;
+    location_ids: number[];
 };
 
 export type StaffProfile = {
@@ -134,6 +135,8 @@ export type Schedulable = {
     id: number;
     name: string;
     location_name: string | null;
+    /** Locations this resource may scope a band to (SLO-51). */
+    location_ids: number[];
 };
 
 export type ScheduleBand = {

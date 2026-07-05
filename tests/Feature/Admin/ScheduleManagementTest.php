@@ -2,6 +2,7 @@
 
 use App\Enums\Role;
 use App\Enums\ScheduleExceptionType;
+use App\Models\Location;
 use App\Models\Room;
 use App\Models\Schedule;
 use App\Models\ScheduleException;
@@ -417,4 +418,125 @@ it('redirects a guest to login', function () {
     Tenant::factory()->active()->create(['slug' => 'acme']);
 
     $this->get(tenantHost('acme', '/schedule'))->assertRedirectContains('/login');
+});
+
+it('rejects a staff band scoped to a location the staff is not assigned to (SLO-51)', function () {
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
+    $admin = scheduleUser($tenant, Role::TenantAdmin);
+    $staff = Staff::factory()->forTenant($tenant)->create();
+    $location = Location::factory()->forTenant($tenant)->create();
+    // staff is NOT assigned to $location
+
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', '/schedule/entries'), bandPayload($staff, [
+            'location_id' => $location->id,
+        ]))
+        ->assertSessionHasErrors('location_id');
+});
+
+it('allows a staff band scoped to an assigned location', function () {
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
+    $admin = scheduleUser($tenant, Role::TenantAdmin);
+    $staff = Staff::factory()->forTenant($tenant)->create();
+    $location = Location::factory()->forTenant($tenant)->create();
+    $staff->locations()->sync([$location->id]);
+
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', '/schedule/entries'), bandPayload($staff, [
+            'location_id' => $location->id,
+        ]))
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $this->assertDatabaseHas('schedules', [
+        'schedulable_id' => $staff->id,
+        'location_id' => $location->id,
+    ]);
+});
+
+it('rejects a room band scoped to a location other than the room\'s own', function () {
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
+    $admin = scheduleUser($tenant, Role::TenantAdmin);
+    $room = Room::factory()->forTenant($tenant)->create();
+    $otherLocation = Location::factory()->forTenant($tenant)->create();
+
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', '/schedule/entries'), [
+            'schedulable_type' => 'room',
+            'schedulable_id' => $room->id,
+            'day_of_week' => 1,
+            'start_time' => '09:00',
+            'end_time' => '17:00',
+            'location_id' => $otherLocation->id,
+            'valid_from' => null,
+            'valid_until' => null,
+        ])
+        ->assertSessionHasErrors('location_id');
+});
+
+it('splits a multi-location staff schedule by location (SLO-51 AC)', function () {
+    // Staff works Monday at location A, Wednesday at location B — the bands stay
+    // distinct per location (availability slot-splitting lands with M3's engine).
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
+    $admin = scheduleUser($tenant, Role::TenantAdmin);
+    $staff = Staff::factory()->forTenant($tenant)->create();
+    $locA = Location::factory()->forTenant($tenant)->create();
+    $locB = Location::factory()->forTenant($tenant)->create();
+    $staff->locations()->sync([$locA->id, $locB->id]);
+
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', '/schedule/entries'), bandPayload($staff, [
+            'day_of_week' => 1,
+            'location_id' => $locA->id,
+        ]))
+        ->assertRedirect();
+
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', '/schedule/entries'), bandPayload($staff, [
+            'day_of_week' => 3,
+            'location_id' => $locB->id,
+        ]))
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    expect(Schedule::where('location_id', $locA->id)->where('day_of_week', 1)->count())->toBe(1)
+        ->and(Schedule::where('location_id', $locB->id)->where('day_of_week', 3)->count())->toBe(1)
+        ->and(Schedule::where('location_id', $locA->id)->where('day_of_week', 3)->exists())->toBeFalse();
+});
+
+it('rejects a band scoped to a location from another tenant', function () {
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
+    $admin = scheduleUser($tenant, Role::TenantAdmin);
+    $staff = Staff::factory()->forTenant($tenant)->create();
+    $other = Tenant::factory()->active()->create(['slug' => 'other']);
+    $foreignLocation = Location::factory()->forTenant($other)->create();
+
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', '/schedule/entries'), bandPayload($staff, [
+            'location_id' => $foreignLocation->id,
+        ]))
+        ->assertSessionHasErrors('location_id');
+});
+
+it('forbids overlapping bands on the same day even across different locations (SLO-51)', function () {
+    // docs/02: the same staff cannot be available at two locations at once. The
+    // overlap check is location-independent, so a same-day time clash is rejected
+    // regardless of which locations the two bands are scoped to.
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
+    $admin = scheduleUser($tenant, Role::TenantAdmin);
+    $staff = Staff::factory()->forTenant($tenant)->create();
+    $locA = Location::factory()->forTenant($tenant)->create();
+    $locB = Location::factory()->forTenant($tenant)->create();
+    $staff->locations()->sync([$locA->id, $locB->id]);
+    Schedule::factory()->forTenant($tenant)->forSchedulable($staff)
+        ->onDay(1, '09:00', '12:00')->create(['location_id' => $locA->id]);
+
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', '/schedule/entries'), bandPayload($staff, [
+            'day_of_week' => 1,
+            'start_time' => '10:00',
+            'end_time' => '13:00',
+            'location_id' => $locB->id,
+        ]))
+        ->assertSessionHasErrors('start_time');
 });

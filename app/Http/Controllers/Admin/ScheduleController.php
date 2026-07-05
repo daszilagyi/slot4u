@@ -104,12 +104,14 @@ class ScheduleController extends Controller
      */
     private function schedulables(): array
     {
-        $staff = Staff::query()->orderBy('name')->get(['id', 'name'])
+        $staff = Staff::query()->with('locations:id')->orderBy('name')->get(['id', 'name'])
             ->map(fn (Staff $member) => [
                 'type' => 'staff',
                 'id' => $member->id,
                 'name' => $member->name,
                 'location_name' => null,
+                // Assigned locations bound a staff band's location choice (SLO-51).
+                'location_ids' => $member->locations->pluck('id')->values(),
             ]);
 
         $rooms = Room::query()->with('location:id,name')->orderBy('name')->get()
@@ -118,6 +120,8 @@ class ScheduleController extends Controller
                 'id' => $room->id,
                 'name' => $room->name,
                 'location_name' => $room->location?->name,
+                // A room band can only be scoped to the room's own location.
+                'location_ids' => [$room->location_id],
             ]);
 
         return $staff->concat($rooms)->values()->all();

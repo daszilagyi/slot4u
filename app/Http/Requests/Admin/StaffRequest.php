@@ -4,6 +4,7 @@ namespace App\Http\Requests\Admin;
 
 use App\Enums\Permission;
 use App\Models\Staff;
+use App\Tenancy\TenantManager;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -40,6 +41,12 @@ class StaffRequest extends FormRequest
             'email' => [
                 'nullable', 'string', 'email', 'max:255',
                 Rule::unique('users', 'email')->ignore($linkedUserId),
+            ],
+            // Locations this staff works at (SLO-51), constrained to the tenant.
+            'location_ids' => ['nullable', 'array'],
+            'location_ids.*' => [
+                'integer',
+                Rule::exists('locations', 'id')->where('tenant_id', app(TenantManager::class)->id()),
             ],
         ];
     }

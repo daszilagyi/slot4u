@@ -8,6 +8,7 @@ use App\Actions\Staff\UpdateStaff;
 use App\Enums\PlanLimitKey;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\StaffRequest;
+use App\Models\Location;
 use App\Models\Staff;
 use App\Services\Plan\PlanLimitService;
 use Illuminate\Http\RedirectResponse;
@@ -26,14 +27,16 @@ class StaffController extends Controller
     {
         Gate::authorize('viewAny', Staff::class);
 
-        // Eager-load the linked user to keep the invite-status render N+1-free.
+        // Eager-load the linked user + assigned locations to keep the render
+        // (invite status + location chips) N+1-free.
         $staff = Staff::query()
-            ->with('user:id,email')
+            ->with(['user:id,email', 'locations:id'])
             ->orderBy('name')
             ->get();
 
         return Inertia::render('Admin/Staff/Index', [
             'staff' => $staff->map(fn (Staff $member) => $this->staffData($member))->values(),
+            'locations' => Location::query()->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
             'limits' => [
                 'employees' => [
                     'used' => $staff->count(),
@@ -88,6 +91,7 @@ class StaffController extends Controller
             'user' => $member->user === null ? null : [
                 'email' => $member->user->email,
             ],
+            'location_ids' => $member->locations->pluck('id')->values(),
         ];
     }
 }

@@ -130,6 +130,12 @@ export default function ScheduleIndex({
     const staffOptions = schedulables.filter((s) => s.type === 'staff');
     const roomOptions = schedulables.filter((s) => s.type === 'room');
 
+    // A band may only be scoped to a location the selected resource belongs to
+    // (SLO-51): a staff's assigned locations, or a room's single location.
+    const availableLocations = selected
+        ? locations.filter((l) => selected.location_ids.includes(l.id))
+        : [];
+
     function openCreateBand(day: number) {
         if (!selected) return;
         setEditingBand(null);
@@ -602,7 +608,7 @@ export default function ScheduleIndex({
                     </div>
                 </div>
 
-                {locations.length > 0 ? (
+                {availableLocations.length > 0 ? (
                     <div className="flex flex-col gap-2">
                         <Label htmlFor="band-location">
                             {t('admin.schedule.field.location')}
@@ -623,12 +629,17 @@ export default function ScheduleIndex({
                             <option value="">
                                 {t('admin.schedule.all_locations')}
                             </option>
-                            {locations.map((l) => (
+                            {availableLocations.map((l) => (
                                 <option key={l.id} value={l.id}>
                                     {l.name}
                                 </option>
                             ))}
                         </select>
+                        {band.errors.location_id ? (
+                            <p className="text-sm text-destructive">
+                                {band.errors.location_id}
+                            </p>
+                        ) : null}
                     </div>
                 ) : null}
 
