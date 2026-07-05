@@ -56,6 +56,28 @@ enum BookingStatus: string
     }
 
     /**
+     * Whether a booking in this status still occupies its slot for availability
+     * (everything except the "gone" states — canceled/rejected/no_show).
+     */
+    public function occupiesSlot(): bool
+    {
+        return ! in_array($this, [self::Canceled, self::Rejected, self::NoShow], true);
+    }
+
+    /**
+     * The status values that block a slot (SLO-22 availability).
+     *
+     * @return list<string>
+     */
+    public static function occupyingValues(): array
+    {
+        return array_values(array_map(
+            fn (self $status) => $status->value,
+            array_filter(self::cases(), fn (self $status) => $status->occupiesSlot()),
+        ));
+    }
+
+    /**
      * @return list<string>
      */
     public static function values(): array
