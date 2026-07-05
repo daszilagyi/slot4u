@@ -5,6 +5,7 @@ namespace App\Actions\Staff;
 use App\Enums\PlanLimitKey;
 use App\Models\Staff;
 use App\Services\Plan\PlanLimitService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -31,14 +32,35 @@ class CreateStaff
         }
 
         $email = $this->pullEmail($data);
+        $locationIds = $this->pullLocationIds($data);
 
-        $staff = Staff::create($data);
+        $staff = DB::transaction(function () use ($data, $locationIds): Staff {
+            $staff = Staff::create($data);
+            $staff->locations()->sync($locationIds);
+
+            return $staff;
+        });
 
         if ($email !== null) {
             ($this->inviteStaff)($staff, $email);
         }
 
         return $staff;
+    }
+
+    /**
+     * Extract and remove the location id list from the payload so it is not
+     * mass-assigned onto the Staff model.
+     *
+     * @param  array<string, mixed>  $data
+     * @return list<int>
+     */
+    private function pullLocationIds(array &$data): array
+    {
+        $ids = array_map('intval', (array) ($data['location_ids'] ?? []));
+        unset($data['location_ids']);
+
+        return $ids;
     }
 
     /**

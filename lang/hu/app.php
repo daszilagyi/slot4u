@@ -301,6 +301,7 @@ return [
             'limit_badge' => ':used / :max',
             'limit_at_max' => 'Elérted a csomag limitjét.',
             'invite_hint' => 'Ha megadsz egy email-címet, a dolgozó belépési meghívót kap, és belépés után csak a saját adatait látja.',
+            'locations_hint' => 'Mely telephelyeken dolgozik. A munkarendjében helyszínenként külön elérhetőség adható meg.',
             'already_invited' => 'Ehhez a dolgozóhoz már tartozik belépő: :email',
             'empty_title' => 'Még nincs egyetlen dolgozó sem',
             'empty_body' => 'Vedd fel az első csapattagod a kezdéshez.',
@@ -317,6 +318,7 @@ return [
                 'active' => 'Aktív',
                 'email' => 'Email (meghíváshoz)',
                 'email_placeholder' => 'dolgozo@pelda.hu',
+                'locations' => 'Telephelyek',
             ],
             'error' => [
                 'limit_employees' => 'Elérted a dolgozók maximális számát a csomagodban.',
@@ -497,6 +499,8 @@ return [
             'error' => [
                 'overlap' => 'Ez a sáv átfed egy meglévővel ezen a napon.',
                 'extra_needs_time' => 'Az extra nyitáshoz idősávot kell megadni.',
+                'location_unassigned' => 'A dolgozó nincs ehhez a telephelyhez rendelve.',
+                'room_location' => 'A helyiség csak a saját telephelyéhez köthető.',
             ],
         ],
     ],

@@ -3,7 +3,9 @@
 namespace App\Http\Requests\Admin;
 
 use App\Enums\Permission;
+use App\Models\Room;
 use App\Models\Schedule;
+use App\Models\Staff;
 use App\Tenancy\TenantManager;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
@@ -65,6 +67,11 @@ class ScheduleRequest extends FormRequest
                 return;
             }
 
+            $this->validateLocationScope($validator);
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
             $start = (string) $this->input('start_time');
             $end = (string) $this->input('end_time');
             $from = $this->input('valid_from');
@@ -96,6 +103,38 @@ class ScheduleRequest extends FormRequest
                 }
             }
         });
+    }
+
+    /**
+     * A location-scoped band (SLO-51) must reference a location the resource
+     * actually belongs to: for staff, one of its assigned locations; for a room,
+     * its own location. A null location_id means "all of the resource's
+     * locations" and is always allowed.
+     */
+    private function validateLocationScope(Validator $validator): void
+    {
+        $locationId = $this->input('location_id');
+        if ($locationId === null || $locationId === '') {
+            return;
+        }
+
+        $locationId = (int) $locationId;
+        $type = (string) $this->input('schedulable_type');
+        $schedulableId = $this->integer('schedulable_id');
+
+        if ($type === 'room') {
+            $room = Room::find($schedulableId);
+            if ($room !== null && $room->location_id !== $locationId) {
+                $validator->errors()->add('location_id', __('app.admin.schedule.error.room_location'));
+            }
+
+            return;
+        }
+
+        $staff = Staff::with('locations:id')->find($schedulableId);
+        if ($staff !== null && ! $staff->locations->contains('id', $locationId)) {
+            $validator->errors()->add('location_id', __('app.admin.schedule.error.location_unassigned'));
+        }
     }
 
     /**

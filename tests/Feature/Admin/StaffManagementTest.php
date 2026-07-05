@@ -1,12 +1,15 @@
 <?php
 
 use App\Enums\Role;
+use App\Models\Location;
 use App\Models\Staff;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Notifications\StaffInvitationNotification;
+use App\Tenancy\TenantManager;
 use Database\Seeders\BasePlanSeeder;
 use Database\Seeders\PermissionSeeder;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
 use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Permission\PermissionRegistrar;
@@ -247,4 +250,101 @@ it('shows an empty profile for a user with no linked staff', function () {
     $this->actingAs($admin)
         ->put(tenantHost('acme', '/profile'), ['name' => 'X', 'color' => '#000000'])
         ->assertNotFound();
+});
+
+it('assigns locations to a staff member on create (SLO-51)', function () {
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
+    $admin = staffAdmin($tenant);
+    $locA = Location::factory()->forTenant($tenant)->create();
+    $locB = Location::factory()->forTenant($tenant)->create();
+
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', '/staff'), [
+            'name' => 'Cecil',
+            'color' => '#445566',
+            'active' => true,
+            'location_ids' => [$locA->id, $locB->id],
+        ])
+        ->assertRedirect();
+
+    $staff = Staff::where('name', 'Cecil')->firstOrFail();
+    expect($staff->locations->pluck('id')->sort()->values()->all())
+        ->toBe([$locA->id, $locB->id]);
+});
+
+it('re-syncs staff locations on update', function () {
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
+    $admin = staffAdmin($tenant);
+    $staff = Staff::factory()->forTenant($tenant)->create();
+    $locA = Location::factory()->forTenant($tenant)->create();
+    $locB = Location::factory()->forTenant($tenant)->create();
+    $staff->locations()->sync([$locA->id]);
+
+    $this->actingAs($admin)
+        ->put(tenantHost('acme', "/staff/{$staff->id}"), [
+            'name' => $staff->name,
+            'color' => $staff->color,
+            'active' => true,
+            'location_ids' => [$locB->id],
+        ])
+        ->assertRedirect();
+
+    expect($staff->fresh()->locations->pluck('id')->all())->toBe([$locB->id]);
+});
+
+it('rejects a location from another tenant in the staff assignment', function () {
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
+    $admin = staffAdmin($tenant);
+    $other = Tenant::factory()->active()->create(['slug' => 'other']);
+    $foreignLocation = Location::factory()->forTenant($other)->create();
+
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', '/staff'), [
+            'name' => 'Dóra',
+            'color' => '#778899',
+            'active' => true,
+            'location_ids' => [$foreignLocation->id],
+        ])
+        ->assertSessionHasErrors('location_ids.0');
+});
+
+it('keeps existing staff locations on a partial update that omits location_ids', function () {
+    // A payload without the location_ids key (e.g. a future PATCH) must NOT clear
+    // the assignments — only an explicit key re-syncs them (UpdateStaff guard).
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
+    $admin = staffAdmin($tenant);
+    $staff = Staff::factory()->forTenant($tenant)->create();
+    $location = Location::factory()->forTenant($tenant)->create();
+    $staff->locations()->sync([$location->id]);
+
+    $this->actingAs($admin)
+        ->put(tenantHost('acme', "/staff/{$staff->id}"), [
+            'name' => 'Renamed',
+            'color' => $staff->color,
+            'active' => true,
+            // no location_ids key
+        ])
+        ->assertRedirect();
+
+    expect($staff->fresh()->locations->pluck('id')->all())->toBe([$location->id]);
+});
+
+it('does not expose a foreign-tenant location on a staff (read isolation)', function () {
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
+    $staff = Staff::factory()->forTenant($tenant)->create();
+    $other = Tenant::factory()->active()->create(['slug' => 'other']);
+    $foreignLocation = Location::factory()->forTenant($other)->create();
+
+    // Forge a pivot row linking our staff to another tenant's location.
+    DB::table('staff_locations')->insert([
+        'staff_id' => $staff->id,
+        'location_id' => $foreignLocation->id,
+        'created_at' => now(),
+        'updated_at' => now(),
+    ]);
+
+    // In the current tenant context the Location global scope filters it out.
+    app(TenantManager::class)->set($tenant);
+    expect($staff->fresh()->locations->pluck('id')->all())->toBe([]);
+    app(TenantManager::class)->forget();
 });

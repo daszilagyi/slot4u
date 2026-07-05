@@ -13,10 +13,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useTranslations } from '@/lib/i18n';
-import type { ResourceLimit, StaffMember } from '@/types';
+import type { Location, ResourceLimit, StaffMember } from '@/types';
 
 type IndexProps = {
     staff: StaffMember[];
+    locations: Pick<Location, 'id' | 'name'>[];
     limits: { employees: ResourceLimit };
 };
 
@@ -24,7 +25,7 @@ function atLimit(limit: ResourceLimit): boolean {
     return limit.max !== null && limit.used >= limit.max;
 }
 
-export default function StaffIndex({ staff, limits }: IndexProps) {
+export default function StaffIndex({ staff, locations, limits }: IndexProps) {
     const t = useTranslations();
 
     const [sheetOpen, setSheetOpen] = useState(false);
@@ -38,7 +39,11 @@ export default function StaffIndex({ staff, limits }: IndexProps) {
         color: '#6366f1',
         active: true,
         email: '',
+        location_ids: [] as number[],
     });
+
+    const locationName = (id: number) =>
+        locations.find((l) => l.id === id)?.name ?? '';
 
     const staffFull = atLimit(limits.employees);
     // Email invites a login user; once linked it is fixed (managed via the user).
@@ -54,6 +59,7 @@ export default function StaffIndex({ staff, limits }: IndexProps) {
             color: '#6366f1',
             active: true,
             email: '',
+            location_ids: [],
         });
         form.reset();
         setSheetOpen(true);
@@ -69,8 +75,18 @@ export default function StaffIndex({ staff, limits }: IndexProps) {
             color: member.color,
             active: member.active,
             email: '',
+            location_ids: member.location_ids,
         });
         setSheetOpen(true);
+    }
+
+    function toggleLocation(id: number) {
+        form.setData(
+            'location_ids',
+            form.data.location_ids.includes(id)
+                ? form.data.location_ids.filter((x) => x !== id)
+                : [...form.data.location_ids, id],
+        );
     }
 
     function submit(event: FormEvent) {
@@ -95,6 +111,7 @@ export default function StaffIndex({ staff, limits }: IndexProps) {
             color: data.color,
             active: data.active,
             email: canInvite && data.email ? data.email : null,
+            location_ids: data.location_ids,
         }));
 
         if (editing) {
@@ -223,6 +240,16 @@ export default function StaffIndex({ staff, limits }: IndexProps) {
                                     </p>
                                 ) : null}
 
+                                {member.location_ids.length > 0 ? (
+                                    <div className="flex flex-wrap gap-1.5">
+                                        {member.location_ids.map((id) => (
+                                            <Badge key={id} variant="outline">
+                                                {locationName(id)}
+                                            </Badge>
+                                        ))}
+                                    </div>
+                                ) : null}
+
                                 <div className="mt-auto">
                                     {member.user ? (
                                         <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -327,6 +354,35 @@ export default function StaffIndex({ staff, limits }: IndexProps) {
                     />
                     {t('admin.staff.field.active')}
                 </label>
+
+                {locations.length > 0 ? (
+                    <fieldset className="flex flex-col gap-2 border-t border-border pt-4">
+                        <legend className="text-sm font-medium">
+                            {t('admin.staff.field.locations')}
+                        </legend>
+                        <p className="text-xs text-muted-foreground">
+                            {t('admin.staff.locations_hint')}
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                            {locations.map((location) => (
+                                <label
+                                    key={location.id}
+                                    className="flex items-center gap-2 rounded-md border border-input px-2 py-1 text-sm"
+                                >
+                                    <input
+                                        type="checkbox"
+                                        checked={form.data.location_ids.includes(
+                                            location.id,
+                                        )}
+                                        onChange={() => toggleLocation(location.id)}
+                                        className="size-4 rounded border-input"
+                                    />
+                                    {location.name}
+                                </label>
+                            ))}
+                        </div>
+                    </fieldset>
+                ) : null}
 
                 {canInvite ? (
                     <div className="flex flex-col gap-2 border-t border-border pt-4">
