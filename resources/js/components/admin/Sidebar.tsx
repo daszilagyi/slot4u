@@ -24,9 +24,17 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     return (
         <div className="flex h-full flex-col">
             <div className="flex items-center gap-3 px-4 py-4">
-                <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-sm font-semibold text-primary-foreground">
-                    {tenant ? tenant.name.charAt(0).toUpperCase() : 'S'}
-                </span>
+                {tenant?.logo_url ? (
+                    <img
+                        src={tenant.logo_url}
+                        alt={tenant.name}
+                        className="size-9 shrink-0 rounded-xl object-cover"
+                    />
+                ) : (
+                    <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary text-sm font-semibold text-primary-foreground">
+                        {tenant ? tenant.name.charAt(0).toUpperCase() : 'S'}
+                    </span>
+                )}
                 <div className="flex min-w-0 flex-col">
                     <span className="truncate text-sm font-semibold">
                         {tenant?.name ?? 'slot4u'}

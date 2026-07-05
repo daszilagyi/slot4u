@@ -11,6 +11,7 @@ enum Feature: string
     case OnlinePayment = 'feature_online_payment';
     case Invoicing = 'feature_invoicing';
     case CustomDomain = 'feature_custom_domain';
+    case Branding = 'feature_branding';
     case Waitlist = 'feature_waitlist';
     case QuoteRequest = 'feature_quote_request';
     case ApprovalFlow = 'feature_approval_flow';
@@ -47,6 +48,10 @@ enum Feature: string
             self::OnlinePayment,
             self::Invoicing,
             self::CustomDomain,
+            // Branding (public-page customisation) is off by default so the
+            // settings UI shows a locked section with an enable CTA (SLO-21 AC);
+            // a superadmin turns it on per tenant via tenant_features.
+            self::Branding,
             self::Sms,
             self::Api,
             self::NlpBooking,

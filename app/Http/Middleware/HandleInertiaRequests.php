@@ -6,6 +6,7 @@ use App\Enums\Permission;
 use App\Models\User;
 use App\Services\Feature\FeatureResolver;
 use App\Services\Impersonation\Impersonation;
+use App\Settings\TenantBranding;
 use App\Tenancy\TenantManager;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -122,14 +123,27 @@ class HandleInertiaRequests extends Middleware
 
     /**
      * Minimal current-tenant identity for admin branding, or null off-tenant.
+     * Includes the tenant's logo + primary colour (SLO-21) so the admin chrome —
+     * and the M4 public page — can render the brand.
      *
-     * @return array{name: string, slug: string}|null
+     * @return array{name: string, slug: string, logo_url: string|null, primary_color: string}|null
      */
     private function tenantIdentity(): ?array
     {
         $tenant = $this->tenants->current();
 
-        return $tenant === null ? null : ['name' => $tenant->name, 'slug' => $tenant->slug];
+        if ($tenant === null) {
+            return null;
+        }
+
+        $branding = TenantBranding::fromArray($tenant->branding);
+
+        return [
+            'name' => $tenant->name,
+            'slug' => $tenant->slug,
+            'logo_url' => $branding->logoUrl(),
+            'primary_color' => $branding->primaryColor,
+        ];
     }
 
     /**

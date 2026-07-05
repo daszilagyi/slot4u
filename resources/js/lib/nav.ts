@@ -72,7 +72,7 @@ export const navItems: NavItem[] = [
         href: '/settings',
         icon: SettingsIcon,
         permission: 'settings.edit',
-        ready: false,
+        ready: true,
     },
     {
         key: 'showcase',

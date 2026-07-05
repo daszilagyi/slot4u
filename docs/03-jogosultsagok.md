@@ -55,7 +55,9 @@ Superadmin extra: tenant CRUD + felfüggesztés/aktiválás, csomag- és feature
 
 ## Feature flagek (Pennant, tenant scope)
 
-`feature_online_payment`, `feature_invoicing`, `feature_custom_domain`, `feature_waitlist`, `feature_quote_request`, `feature_approval_flow`, `feature_messages`, `feature_documents`, `feature_reports`, `feature_sms`, `feature_api`, `feature_nlp_booking` (AI foglalás, később), `feature_google_meet` (később).
+`feature_online_payment`, `feature_invoicing`, `feature_custom_domain`, `feature_branding`, `feature_waitlist`, `feature_quote_request`, `feature_approval_flow`, `feature_messages`, `feature_documents`, `feature_reports`, `feature_sms`, `feature_api`, `feature_nlp_booking` (AI foglalás, később), `feature_google_meet` (később).
+
+**Cégprofil + branding (SLO-21):** a `/settings` oldal (`settings.edit`, Tenant Admin) kezeli a tenant **cégprofilját** (név, leírás, elérhetőségek, nyitvatartás, social linkek) és a **foglalási szabályokat** (lemondási határidő órában, idősáv-rácsköz 15/30 perc). Ezek a `tenants.settings` json-ban tárolódnak, típusos `App\Settings\TenantSettings` value objecten át (default-okkal); a foglalási szabályokat az M3 motor fogyasztja. A **branding** (elsődleges szín, logó, borítókép — `tenants.branding` json, `App\Settings\TenantBranding`; a képek a `public` diszken tenant-prefix alatt) **`feature_branding`-gated**: alapból **kikapcsolt** (`enabledByDefaultOnBase() = false`), a szekció ilyenkor lockolt + CTA, és a `SettingsRequest` a közvetlen POST-ot is elutasítja; superadmin `tenant_features`-szel kapcsolja be tenantonként. **Eltérés az issue-tól:** az eredeti SLO-21 „Közepes+ csomag" / „Alap csomagnál lockolt" megfogalmazása a **megszűnt háromlépcsős csomagra** utalt — a docs (docs/03 §Csomag, docs/10) szerint minden funkció **feature-flag-gated, nem csomaghoz kötött**, ezért a branding gate feature-flag (`feature_branding`), nem plan-tier. A logó az admin chrome-ban (sidebar brand-blokk) megjelenik; a publikus oldali megjelenítés az M4 publikus felülettel (SLO-29) érkezik.
 
 Alapérték a csomagból (`plan_features`), superadmin tenantonként felülírhatja (`tenant_features`).
 
