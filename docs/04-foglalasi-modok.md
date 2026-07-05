@@ -70,6 +70,8 @@ confirmed ──▶ completed | canceled | no_show
 ```
 Sima (nem jóváhagyásos) foglalás `confirmed`-ön (vagy `pending_payment`-en) indul. Minden átmenet: `booking_status_history` + event (értesítések, Reverb).
 
+**Implementáció (SLO-23, M3):** a `BookingStatus` enum tartja az átmenet-mátrixot (`allowedTransitions()`/`canTransitionTo()`/`isTerminal()`) — ez az egyetlen igazság-forrás. A `ChangeBookingStatus` action az egyetlen szentesített státuszváltó: érvénytelen átmenetnél `InvalidBookingTransitionException`-t dob, minden átmenetet `booking_status_history`-ba ír (from/to/actor), rögzíti a mellékhatásokat (`approved_by`/`approved_at` jóváhagyáskor, `canceled_at`/`cancel_reason` lemondáskor), és `BookingStatusChanged` (+ lemondáskor `BookingCanceled`) domain eventet dob. Létrehozáskor a `Booking` model `null → kezdő státusz` history-t ír és `BookingCreated`-et dob; a listenerek M5-ben kapcsolódnak. **Lemondási szabály:** a `CancelBooking` action az **online** (ügyfél) lemondást elutasítja a tenant `cancellation_deadline_hours` (docs/02 §Beállítások, SLO-21) ablakán belül; admin bármikor lemondhat. **Publikus kód:** a `Booking` létrehozáskor egyedi, nem találgatható 8 karakteres kódot kap. Idő UTC-ben (docs/01 §7). A `BookingModeStrategy` mód-specifikus rétege (availability/create) az azt implementáló issue-kkal jön (SLO-22 availability, SLO-24 create) — az állapotgép közös és mód-független.
+
 ## Edge case-ek (tesztelendő!)
 
 - Párhuzamos foglalás ugyanarra a slotra (race condition) — pontosan 1 sikeres

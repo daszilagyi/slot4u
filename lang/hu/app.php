@@ -634,6 +634,11 @@ return [
         'feature_nlp_booking' => 'AI foglalás',
         'feature_google_meet' => 'Google Meet',
     ],
+    'booking' => [
+        'error' => [
+            'cancel_deadline_passed' => 'A foglalás már nem mondható le online — a lemondási határidő (:hours óra) lejárt. Vedd fel a kapcsolatot a szolgáltatóval.',
+        ],
+    ],
     'mail' => [
         'staff_invitation' => [
             'subject' => 'Meghívás – :tenant',
