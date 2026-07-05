@@ -23,6 +23,8 @@ export type ImpersonationState = {
 export type TenantIdentity = {
     name: string;
     slug: string;
+    logo_url: string | null;
+    primary_color: string;
 };
 
 export type RoomTypeValue = 'room' | 'equipment';

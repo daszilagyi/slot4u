@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\RoomController;
 use App\Http\Controllers\Admin\ScheduleController;
 use App\Http\Controllers\Admin\ScheduleExceptionController;
 use App\Http\Controllers\Admin\ServiceCategoryController;
+use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\ServiceController;
 use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\StaffProfileController;
@@ -79,6 +80,14 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
 
             Route::post('/schedule/exceptions', [ScheduleExceptionController::class, 'store'])->name('tenant.schedule_exceptions.store');
             Route::delete('/schedule/exceptions/{exception}', [ScheduleExceptionController::class, 'destroy'])->name('tenant.schedule_exceptions.destroy');
+        });
+
+        // Company profile + branding settings (SLO-21). Gated by settings.edit
+        // (tenant-admin per docs/03). Update is POST (multipart logo/cover upload);
+        // the branding section is feature-gated in SettingsRequest.
+        Route::middleware('can:'.Permission::SettingsEdit->value)->group(function () {
+            Route::get('/settings', [SettingsController::class, 'edit'])->name('tenant.settings.edit');
+            Route::post('/settings', [SettingsController::class, 'update'])->name('tenant.settings.update');
         });
 
         // Employee self-service profile (SLO-17). Available to every tenant user
