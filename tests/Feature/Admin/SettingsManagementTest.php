@@ -199,3 +199,64 @@ it('redirects a guest to login', function () {
 
     $this->get(tenantHost('acme', '/settings'))->assertRedirectContains('/login');
 });
+
+it('forbids a user from another tenant editing these settings (cross-tenant)', function () {
+    Tenant::factory()->active()->create(['slug' => 'acme']);
+    $other = Tenant::factory()->active()->create(['slug' => 'other']);
+    $otherAdmin = settingsAdmin($other);
+
+    // The 'other' admin hitting acme's subdomain is not a member of acme.
+    $this->actingAs($otherAdmin)
+        ->post(tenantHost('acme', '/settings'), settingsPayload())
+        ->assertForbidden();
+});
+
+it('replaces an existing logo and deletes the old file', function () {
+    Storage::fake('public');
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
+    $admin = settingsAdmin($tenant);
+    enableBranding($tenant);
+    $oldPath = UploadedFile::fake()->image('old.png')->store("tenants/{$tenant->id}", 'public');
+    $tenant->update(['branding' => ['primary_color' => '#6366f1', 'logo_path' => $oldPath]]);
+
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', '/settings'), settingsPayload([
+            'logo' => UploadedFile::fake()->image('new.png', 300, 300),
+        ]))
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $newPath = $tenant->fresh()->branding['logo_path'];
+    expect($newPath)->not->toBe($oldPath);
+    Storage::disk('public')->assertMissing($oldPath);
+    Storage::disk('public')->assertExists($newPath);
+});
+
+it('uploads a cover image when branding is enabled', function () {
+    Storage::fake('public');
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
+    $admin = settingsAdmin($tenant);
+    enableBranding($tenant);
+
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', '/settings'), settingsPayload([
+            'cover' => UploadedFile::fake()->image('cover.jpg', 1200, 400),
+        ]))
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $path = $tenant->fresh()->branding['cover_path'];
+    expect($path)->toStartWith("tenants/{$tenant->id}/");
+    Storage::disk('public')->assertExists($path);
+});
+
+it('forbids a manager without settings.edit from posting (403)', function () {
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
+    app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getKey());
+    $manager = User::factory()->create(['tenant_id' => $tenant->id]);
+    $manager->assignRole(Role::Manager->value);
+
+    $this->actingAs($manager)
+        ->post(tenantHost('acme', '/settings'), settingsPayload())
+        ->assertForbidden();
+});

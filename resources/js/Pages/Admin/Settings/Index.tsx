@@ -48,6 +48,8 @@ export default function SettingsIndex({
 }: IndexProps) {
     const t = useTranslations();
 
+    // Inertia's typed errors object doesn't allow dynamic keys; a single cast
+    // keeps the per-social-platform lookups type-safe at the call sites.
     const form = useForm({
         name,
         description: settings.description ?? '',
@@ -69,6 +71,8 @@ export default function SettingsIndex({
         remove_logo: false as boolean,
         remove_cover: false as boolean,
     });
+
+    const errors = form.errors as Record<string, string | undefined>;
 
     function submit(event: FormEvent) {
         event.preventDefault();
@@ -251,7 +255,7 @@ export default function SettingsIndex({
                                 key={platform}
                                 id={`set-social-${platform}`}
                                 label={t(`admin.settings.social.${platform}`)}
-                                error={form.errors[`social.${platform}` as 'social']}
+                                error={errors[`social.${platform}`]}
                             >
                                 <Input
                                     id={`set-social-${platform}`}
