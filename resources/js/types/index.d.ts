@@ -127,6 +127,46 @@ export type AssignableRoom = {
     location_name: string | null;
 };
 
+export type SchedulableTypeValue = 'staff' | 'room';
+
+export type Schedulable = {
+    type: SchedulableTypeValue;
+    id: number;
+    name: string;
+    location_name: string | null;
+};
+
+export type ScheduleBand = {
+    id: number;
+    schedulable_type: SchedulableTypeValue;
+    schedulable_id: number;
+    location_id: number | null;
+    day_of_week: number;
+    start_time: string;
+    end_time: string;
+    valid_from: string | null;
+    valid_until: string | null;
+};
+
+export type ScheduleExceptionTypeValue = 'off' | 'extra';
+
+export type ScheduleExceptionEntry = {
+    id: number;
+    schedulable_type: SchedulableTypeValue;
+    schedulable_id: number;
+    date: string;
+    start_time: string | null;
+    end_time: string | null;
+    type: ScheduleExceptionTypeValue;
+    note: string | null;
+};
+
+export type ScheduleConflict = {
+    id: number;
+    code: string | null;
+    starts_at: string;
+};
+
 export type TenantStatusValue = 'trial' | 'active' | 'suspended' | 'archived';
 
 export type TenantSummary = {

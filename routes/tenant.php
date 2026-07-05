@@ -3,6 +3,8 @@
 use App\Enums\Permission;
 use App\Http\Controllers\Admin\LocationController;
 use App\Http\Controllers\Admin\RoomController;
+use App\Http\Controllers\Admin\ScheduleController;
+use App\Http\Controllers\Admin\ScheduleExceptionController;
 use App\Http\Controllers\Admin\ServiceCategoryController;
 use App\Http\Controllers\Admin\ServiceController;
 use App\Http\Controllers\Admin\StaffController;
@@ -63,6 +65,20 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
             Route::post('/service-categories', [ServiceCategoryController::class, 'store'])->name('tenant.service_categories.store');
             Route::put('/service-categories/{category}', [ServiceCategoryController::class, 'update'])->name('tenant.service_categories.update');
             Route::delete('/service-categories/{category}', [ServiceCategoryController::class, 'destroy'])->name('tenant.service_categories.destroy');
+        });
+
+        // Weekly schedules + exceptions master data (SLO-19). Gated by
+        // schedule.manage (tenant-admin + manager per docs/03). Route-bound models
+        // are tenant-scoped (BelongsToTenant global scope → cross-tenant 404).
+        Route::middleware('can:'.Permission::ScheduleManage->value)->group(function () {
+            Route::get('/schedule', [ScheduleController::class, 'index'])->name('tenant.schedule.index');
+            Route::post('/schedule/entries', [ScheduleController::class, 'store'])->name('tenant.schedule.store');
+            Route::put('/schedule/entries/{schedule}', [ScheduleController::class, 'update'])->name('tenant.schedule.update');
+            Route::delete('/schedule/entries/{schedule}', [ScheduleController::class, 'destroy'])->name('tenant.schedule.destroy');
+            Route::post('/schedule/copy-day', [ScheduleController::class, 'copyDay'])->name('tenant.schedule.copy_day');
+
+            Route::post('/schedule/exceptions', [ScheduleExceptionController::class, 'store'])->name('tenant.schedule_exceptions.store');
+            Route::delete('/schedule/exceptions/{exception}', [ScheduleExceptionController::class, 'destroy'])->name('tenant.schedule_exceptions.destroy');
         });
 
         // Employee self-service profile (SLO-17). Available to every tenant user
