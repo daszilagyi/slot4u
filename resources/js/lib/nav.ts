@@ -64,7 +64,7 @@ export const navItems: NavItem[] = [
         href: '/schedule',
         icon: CalendarClockIcon,
         permission: 'schedule.manage',
-        ready: false,
+        ready: true,
     },
     {
         key: 'settings',

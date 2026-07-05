@@ -2,9 +2,12 @@
 
 namespace App\Providers;
 
+use App\Models\Room;
+use App\Models\Staff;
 use App\Models\User;
 use App\Services\Feature\FeatureResolver;
 use App\Tenancy\TenantManager;
+use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -30,6 +33,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Stable polymorphic aliases for schedulable resources (SLO-19): store
+        // 'staff'/'room' in schedulable_type instead of the FQCN, matching the
+        // docs/02 schema and surviving class renames. Non-enforcing so other
+        // polymorphic types (e.g. audit_logs auditable) keep their FQCN.
+        Relation::morphMap([
+            'staff' => Staff::class,
+            'room' => Room::class,
+        ]);
+
         // Platform super-admins bypass all tenant permission checks.
         Gate::before(fn ($user) => $user instanceof User && $user->isSuperAdmin() ? true : null);
     }
