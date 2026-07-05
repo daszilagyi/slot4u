@@ -554,6 +554,13 @@ return [
                 'delete_has_bookings' => 'Az eseménynek jelentkezői vannak — mondd le helyette (értesítést kapnak).',
             ],
         ],
+        'bookings' => [
+            'error' => [
+                'event_required' => 'Eseményalapú szolgáltatáshoz válassz eseményt.',
+                'slot_required' => 'Add meg a foglalás kezdő és záró időpontját.',
+                'resource_required' => 'Válassz dolgozót vagy helyiséget a foglaláshoz.',
+            ],
+        ],
         'settings' => [
             'title' => 'Beállítások',
             'subtitle' => 'Cégprofil, foglalási szabályok és a publikus felület megjelenése.',
@@ -635,8 +642,11 @@ return [
         'feature_google_meet' => 'Google Meet',
     ],
     'booking' => [
+        'rescheduled' => 'Átfoglalva',
         'error' => [
             'cancel_deadline_passed' => 'A foglalás már nem mondható le online — a lemondási határidő (:hours óra) lejárt. Vedd fel a kapcsolatot a szolgáltatóval.',
+            'slot_unavailable' => 'Ez az időpont időközben betelt. Kérjük, válassz másikat.',
+            'event_full' => 'Erre az eseményre már nincs szabad hely.',
         ],
     ],
     'mail' => [

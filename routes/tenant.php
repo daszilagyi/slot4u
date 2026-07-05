@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\Permission;
+use App\Http\Controllers\Admin\BookingController;
 use App\Http\Controllers\Admin\EventController;
 use App\Http\Controllers\Admin\LocationController;
 use App\Http\Controllers\Admin\RoomController;
@@ -89,6 +90,12 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
             Route::put('/events/{event}', [EventController::class, 'update'])->name('tenant.events.update');
             Route::delete('/events/{event}', [EventController::class, 'destroy'])->name('tenant.events.destroy');
             Route::post('/events/{event}/cancel', [EventController::class, 'cancel'])->name('tenant.events.cancel');
+        });
+
+        // Admin-created bookings (SLO-24). Gated by booking.create (manager/employee
+        // per docs/03). CreateBooking is race-safe; the full list/UI is SLO-28.
+        Route::middleware('can:'.Permission::BookingCreate->value)->group(function () {
+            Route::post('/bookings', [BookingController::class, 'store'])->name('tenant.bookings.store');
         });
 
         // Company profile + branding settings (SLO-21). Gated by settings.edit
