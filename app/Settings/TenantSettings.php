@@ -14,6 +14,9 @@ final class TenantSettings
 
     public const DEFAULT_SLOT_INTERVAL_MINUTES = 30;
 
+    /** How long a waitlist offer stays open before rolling to the next waiter. */
+    public const DEFAULT_WAITLIST_OFFER_HOURS = 24;
+
     /** Allowed slot grid intervals in minutes (docs/02 booking rules). */
     public const SLOT_INTERVALS = [15, 30];
 
@@ -34,6 +37,7 @@ final class TenantSettings
         public readonly array $social = [],
         public readonly int $cancellationDeadlineHours = self::DEFAULT_CANCELLATION_DEADLINE_HOURS,
         public readonly int $slotIntervalMinutes = self::DEFAULT_SLOT_INTERVAL_MINUTES,
+        public readonly int $waitlistOfferHours = self::DEFAULT_WAITLIST_OFFER_HOURS,
     ) {}
 
     /**
@@ -63,6 +67,7 @@ final class TenantSettings
             social: $social,
             cancellationDeadlineHours: max(0, (int) ($data['cancellation_deadline_hours'] ?? self::DEFAULT_CANCELLATION_DEADLINE_HOURS)),
             slotIntervalMinutes: in_array($interval, self::SLOT_INTERVALS, true) ? $interval : self::DEFAULT_SLOT_INTERVAL_MINUTES,
+            waitlistOfferHours: max(1, (int) ($data['waitlist_offer_hours'] ?? self::DEFAULT_WAITLIST_OFFER_HOURS)),
         );
     }
 
@@ -82,6 +87,7 @@ final class TenantSettings
             'social' => $this->social,
             'cancellation_deadline_hours' => $this->cancellationDeadlineHours,
             'slot_interval_minutes' => $this->slotIntervalMinutes,
+            'waitlist_offer_hours' => $this->waitlistOfferHours,
         ];
     }
 

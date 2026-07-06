@@ -2,12 +2,15 @@
 
 namespace App\Actions\Booking;
 
+use App\Enums\BookingMode;
 use App\Enums\BookingStatus;
 use App\Events\BookingCanceled;
 use App\Events\BookingStatusChanged;
 use App\Exceptions\InvalidBookingTransitionException;
 use App\Models\Booking;
+use App\Models\Event;
 use App\Models\User;
+use App\Services\Booking\WaitlistService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -18,9 +21,15 @@ use Illuminate\Support\Facades\DB;
  * actor, applies the status side effects (approval/cancellation metadata) and fires
  * the domain events M5 listeners hook into. This is the ONLY sanctioned way to
  * change a booking's status.
+ *
+ * When an event booking leaves the occupying set (canceled/rejected/no_show) it
+ * frees its seats: booked_count is atomically returned and the freed place is
+ * offered to the next waitlisted customer (docs/04 §3, SLO-25).
  */
 class ChangeBookingStatus
 {
+    public function __construct(private readonly WaitlistService $waitlist) {}
+
     /**
      * @throws InvalidBookingTransitionException
      */
@@ -56,6 +65,13 @@ class ChangeBookingStatus
                 'actor_id' => $actor?->getKey(),
             ]);
 
+            // An event booking that stops occupying its seat returns capacity and
+            // hands the freed place to the next waiter (docs/04 §3, SLO-25).
+            if ($this->eventSeatFreed($booking, $from, $to)) {
+                $this->releaseEventSeat($booking);
+                $this->waitlist->offerNext((int) $booking->event_id, (int) $booking->tenant_id);
+            }
+
             BookingStatusChanged::dispatch($booking, $from, $to, $actor);
 
             if ($to === BookingStatus::Canceled) {
@@ -64,5 +80,32 @@ class ChangeBookingStatus
 
             return $booking;
         });
+    }
+
+    /**
+     * Whether this transition frees an event seat: an event booking moving from an
+     * occupying status to a non-occupying one (canceled/rejected/no_show).
+     */
+    private function eventSeatFreed(Booking $booking, BookingStatus $from, BookingStatus $to): bool
+    {
+        return $booking->booking_mode === BookingMode::EventBased
+            && $booking->event_id !== null
+            && $from->occupiesSlot()
+            && ! $to->occupiesSlot();
+    }
+
+    /**
+     * Atomically return the booking's seats to the event. The `>=` guard floors
+     * booked_count at zero (defence against a double release).
+     */
+    private function releaseEventSeat(Booking $booking): void
+    {
+        $partySize = (int) $booking->party_size;
+
+        Event::query()
+            ->where('tenant_id', $booking->tenant_id)
+            ->whereKey($booking->event_id)
+            ->where('booked_count', '>=', $partySize)
+            ->update(['booked_count' => DB::raw('booked_count - '.$partySize)]);
     }
 }
