@@ -11,8 +11,10 @@ use App\Models\Event;
 use App\Models\Room;
 use App\Models\Service;
 use App\Models\Staff;
+use App\Models\Tenant;
 use App\Models\User;
 use App\Services\Booking\WaitlistService;
+use App\Settings\TenantSettings;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -53,6 +55,12 @@ class CreateBooking
         $source = BookingSource::tryFrom((string) ($data['source'] ?? '')) ?? BookingSource::Admin;
         $status = $this->initialStatus($service, $source);
 
+        // A requested (approval-pending) booking soft-holds its slot until the
+        // tenant's approval-hold window elapses (docs/04 §5, SLO-26).
+        $holdExpiresAt = $status === BookingStatus::Requested
+            ? Carbon::now()->addHours($this->approvalHoldHours($service))
+            : null;
+
         $attributes = [
             'customer_id' => $data['customer_id'] ?? null,
             'service_id' => $service->id,
@@ -70,11 +78,18 @@ class CreateBooking
         ];
 
         return match ($service->booking_mode) {
-            BookingMode::EventBased => $this->createEventBooking($attributes, $status, (int) $service->tenant_id),
-            BookingMode::DurationBased, BookingMode::ResourceRental => $this->createTimeSlotBooking($attributes, $status, $service),
-            BookingMode::NoTimeSlot => $this->persist($attributes, $status),
+            BookingMode::EventBased => $this->createEventBooking($attributes, $status, (int) $service->tenant_id, $holdExpiresAt),
+            BookingMode::DurationBased, BookingMode::ResourceRental => $this->createTimeSlotBooking($attributes, $status, $service, $holdExpiresAt),
+            BookingMode::NoTimeSlot => $this->persist($attributes, $status, $holdExpiresAt),
             BookingMode::QuoteRequest => throw new RuntimeException('quote_request does not create a booking directly (SLO-27).'),
         };
+    }
+
+    private function approvalHoldHours(Service $service): int
+    {
+        $tenant = Tenant::withoutGlobalScopes()->find($service->tenant_id);
+
+        return TenantSettings::fromArray($tenant?->settings)->approvalHoldHours;
     }
 
     private function initialStatus(Service $service, BookingSource $source): BookingStatus
@@ -99,9 +114,9 @@ class CreateBooking
     /**
      * @param  array<string, mixed>  $attributes
      */
-    private function createTimeSlotBooking(array $attributes, BookingStatus $status, Service $service): Booking
+    private function createTimeSlotBooking(array $attributes, BookingStatus $status, Service $service, ?Carbon $holdExpiresAt): Booking
     {
-        return DB::transaction(function () use ($attributes, $status, $service): Booking {
+        return DB::transaction(function () use ($attributes, $status, $service, $holdExpiresAt): Booking {
             // Lock the resource row(s) so concurrent bookings for the same staff/
             // room serialise even when no conflicting booking exists yet.
             if ($attributes['staff_id'] !== null) {
@@ -115,7 +130,7 @@ class CreateBooking
                 throw SlotUnavailableException::slotTaken();
             }
 
-            return $this->persist($attributes, $status);
+            return $this->persist($attributes, $status, $holdExpiresAt);
         });
     }
 
@@ -156,9 +171,9 @@ class CreateBooking
     /**
      * @param  array<string, mixed>  $attributes
      */
-    private function createEventBooking(array $attributes, BookingStatus $status, int $tenantId): Booking
+    private function createEventBooking(array $attributes, BookingStatus $status, int $tenantId, ?Carbon $holdExpiresAt): Booking
     {
-        return DB::transaction(function () use ($attributes, $status, $tenantId): Booking {
+        return DB::transaction(function () use ($attributes, $status, $tenantId, $holdExpiresAt): Booking {
             $eventId = $attributes['event_id'];
             $partySize = $attributes['party_size'];
 
@@ -179,7 +194,7 @@ class CreateBooking
             $attributes['starts_at'] = $event->starts_at;
             $attributes['ends_at'] = $event->ends_at;
 
-            $booking = $this->persist($attributes, $status);
+            $booking = $this->persist($attributes, $status, $holdExpiresAt);
 
             // If the customer was on this event's waitlist, close their entry and
             // hand any remaining freed capacity to the next waiter (docs/04 §3,
@@ -196,12 +211,13 @@ class CreateBooking
     /**
      * @param  array<string, mixed>  $attributes
      */
-    private function persist(array $attributes, BookingStatus $status): Booking
+    private function persist(array $attributes, BookingStatus $status, ?Carbon $holdExpiresAt = null): Booking
     {
         $booking = new Booking;
         $booking->fill($attributes);
-        // status is guarded (not fillable) — set explicitly from the action.
+        // status + hold_expires_at are guarded (not fillable) — set from the action.
         $booking->status = $status;
+        $booking->hold_expires_at = $holdExpiresAt;
         $booking->save();
 
         return $booking;

@@ -34,4 +34,13 @@ class BookingPolicy
     {
         return $user->can(Permission::BookingCancel->value);
     }
+
+    /**
+     * Approve / reject / propose an alternative for an approval-pending booking
+     * (docs/04 §5, SLO-26).
+     */
+    public function approve(User $user, Booking $booking): bool
+    {
+        return $user->can(Permission::BookingApprove->value);
+    }
 }

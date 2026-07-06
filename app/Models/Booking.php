@@ -43,6 +43,8 @@ use Illuminate\Support\Facades\Auth;
  * @property string|null $cancel_reason
  * @property int|null $approved_by
  * @property Carbon|null $approved_at
+ * @property Carbon|null $hold_expires_at
+ * @property string|null $reject_reason
  */
 class Booking extends Model
 {
@@ -50,8 +52,9 @@ class Booking extends Model
     use BelongsToTenant, HasFactory;
 
     /**
-     * status/code/canceled_at/approved_* are managed by the Action layer
-     * (ChangeBookingStatus), never mass-assigned from request input.
+     * status, code, canceled_at, the approved_* fields, hold_expires_at and
+     * reject_reason are managed by the Action layer (ChangeBookingStatus /
+     * CreateBooking), never mass-assigned from request input.
      *
      * @var list<string>
      */
@@ -96,6 +99,7 @@ class Booking extends Model
             'price_minor' => 'integer',
             'canceled_at' => 'datetime',
             'approved_at' => 'datetime',
+            'hold_expires_at' => 'datetime',
         ];
     }
 

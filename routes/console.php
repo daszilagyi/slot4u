@@ -14,3 +14,6 @@ Schedule::command('tenants:expire-trials')->daily();
 // Roll lapsed event waitlist offers to the next waiter (SLO-25). withoutOverlapping
 // so a slow run can't double-dispatch a WaitlistOffered notification for one entry.
 Schedule::command('waitlist:expire-offers')->hourly()->withoutOverlapping();
+
+// Release approval-pending bookings whose soft hold has lapsed (SLO-26).
+Schedule::command('bookings:expire-soft-holds')->hourly()->withoutOverlapping();

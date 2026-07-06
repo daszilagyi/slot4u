@@ -44,6 +44,15 @@ class ChangeBookingStatus
         $actor ??= Auth::user();
 
         return DB::transaction(function () use ($booking, $from, $to, $actor, $reason): Booking {
+            // Serialise concurrent status writers — the soft-hold expiry job now
+            // races admin approve/reject on the same row (SLO-26). Re-read under a
+            // lock and bail if the status already moved, so a stale write can't
+            // clobber another actor's transition.
+            $locked = Booking::query()->whereKey($booking->getKey())->lockForUpdate()->first();
+            if ($locked !== null && $locked->status !== $from) {
+                throw new InvalidBookingTransitionException($locked->status, $to);
+            }
+
             // status + the transition metadata are guarded (not fillable).
             $booking->status = $to;
 
@@ -55,6 +64,15 @@ class ChangeBookingStatus
             if ($to === BookingStatus::Canceled) {
                 $booking->canceled_at = Carbon::now();
                 $booking->cancel_reason = $reason;
+            }
+
+            if ($to === BookingStatus::Rejected) {
+                $booking->reject_reason = $reason;
+            }
+
+            // Leaving the requested state releases its soft hold (docs/04 §5, SLO-26).
+            if ($from === BookingStatus::Requested) {
+                $booking->hold_expires_at = null;
             }
 
             $booking->save();
