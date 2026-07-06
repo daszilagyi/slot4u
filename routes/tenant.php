@@ -1,6 +1,8 @@
 <?php
 
+use App\Enums\Feature;
 use App\Enums\Permission;
+use App\Http\Controllers\Admin\BookingApprovalController;
 use App\Http\Controllers\Admin\BookingController;
 use App\Http\Controllers\Admin\EventController;
 use App\Http\Controllers\Admin\LocationController;
@@ -99,6 +101,14 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
             Route::post('/bookings', [BookingController::class, 'store'])->name('tenant.bookings.store');
             // Join a full event's FIFO waitlist (SLO-25). Feature-gated in WaitlistRequest.
             Route::post('/bookings/waitlist', [WaitlistController::class, 'store'])->name('tenant.bookings.waitlist');
+        });
+
+        // Approval decisions on requested bookings (manual_approval, SLO-26). Gated
+        // by feature_approval_flow + booking.approve (docs/03/04 §5).
+        Route::middleware(['ensure.feature:'.Feature::ApprovalFlow->value, 'can:'.Permission::BookingApprove->value])->group(function () {
+            Route::post('/bookings/{booking}/approve', [BookingApprovalController::class, 'approve'])->name('tenant.bookings.approve');
+            Route::post('/bookings/{booking}/reject', [BookingApprovalController::class, 'reject'])->name('tenant.bookings.reject');
+            Route::post('/bookings/{booking}/propose', [BookingApprovalController::class, 'propose'])->name('tenant.bookings.propose');
         });
 
         // Company profile + branding settings (SLO-21). Gated by settings.edit

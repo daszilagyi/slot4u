@@ -45,6 +45,12 @@ enum BookingMode: string
         return $this === self::DurationBased || $this === self::ResourceRental;
     }
 
+    /** Books a concrete start/end slot (duration_based, resource_rental). */
+    public function usesTimeSlot(): bool
+    {
+        return $this === self::DurationBased || $this === self::ResourceRental;
+    }
+
     /** Only advertised events (mode 3) carry a waitlist. */
     public function supportsWaitlist(): bool
     {

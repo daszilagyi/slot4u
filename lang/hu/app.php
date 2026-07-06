@@ -570,6 +570,15 @@ return [
                 'feature' => 'A várólista nincs engedélyezve a csomagodban.',
             ],
         ],
+        'approvals' => [
+            'approved' => 'Foglalás jóváhagyva.',
+            'rejected' => 'Foglalás elutasítva.',
+            'proposed' => 'Alternatív időpontot ajánlottunk az ügyfélnek.',
+            'alternative_offered' => 'Az eredeti időpont helyett alternatívát ajánlottunk.',
+            'error' => [
+                'slot_mode_only' => 'Alternatív időpont csak idősávos foglaláshoz ajánlható (időpont-alapú vagy erőforrás-bérlés).',
+            ],
+        ],
         'settings' => [
             'title' => 'Beállítások',
             'subtitle' => 'Cégprofil, foglalási szabályok és a publikus felület megjelenése.',
@@ -652,10 +661,14 @@ return [
     ],
     'booking' => [
         'rescheduled' => 'Átfoglalva',
+        'reason' => [
+            'hold_expired' => 'A jóváhagyási határidő lejárt — az ideiglenes foglalás automatikusan felszabadult.',
+        ],
         'error' => [
             'cancel_deadline_passed' => 'A foglalás már nem mondható le online — a lemondási határidő (:hours óra) lejárt. Vedd fel a kapcsolatot a szolgáltatóval.',
             'slot_unavailable' => 'Ez az időpont időközben betelt. Kérjük, válassz másikat.',
             'event_full' => 'Erre az eseményre már nincs szabad hely.',
+            'invalid_transition' => 'Ez a művelet a foglalás jelenlegi állapotában nem végezhető el.',
         ],
     ],
     'mail' => [

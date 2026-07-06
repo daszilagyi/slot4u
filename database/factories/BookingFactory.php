@@ -53,6 +53,12 @@ class BookingFactory extends Factory
         return $this->state(['status' => $status]);
     }
 
+    /** A requested (approval-pending) booking soft-holding its slot until $holdExpiresAt. */
+    public function requested(string $holdExpiresAt): static
+    {
+        return $this->state(['status' => BookingStatus::Requested, 'hold_expires_at' => $holdExpiresAt]);
+    }
+
     public function startingAt(string $startsAt, string $endsAt): static
     {
         return $this->state(['starts_at' => $startsAt, 'ends_at' => $endsAt]);
