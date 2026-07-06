@@ -3,6 +3,7 @@
 namespace App\Services\Booking;
 
 use App\Actions\Booking\CreateBooking;
+use App\Enums\EventStatus;
 use App\Enums\WaitlistStatus;
 use App\Events\WaitlistOffered;
 use App\Models\Event;
@@ -47,7 +48,10 @@ class WaitlistService
         }
 
         $event = Event::query()->where('tenant_id', $tenantId)->find($eventId);
-        if ($event === null) {
+        // A canceled event has nothing to offer — releasing a seat on it (e.g. a
+        // registrant canceling after the event was called off) must not promote a
+        // waiter onto a dead occurrence.
+        if ($event === null || $event->status !== EventStatus::Scheduled) {
             return null;
         }
 
@@ -130,6 +134,29 @@ class WaitlistService
         }
 
         return $due->count();
+    }
+
+    /**
+     * Close out the active waitlist of canceled events (docs/04 §3): a `waiting`/
+     * `offered` place on an event that no longer happens is moot, so it is expired.
+     * Registrant + waitlist notifications ride the status change in M5 (SLO-35).
+     * Returns the number of entries expired.
+     *
+     * @param  list<int>  $eventIds
+     */
+    public function expireForEvents(array $eventIds): int
+    {
+        if ($eventIds === []) {
+            return 0;
+        }
+
+        return WaitlistEntry::query()
+            ->whereIn('event_id', $eventIds)
+            ->whereIn('status', WaitlistStatus::activeValues())
+            ->update([
+                'status' => WaitlistStatus::Expired->value,
+                'offered_until' => null,
+            ]);
     }
 
     /**

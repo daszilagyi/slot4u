@@ -2,9 +2,11 @@
 
 use App\Actions\Booking\CancelBooking;
 use App\Actions\Booking\CreateBooking;
+use App\Actions\Event\CancelEvent;
 use App\Actions\Waitlist\JoinWaitlist;
 use App\Enums\BookingMode;
 use App\Enums\BookingStatus;
+use App\Enums\EventStatus;
 use App\Enums\Feature;
 use App\Enums\Role;
 use App\Enums\WaitlistStatus;
@@ -300,6 +302,57 @@ it('runs the expiry command across tenants', function () {
     app(TenantManager::class)->forget();
 
     $this->artisan('waitlist:expire-offers')->assertSuccessful();
+});
+
+// --- Canceled events ---
+
+it('does not offer a seat on a canceled event', function () {
+    $tenant = wlTenant();
+    $service = wlService($tenant);
+    $event = wlEvent($tenant, $service, capacity: 1, bookedCount: 0);
+    $event->status = EventStatus::Canceled;
+    $event->save();
+    $waiter = WaitlistEntry::factory()->forEvent($event)->position(1)->create();
+
+    expect(app(WaitlistService::class)->offerNext($event->id, $tenant->id))->toBeNull()
+        ->and($waiter->fresh()->status)->toBe(WaitlistStatus::Waiting);
+});
+
+it('expires active waitlist entries when the event is canceled', function () {
+    $tenant = wlTenant();
+    $service = wlService($tenant);
+    $event = wlEvent($tenant, $service, capacity: 1);
+    $waiting = WaitlistEntry::factory()->forEvent($event)->position(1)->create();
+    $offered = WaitlistEntry::factory()->forEvent($event)->position(2)->offered(now()->addDay()->toDateTimeString())->create();
+
+    app(CancelEvent::class)($event, applyToFollowing: false);
+
+    expect($waiting->fresh()->status)->toBe(WaitlistStatus::Expired)
+        ->and($offered->fresh()->status)->toBe(WaitlistStatus::Expired)
+        ->and($event->fresh()->status)->toBe(EventStatus::Canceled);
+});
+
+it('expires waitlist entries across a canceled series with "this and following"', function () {
+    $tenant = wlTenant();
+    $service = wlService($tenant);
+    $first = Event::factory()->forTenant($tenant)->create([
+        'service_id' => $service->id, 'capacity' => 1, 'booked_count' => 1,
+        'waitlist_enabled' => true, 'series_id' => '11111111-1111-1111-1111-111111111111',
+        'starts_at' => '2026-09-01 10:00:00', 'ends_at' => '2026-09-01 11:00:00',
+    ]);
+    $later = Event::factory()->forTenant($tenant)->create([
+        'service_id' => $service->id, 'capacity' => 1, 'booked_count' => 1,
+        'waitlist_enabled' => true, 'series_id' => '11111111-1111-1111-1111-111111111111',
+        'starts_at' => '2026-09-08 10:00:00', 'ends_at' => '2026-09-08 11:00:00',
+    ]);
+    $firstWaiter = WaitlistEntry::factory()->forEvent($first)->position(1)->create();
+    $laterWaiter = WaitlistEntry::factory()->forEvent($later)->position(1)->create();
+
+    app(CancelEvent::class)($first, applyToFollowing: true);
+
+    expect($firstWaiter->fresh()->status)->toBe(WaitlistStatus::Expired)
+        ->and($laterWaiter->fresh()->status)->toBe(WaitlistStatus::Expired)
+        ->and($later->fresh()->status)->toBe(EventStatus::Canceled);
 });
 
 // --- Tenant isolation ---
