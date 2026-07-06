@@ -561,6 +561,15 @@ return [
                 'resource_required' => 'Válassz dolgozót vagy helyiséget a foglaláshoz.',
             ],
         ],
+        'waitlist' => [
+            'joined' => 'Felvettük az ügyfelet a várólistára.',
+            'error' => [
+                'not_enabled' => 'Ehhez az eseményhez nincs várólista bekapcsolva.',
+                'not_full' => 'Az eseményen még van szabad hely — foglalj közvetlenül.',
+                'already_listed' => 'Ez az ügyfél már a várólistán van erre az eseményre.',
+                'feature' => 'A várólista nincs engedélyezve a csomagodban.',
+            ],
+        ],
         'settings' => [
             'title' => 'Beállítások',
             'subtitle' => 'Cégprofil, foglalási szabályok és a publikus felület megjelenése.',

@@ -11,6 +11,7 @@ use App\Http\Controllers\Admin\ServiceCategoryController;
 use App\Http\Controllers\Admin\ServiceController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\StaffController;
+use App\Http\Controllers\Admin\WaitlistController;
 use App\Http\Controllers\StaffProfileController;
 use App\Http\Controllers\Super\ImpersonationController;
 use Illuminate\Support\Facades\Route;
@@ -96,6 +97,8 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
         // per docs/03). CreateBooking is race-safe; the full list/UI is SLO-28.
         Route::middleware('can:'.Permission::BookingCreate->value)->group(function () {
             Route::post('/bookings', [BookingController::class, 'store'])->name('tenant.bookings.store');
+            // Join a full event's FIFO waitlist (SLO-25). Feature-gated in WaitlistRequest.
+            Route::post('/bookings/waitlist', [WaitlistController::class, 'store'])->name('tenant.bookings.waitlist');
         });
 
         // Company profile + branding settings (SLO-21). Gated by settings.edit
