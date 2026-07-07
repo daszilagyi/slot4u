@@ -229,6 +229,49 @@ export type Paginator<T> = {
     total: number;
 };
 
+export type BookingStatusValue =
+    | 'requested'
+    | 'approved'
+    | 'pending_payment'
+    | 'confirmed'
+    | 'completed'
+    | 'canceled'
+    | 'rejected'
+    | 'no_show';
+
+export type CustomerSummary = {
+    id: number;
+    name: string;
+    email: string;
+    phone: string | null;
+    bookings_count: number;
+    created_at: string | null;
+};
+
+export type CustomerBooking = {
+    id: number;
+    code: string;
+    service: string | null;
+    staff: string | null;
+    status: BookingStatusValue;
+    starts_at: string | null;
+    price_minor: number;
+    currency: string;
+};
+
+export type CustomerCard = {
+    id: number;
+    name: string;
+    email: string;
+    phone: string | null;
+    created_at: string | null;
+    bookings_count: number;
+    completed_count: number;
+    total_spend_minor: number;
+    currency: string;
+    recent_bookings: CustomerBooking[];
+};
+
 declare module '@inertiajs/core' {
     interface PageProps {
         locale: string;

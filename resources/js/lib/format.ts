@@ -26,6 +26,15 @@ export function formatDateTime(iso: string | null): string {
     });
 }
 
+/** Format an integer minor-unit amount (e.g. fillér) as localized currency. */
+export function formatMoney(minor: number, currency = 'HUF'): string {
+    return new Intl.NumberFormat('hu-HU', {
+        style: 'currency',
+        currency,
+        maximumFractionDigits: 0,
+    }).format(minor / 100);
+}
+
 /** Tailwind classes for a tenant status badge. */
 export function statusBadgeClass(status: string): string {
     const map: Record<string, string> = {
