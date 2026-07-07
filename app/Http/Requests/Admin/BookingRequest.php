@@ -73,6 +73,10 @@ class BookingRequest extends FormRequest
             match ($service->booking_mode) {
                 BookingMode::EventBased => $this->requireEvent($validator),
                 BookingMode::DurationBased, BookingMode::ResourceRental => $this->requireSlot($validator, $service),
+                // A quote_request service is booked only by accepting a quote
+                // (docs/04 §6, SLO-27) — never directly here. no_time_slot falls
+                // through to default (no slot/resource required).
+                BookingMode::QuoteRequest => $validator->errors()->add('service_id', __('app.admin.bookings.error.quote_mode')),
                 default => null,
             };
         });

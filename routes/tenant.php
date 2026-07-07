@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\BookingApprovalController;
 use App\Http\Controllers\Admin\BookingController;
 use App\Http\Controllers\Admin\EventController;
 use App\Http\Controllers\Admin\LocationController;
+use App\Http\Controllers\Admin\QuoteRequestController;
 use App\Http\Controllers\Admin\RoomController;
 use App\Http\Controllers\Admin\ScheduleController;
 use App\Http\Controllers\Admin\ScheduleExceptionController;
@@ -101,6 +102,31 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
             Route::post('/bookings', [BookingController::class, 'store'])->name('tenant.bookings.store');
             // Join a full event's FIFO waitlist (SLO-25). Feature-gated in WaitlistRequest.
             Route::post('/bookings/waitlist', [WaitlistController::class, 'store'])->name('tenant.bookings.waitlist');
+        });
+
+        // Fulfil a no_time_slot booking — manual/downloadable admin closure
+        // (docs/04 §1, SLO-27). Gated by booking.edit; digital fulfilment
+        // auto-completes at creation and needs no endpoint.
+        Route::middleware('can:'.Permission::BookingEdit->value)->group(function () {
+            Route::post('/bookings/{booking}/complete', [BookingController::class, 'complete'])->name('tenant.bookings.complete');
+        });
+
+        // Quote request flow (quote_request mode, docs/04 §6, SLO-27). Gated by
+        // feature_quote_request; creating needs booking.create, every lifecycle
+        // action booking.edit. Route-bound {quoteRequest} is tenant-scoped. The
+        // full admin list/UI is SLO-28 — these are the write paths it drives.
+        Route::middleware('ensure.feature:'.Feature::QuoteRequest->value)->group(function () {
+            Route::middleware('can:'.Permission::BookingCreate->value)->group(function () {
+                Route::post('/quote-requests', [QuoteRequestController::class, 'store'])->name('tenant.quote_requests.store');
+            });
+
+            Route::middleware('can:'.Permission::BookingEdit->value)->group(function () {
+                Route::post('/quote-requests/{quoteRequest}/start', [QuoteRequestController::class, 'start'])->name('tenant.quote_requests.start');
+                Route::post('/quote-requests/{quoteRequest}/submit', [QuoteRequestController::class, 'submit'])->name('tenant.quote_requests.submit');
+                Route::post('/quote-requests/{quoteRequest}/accept', [QuoteRequestController::class, 'accept'])->name('tenant.quote_requests.accept');
+                Route::post('/quote-requests/{quoteRequest}/reject', [QuoteRequestController::class, 'reject'])->name('tenant.quote_requests.reject');
+                Route::post('/quote-requests/{quoteRequest}/messages', [QuoteRequestController::class, 'message'])->name('tenant.quote_requests.message');
+            });
         });
 
         // Approval decisions on requested bookings (manual_approval, SLO-26). Gated

@@ -77,9 +77,14 @@ bookings           id, tenant_id, code(publikus azonosító), customer_id(users)
 booking_status_history id, booking_id, from, to, actor_id, created_at
 waitlist_entries   id, tenant_id, event_id|service_id, customer_id, position,
                    status(waiting|offered|converted|expired), offered_until
-quote_requests     id, tenant_id, service_id, customer_id, parameters(json), status
-                   (new|in_progress|quoted|accepted|rejected), quoted_price_minor, admin_notes
+quote_requests     id, tenant_id, service_id, customer_id(nullable), parameters(json), status
+                   (new|in_progress|quoted|accepted|rejected), price_minor(nullable),
+                   currency(nullable), valid_until(nullable), internal_notes(nullable),
+                   booking_id(nullable, az accepted-kor generált foglalás)
+quote_request_messages id, tenant_id, quote_request_id, user_id(nullable), body
 ```
+
+**Implementáció (SLO-27):** a `quote_requests` a fenti oszlopokkal jött létre (a korábbi `quoted_price_minor`/`admin_notes` felváltva `price_minor`+`currency`+`valid_until` ajánlat-mezőkre és `internal_notes` admin-jegyzetre; `booking_id` az accepted-kor generált foglalásra mutat). Az ajánlaton belüli üzenetváltás egy dedikált `quote_request_messages` táblát kap (author `user_id`+`body`), NEM a lenti generikus `messages` táblát — az (`sender_id`/`recipient_id`/`read_at`, `feature_messages`) tágabb M5-koncepció, a quote-beszélgetésnek csak rendezett szerző/törzs napló kell.
 
 `BookingStatus` enum: `requested → approved → confirmed → completed | canceled | rejected | no_show` (+`pending_payment`). Módonkénti állapotgráf: `04-foglalasi-modok.md`.
 

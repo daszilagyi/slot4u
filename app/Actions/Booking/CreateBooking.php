@@ -43,7 +43,10 @@ use RuntimeException;
  */
 class CreateBooking
 {
-    public function __construct(private readonly WaitlistService $waitlist) {}
+    public function __construct(
+        private readonly WaitlistService $waitlist,
+        private readonly ChangeBookingStatus $changeStatus,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $data
@@ -80,8 +83,11 @@ class CreateBooking
         return match ($service->booking_mode) {
             BookingMode::EventBased => $this->createEventBooking($attributes, $status, (int) $service->tenant_id, $holdExpiresAt),
             BookingMode::DurationBased, BookingMode::ResourceRental => $this->createTimeSlotBooking($attributes, $status, $service, $holdExpiresAt),
-            BookingMode::NoTimeSlot => $this->persist($attributes, $status, $holdExpiresAt),
-            BookingMode::QuoteRequest => throw new RuntimeException('quote_request does not create a booking directly (SLO-27).'),
+            BookingMode::NoTimeSlot => $this->createNoTimeSlotBooking($attributes, $status, $service, $holdExpiresAt),
+            // A quote_request booking is generated only when an accepted quote is
+            // turned into an engagement (docs/04 §6, SLO-27) — never time-slotted,
+            // and it carries the accepted quote price passed in $data.
+            BookingMode::QuoteRequest => $this->createQuoteBooking($attributes, $status, $data),
         };
     }
 
@@ -206,6 +212,51 @@ class CreateBooking
 
             return $booking;
         });
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     */
+    private function createNoTimeSlotBooking(array $attributes, BookingStatus $status, Service $service, ?Carbon $holdExpiresAt): Booking
+    {
+        $booking = $this->persist($attributes, $status, $holdExpiresAt);
+
+        // Digital fulfilment delivers instantly (docs/04 §1: "azonnali link"): a
+        // confirmed digital booking is completed on the spot. Manual/downloadable
+        // stay confirmed until an admin closes them (CompleteBooking, SLO-27).
+        if ($status === BookingStatus::Confirmed && $service->fulfillmentType() === 'digital') {
+            ($this->changeStatus)($booking, BookingStatus::Completed);
+        }
+
+        return $booking;
+    }
+
+    /**
+     * @param  array<string, mixed>  $attributes
+     * @param  array<string, mixed>  $data
+     */
+    private function createQuoteBooking(array $attributes, BookingStatus $status, array $data): Booking
+    {
+        // A quote_request booking is ONLY ever created by accepting a quote
+        // (AcceptQuoteRequest, docs/04 §6) — never through the generic booking
+        // endpoint, which would bypass the whole new→quoted→accepted lifecycle and
+        // book at the service list price. The accept path sets this internal flag;
+        // any other caller is refused. (BookingRequest also rejects the mode at the
+        // HTTP layer — defence in depth.)
+        if (($data['from_quote_acceptance'] ?? false) !== true) {
+            throw new RuntimeException('A quote_request booking can only be created by accepting a quote (SLO-27).');
+        }
+
+        // The accepted quote price is authoritative (docs/04 §6), overriding the
+        // service list price snapshot.
+        if (isset($data['price_minor'])) {
+            $attributes['price_minor'] = (int) $data['price_minor'];
+        }
+        if (! empty($data['currency'])) {
+            $attributes['currency'] = (string) $data['currency'];
+        }
+
+        return $this->persist($attributes, $status, null);
     }
 
     /**
