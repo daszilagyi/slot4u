@@ -559,6 +559,7 @@ return [
                 'event_required' => 'Eseményalapú szolgáltatáshoz válassz eseményt.',
                 'slot_required' => 'Add meg a foglalás kezdő és záró időpontját.',
                 'resource_required' => 'Válassz dolgozót vagy helyiséget a foglaláshoz.',
+                'quote_mode' => 'Ajánlatkérés módú szolgáltatás foglalása csak ajánlat elfogadásán keresztül lehetséges.',
             ],
         ],
         'waitlist' => [
@@ -577,6 +578,17 @@ return [
             'alternative_offered' => 'Az eredeti időpont helyett alternatívát ajánlottunk.',
             'error' => [
                 'slot_mode_only' => 'Alternatív időpont csak idősávos foglaláshoz ajánlható (időpont-alapú vagy erőforrás-bérlés).',
+            ],
+        ],
+        'quotes' => [
+            'created' => 'Ajánlatkérés rögzítve.',
+            'submitted' => 'Ajánlat elküldve az ügyfélnek.',
+            'accepted' => 'Ajánlat elfogadva.',
+            'rejected' => 'Ajánlatkérés elutasítva.',
+            'message_posted' => 'Üzenet elküldve.',
+            'error' => [
+                'feature' => 'Az ajánlatkérés nincs engedélyezve a csomagodban.',
+                'wrong_mode' => 'Ez a szolgáltatás nem ajánlatkérés módú.',
             ],
         ],
         'settings' => [
@@ -669,6 +681,12 @@ return [
             'slot_unavailable' => 'Ez az időpont időközben betelt. Kérjük, válassz másikat.',
             'event_full' => 'Erre az eseményre már nincs szabad hely.',
             'invalid_transition' => 'Ez a művelet a foglalás jelenlegi állapotában nem végezhető el.',
+            'complete_mode_only' => 'Csak időpont nélküli szolgáltatás zárható le ezen a módon.',
+        ],
+    ],
+    'quote' => [
+        'error' => [
+            'invalid_transition' => 'Ez a művelet az ajánlatkérés jelenlegi állapotában nem végezhető el.',
         ],
     ],
     'mail' => [

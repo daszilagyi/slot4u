@@ -119,6 +119,31 @@ class Service extends Model
     }
 
     /**
+     * The fulfilment type for a no_time_slot service (docs/04 §1): digital /
+     * manual / downloadable. Lives in the free-form `settings` json (validated by
+     * ServiceRequest); null when unset or not a no_time_slot service.
+     */
+    public function fulfillmentType(): ?string
+    {
+        $value = $this->settings['fulfillment_type'] ?? null;
+
+        return is_string($value) && $value !== '' ? $value : null;
+    }
+
+    /**
+     * The customer-facing form fields a quote_request service asks for (docs/04
+     * §6), stored in `settings.quote_fields`. Empty when unset.
+     *
+     * @return list<string>
+     */
+    public function quoteFields(): array
+    {
+        $fields = $this->settings['quote_fields'] ?? [];
+
+        return is_array($fields) ? array_values(array_filter($fields, 'is_string')) : [];
+    }
+
+    /**
      * Whether the service has upcoming bookings that block hard deletion (it must
      * be inactivated instead). The bookings table arrives with the booking engine
      * (M3); until then a service can never have a booking, so this is false.

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Actions\Booking\CompleteBooking;
 use App\Actions\Booking\CreateBooking;
 use App\Enums\BookingSource;
 use App\Http\Controllers\Controller;
@@ -9,6 +10,7 @@ use App\Http\Requests\Admin\BookingRequest;
 use App\Models\Booking;
 use App\Models\Service;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 
 /**
@@ -35,6 +37,20 @@ class BookingController extends Controller
         $data['source'] = BookingSource::Admin->value;
 
         $createBooking($service, $data, $request->user());
+
+        return back();
+    }
+
+    /**
+     * Fulfil a no_time_slot booking (manual/downloadable closure, docs/04 §1,
+     * SLO-27): confirmed → completed. Gated by booking.edit. Route-bound {booking}
+     * is tenant-scoped; a wrong-mode booking surfaces as a 422.
+     */
+    public function complete(Request $request, string $tenant, Booking $booking, CompleteBooking $completeBooking): RedirectResponse
+    {
+        Gate::authorize('update', $booking);
+
+        $completeBooking($booking, $request->user());
 
         return back();
     }

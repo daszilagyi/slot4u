@@ -10,6 +10,8 @@ Példa: videó/digitális termék vásárlás, receptkérés, dokumentumbeküld�
 - `fulfillment_type`: digital (azonnali link) / manual (admin teljesíti) / downloadable.
 - Állapot: `confirmed → completed` (manualnál admin zárja le).
 
+**Implementáció (SLO-27):** a `CreateBooking` a `no_time_slot` foglalást starts_at/ends_at nélkül hozza létre a service kezdő státuszába (`confirmed`, vagy `pending_payment`/`requested` a fizetés/jóváhagyás kapuknál). A `fulfillment_type` a service `settings`-ből olvasva (`Service::fulfillmentType()`): **digital** → ha a foglalás létrejöttekor `confirmed`, azonnal `completed`-be lép (az „azonnali link" kézbesítés a `ChangeBookingStatus`-on át); **manual/downloadable** → `confirmed` marad, az admin a **`CompleteBooking`** actionnel (`POST /bookings/{booking}/complete`, `booking.edit`) zárja le. A `CompleteBooking` szándékosan csak `no_time_slot` módra enged (422 egyébként) — az idősávos/esemény foglalások lezárása (részvétel-jelölés) az admin foglaláskezelő UI-jal jön (SLO-28).
+
 ## 2. `duration_based` — Idősávos foglalás (CORE, legfontosabb)
 
 Példa: 60 perc masszázs, 50 perc konzultáció, edzés.
@@ -57,6 +59,8 @@ Példa: rendezvény, catering, komplex csomag.
 - Nem azonnali foglalás: ügyfél űrlapot tölt ki (szolgáltatásonként definiálható mezők, `parameters` json), `quote_requests` rekord jön létre.
 - Admin flow: `new → in_progress → quoted` (ár + érvényesség) `→ accepted` (ekkor opcionálisan booking generálódik) `| rejected`.
 - Üzenetváltás a kérelmen belül (messages, booking_id helyett quote_request_id kapcsolattal).
+
+**Implementáció (SLO-27):** a `QuoteRequestStatus` enum tartja az átmenet-mátrixot (`new → in_progress → quoted → accepted|rejected`, reject bármely aktív állapotból), a **`ChangeQuoteRequestStatus`** az egyetlen szentesített státuszváltó (érvénytelen átmenet → `InvalidQuoteTransitionException`, 422; `QuoteRequestStatusChanged` domain event M5-re). A **`CreateQuoteRequest`** a kitöltött űrlapot a `parameters` json-ba menti (`new` státusz + `QuoteRequestCreated` event). A **`SubmitQuote`** beállítja az ár-mezőket (`price_minor`+`currency`+`valid_until`) és `quoted`-be lép (fresh `new` kérést egy lépésben átvisz `in_progress`-en). Az **`AcceptQuoteRequest`** `quoted → accepted` és opcionálisan foglalást generál a szentesített `CreateBooking`-on át (`booking_mode=quote_request`, az **elfogadott ajánlati ár** felülírja a service listaárat, `source=admin` → `confirmed`), a `quote_requests.booking_id`-t erre kötve — egy tranzakcióban, hogy a foglalás-hiba visszagörgesse az elfogadást. A **`RejectQuoteRequest`** `→ rejected`. Az üzenetváltás a **`quote_request_messages`** táblán (`PostQuoteMessage` + `QuoteMessagePosted` event); a belső admin-jegyzet a `internal_notes` oszlopon. Végpontok: `POST /quote-requests` (`booking.create`), `.../{q}/start|submit|accept|reject|messages` (`booking.edit`), mind `feature_quote_request` mögött. Admin lista/UI + publikus űrlap → SLO-28 / M4; értesítések → M5 (SLO-35).
 
 ## Szolgáltatás-törzsadat implementáció (SLO-18, M2)
 
