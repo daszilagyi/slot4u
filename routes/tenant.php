@@ -4,6 +4,7 @@ use App\Enums\Feature;
 use App\Enums\Permission;
 use App\Http\Controllers\Admin\BookingApprovalController;
 use App\Http\Controllers\Admin\BookingController;
+use App\Http\Controllers\Admin\CustomerController;
 use App\Http\Controllers\Admin\EventController;
 use App\Http\Controllers\Admin\LocationController;
 use App\Http\Controllers\Admin\QuoteRequestController;
@@ -135,6 +136,20 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
             Route::post('/bookings/{booking}/approve', [BookingApprovalController::class, 'approve'])->name('tenant.bookings.approve');
             Route::post('/bookings/{booking}/reject', [BookingApprovalController::class, 'reject'])->name('tenant.bookings.reject');
             Route::post('/bookings/{booking}/propose', [BookingApprovalController::class, 'propose'])->name('tenant.bookings.propose');
+        });
+
+        // Customer management (SLO-84): the tenant's customers = users with the
+        // customer role. Viewing needs customer.view, writing customer.edit
+        // (docs/03). Route-bound {customer} is tenant + role scoped
+        // (Customer::resolveRouteBinding → cross-tenant/non-customer 404); an
+        // employee is further restricted to their own customers in the controller.
+        Route::middleware('can:'.Permission::CustomerView->value)->group(function () {
+            Route::get('/customers', [CustomerController::class, 'index'])->name('tenant.customers.index');
+            Route::get('/customers/{customer}', [CustomerController::class, 'show'])->name('tenant.customers.show');
+        });
+        Route::middleware('can:'.Permission::CustomerEdit->value)->group(function () {
+            Route::post('/customers', [CustomerController::class, 'store'])->name('tenant.customers.store');
+            Route::put('/customers/{customer}', [CustomerController::class, 'update'])->name('tenant.customers.update');
         });
 
         // Company profile + branding settings (SLO-21). Gated by settings.edit

@@ -2,6 +2,7 @@ import {
     BlocksIcon,
     CalendarClockIcon,
     CalendarPlusIcon,
+    ContactIcon,
     LayoutDashboardIcon,
     MapPinIcon,
     SettingsIcon,
@@ -73,6 +74,14 @@ export const navItems: NavItem[] = [
         href: '/events',
         icon: CalendarPlusIcon,
         permission: 'schedule.manage',
+        ready: true,
+    },
+    {
+        key: 'customers',
+        labelKey: 'admin.nav.customers',
+        href: '/customers',
+        icon: ContactIcon,
+        permission: 'customer.view',
         ready: true,
     },
     {
