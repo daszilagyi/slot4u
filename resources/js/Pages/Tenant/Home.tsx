@@ -1,9 +1,10 @@
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 import { motion } from 'framer-motion';
 import { ClockIcon, MailIcon, MapPinIcon, PhoneIcon } from 'lucide-react';
 
 import PublicLayout from '@/Layouts/PublicLayout';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { formatMoney } from '@/lib/format';
 import { useTranslations } from '@/lib/i18n';
 import type {
@@ -164,6 +165,17 @@ export default function TenantHome({
                                                     </Badge>
                                                 ) : null}
                                             </div>
+                                            <Button
+                                                asChild
+                                                size="sm"
+                                                className="mt-1"
+                                            >
+                                                <Link
+                                                    href={`/book?service=${service.id}`}
+                                                >
+                                                    {t('tenant.home.book_cta')}
+                                                </Link>
+                                            </Button>
                                         </motion.article>
                                     ))}
                                 </div>
