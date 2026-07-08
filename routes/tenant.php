@@ -18,6 +18,7 @@ use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Admin\WaitlistController;
 use App\Http\Controllers\StaffProfileController;
 use App\Http\Controllers\Super\ImpersonationController;
+use App\Http\Controllers\Tenant\BookingController as TenantBookingController;
 use App\Http\Controllers\Tenant\HomeController as TenantHomeController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -26,8 +27,15 @@ use Inertia\Inertia;
 // tenant and enforces its status before any tenant route runs (docs/01).
 Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function () {
     // Public surface (no auth): the tenant landing page — profile, locations,
-    // service catalogue (SLO-29). The booking flow itself arrives next in M4.
+    // service catalogue (SLO-29).
     Route::get('/', [TenantHomeController::class, 'index'])->name('tenant.home');
+
+    // Public slot-picker (SLO-30): browse free slots for a time-slot service.
+    // Unauthenticated + availability-query-heavy, so it's throttled. The booking
+    // submission flow itself arrives with SLO-31.
+    Route::get('/book', [TenantBookingController::class, 'index'])
+        ->middleware('throttle:60,1')
+        ->name('tenant.book');
 
     // Authenticated tenant area: only members of this tenant (super-admins are
     // redirected to the admin panel unless impersonating). Extendable with

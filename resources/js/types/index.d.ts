@@ -365,6 +365,53 @@ export type PublicHomeBranding = {
     cover_url: string | null;
 };
 
+export type BookServiceOption = {
+    id: number;
+    name: string;
+    booking_mode: BookingModeValue;
+};
+
+export type BookServiceDetail = {
+    id: number;
+    name: string;
+    description: string | null;
+    price_minor: number;
+    currency: string;
+    booking_mode: BookingModeValue;
+    duration_minutes: number | null;
+};
+
+export type BookSlot = {
+    start: string;
+    end: string;
+    staff_id: number | null;
+    room_id: number | null;
+    time: string;
+};
+
+export type BookDay = {
+    date: string;
+    day: number;
+    weekday: number;
+    is_today: boolean;
+    is_past: boolean;
+    is_selected: boolean;
+};
+
+export type BookStaffOption = {
+    id: number;
+    name: string;
+    location_ids: number[];
+};
+
+export type BookRoomOption = {
+    id: number;
+    name: string;
+    location_id: number;
+};
+
+export type BookLocationOption = { id: number; name: string };
+
 declare module '@inertiajs/core' {
     interface PageProps {
         locale: string;
