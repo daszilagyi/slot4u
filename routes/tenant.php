@@ -18,14 +18,16 @@ use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Admin\WaitlistController;
 use App\Http\Controllers\StaffProfileController;
 use App\Http\Controllers\Super\ImpersonationController;
+use App\Http\Controllers\Tenant\HomeController as TenantHomeController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 // Tenant subdomain ({tenant}.{central}). The middleware chain resolves the
 // tenant and enforces its status before any tenant route runs (docs/01).
 Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function () {
-    // Public surface (no auth) — the booking front arrives with M4.
-    Route::get('/', fn () => Inertia::render('Tenant/Home'))->name('tenant.home');
+    // Public surface (no auth): the tenant landing page — profile, locations,
+    // service catalogue (SLO-29). The booking flow itself arrives next in M4.
+    Route::get('/', [TenantHomeController::class, 'index'])->name('tenant.home');
 
     // Authenticated tenant area: only members of this tenant (super-admins are
     // redirected to the admin panel unless impersonating). Extendable with

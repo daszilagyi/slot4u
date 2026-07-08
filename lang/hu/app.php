@@ -8,9 +8,15 @@ return [
     ],
     'tenant' => [
         'home' => [
-            'title' => 'Foglalási felület',
-            'subtitle' => 'Itt jelenik majd meg a publikus foglalófelület.',
-            'badge' => 'Tenant',
+            'subtitle' => 'Foglalj online, néhány kattintással.',
+            'meta_description' => ':name — foglalj online, néhány kattintással.',
+            'services_title' => 'Szolgáltatások',
+            'services_empty' => 'Hamarosan elérhető szolgáltatások.',
+            'other_services' => 'Egyéb szolgáltatások',
+            'locations_title' => 'Helyszínek',
+            'contact_title' => 'Kapcsolat',
+            'minutes' => ':count perc',
+            'powered_by' => 'slot4u-val működik',
         ],
         'suspended' => [
             'title' => 'A szolgáltatás átmenetileg nem elérhető',
