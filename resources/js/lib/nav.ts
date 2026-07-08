@@ -1,5 +1,6 @@
 import {
     BlocksIcon,
+    CalendarCheckIcon,
     CalendarClockIcon,
     CalendarPlusIcon,
     ContactIcon,
@@ -74,6 +75,14 @@ export const navItems: NavItem[] = [
         href: '/events',
         icon: CalendarPlusIcon,
         permission: 'schedule.manage',
+        ready: true,
+    },
+    {
+        key: 'bookings',
+        labelKey: 'admin.nav.bookings',
+        href: '/bookings',
+        icon: CalendarCheckIcon,
+        permission: 'booking.view',
         ready: true,
     },
     {

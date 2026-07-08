@@ -272,6 +272,62 @@ export type CustomerCard = {
     recent_bookings: CustomerBooking[];
 };
 
+export type BookingSummary = {
+    id: number;
+    code: string;
+    customer: string | null;
+    service: string | null;
+    staff: string | null;
+    status: BookingStatusValue;
+    booking_mode: BookingModeValue;
+    starts_at: string | null;
+    ends_at: string | null;
+    price_minor: number;
+    currency: string;
+};
+
+export type BookingHistoryEntry = {
+    id: number;
+    from_status: BookingStatusValue | null;
+    to_status: BookingStatusValue;
+    actor: string | null;
+    created_at: string | null;
+};
+
+export type BookingDetail = {
+    id: number;
+    code: string;
+    status: BookingStatusValue;
+    booking_mode: BookingModeValue;
+    customer: string | null;
+    customer_email: string | null;
+    service: string | null;
+    staff: string | null;
+    room: string | null;
+    starts_at: string | null;
+    ends_at: string | null;
+    party_size: number;
+    price_minor: number;
+    currency: string;
+    notes: string | null;
+    cancel_reason: string | null;
+    history: BookingHistoryEntry[];
+};
+
+export type BookingFilterOptions = {
+    statuses: BookingStatusValue[];
+    staff: { id: number; name: string }[];
+    services: { id: number; name: string }[];
+};
+
+export type BookingFilters = {
+    status: BookingStatusValue | null;
+    staff_id: number | null;
+    service_id: number | null;
+    from: string | null;
+    to: string | null;
+};
+
 declare module '@inertiajs/core' {
     interface PageProps {
         locale: string;
