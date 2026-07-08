@@ -1,9 +1,12 @@
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
+import { motion } from 'framer-motion';
 import { ArrowLeftIcon, ClockIcon } from 'lucide-react';
-import { useState } from 'react';
+import { type FormEvent, useState } from 'react';
 
 import PublicLayout from '@/Layouts/PublicLayout';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatMoney } from '@/lib/format';
 import { useTranslations } from '@/lib/i18n';
@@ -93,6 +96,39 @@ export default function Book(props: BookProps) {
     const slots = props.slots ?? [];
     const week = props.week ?? [];
     const selectedSlot = slots.find((s) => s.start === selectedStart) ?? null;
+
+    // Booking details form (prefilled for a logged-in customer). The slot fields
+    // are injected from the selected slot at submit time.
+    const authUser = page.props.auth.user;
+    const form = useForm({
+        name: authUser?.name ?? '',
+        email: authUser?.email ?? '',
+        phone: '',
+        notes: '',
+    });
+
+    // The slot-taken error (SlotUnavailableException → withErrors(['booking'])) is a
+    // non-field error, so it comes through the shared errors bag, not form.errors.
+    const bookingError = (
+        page.props.errors as Record<string, string> | undefined
+    )?.booking;
+
+    function submitBooking(event: FormEvent) {
+        event.preventDefault();
+        if (!service || !selectedSlot) {
+            return;
+        }
+        form.transform((data) => ({
+            ...data,
+            service_id: service.id,
+            staff_id: selectedSlot.staff_id,
+            room_id: selectedSlot.room_id,
+            starts_at: selectedSlot.start,
+            ends_at: selectedSlot.end,
+        }));
+        // On success the server PRG-redirects to /booked/{code} (Inertia follows).
+        form.post('/book', { preserveScroll: true });
+    }
 
     return (
         <PublicLayout>
@@ -383,9 +419,17 @@ export default function Book(props: BookProps) {
                                     </div>
                                 )}
 
-                                {/* Selected slot → hand-off to the booking flow (SLO-31) */}
+                                {/* Selected slot → the details card (the picked
+                                    time becomes the confirm card's header, SLO-31) */}
                                 {selectedSlot ? (
-                                    <div className="flex flex-col items-start gap-3 rounded-xl border border-border bg-card p-5 sm:flex-row sm:items-center sm:justify-between">
+                                    <motion.form
+                                        key={selectedSlot.start}
+                                        initial={{ opacity: 0, y: 8 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.25 }}
+                                        onSubmit={submitBooking}
+                                        className="flex flex-col gap-4 rounded-xl border border-primary/40 bg-card p-5"
+                                    >
                                         <div className="text-sm">
                                             <div className="text-muted-foreground">
                                                 {t('tenant.book.selected')}
@@ -396,13 +440,101 @@ export default function Book(props: BookProps) {
                                                 {selectedSlot.time}
                                             </div>
                                         </div>
-                                        <Button disabled>
-                                            {t('tenant.book.continue')}
-                                            <span className="ml-1 text-xs opacity-70">
-                                                {t('tenant.book.coming_soon')}
-                                            </span>
+
+                                        {bookingError ? (
+                                            <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                                                {bookingError}
+                                            </p>
+                                        ) : null}
+
+                                        <div className="grid gap-4 sm:grid-cols-2">
+                                            <div className="flex flex-col gap-1.5">
+                                                <Label htmlFor="book-name">
+                                                    {t('tenant.book.form.name')}
+                                                </Label>
+                                                <Input
+                                                    id="book-name"
+                                                    value={form.data.name}
+                                                    onChange={(e) =>
+                                                        form.setData(
+                                                            'name',
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                />
+                                                {form.errors.name ? (
+                                                    <p className="text-sm text-destructive">
+                                                        {form.errors.name}
+                                                    </p>
+                                                ) : null}
+                                            </div>
+                                            <div className="flex flex-col gap-1.5">
+                                                <Label htmlFor="book-email">
+                                                    {t(
+                                                        'tenant.book.form.email',
+                                                    )}
+                                                </Label>
+                                                <Input
+                                                    id="book-email"
+                                                    type="email"
+                                                    value={form.data.email}
+                                                    onChange={(e) =>
+                                                        form.setData(
+                                                            'email',
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                />
+                                                {form.errors.email ? (
+                                                    <p className="text-sm text-destructive">
+                                                        {form.errors.email}
+                                                    </p>
+                                                ) : null}
+                                            </div>
+                                            <div className="flex flex-col gap-1.5">
+                                                <Label htmlFor="book-phone">
+                                                    {t(
+                                                        'tenant.book.form.phone',
+                                                    )}
+                                                </Label>
+                                                <Input
+                                                    id="book-phone"
+                                                    value={form.data.phone}
+                                                    onChange={(e) =>
+                                                        form.setData(
+                                                            'phone',
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                />
+                                            </div>
+                                            <div className="flex flex-col gap-1.5">
+                                                <Label htmlFor="book-notes">
+                                                    {t(
+                                                        'tenant.book.form.notes',
+                                                    )}
+                                                </Label>
+                                                <Input
+                                                    id="book-notes"
+                                                    value={form.data.notes}
+                                                    onChange={(e) =>
+                                                        form.setData(
+                                                            'notes',
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <Button
+                                            type="submit"
+                                            disabled={form.processing}
+                                            className="w-full sm:w-auto sm:self-end"
+                                        >
+                                            {t('tenant.book.confirm')}
                                         </Button>
-                                    </div>
+                                    </motion.form>
                                 ) : null}
                             </>
                         ) : (

@@ -30,12 +30,17 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
     // service catalogue (SLO-29).
     Route::get('/', [TenantHomeController::class, 'index'])->name('tenant.home');
 
-    // Public slot-picker (SLO-30): browse free slots for a time-slot service.
-    // Unauthenticated + availability-query-heavy, so it's throttled. The booking
-    // submission flow itself arrives with SLO-31.
-    Route::get('/book', [TenantBookingController::class, 'index'])
-        ->middleware('throttle:60,1')
-        ->name('tenant.book');
+    // Public slot-picker (SLO-30) + booking submission (SLO-31). Unauthenticated
+    // and availability/write heavy, so both are throttled. The guest becomes a
+    // customer in CreateBooking; a taken slot self-renders back with errors.
+    // Route-bound {booking:code} on the confirmation/ICS routes is tenant-scoped
+    // (BelongsToTenant → cross-tenant 404).
+    Route::middleware('throttle:60,1')->group(function () {
+        Route::get('/book', [TenantBookingController::class, 'index'])->name('tenant.book');
+        Route::post('/book', [TenantBookingController::class, 'store'])->name('tenant.book.store');
+        Route::get('/booked/{booking:code}', [TenantBookingController::class, 'confirmation'])->name('tenant.booked');
+        Route::get('/booked/{booking:code}/ics', [TenantBookingController::class, 'ics'])->name('tenant.booked.ics');
+    });
 
     // Authenticated tenant area: only members of this tenant (super-admins are
     // redirected to the admin panel unless impersonating). Extendable with

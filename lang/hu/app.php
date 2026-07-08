@@ -36,8 +36,6 @@ return [
             'minutes' => ':count perc',
             'no_slots' => 'Erre a napra nincs szabad időpont.',
             'selected' => 'Kiválasztott időpont',
-            'continue' => 'Tovább a foglaláshoz',
-            'coming_soon' => 'hamarosan',
             'event_soon' => 'Ez egy eseményalapú szolgáltatás — a meghirdetett alkalmakra jelentkezés hamarosan elérhető.',
             'other_soon' => 'Ehhez a szolgáltatáshoz a foglalási felület hamarosan elérhető.',
             'weekday' => [
@@ -48,6 +46,29 @@ return [
                 '5' => 'P',
                 '6' => 'Szo',
                 '7' => 'V',
+            ],
+            'confirm' => 'Foglalás megerősítése',
+            'form' => [
+                'name' => 'Név',
+                'email' => 'Email',
+                'phone' => 'Telefon',
+                'notes' => 'Megjegyzés',
+            ],
+        ],
+        'booked' => [
+            'title' => 'Foglalás visszaigazolása',
+            'code_label' => 'Foglalási kód',
+            'service' => 'Szolgáltatás',
+            'staff' => 'Munkatárs',
+            'when' => 'Időpont',
+            'ics' => 'Hozzáadás a naptárhoz',
+            'back' => 'Vissza a főoldalra',
+            'ics_description' => 'slot4u foglalás — kód: :code',
+            'status' => [
+                'confirmed' => 'A foglalásod megerősítve.',
+                'requested' => 'A foglalásod jóváhagyásra vár — értesítünk, amint elfogadták.',
+                'pending_payment' => 'A foglalásod a fizetésre vár.',
+                'default' => 'A foglalásod rögzítve.',
             ],
         ],
         'suspended' => [

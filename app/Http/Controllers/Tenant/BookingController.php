@@ -2,19 +2,28 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Actions\Booking\CreateBooking;
+use App\Actions\Customer\FindOrCreateCustomer;
+use App\Enums\BookingSource;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Tenant\PublicBookingRequest;
+use App\Models\Booking;
 use App\Models\Location;
 use App\Models\Room;
 use App\Models\Service;
 use App\Models\Staff;
+use App\Models\Tenant;
 use App\Services\Booking\AvailabilityService;
 use App\Services\Booking\Slot;
 use App\Tenancy\TenantManager;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\Response as HttpResponse;
 
 /**
  * Public booking page (SLO-30): the {tenant}.slot4u.hu slot-picker. For a
@@ -94,6 +103,164 @@ class BookingController extends Controller
         }
 
         return Inertia::render('Tenant/Book', $props);
+    }
+
+    /**
+     * Submit a public booking for a chosen slot (SLO-31). A guest becomes a
+     * customer record (FindOrCreateCustomer); CreateBooking is race-safe and, via
+     * source=online, applies the approval/payment gates. A taken slot throws
+     * SlotUnavailableException, which self-renders as a back()->withErrors so the
+     * picker can prompt a fresh slot. On success we PRG-redirect to the
+     * confirmation page.
+     */
+    public function store(PublicBookingRequest $request, CreateBooking $createBooking, FindOrCreateCustomer $findOrCreateCustomer): RedirectResponse
+    {
+        $data = $request->validated();
+
+        $service = Service::query()->where('active', true)
+            ->with(['staff:id', 'rooms:id'])
+            ->findOrFail($data['service_id']);
+        abort_unless($service->booking_mode->usesTimeSlot(), 404);
+
+        // Never trust the submitted times: re-validate the slot against live
+        // availability (schedule/duration/future), and use the matched slot's own
+        // instants — so a crafted POST can't book off-grid or with a wrong length.
+        $slot = $this->matchAvailableSlot($service, $data);
+
+        try {
+            $customer = $findOrCreateCustomer($data['email'], $data['name'], $data['phone'] ?? null);
+        } catch (ValidationException $e) {
+            // FindOrCreateCustomer reports on `customer_email`; surface it on the
+            // public form's `email` field instead.
+            throw ValidationException::withMessages(['email' => $e->validator->errors()->first()]);
+        }
+
+        $booking = $createBooking($service, [
+            'customer_id' => $customer->id,
+            'staff_id' => $slot->staffId,
+            'room_id' => $slot->roomId,
+            'starts_at' => $slot->start->toDateTimeString(),
+            'ends_at' => $slot->end->toDateTimeString(),
+            'party_size' => 1,
+            'notes' => $data['notes'] ?? null,
+            'source' => BookingSource::Online->value,
+        ]);
+
+        // Relative redirect keeps us on the current tenant subdomain (the named
+        // route is domain-bound and would need the {tenant} param).
+        return redirect('/booked/'.$booking->code);
+    }
+
+    /**
+     * Booking confirmation page (SLO-31), reached by the public code. Route-bound
+     * {booking:code} is tenant-scoped (BelongsToTenant → cross-tenant 404). The
+     * status drives the message (confirmed / awaiting approval / awaiting payment).
+     */
+    public function confirmation(string $tenant, Booking $booking): Response
+    {
+        $booking->load(['service:id,name', 'staff:id,name']);
+        $timezone = app(TenantManager::class)->current()->timezone;
+
+        return Inertia::render('Tenant/Booked', [
+            'booking' => [
+                'code' => $booking->code,
+                'service' => $booking->service?->name,
+                'staff' => $booking->staff?->name,
+                'status' => $booking->status->value,
+                'starts_at' => $booking->starts_at?->toIso8601String(),
+                'starts_local' => $this->localDateTime($booking->starts_at, $timezone),
+                'ends_local' => $this->localDateTime($booking->ends_at, $timezone),
+            ],
+            'timezone' => $timezone,
+        ]);
+    }
+
+    /**
+     * Download the booking as an .ics calendar event (SLO-31, "naptárba mentés").
+     * Route-bound {booking:code} is tenant-scoped.
+     */
+    public function ics(string $tenant, Booking $booking): HttpResponse
+    {
+        $booking->load('service:id,name');
+        $tenantModel = app(TenantManager::class)->current();
+
+        return response($this->buildIcs($booking, $tenantModel), 200, [
+            'Content-Type' => 'text/calendar; charset=utf-8',
+            'Content-Disposition' => 'attachment; filename="foglalas-'.$booking->code.'.ics"',
+        ]);
+    }
+
+    /**
+     * The live availability slot matching the submitted start + resource, or a
+     * clean "slot unavailable" error (which self-renders back to the picker). The
+     * matched slot's own instants are authoritative — the request times are only a
+     * lookup key, never stored verbatim.
+     *
+     * @param  array<string, mixed>  $data
+     *
+     * @throws ValidationException
+     */
+    private function matchAvailableSlot(Service $service, array $data): Slot
+    {
+        $timezone = app(TenantManager::class)->current()->timezone;
+        $start = Carbon::parse($data['starts_at']);
+        $staffId = isset($data['staff_id']) ? (int) $data['staff_id'] : null;
+        $roomId = isset($data['room_id']) ? (int) $data['room_id'] : null;
+
+        $slots = $this->availability->slotsForDay(
+            $service,
+            $start->copy()->timezone($timezone),
+            $staffId,
+            $roomId,
+        );
+
+        foreach ($slots as $slot) {
+            if ($slot->start->equalTo($start) && $slot->staffId === $staffId && $slot->roomId === $roomId) {
+                return $slot;
+            }
+        }
+
+        throw ValidationException::withMessages([
+            'booking' => __('app.booking.error.slot_unavailable'),
+        ]);
+    }
+
+    private function localDateTime(?Carbon $instant, string $timezone): ?string
+    {
+        return $instant?->copy()->timezone($timezone)->format('Y-m-d H:i');
+    }
+
+    /**
+     * A minimal VCALENDAR/VEVENT for the booking; times are UTC (Z-suffixed).
+     */
+    private function buildIcs(Booking $booking, Tenant $tenant): string
+    {
+        $start = $booking->starts_at?->copy()->utc()->format('Ymd\THis\Z') ?? '';
+        $end = $booking->ends_at?->copy()->utc()->format('Ymd\THis\Z') ?? '';
+        $summary = $this->escapeIcs($booking->service->name.' — '.$tenant->name);
+        $location = $this->escapeIcs($tenant->name);
+
+        $lines = [
+            'BEGIN:VCALENDAR',
+            'VERSION:2.0',
+            'PRODID:-//slot4u//booking//HU',
+            'BEGIN:VEVENT',
+            'UID:'.$booking->code.'@'.$tenant->slug,
+            'DTSTART:'.$start,
+            'DTEND:'.$end,
+            'SUMMARY:'.$summary,
+            'LOCATION:'.$location,
+            'DESCRIPTION:'.$this->escapeIcs(__('app.tenant.booked.ics_description', ['code' => $booking->code])),
+            'END:VEVENT',
+            'END:VCALENDAR',
+        ];
+
+        return implode("\r\n", $lines)."\r\n";
+    }
+
+    private function escapeIcs(string $value): string
+    {
+        return str_replace(['\\', ';', ',', "\n"], ['\\\\', '\\;', '\\,', '\\n'], $value);
     }
 
     /**

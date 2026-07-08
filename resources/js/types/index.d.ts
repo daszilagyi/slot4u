@@ -412,6 +412,16 @@ export type BookRoomOption = {
 
 export type BookLocationOption = { id: number; name: string };
 
+export type BookedBooking = {
+    code: string;
+    service: string | null;
+    staff: string | null;
+    status: BookingStatusValue;
+    starts_at: string | null;
+    starts_local: string | null;
+    ends_local: string | null;
+};
+
 declare module '@inertiajs/core' {
     interface PageProps {
         locale: string;
