@@ -104,6 +104,21 @@ services:
     volumes:
       - ./:/var/www/html
 
+  # Inertia SSR renderer (node) — szerver-renderelt HTML a publikus oldalakhoz
+  # (SEO, docs/01). A buildelt bundle-t (bootstrap/ssr/ssr.js) futtatja a 13714
+  # porton; a php-fpm az INERTIA_SSR_URL=http://ssr:13714 címen éri el. A bundle
+  # frontend-változás után újraépítendő: `docker compose exec vite npm run build`
+  # (throw_on_error=false → elavult/hiányzó bundle esetén kliens-fallback).
+  ssr:
+    image: node:22-alpine
+    restart: unless-stopped
+    working_dir: /var/www/html
+    command: node bootstrap/ssr/ssr.js
+    volumes:
+      - ./:/var/www/html
+    depends_on:
+      - app
+
 volumes:
   db_data:
   redis_data:

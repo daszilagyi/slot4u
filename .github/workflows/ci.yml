@@ -66,3 +66,52 @@ jobs:
 
       - name: Build (client + SSR)
         run: npm run build
+
+  ssr:
+    name: SSR — publikus szerver-render smoke
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: intl, zip, gd, bcmath, pcntl, pdo_sqlite, redis
+          coverage: none
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install Composer dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Build assets (client + SSR bundle)
+        run: npm run build
+
+      - name: Start Inertia SSR renderer
+        run: |
+          node bootstrap/ssr/ssr.js &
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:13714/health > /dev/null; then
+              echo "SSR renderer up"; exit 0
+            fi
+            sleep 1
+          done
+          echo "SSR renderer did not become healthy" >&2; exit 1
+
+      - name: SSR smoke test (live renderer, throw on error)
+        env:
+          INERTIA_SSR_URL: http://127.0.0.1:13714
+        run: php artisan test --filter=PublicSsrSmokeTest

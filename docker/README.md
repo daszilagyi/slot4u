@@ -43,6 +43,7 @@ make migrate     # MariaDB migrációk
 |---|---|
 | App (nginx) | http://slot4u.test (és `*.slot4u.test` tenant subdomainek) |
 | Vite HMR | http://localhost:5173 |
+| Inertia SSR | belső (`ssr:13714`) — publikus oldalak szerver-renderelése (SEO) |
 | Reverb (WS) | ws://localhost:8080 (csak `--profile workers` után) |
 | MariaDB | localhost:3306 (`slot4u` / `secret`) |
 | Redis | localhost:6379 |
@@ -55,6 +56,22 @@ A subdomain-alapú tenancy lokális teszteléséhez a Windows `hosts` fájlba
 ```
 
 (Alternatíva hosts-szerkesztés nélkül: `lvh.me` wildcard, `*.lvh.me` → 127.0.0.1.)
+
+### Inertia SSR (publikus oldalak)
+
+Az `ssr` szolgáltatás a buildelt bundle-t (`bootstrap/ssr/ssr.js`) futtatja node-dal a
+13714 porton; a php-fpm az `INERTIA_SSR_URL=http://ssr:13714` címen éri el (lásd
+`.env.example`). **Hot (Vite dev) módban** — amíg `public/hot` létezik — az SSR-t a Vite
+dev szerver szolgálja ki, nem a bundle; a bundle-utat a nélküli („production") mód használja.
+A bundle frontend-változás után újraépítendő, és az `ssr` konténer újraindítandó:
+
+```bash
+docker compose exec vite npm run build
+docker compose restart ssr
+```
+
+Hiányzó/elavult bundle vagy leállt renderer esetén az app csendben kliens-oldali
+renderelésre esik vissza (`INERTIA_SSR_THROW_ON_ERROR=false`).
 
 ## 4. Laravel Boost MCP a konténerben
 
