@@ -1,6 +1,6 @@
 import { Head } from '@inertiajs/react';
 
-import AppLayout from '@/Layouts/AppLayout';
+import PublicLayout from '@/Layouts/PublicLayout';
 import { useTranslations } from '@/lib/i18n';
 
 interface SuspendedProps {
@@ -11,10 +11,10 @@ export default function Suspended({ tenantName }: SuspendedProps) {
     const t = useTranslations();
 
     return (
-        <AppLayout>
+        <PublicLayout>
             <Head title={t('tenant.suspended.title')} />
 
-            <div className="mx-auto flex max-w-xl flex-col items-center gap-6 text-center">
+            <div className="mx-auto flex max-w-xl flex-col items-center gap-6 px-4 py-24 text-center">
                 <span className="rounded-full border border-destructive/40 px-4 py-1 text-xs font-medium tracking-wide text-destructive uppercase">
                     {t('tenant.suspended.badge')}
                 </span>
@@ -29,6 +29,6 @@ export default function Suspended({ tenantName }: SuspendedProps) {
 
                 <p className="text-sm text-muted-foreground/70">{tenantName}</p>
             </div>
-        </AppLayout>
+        </PublicLayout>
     );
 }

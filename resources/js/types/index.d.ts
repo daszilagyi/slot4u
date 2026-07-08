@@ -328,6 +328,43 @@ export type BookingFilters = {
     to: string | null;
 };
 
+export type PublicHomeService = {
+    id: number;
+    name: string;
+    description: string | null;
+    booking_mode: BookingModeValue;
+    duration_minutes: number | null;
+    price_minor: number;
+    currency: string;
+};
+
+export type PublicHomeCategory = {
+    id: number | null;
+    name: string | null;
+    services: PublicHomeService[];
+};
+
+export type PublicHomeLocation = {
+    id: number;
+    name: string;
+    address: LocationAddress;
+    phone: string | null;
+};
+
+export type PublicHomeProfile = {
+    name: string;
+    description: string | null;
+    email: string | null;
+    phone: string | null;
+    address: LocationAddress;
+    opening_hours: string | null;
+    social: Record<string, string>;
+};
+
+export type PublicHomeBranding = {
+    cover_url: string | null;
+};
+
 declare module '@inertiajs/core' {
     interface PageProps {
         locale: string;
