@@ -7,7 +7,7 @@ import { useTheme } from '@/lib/theme';
 /** Light/dark toggle button (dark is the default theme). */
 export default function ThemeToggle() {
     const t = useTranslations();
-    const { theme, toggle } = useTheme();
+    const { toggle } = useTheme();
     const label = t('admin.topbar.toggle_theme');
 
     return (
@@ -18,7 +18,11 @@ export default function ThemeToggle() {
             aria-label={label}
             title={label}
         >
-            {theme === 'dark' ? <SunIcon /> : <MoonIcon />}
+            {/* Both icons render identically on server and client; the <html>
+                `dark` class (set pre-paint) picks which is visible via CSS, so
+                the toggle is hydration-safe under SSR. */}
+            <SunIcon className="hidden dark:block" />
+            <MoonIcon className="block dark:hidden" />
         </Button>
     );
 }
