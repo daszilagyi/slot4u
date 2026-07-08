@@ -97,19 +97,36 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
             Route::post('/events/{event}/cancel', [EventController::class, 'cancel'])->name('tenant.events.cancel');
         });
 
+        // Admin booking list (SLO-85). Gated by booking.view. The list is tenant-
+        // scoped and further narrowed to the actor's own bookings for an employee
+        // ({@see BookingVisibility}); a hidden booking 404s on show, like a
+        // cross-tenant id. Route-bound {booking} is tenant-scoped (BelongsToTenant).
+        Route::middleware('can:'.Permission::BookingView->value)->group(function () {
+            Route::get('/bookings', [BookingController::class, 'index'])->name('tenant.bookings.index');
+            Route::get('/bookings/{booking}', [BookingController::class, 'show'])->name('tenant.bookings.show');
+        });
+
         // Admin-created bookings (SLO-24). Gated by booking.create (manager/employee
-        // per docs/03). CreateBooking is race-safe; the full list/UI is SLO-28.
+        // per docs/03). CreateBooking is race-safe.
         Route::middleware('can:'.Permission::BookingCreate->value)->group(function () {
             Route::post('/bookings', [BookingController::class, 'store'])->name('tenant.bookings.store');
             // Join a full event's FIFO waitlist (SLO-25). Feature-gated in WaitlistRequest.
             Route::post('/bookings/waitlist', [WaitlistController::class, 'store'])->name('tenant.bookings.waitlist');
         });
 
-        // Fulfil a no_time_slot booking — manual/downloadable admin closure
-        // (docs/04 §1, SLO-27). Gated by booking.edit; digital fulfilment
-        // auto-completes at creation and needs no endpoint.
+        // Booking quick actions (SLO-85). Gated by booking.edit: fulfil a
+        // no_time_slot booking (docs/04 §1, SLO-27), mark no-show, reschedule a
+        // time-slot booking. Ownership 404 + state-machine 422 in the controller.
         Route::middleware('can:'.Permission::BookingEdit->value)->group(function () {
             Route::post('/bookings/{booking}/complete', [BookingController::class, 'complete'])->name('tenant.bookings.complete');
+            Route::post('/bookings/{booking}/no-show', [BookingController::class, 'noShow'])->name('tenant.bookings.no_show');
+            Route::post('/bookings/{booking}/reschedule', [BookingController::class, 'reschedule'])->name('tenant.bookings.reschedule');
+        });
+
+        // Cancel a booking (SLO-85). Gated by booking.cancel (a distinct permission
+        // from booking.edit per docs/03); admin-initiated, no deadline check.
+        Route::middleware('can:'.Permission::BookingCancel->value)->group(function () {
+            Route::post('/bookings/{booking}/cancel', [BookingController::class, 'cancel'])->name('tenant.bookings.cancel');
         });
 
         // Quote request flow (quote_request mode, docs/04 §6, SLO-27). Gated by

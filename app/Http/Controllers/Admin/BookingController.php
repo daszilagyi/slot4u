@@ -2,27 +2,112 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Actions\Booking\CancelBooking;
+use App\Actions\Booking\ChangeBookingStatus;
 use App\Actions\Booking\CompleteBooking;
 use App\Actions\Booking\CreateBooking;
+use App\Actions\Booking\RescheduleBooking;
 use App\Enums\BookingSource;
+use App\Enums\BookingStatus;
+use App\Enums\Permission;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\BookingRequest;
+use App\Http\Requests\Admin\CancelBookingRequest;
+use App\Http\Requests\Admin\RescheduleBookingRequest;
 use App\Models\Booking;
 use App\Models\Service;
+use App\Models\Staff;
+use App\Models\User;
+use App\Support\BookingVisibility;
+use App\Tenancy\TenantManager;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
+use Inertia\Inertia;
+use Inertia\Response;
 
 /**
- * Admin-side booking creation (SLO-24). Lives behind auth + ensure.user.tenant +
- * can:booking.create (routes/tenant.php). The full booking list/UI is SLO-28; this
- * endpoint is the write path an admin (or the M4 public flow) drives. Slot/capacity
- * race protection + status logic live in {@see CreateBooking}; a taken slot throws
- * SlotUnavailableException (rendered as a 422).
+ * Admin booking management (SLO-24 create, SLO-85 list + quick actions). Lives
+ * behind auth + ensure.user.tenant + the booking.* permissions (routes/tenant.php).
+ * The list is tenant-scoped (BelongsToTenant) and further narrowed to what the
+ * actor may see ({@see BookingVisibility}: an employee sees only their own staff's
+ * bookings); a booking outside that scope surfaces as a 404, like a cross-tenant
+ * id. Every write goes through the action layer (race-safe create, state-machine
+ * status changes); an illegal transition or taken slot surfaces as a 422.
  */
 class BookingController extends Controller
 {
-    // $tenant absorbs the subdomain route parameter.
+    public function index(Request $request): Response
+    {
+        Gate::authorize('viewAny', Booking::class);
+
+        $filters = $request->validate([
+            'status' => ['nullable', 'string', 'in:'.implode(',', BookingStatus::values())],
+            'staff_id' => ['nullable', 'integer'],
+            'service_id' => ['nullable', 'integer'],
+            'from' => ['nullable', 'date'],
+            'to' => ['nullable', 'date', 'after_or_equal:from'],
+        ]);
+        $actor = $request->user();
+
+        [$fromUtc, $toUtc] = $this->dateRange($filters['from'] ?? null, $filters['to'] ?? null);
+
+        $query = Booking::query()
+            ->with(['customer:id,name,email', 'service:id,name', 'staff:id,name'])
+            ->when($filters['status'] ?? null, fn (Builder $q, string $status) => $q->where('status', $status))
+            ->when($filters['staff_id'] ?? null, fn (Builder $q, int $staffId) => $q->where('staff_id', $staffId))
+            ->when($filters['service_id'] ?? null, fn (Builder $q, int $serviceId) => $q->where('service_id', $serviceId))
+            ->when($fromUtc, fn (Builder $q) => $q->where('starts_at', '>=', $fromUtc))
+            ->when($toUtc, fn (Builder $q) => $q->where('starts_at', '<=', $toUtc))
+            ->orderByDesc('starts_at')
+            ->orderByDesc('id');
+
+        // Employees see only their own bookings (docs/03 "saját foglalásai").
+        BookingVisibility::apply($query, $actor);
+
+        $bookings = $query->paginate(20)->withQueryString()
+            ->through(fn (Booking $booking) => $this->summary($booking));
+
+        return Inertia::render('Admin/Bookings/Index', [
+            'bookings' => $bookings,
+            'filters' => [
+                'status' => $filters['status'] ?? null,
+                'staff_id' => $filters['staff_id'] ?? null,
+                'service_id' => $filters['service_id'] ?? null,
+                'from' => $filters['from'] ?? null,
+                'to' => $filters['to'] ?? null,
+            ],
+            'options' => [
+                'statuses' => BookingStatus::values(),
+                'staff' => $this->staffOptions($actor),
+                'services' => Service::query()->orderBy('name')->get(['id', 'name']),
+            ],
+            'can' => [
+                'edit' => (bool) $actor->can(Permission::BookingEdit->value),
+                'cancel' => (bool) $actor->can(Permission::BookingCancel->value),
+            ],
+        ]);
+    }
+
+    // $tenant absorbs the subdomain route parameter (before the bound {booking}).
+    public function show(Request $request, string $tenant, Booking $booking): Response
+    {
+        $actor = $request->user();
+        abort_unless(BookingVisibility::owns($actor, $booking), 404);
+        Gate::authorize('view', $booking);
+
+        return Inertia::render('Admin/Bookings/Show', [
+            'booking' => $this->detail($booking),
+            'can' => [
+                'edit' => (bool) $actor->can(Permission::BookingEdit->value),
+                'cancel' => (bool) $actor->can(Permission::BookingCancel->value),
+            ],
+        ]);
+    }
+
     public function store(BookingRequest $request, CreateBooking $createBooking): RedirectResponse
     {
         Gate::authorize('create', Booking::class);
@@ -48,10 +133,173 @@ class BookingController extends Controller
      */
     public function complete(Request $request, string $tenant, Booking $booking, CompleteBooking $completeBooking): RedirectResponse
     {
+        $actor = $request->user();
+        abort_unless(BookingVisibility::owns($actor, $booking), 404);
         Gate::authorize('update', $booking);
 
-        $completeBooking($booking, $request->user());
+        $completeBooking($booking, $actor);
 
         return back();
+    }
+
+    /**
+     * Cancel a booking from the admin list (SLO-85). Admin-initiated: no
+     * cancellation-deadline check ({@see CancelBooking} with online:false). Gated
+     * by booking.cancel; an illegal transition surfaces as a 422.
+     */
+    public function cancel(CancelBookingRequest $request, string $tenant, Booking $booking, CancelBooking $cancelBooking): RedirectResponse
+    {
+        $actor = $request->user();
+        abort_unless(BookingVisibility::owns($actor, $booking), 404);
+        Gate::authorize('cancel', $booking);
+
+        $cancelBooking($booking, $actor, $request->validated('reason'));
+
+        return back();
+    }
+
+    /**
+     * Mark a confirmed booking as no-show (docs/04 §5, SLO-85). Goes through the
+     * shared state machine; confirmed → no_show only (an illegal transition → 422).
+     */
+    public function noShow(Request $request, string $tenant, Booking $booking, ChangeBookingStatus $changeStatus): RedirectResponse
+    {
+        $actor = $request->user();
+        abort_unless(BookingVisibility::owns($actor, $booking), 404);
+        Gate::authorize('update', $booking);
+
+        $changeStatus($booking, BookingStatus::NoShow, $actor);
+
+        return back();
+    }
+
+    /**
+     * Reschedule a time-slot booking (docs/04 §2, SLO-85): cancel the old + create
+     * the new in one transaction, keeping the original service. An unavailable new
+     * slot rolls the whole thing back (the original survives) and surfaces as a 422.
+     */
+    public function reschedule(RescheduleBookingRequest $request, string $tenant, Booking $booking, RescheduleBooking $reschedule): RedirectResponse
+    {
+        $actor = $request->user();
+        abort_unless(BookingVisibility::owns($actor, $booking), 404);
+        Gate::authorize('update', $booking);
+
+        $data = $request->validated();
+        $service = Service::query()->findOrFail($booking->service_id);
+
+        $reschedule($booking, $service, [
+            'service_id' => $service->id,
+            'customer_id' => $booking->customer_id,
+            'staff_id' => $data['staff_id'] ?? $booking->staff_id,
+            'room_id' => $data['room_id'] ?? $booking->room_id,
+            'starts_at' => $data['starts_at'],
+            'ends_at' => $data['ends_at'],
+            'party_size' => $booking->party_size,
+            'source' => BookingSource::Admin->value,
+        ], $actor);
+
+        return back();
+    }
+
+    /**
+     * Interpret the tenant-local from/to date filters as full-day bounds in UTC
+     * (docs/01 §7): from → start of that day, to → end of that day.
+     *
+     * @return array{0: ?string, 1: ?string}
+     */
+    private function dateRange(?string $from, ?string $to): array
+    {
+        $tenant = app(TenantManager::class)->current();
+        $tz = $tenant !== null ? $tenant->timezone : (string) config('app.timezone');
+
+        $fromUtc = $from !== null ? Carbon::parse($from, $tz)->startOfDay()->utc()->toDateTimeString() : null;
+        $toUtc = $to !== null ? Carbon::parse($to, $tz)->endOfDay()->utc()->toDateTimeString() : null;
+
+        return [$fromUtc, $toUtc];
+    }
+
+    /**
+     * Staff options for the filter: every staff for the unrestricted roles, only
+     * the actor's own staff for an employee (mirrors the list scope).
+     *
+     * @return Collection<int, array{id: int, name: string}>
+     */
+    private function staffOptions(User $actor): Collection
+    {
+        $query = Staff::query()->orderBy('name');
+
+        if (! BookingVisibility::unrestricted($actor)) {
+            $query->whereIn('id', BookingVisibility::actorStaffIds($actor));
+        }
+
+        return $query->get(['id', 'name'])->map(fn (Staff $staff) => [
+            'id' => $staff->id,
+            'name' => $staff->name,
+        ]);
+    }
+
+    /**
+     * Row DTO for the list.
+     *
+     * @return array<string, mixed>
+     */
+    private function summary(Booking $booking): array
+    {
+        return [
+            'id' => $booking->id,
+            'code' => $booking->code,
+            'customer' => $booking->customer?->name,
+            'service' => $booking->service?->name,
+            'staff' => $booking->staff?->name,
+            'status' => $booking->status->value,
+            'booking_mode' => $booking->booking_mode->value,
+            'starts_at' => $booking->starts_at?->toIso8601String(),
+            'ends_at' => $booking->ends_at?->toIso8601String(),
+            'price_minor' => (int) $booking->price_minor,
+            'currency' => $booking->currency,
+        ];
+    }
+
+    /**
+     * Detail DTO for the booking card: the booking + its status-change history
+     * (N+1-safe eager load of the actor names).
+     *
+     * @return array<string, mixed>
+     */
+    private function detail(Booking $booking): array
+    {
+        $booking->load(['customer:id,name,email', 'service:id,name', 'staff:id,name', 'room:id,name']);
+
+        $history = $booking->statusHistory()
+            ->with('actor:id,name')
+            ->orderBy('id')
+            ->get()
+            ->map(fn ($entry) => [
+                'id' => $entry->id,
+                'from_status' => $entry->from_status?->value,
+                'to_status' => $entry->to_status->value,
+                'actor' => $entry->actor?->name,
+                'created_at' => $entry->created_at->toIso8601String(),
+            ]);
+
+        return [
+            'id' => $booking->id,
+            'code' => $booking->code,
+            'status' => $booking->status->value,
+            'booking_mode' => $booking->booking_mode->value,
+            'customer' => $booking->customer?->name,
+            'customer_email' => $booking->customer?->email,
+            'service' => $booking->service?->name,
+            'staff' => $booking->staff?->name,
+            'room' => $booking->room?->name,
+            'starts_at' => $booking->starts_at?->toIso8601String(),
+            'ends_at' => $booking->ends_at?->toIso8601String(),
+            'party_size' => (int) $booking->party_size,
+            'price_minor' => (int) $booking->price_minor,
+            'currency' => $booking->currency,
+            'notes' => $booking->notes,
+            'cancel_reason' => $booking->cancel_reason,
+            'history' => $history,
+        ];
     }
 }
