@@ -41,7 +41,9 @@ return [
             'event_full' => 'Betelt',
             'event_join' => 'Jelentkezés',
             'event_waitlist' => 'Várólista',
-            'event_signup_soon' => 'A jelentkezés hamarosan elérhető.',
+            'party_size' => 'Létszám',
+            'event_confirm' => 'Jelentkezés véglegesítése',
+            'waitlist_confirm' => 'Feliratkozás a várólistára',
             'other_soon' => 'Ehhez a szolgáltatáshoz a foglalási felület hamarosan elérhető.',
             'weekday' => [
                 '1' => 'H',
@@ -75,6 +77,13 @@ return [
                 'pending_payment' => 'A foglalásod a fizetésre vár.',
                 'default' => 'A foglalásod rögzítve.',
             ],
+        ],
+        'waitlisted' => [
+            'title' => 'Felkerültél a várólistára',
+            'subtitle' => 'Értesítünk, amint felszabadul egy hely.',
+            'position_label' => 'Pozíciód a várólistán',
+            'event' => 'Esemény',
+            'back' => 'Vissza a főoldalra',
         ],
         'suspended' => [
             'title' => 'A szolgáltatás átmenetileg nem elérhető',

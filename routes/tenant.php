@@ -40,6 +40,11 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
     Route::middleware('throttle:60,1')->group(function () {
         Route::get('/book', [TenantBookingController::class, 'index'])->name('tenant.book');
         Route::post('/book', [TenantBookingController::class, 'store'])->name('tenant.book.store');
+        // Public event sign-up + waitlist join (SLO-100). Route-bound {event} is
+        // tenant-scoped (BelongsToTenant → cross-tenant 404).
+        Route::post('/events/{event}/book', [TenantBookingController::class, 'storeEvent'])->name('tenant.events.book');
+        Route::post('/events/{event}/waitlist', [TenantBookingController::class, 'storeWaitlist'])->name('tenant.events.waitlist');
+        Route::get('/waitlisted', [TenantBookingController::class, 'waitlisted'])->name('tenant.waitlisted');
         Route::get('/booked/{booking:code}', [TenantBookingController::class, 'confirmation'])->name('tenant.booked');
         Route::get('/booked/{booking:code}/ics', [TenantBookingController::class, 'ics'])->name('tenant.booked.ics');
     });
