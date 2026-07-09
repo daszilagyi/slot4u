@@ -1,8 +1,14 @@
 <?php
 
+use App\Enums\Role;
 use App\Models\Tenant;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
+use Spatie\Permission\PermissionRegistrar;
+
+afterEach(function () {
+    app(PermissionRegistrar::class)->setPermissionsTeamId(null);
+});
 
 it('renders the login page', function () {
     $this->get('http://'.config('tenancy.central_domain').'/login')
@@ -10,12 +16,14 @@ it('renders the login page', function () {
         ->assertInertia(fn (Assert $page) => $page->component('Auth/Login'));
 });
 
-it('logs a tenant user in and redirects to their subdomain dashboard', function () {
+it('logs a staff user in and redirects to their subdomain dashboard', function () {
     $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
+    app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getKey());
     $user = User::factory()->create([
         'tenant_id' => $tenant->id,
         'email' => 'admin@acme.test',
     ]);
+    $user->assignRole(Role::TenantAdmin->value);
 
     $this->post('http://acme.'.config('tenancy.central_domain').'/login', [
         'email' => 'admin@acme.test',

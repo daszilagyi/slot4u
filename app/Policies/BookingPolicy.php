@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Actions\Booking\CancelBooking;
 use App\Enums\Permission;
 use App\Models\Booking;
 use App\Models\User;
@@ -55,5 +56,28 @@ class BookingPolicy
     {
         return $user->can(Permission::BookingApprove->value)
             && BookingVisibility::owns($user, $booking);
+    }
+
+    /**
+     * A customer viewing their OWN booking in the members area (SLO-94). This is
+     * the ownership axis, distinct from the staff permission abilities above — a
+     * customer holds no booking permission codes (SLO-86), so their "own data"
+     * access (docs/03) is purely ownership. The members controller maps a denial
+     * to 404, not 403, so a booking that isn't theirs is indistinguishable from a
+     * non-existent one (hidden existence, like a cross-tenant id).
+     */
+    public function viewOwn(User $user, Booking $booking): bool
+    {
+        return $booking->customer_id === $user->getKey();
+    }
+
+    /**
+     * A customer cancelling their OWN booking online (SLO-94). The cancellation
+     * deadline itself is enforced in {@see CancelBooking} (online: true); this
+     * ability is only the ownership gate.
+     */
+    public function cancelOwn(User $user, Booking $booking): bool
+    {
+        return $booking->customer_id === $user->getKey();
     }
 }

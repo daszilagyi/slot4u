@@ -1,9 +1,10 @@
-import { usePage } from '@inertiajs/react';
+import { Link, usePage } from '@inertiajs/react';
 import { motion } from 'framer-motion';
 import type { CSSProperties, PropsWithChildren } from 'react';
 
 import ImpersonationBanner from '@/components/ImpersonationBanner';
 import ThemeToggle from '@/components/ThemeToggle';
+import { Button } from '@/components/ui/button';
 import { useTranslations } from '@/lib/i18n';
 
 /**
@@ -14,11 +15,19 @@ import { useTranslations } from '@/lib/i18n';
  */
 export default function PublicLayout({ children }: PropsWithChildren) {
     const t = useTranslations();
-    const tenant = usePage().props.tenant;
+    const { tenant, auth } = usePage().props;
 
     const brandStyle = tenant
         ? ({ ['--primary']: tenant.primary_color } as CSSProperties)
         : undefined;
+
+    // A guest is offered login; a signed-in customer (never staff — they belong
+    // in the admin panel) gets a link to their members area (SLO-33).
+    const accountLink = auth.user
+        ? auth.user.is_staff
+            ? null
+            : { href: '/my/bookings', label: t('tenant.nav.my_bookings') }
+        : { href: '/login', label: t('tenant.nav.login') };
 
     return (
         <div
@@ -53,7 +62,16 @@ export default function PublicLayout({ children }: PropsWithChildren) {
                         </span>
                     </div>
 
-                    <ThemeToggle />
+                    <div className="flex items-center gap-2">
+                        {accountLink ? (
+                            <Button asChild variant="ghost" size="sm">
+                                <Link href={accountLink.href}>
+                                    {accountLink.label}
+                                </Link>
+                            </Button>
+                        ) : null}
+                        <ThemeToggle />
+                    </div>
                 </div>
             </header>
 

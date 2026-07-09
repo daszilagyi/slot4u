@@ -61,6 +61,9 @@ class HandleInertiaRequests extends Middleware
                     'id' => $user->id,
                     'name' => $user->name,
                     'email' => $user->email,
+                    // Lets the public shell pick the members-area vs admin link and
+                    // never offer a customer a staff-only destination (SLO-94).
+                    'is_staff' => $user->isStaff(),
                 ],
                 'permissions' => $this->permissionsFor($user),
             ],

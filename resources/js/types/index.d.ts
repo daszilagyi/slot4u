@@ -8,6 +8,7 @@ export type AuthUser = {
     id: number;
     name: string;
     email: string;
+    is_staff: boolean;
 };
 
 export type Auth = {
@@ -420,6 +421,18 @@ export type BookedBooking = {
     starts_at: string | null;
     starts_local: string | null;
     ends_local: string | null;
+};
+
+export type MyBooking = {
+    id: number;
+    code: string;
+    service: string | null;
+    staff: string | null;
+    status: BookingStatusValue;
+    starts_at: string | null;
+    starts_local: string | null;
+    ends_local: string | null;
+    can_cancel: boolean;
 };
 
 declare module '@inertiajs/core' {
