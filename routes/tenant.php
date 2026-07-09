@@ -40,6 +40,9 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
     Route::middleware('throttle:60,1')->group(function () {
         Route::get('/book', [TenantBookingController::class, 'index'])->name('tenant.book');
         Route::post('/book', [TenantBookingController::class, 'store'])->name('tenant.book.store');
+        // Public no_time_slot order (SLO-101): no slot, no resource — the mode is
+        // re-checked in the controller (a non-no_time_slot service 404s).
+        Route::post('/order', [TenantBookingController::class, 'storeOrder'])->name('tenant.book.order');
         // Public event sign-up + waitlist join (SLO-100). Route-bound {event} is
         // tenant-scoped (BelongsToTenant → cross-tenant 404).
         Route::post('/events/{event}/book', [TenantBookingController::class, 'storeEvent'])->name('tenant.events.book');

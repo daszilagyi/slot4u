@@ -380,6 +380,8 @@ export type BookServiceDetail = {
     currency: string;
     booking_mode: BookingModeValue;
     duration_minutes: number | null;
+    /** no_time_slot only (SLO-101): digital / manual / downloadable, or null. */
+    fulfillment_type: FulfillmentTypeValue | null;
 };
 
 export type BookSlot = {

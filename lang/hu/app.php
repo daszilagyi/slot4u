@@ -44,6 +44,13 @@ return [
             'party_size' => 'Létszám',
             'event_confirm' => 'Jelentkezés véglegesítése',
             'waitlist_confirm' => 'Feliratkozás a várólistára',
+            'order_intro' => 'Ehhez a szolgáltatáshoz nem kell időpontot választanod — töltsd ki az adataidat, és elküldjük a megrendelésed.',
+            'order_confirm' => 'Megrendelés elküldése',
+            'fulfillment' => [
+                'digital' => 'A visszaigazolás után azonnal hozzáférsz a tartalomhoz.',
+                'downloadable' => 'A letöltési lehetőséget a megrendelés visszaigazolásában küldjük.',
+                'manual' => 'A megrendelésed rögzítjük, és kollégánk hamarosan teljesíti.',
+            ],
             'other_soon' => 'Ehhez a szolgáltatáshoz a foglalási felület hamarosan elérhető.',
             'weekday' => [
                 '1' => 'H',
@@ -75,6 +82,7 @@ return [
                 'confirmed' => 'A foglalásod megerősítve.',
                 'requested' => 'A foglalásod jóváhagyásra vár — értesítünk, amint elfogadták.',
                 'pending_payment' => 'A foglalásod a fizetésre vár.',
+                'completed' => 'A megrendelésed teljesítve.',
                 'default' => 'A foglalásod rögzítve.',
             ],
         ],

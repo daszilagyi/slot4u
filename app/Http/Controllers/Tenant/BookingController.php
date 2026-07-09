@@ -13,6 +13,7 @@ use App\Exceptions\SlotUnavailableException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tenant\PublicBookingRequest;
 use App\Http\Requests\Tenant\PublicEventBookingRequest;
+use App\Http\Requests\Tenant\PublicOrderRequest;
 use App\Models\Booking;
 use App\Models\Customer;
 use App\Models\Event;
@@ -98,6 +99,11 @@ class BookingController extends Controller
                 'currency' => $service->currency,
                 'booking_mode' => $service->booking_mode->value,
                 'duration_minutes' => $service->duration_minutes,
+                // Drives the "what happens after you order" note on the
+                // no_time_slot form (docs/04 §1); null for every other mode.
+                'fulfillment_type' => $service->booking_mode === BookingMode::NoTimeSlot
+                    ? $service->fulfillmentType()
+                    : null,
             ],
             'timezone' => $timezone,
             'filters' => [
@@ -153,6 +159,36 @@ class BookingController extends Controller
 
         // Relative redirect keeps us on the current tenant subdomain (the named
         // route is domain-bound and would need the {tenant} param).
+        return redirect('/booked/'.$booking->code);
+    }
+
+    /**
+     * Submit a public no_time_slot order (SLO-101). The mode has no slot and no
+     * resource to contend for, so there is nothing to re-validate against live
+     * availability — only the mode itself, which the route-independent
+     * PublicOrderRequest cannot enforce. CreateBooking applies the approval/payment
+     * gates via source=online and completes a confirmed digital order on the spot
+     * (docs/04 §1); manual/downloadable stay confirmed for an admin to close.
+     */
+    public function storeOrder(PublicOrderRequest $request, CreateBooking $createBooking, FindOrCreateCustomer $findOrCreateCustomer): RedirectResponse
+    {
+        $data = $request->validated();
+
+        $service = Service::query()->where('active', true)->findOrFail($data['service_id']);
+        // Only this mode orders without a time. Anything else (a time-slot service,
+        // an event, or a quote_request that must walk its own lifecycle) is not a
+        // valid target for this endpoint.
+        abort_unless($service->booking_mode === BookingMode::NoTimeSlot, 404);
+
+        $customer = $this->findGuest($findOrCreateCustomer, $data);
+
+        $booking = $createBooking($service, [
+            'customer_id' => $customer->id,
+            'party_size' => 1,
+            'notes' => $data['notes'] ?? null,
+            'source' => BookingSource::Online->value,
+        ]);
+
         return redirect('/booked/'.$booking->code);
     }
 
@@ -298,6 +334,12 @@ class BookingController extends Controller
      */
     public function ics(string $tenant, Booking $booking): HttpResponse
     {
+        // A no_time_slot order has no start/end, so there is no calendar event to
+        // emit — without this the builder would write an empty DTSTART/DTEND and
+        // hand the guest a malformed .ics. The confirmation page hides the button
+        // for such a booking; this closes the direct-URL path (SLO-101).
+        abort_if($booking->starts_at === null || $booking->ends_at === null, 404);
+
         $booking->load('service:id,name');
         $tenantModel = app(TenantManager::class)->current();
 
