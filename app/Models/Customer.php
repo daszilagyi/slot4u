@@ -31,6 +31,19 @@ class Customer extends User
     protected string $guard_name = 'web';
 
     /**
+     * Customers share the `users` table and authenticate through the `users`
+     * auth provider — i.e. a logged-in customer is resolved as a {@see User}, not
+     * a Customer. spatie stores role/permission rows keyed by the model's morph
+     * class, so a role assigned to a Customer instance must use the SAME morph
+     * type as User; otherwise `hasRole()` after login (and the `ensure.customer`
+     * gate) would not see it (SLO-95). Align the morph class with User's.
+     */
+    public function getMorphClass(): string
+    {
+        return (new User)->getMorphClass();
+    }
+
+    /**
      * Base query for the current tenant's customers: users in this tenant holding
      * the customer role. The role filter runs against the current spatie team
      * (set by IdentifyTenant), so it never leaks another tenant's roster.

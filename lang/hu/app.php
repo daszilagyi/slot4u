@@ -131,6 +131,17 @@ return [
             'submit' => 'Regisztráció',
             'has_account' => 'Van már fiókod? Jelentkezz be',
         ],
+        'register_customer' => [
+            'title' => 'Fiók létrehozása',
+            'subtitle' => 'Regisztrálj, hogy kezelhesd a foglalásaidat.',
+            'name' => 'Neved',
+            'email' => 'Email cím',
+            'phone_optional' => 'Telefonszám (opcionális)',
+            'password' => 'Jelszó',
+            'password_confirmation' => 'Jelszó megerősítése',
+            'submit' => 'Regisztráció',
+            'has_account' => 'Van már fiókod? Jelentkezz be',
+        ],
         'forgot' => [
             'title' => 'Jelszó visszaállítása',
             'subtitle' => 'Add meg az email címed, és küldünk egy visszaállító linket.',
