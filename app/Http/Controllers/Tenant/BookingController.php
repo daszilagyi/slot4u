@@ -4,13 +4,17 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Actions\Booking\CreateBooking;
 use App\Actions\Customer\FindOrCreateCustomer;
+use App\Actions\Waitlist\JoinWaitlist;
 use App\Enums\BookingMode;
 use App\Enums\BookingSource;
 use App\Enums\EventStatus;
 use App\Enums\Feature;
+use App\Exceptions\SlotUnavailableException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tenant\PublicBookingRequest;
+use App\Http\Requests\Tenant\PublicEventBookingRequest;
 use App\Models\Booking;
+use App\Models\Customer;
 use App\Models\Event;
 use App\Models\Location;
 use App\Models\Room;
@@ -134,13 +138,7 @@ class BookingController extends Controller
         // instants — so a crafted POST can't book off-grid or with a wrong length.
         $slot = $this->matchAvailableSlot($service, $data);
 
-        try {
-            $customer = $findOrCreateCustomer($data['email'], $data['name'], $data['phone'] ?? null);
-        } catch (ValidationException $e) {
-            // FindOrCreateCustomer reports on `customer_email`; surface it on the
-            // public form's `email` field instead.
-            throw ValidationException::withMessages(['email' => $e->validator->errors()->first()]);
-        }
+        $customer = $this->findGuest($findOrCreateCustomer, $data);
 
         $booking = $createBooking($service, [
             'customer_id' => $customer->id,
@@ -156,6 +154,118 @@ class BookingController extends Controller
         // Relative redirect keeps us on the current tenant subdomain (the named
         // route is domain-bound and would need the {tenant} param).
         return redirect('/booked/'.$booking->code);
+    }
+
+    /**
+     * Sign up for an event_based occurrence (SLO-100). The event is route-bound
+     * (tenant-scoped → cross-tenant 404); CreateBooking claims capacity atomically
+     * for the chosen party_size and applies the approval/payment gates via
+     * source=online. If the event filled up between the view and the submit, the
+     * atomic claim throws and we surface it on the form (the guest can then join
+     * the waitlist if it is offered).
+     */
+    public function storeEvent(PublicEventBookingRequest $request, string $tenant, Event $event, CreateBooking $createBooking, FindOrCreateCustomer $findOrCreateCustomer): RedirectResponse
+    {
+        $service = $this->bookableEventService($event);
+        $data = $request->validated();
+        $customer = $this->findGuest($findOrCreateCustomer, $data);
+
+        try {
+            $booking = $createBooking($service, [
+                'customer_id' => $customer->id,
+                'event_id' => $event->id,
+                'starts_at' => $event->starts_at->toDateTimeString(),
+                'ends_at' => $event->ends_at->toDateTimeString(),
+                'party_size' => (int) $data['party_size'],
+                'notes' => $data['notes'] ?? null,
+                'source' => BookingSource::Online->value,
+            ]);
+        } catch (SlotUnavailableException) {
+            throw ValidationException::withMessages([
+                'party_size' => __('app.booking.error.event_full'),
+            ]);
+        }
+
+        return redirect('/booked/'.$booking->code);
+    }
+
+    /**
+     * Join a full event's FIFO waitlist as a guest (SLO-100). Offered only when
+     * the per-event flag AND the tenant feature are on; JoinWaitlist enforces the
+     * full-check + no-duplicate rules and assigns a gap-free position, which the
+     * confirmation page shows.
+     */
+    public function storeWaitlist(PublicEventBookingRequest $request, string $tenant, Event $event, JoinWaitlist $joinWaitlist, FindOrCreateCustomer $findOrCreateCustomer): RedirectResponse
+    {
+        $service = $this->bookableEventService($event);
+        $tenantModel = app(TenantManager::class)->current();
+
+        abort_unless(
+            $event->waitlist_enabled && app(FeatureResolver::class)->enabled($tenantModel, Feature::Waitlist),
+            404,
+        );
+
+        $data = $request->validated();
+        $customer = $this->findGuest($findOrCreateCustomer, $data);
+        $entry = $joinWaitlist($event, $customer->id, (int) $data['party_size']);
+
+        return redirect('/waitlisted')->with('waitlist', [
+            'position' => $entry->position,
+            'service' => $service->name,
+            'starts_local' => $this->localDateTime($event->starts_at, $tenantModel->timezone),
+        ]);
+    }
+
+    /**
+     * Waitlist join confirmation (SLO-100), reached by PRG redirect from
+     * storeWaitlist with the position flashed. A direct visit (no flash) falls
+     * back to the tenant home.
+     */
+    public function waitlisted(Request $request): Response|RedirectResponse
+    {
+        $waitlist = $request->session()->get('waitlist');
+
+        if (! is_array($waitlist)) {
+            return redirect('/');
+        }
+
+        return Inertia::render('Tenant/Waitlisted', ['waitlist' => $waitlist]);
+    }
+
+    /**
+     * The service behind a bookable event, or 404 if the event is not a currently
+     * bookable event_based occurrence (wrong mode / inactive / canceled / past).
+     */
+    private function bookableEventService(Event $event): Service
+    {
+        $event->loadMissing('service');
+        $service = $event->service;
+
+        abort_unless(
+            $service !== null
+                && $service->active
+                && $service->booking_mode === BookingMode::EventBased
+                && $event->status === EventStatus::Scheduled
+                && $event->starts_at->isFuture(),
+            404,
+        );
+
+        return $service;
+    }
+
+    /**
+     * Resolve the guest into a customer (FindOrCreateCustomer), surfacing the
+     * "email belongs to another account" error on the public form's email field.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function findGuest(FindOrCreateCustomer $findOrCreateCustomer, array $data): Customer
+    {
+        try {
+            return $findOrCreateCustomer($data['email'], $data['name'], $data['phone'] ?? null);
+        } catch (ValidationException $e) {
+            throw ValidationException::withMessages(['email' => $e->validator->errors()->first()]);
+        }
     }
 
     /**

@@ -111,11 +111,44 @@ export default function Book(props: BookProps) {
         notes: '',
     });
 
+    // Event sign-up (SLO-100): selecting an event's "join" / "waitlist" CTA opens
+    // its own details form, posted to the matching endpoint.
+    const [eventSelection, setEventSelection] = useState<{
+        id: number;
+        mode: 'book' | 'waitlist';
+    } | null>(null);
+    const eventForm = useForm({
+        party_size: 1,
+        name: authUser?.name ?? '',
+        email: authUser?.email ?? '',
+        phone: '',
+    });
+    const selectedEvent =
+        events.find((e) => e.id === eventSelection?.id) ?? null;
+
+    function chooseEvent(id: number, mode: 'book' | 'waitlist') {
+        setEventSelection({ id, mode });
+        eventForm.clearErrors();
+    }
+
+    function submitEvent(e: FormEvent) {
+        e.preventDefault();
+        if (!eventSelection) return;
+        const action = eventSelection.mode === 'waitlist' ? 'waitlist' : 'book';
+        eventForm.post(`/events/${eventSelection.id}/${action}`, {
+            preserveScroll: true,
+        });
+    }
+
     // The slot-taken error (SlotUnavailableException → withErrors(['booking'])) is a
     // non-field error, so it comes through the shared errors bag, not form.errors.
     const bookingError = (
         page.props.errors as Record<string, string> | undefined
     )?.booking;
+    // Likewise the waitlist join errors (not_full / already_listed, JoinWaitlist)
+    // arrive on the shared `waitlist` key, not eventForm.errors.
+    const eventError = (page.props.errors as Record<string, string> | undefined)
+        ?.waitlist;
 
     function submitBooking(event: FormEvent) {
         event.preventDefault();
@@ -557,7 +590,11 @@ export default function Book(props: BookProps) {
                                     events.map((ev) => (
                                         <div
                                             key={ev.id}
-                                            className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between"
+                                            className={`flex flex-col gap-3 rounded-xl border bg-card p-4 sm:flex-row sm:items-center sm:justify-between ${
+                                                eventSelection?.id === ev.id
+                                                    ? 'border-primary'
+                                                    : 'border-border'
+                                            }`}
                                         >
                                             <div className="flex flex-col gap-1">
                                                 <span className="font-semibold">
@@ -597,10 +634,12 @@ export default function Book(props: BookProps) {
                                                 {!ev.is_full ? (
                                                     <Button
                                                         size="sm"
-                                                        disabled
-                                                        title={t(
-                                                            'tenant.book.event_signup_soon',
-                                                        )}
+                                                        onClick={() =>
+                                                            chooseEvent(
+                                                                ev.id,
+                                                                'book',
+                                                            )
+                                                        }
                                                     >
                                                         {t(
                                                             'tenant.book.event_join',
@@ -610,10 +649,12 @@ export default function Book(props: BookProps) {
                                                     <Button
                                                         size="sm"
                                                         variant="outline"
-                                                        disabled
-                                                        title={t(
-                                                            'tenant.book.event_signup_soon',
-                                                        )}
+                                                        onClick={() =>
+                                                            chooseEvent(
+                                                                ev.id,
+                                                                'waitlist',
+                                                            )
+                                                        }
                                                     >
                                                         {t(
                                                             'tenant.book.event_waitlist',
@@ -625,9 +666,142 @@ export default function Book(props: BookProps) {
                                     ))
                                 )}
 
-                                <p className="text-xs text-muted-foreground">
-                                    {t('tenant.book.event_signup_soon')}
-                                </p>
+                                {/* Selected event → sign-up / waitlist details */}
+                                {selectedEvent && eventSelection ? (
+                                    <motion.form
+                                        key={`${eventSelection.id}-${eventSelection.mode}`}
+                                        initial={{ opacity: 0, y: 8 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ duration: 0.25 }}
+                                        onSubmit={submitEvent}
+                                        className="flex flex-col gap-4 rounded-xl border border-primary/40 bg-card p-5"
+                                    >
+                                        <div className="text-sm">
+                                            <div className="text-muted-foreground">
+                                                {t('tenant.book.selected')}
+                                            </div>
+                                            <div className="font-semibold">
+                                                {selectedEvent.starts_local}
+                                            </div>
+                                        </div>
+
+                                        {eventError ? (
+                                            <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                                                {eventError}
+                                            </p>
+                                        ) : null}
+
+                                        <div className="grid gap-4 sm:grid-cols-2">
+                                            <div className="flex flex-col gap-1.5">
+                                                <Label htmlFor="event-party">
+                                                    {t(
+                                                        'tenant.book.party_size',
+                                                    )}
+                                                </Label>
+                                                <Input
+                                                    id="event-party"
+                                                    type="number"
+                                                    min={1}
+                                                    value={
+                                                        eventForm.data
+                                                            .party_size
+                                                    }
+                                                    onChange={(e) =>
+                                                        eventForm.setData(
+                                                            'party_size',
+                                                            Number(
+                                                                e.target.value,
+                                                            ),
+                                                        )
+                                                    }
+                                                />
+                                                {eventForm.errors
+                                                    .party_size ? (
+                                                    <p className="text-sm text-destructive">
+                                                        {
+                                                            eventForm.errors
+                                                                .party_size
+                                                        }
+                                                    </p>
+                                                ) : null}
+                                            </div>
+                                            <div className="flex flex-col gap-1.5">
+                                                <Label htmlFor="event-name">
+                                                    {t('tenant.book.form.name')}
+                                                </Label>
+                                                <Input
+                                                    id="event-name"
+                                                    value={eventForm.data.name}
+                                                    onChange={(e) =>
+                                                        eventForm.setData(
+                                                            'name',
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                />
+                                                {eventForm.errors.name ? (
+                                                    <p className="text-sm text-destructive">
+                                                        {eventForm.errors.name}
+                                                    </p>
+                                                ) : null}
+                                            </div>
+                                            <div className="flex flex-col gap-1.5">
+                                                <Label htmlFor="event-email">
+                                                    {t(
+                                                        'tenant.book.form.email',
+                                                    )}
+                                                </Label>
+                                                <Input
+                                                    id="event-email"
+                                                    type="email"
+                                                    value={eventForm.data.email}
+                                                    onChange={(e) =>
+                                                        eventForm.setData(
+                                                            'email',
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                />
+                                                {eventForm.errors.email ? (
+                                                    <p className="text-sm text-destructive">
+                                                        {eventForm.errors.email}
+                                                    </p>
+                                                ) : null}
+                                            </div>
+                                            <div className="flex flex-col gap-1.5">
+                                                <Label htmlFor="event-phone">
+                                                    {t(
+                                                        'tenant.book.form.phone',
+                                                    )}
+                                                </Label>
+                                                <Input
+                                                    id="event-phone"
+                                                    value={eventForm.data.phone}
+                                                    onChange={(e) =>
+                                                        eventForm.setData(
+                                                            'phone',
+                                                            e.target.value,
+                                                        )
+                                                    }
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <Button
+                                            type="submit"
+                                            disabled={eventForm.processing}
+                                            className="w-full sm:w-auto sm:self-end"
+                                        >
+                                            {eventSelection.mode === 'waitlist'
+                                                ? t(
+                                                      'tenant.book.waitlist_confirm',
+                                                  )
+                                                : t(
+                                                      'tenant.book.event_confirm',
+                                                  )}
+                                        </Button>
+                                    </motion.form>
+                                ) : null}
                             </div>
                         ) : (
                             <p className="rounded-xl border border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
