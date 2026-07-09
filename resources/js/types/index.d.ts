@@ -390,6 +390,18 @@ export type BookSlot = {
     time: string;
 };
 
+export type BookEvent = {
+    id: number;
+    starts_local: string | null;
+    ends_time: string;
+    staff: string | null;
+    room: string | null;
+    capacity: number;
+    remaining: number;
+    is_full: boolean;
+    waitlist_available: boolean;
+};
+
 export type BookDay = {
     date: string;
     day: number;
