@@ -22,12 +22,16 @@ export default function PublicLayout({ children }: PropsWithChildren) {
         : undefined;
 
     // A guest is offered login; a signed-in customer (never staff — they belong
-    // in the admin panel) gets a link to their members area (SLO-33).
-    const accountLink = auth.user
-        ? auth.user.is_staff
-            ? null
-            : { href: '/my/bookings', label: t('tenant.nav.my_bookings') }
-        : { href: '/login', label: t('tenant.nav.login') };
+    // in the admin panel) gets their members-area links (SLO-33/SLO-96).
+    const accountLinks =
+        auth.user && !auth.user.is_staff
+            ? [
+                  { href: '/my/bookings', label: t('tenant.nav.my_bookings') },
+                  { href: '/my/profile', label: t('tenant.nav.my_profile') },
+              ]
+            : auth.user
+              ? []
+              : [{ href: '/login', label: t('tenant.nav.login') }];
 
     return (
         <div
@@ -63,13 +67,16 @@ export default function PublicLayout({ children }: PropsWithChildren) {
                     </div>
 
                     <div className="flex items-center gap-2">
-                        {accountLink ? (
-                            <Button asChild variant="ghost" size="sm">
-                                <Link href={accountLink.href}>
-                                    {accountLink.label}
-                                </Link>
+                        {accountLinks.map((link) => (
+                            <Button
+                                key={link.href}
+                                asChild
+                                variant="ghost"
+                                size="sm"
+                            >
+                                <Link href={link.href}>{link.label}</Link>
                             </Button>
-                        ) : null}
+                        ))}
                         <ThemeToggle />
                     </div>
                 </div>
