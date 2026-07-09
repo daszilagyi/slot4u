@@ -4,16 +4,21 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Actions\Booking\CreateBooking;
 use App\Actions\Customer\FindOrCreateCustomer;
+use App\Enums\BookingMode;
 use App\Enums\BookingSource;
+use App\Enums\EventStatus;
+use App\Enums\Feature;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Tenant\PublicBookingRequest;
 use App\Models\Booking;
+use App\Models\Event;
 use App\Models\Location;
 use App\Models\Room;
 use App\Models\Service;
 use App\Models\Staff;
 use App\Services\Booking\AvailabilityService;
 use App\Services\Booking\Slot;
+use App\Services\Feature\FeatureResolver;
 use App\Support\IcsBuilder;
 use App\Tenancy\TenantManager;
 use Illuminate\Http\RedirectResponse;
@@ -100,6 +105,8 @@ class BookingController extends Controller
 
         if ($service->booking_mode->usesTimeSlot()) {
             $props = [...$props, ...$this->slotView($service, $filters, $timezone)];
+        } elseif ($service->booking_mode === BookingMode::EventBased) {
+            $props = [...$props, ...$this->eventView($service, $timezone)];
         }
 
         return Inertia::render('Tenant/Book', $props);
@@ -329,6 +336,50 @@ class BookingController extends Controller
                 'location_id' => $room->location_id,
             ])->values(),
             'location_options' => $this->locationOptions($service),
+        ];
+    }
+
+    /**
+     * The upcoming announced occurrences of an event_based service (SLO-91):
+     * scheduled events starting in the future, ordered by start, each with its
+     * remaining capacity / full state and whether a waitlist can be joined (the
+     * per-event flag AND the tenant feature). The actual sign-up / waitlist join
+     * is SLO-32. Tenant-isolated via the Event BelongsToTenant global scope.
+     *
+     * @return array{events: array<int, array<string, mixed>>}
+     */
+    private function eventView(Service $service, string $timezone): array
+    {
+        $waitlistFeature = app(FeatureResolver::class)->enabled(
+            app(TenantManager::class)->current(),
+            Feature::Waitlist,
+        );
+
+        $events = Event::query()
+            ->where('service_id', $service->id)
+            ->where('status', EventStatus::Scheduled)
+            ->where('starts_at', '>', now())
+            ->with(['staff:id,name', 'room:id,name'])
+            ->orderBy('starts_at')
+            ->get();
+
+        return [
+            'events' => $events->map(function (Event $event) use ($timezone, $waitlistFeature) {
+                $remaining = max(0, $event->capacity - $event->booked_count);
+                $isFull = $remaining === 0;
+
+                return [
+                    'id' => $event->id,
+                    'starts_local' => $this->localDateTime($event->starts_at, $timezone),
+                    'ends_time' => $event->ends_at->copy()->timezone($timezone)->format('H:i'),
+                    'staff' => $event->staff?->name,
+                    'room' => $event->room?->name,
+                    'capacity' => $event->capacity,
+                    'remaining' => $remaining,
+                    'is_full' => $isFull,
+                    'waitlist_available' => $isFull && $event->waitlist_enabled && $waitlistFeature,
+                ];
+            })->values()->all(),
         ];
     }
 

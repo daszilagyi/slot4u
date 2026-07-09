@@ -36,7 +36,12 @@ return [
             'minutes' => ':count perc',
             'no_slots' => 'Erre a napra nincs szabad időpont.',
             'selected' => 'Kiválasztott időpont',
-            'event_soon' => 'Ez egy eseményalapú szolgáltatás — a meghirdetett alkalmakra jelentkezés hamarosan elérhető.',
+            'no_events' => 'Jelenleg nincs meghirdetett alkalom.',
+            'event_remaining' => ':remaining / :capacity szabad hely',
+            'event_full' => 'Betelt',
+            'event_join' => 'Jelentkezés',
+            'event_waitlist' => 'Várólista',
+            'event_signup_soon' => 'A jelentkezés hamarosan elérhető.',
             'other_soon' => 'Ehhez a szolgáltatáshoz a foglalási felület hamarosan elérhető.',
             'weekday' => [
                 '1' => 'H',

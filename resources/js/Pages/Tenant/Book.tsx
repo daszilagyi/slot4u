@@ -12,6 +12,7 @@ import { formatMoney } from '@/lib/format';
 import { useTranslations } from '@/lib/i18n';
 import type {
     BookDay,
+    BookEvent,
     BookLocationOption,
     BookRoomOption,
     BookServiceDetail,
@@ -35,6 +36,7 @@ type BookProps = {
     next_week?: string;
     is_first_week?: boolean;
     slots?: BookSlot[];
+    events?: BookEvent[];
     staff_options?: BookStaffOption[];
     room_options?: BookRoomOption[];
     location_options?: BookLocationOption[];
@@ -83,6 +85,8 @@ export default function Book(props: BookProps) {
     const isSlotMode =
         service?.booking_mode === 'duration_based' ||
         service?.booking_mode === 'resource_rental';
+    const isEventMode = service?.booking_mode === 'event_based';
+    const events = props.events ?? [];
 
     const locationOptions = props.location_options ?? [];
     const staffOptions = (props.staff_options ?? []).filter(
@@ -537,11 +541,97 @@ export default function Book(props: BookProps) {
                                     </motion.form>
                                 ) : null}
                             </>
+                        ) : isEventMode ? (
+                            <div className="flex flex-col gap-3">
+                                <p className="text-xs text-muted-foreground">
+                                    {t('tenant.book.timezone_note', {
+                                        tz: timezone,
+                                    })}
+                                </p>
+
+                                {events.length === 0 ? (
+                                    <p className="rounded-xl border border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
+                                        {t('tenant.book.no_events')}
+                                    </p>
+                                ) : (
+                                    events.map((ev) => (
+                                        <div
+                                            key={ev.id}
+                                            className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between"
+                                        >
+                                            <div className="flex flex-col gap-1">
+                                                <span className="font-semibold">
+                                                    {ev.starts_local}
+                                                    {' – '}
+                                                    {ev.ends_time}
+                                                </span>
+                                                <span className="text-sm text-muted-foreground">
+                                                    {[ev.staff, ev.room]
+                                                        .filter(Boolean)
+                                                        .join(' · ') || '—'}
+                                                </span>
+                                                <span
+                                                    className={`text-sm font-medium ${
+                                                        ev.is_full
+                                                            ? 'text-destructive'
+                                                            : 'text-primary'
+                                                    }`}
+                                                >
+                                                    {ev.is_full
+                                                        ? t(
+                                                              'tenant.book.event_full',
+                                                          )
+                                                        : t(
+                                                              'tenant.book.event_remaining',
+                                                              {
+                                                                  remaining:
+                                                                      ev.remaining,
+                                                                  capacity:
+                                                                      ev.capacity,
+                                                              },
+                                                          )}
+                                                </span>
+                                            </div>
+
+                                            <div className="shrink-0">
+                                                {!ev.is_full ? (
+                                                    <Button
+                                                        size="sm"
+                                                        disabled
+                                                        title={t(
+                                                            'tenant.book.event_signup_soon',
+                                                        )}
+                                                    >
+                                                        {t(
+                                                            'tenant.book.event_join',
+                                                        )}
+                                                    </Button>
+                                                ) : ev.waitlist_available ? (
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        disabled
+                                                        title={t(
+                                                            'tenant.book.event_signup_soon',
+                                                        )}
+                                                    >
+                                                        {t(
+                                                            'tenant.book.event_waitlist',
+                                                        )}
+                                                    </Button>
+                                                ) : null}
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+
+                                <p className="text-xs text-muted-foreground">
+                                    {t('tenant.book.event_signup_soon')}
+                                </p>
+                            </div>
                         ) : (
                             <p className="rounded-xl border border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
-                                {service.booking_mode === 'event_based'
-                                    ? t('tenant.book.event_soon')
-                                    : t('tenant.book.other_soon')}
+                                {t('tenant.book.other_soon')}
                             </p>
                         )}
                     </>
