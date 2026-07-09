@@ -84,9 +84,27 @@ return [
         ],
         'nav' => [
             'my_bookings' => 'Foglalásaim',
+            'my_profile' => 'Profilom',
             'login' => 'Belépés',
         ],
         'my' => [
+            'profile' => [
+                'title' => 'Profilom',
+                'subtitle' => 'Kezeld a személyes adataidat és a jelszavadat.',
+                'section_details' => 'Személyes adatok',
+                'name' => 'Neved',
+                'email' => 'Email cím',
+                'email_hint' => 'Az email cím a bejelentkezéshez használt azonosító, nem módosítható.',
+                'phone' => 'Telefonszám',
+                'save' => 'Mentés',
+                'saved' => 'A profilod frissítve.',
+                'section_password' => 'Jelszó módosítása',
+                'current_password' => 'Jelenlegi jelszó',
+                'new_password' => 'Új jelszó',
+                'new_password_confirmation' => 'Új jelszó megerősítése',
+                'save_password' => 'Jelszó módosítása',
+                'password_saved' => 'A jelszavad frissítve.',
+            ],
             'bookings' => [
                 'title' => 'Foglalásaim',
                 'subtitle' => 'Itt látod a foglalásaidat, és lemondhatod őket a lemondási határidőn belül.',

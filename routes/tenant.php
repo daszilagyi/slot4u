@@ -21,6 +21,7 @@ use App\Http\Controllers\Super\ImpersonationController;
 use App\Http\Controllers\Tenant\BookingController as TenantBookingController;
 use App\Http\Controllers\Tenant\HomeController as TenantHomeController;
 use App\Http\Controllers\Tenant\MyBookingController;
+use App\Http\Controllers\Tenant\MyProfileController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -214,6 +215,17 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
         Route::get('/my/bookings', [MyBookingController::class, 'index'])->name('tenant.my.bookings');
         Route::post('/my/bookings/{booking}/cancel', [MyBookingController::class, 'cancel'])->name('tenant.my.bookings.cancel');
         Route::get('/my/bookings/{booking}/ics', [MyBookingController::class, 'ics'])->name('tenant.my.bookings.ics');
+
+        // Profile self-service (SLO-96): the customer edits their own name/phone
+        // and password. Every action targets $request->user() — no id, so it is
+        // inherently self-scoped.
+        Route::get('/my/profile', [MyProfileController::class, 'edit'])->name('tenant.my.profile');
+        Route::put('/my/profile', [MyProfileController::class, 'update'])->name('tenant.my.profile.update');
+        // Password change is throttled: the current_password check makes it a
+        // (session-bound) guessing surface.
+        Route::put('/my/password', [MyProfileController::class, 'updatePassword'])
+            ->middleware('throttle:6,1')
+            ->name('tenant.my.password.update');
     });
 });
 
