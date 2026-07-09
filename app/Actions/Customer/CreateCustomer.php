@@ -14,9 +14,10 @@ use Spatie\Permission\PermissionRegistrar;
 
 /**
  * Creates a customer (SLO-84): a {@see Customer} (User) with the customer role in
- * the current tenant's team. Admin-created customers can't log in until they set a
- * password (M4 members area) — the password is a throwaway and the account is not
- * verified. tenant_id is stamped from the current tenant, never from input.
+ * the current tenant's team. tenant_id is stamped from the current tenant, never
+ * from input. An admin-created customer gets a throwaway password (can't log in
+ * until they reset it); a self-registered customer (SLO-95) passes their own
+ * `password`, which is used verbatim.
  */
 class CreateCustomer
 {
@@ -42,7 +43,7 @@ class CreateCustomer
                 'phone' => $data['phone'] ?? null,
                 'locale' => $tenant->locale,
             ]);
-            $customer->password = Hash::make(Str::random(40));
+            $customer->password = Hash::make($data['password'] ?? Str::random(40));
             $customer->save();
 
             $this->assignCustomerRole($customer, $tenant->getKey());
