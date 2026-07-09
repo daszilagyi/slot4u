@@ -4,6 +4,7 @@ use App\Http\Middleware\EnsureFeatureEnabled;
 use App\Http\Middleware\EnsureSuperAdmin;
 use App\Http\Middleware\EnsureTenantActive;
 use App\Http\Middleware\EnsureUserBelongsToTenant;
+use App\Http\Middleware\EnsureUserIsStaff;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\IdentifyTenant;
 use App\Http\Middleware\SetLocale;
@@ -59,6 +60,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'identify.tenant' => IdentifyTenant::class,
             'ensure.tenant.active' => EnsureTenantActive::class,
             'ensure.user.tenant' => EnsureUserBelongsToTenant::class,
+            'ensure.staff' => EnsureUserIsStaff::class,
             'ensure.superadmin' => EnsureSuperAdmin::class,
             'ensure.feature' => EnsureFeatureEnabled::class,
             // `can:` is built in; these add spatie's role/permission gates.
@@ -82,6 +84,7 @@ return Application::configure(basePath: dirname(__DIR__))
             EnsureTenantActive::class,
             AuthenticatesRequests::class,
             EnsureUserBelongsToTenant::class,
+            EnsureUserIsStaff::class,
             ThrottleRequests::class,
             ThrottleRequestsWithRedis::class,
             AuthenticatesSessions::class,

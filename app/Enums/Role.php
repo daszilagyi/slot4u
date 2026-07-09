@@ -64,15 +64,13 @@ enum Role: string
                 Permission::ScheduleManage,
                 Permission::MessageSend,
             ],
-            self::Customer => [
-                Permission::BookingView,
-                Permission::BookingCreate,
-                Permission::BookingEdit,
-                Permission::BookingCancel,
-                Permission::CustomerView,
-                Permission::CustomerEdit,
-                Permission::MessageSend,
-            ],
+            // The customer role holds NO admin permission codes (SLO-86): those
+            // codes gate the tenant admin panel, which is staff-only. A
+            // customer's "own/self" scope from the docs/03 matrix (own bookings,
+            // own profile) is enforced by ownership policies in the members area
+            // (SLO-33), not by these coarse grants; public-flow booking creation
+            // is unauthenticated and needs no permission.
+            self::Customer => [],
         };
     }
 }

@@ -1,10 +1,16 @@
 <?php
 
+use App\Enums\Role;
 use App\Models\Tenant;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
+use Spatie\Permission\PermissionRegistrar;
 
 // superUrl(), tenantHost() and superAdmin() live in tests/Pest.php.
+
+afterEach(function () {
+    app(PermissionRegistrar::class)->setPermissionsTeamId(null);
+});
 
 it('uses the tenant locale on a tenant domain', function () {
     Tenant::factory()->active()->create(['slug' => 'acme', 'locale' => 'en']);
@@ -39,7 +45,9 @@ it('falls back to the app default when the user has no locale preference', funct
 
 it('lets the tenant locale take precedence over the user locale', function () {
     $tenant = Tenant::factory()->active()->create(['slug' => 'acme', 'locale' => 'en']);
+    app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getKey());
     $member = User::factory()->create(['tenant_id' => $tenant->id, 'locale' => 'hu']);
+    $member->assignRole(Role::TenantAdmin->value);
 
     $this->actingAs($member)
         ->get(tenantHost('acme', '/dashboard'))
