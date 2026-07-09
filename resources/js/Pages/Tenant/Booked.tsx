@@ -11,7 +11,13 @@ type BookedProps = {
     booking: BookedBooking;
 };
 
-const KNOWN_STATUSES = ['confirmed', 'requested', 'pending_payment'];
+const KNOWN_STATUSES = [
+    'confirmed',
+    'requested',
+    'pending_payment',
+    // A digital no_time_slot order is completed on creation (SLO-101, docs/04 §1).
+    'completed',
+];
 
 export default function Booked({ booking }: BookedProps) {
     const t = useTranslations();
@@ -20,13 +26,16 @@ export default function Booked({ booking }: BookedProps) {
         ? booking.status
         : 'default';
 
+    // A no_time_slot order has no appointment: no "when" row, and nothing to add
+    // to a calendar (the .ics route 404s for it too).
+    const isScheduled = booking.starts_local !== null;
+
     const rows = [
         { label: t('tenant.booked.service'), value: booking.service ?? '—' },
         { label: t('tenant.booked.staff'), value: booking.staff ?? '—' },
-        {
-            label: t('tenant.booked.when'),
-            value: booking.starts_local ?? '—',
-        },
+        ...(booking.starts_local !== null
+            ? [{ label: t('tenant.booked.when'), value: booking.starts_local }]
+            : []),
     ];
 
     return (
@@ -71,12 +80,14 @@ export default function Booked({ booking }: BookedProps) {
                 </dl>
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
-                    <Button asChild variant="outline">
-                        <a href={`/booked/${booking.code}/ics`}>
-                            <CalendarPlusIcon className="size-4" />
-                            {t('tenant.booked.ics')}
-                        </a>
-                    </Button>
+                    {isScheduled ? (
+                        <Button asChild variant="outline">
+                            <a href={`/booked/${booking.code}/ics`}>
+                                <CalendarPlusIcon className="size-4" />
+                                {t('tenant.booked.ics')}
+                            </a>
+                        </Button>
+                    ) : null}
                     <Button asChild>
                         <Link href="/">{t('tenant.booked.back')}</Link>
                     </Button>

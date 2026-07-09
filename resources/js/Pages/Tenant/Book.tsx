@@ -86,6 +86,7 @@ export default function Book(props: BookProps) {
         service?.booking_mode === 'duration_based' ||
         service?.booking_mode === 'resource_rental';
     const isEventMode = service?.booking_mode === 'event_based';
+    const isOrderMode = service?.booking_mode === 'no_time_slot';
     const events = props.events ?? [];
 
     const locationOptions = props.location_options ?? [];
@@ -165,6 +166,79 @@ export default function Book(props: BookProps) {
         }));
         // On success the server PRG-redirects to /booked/{code} (Inertia follows).
         form.post('/book', { preserveScroll: true });
+    }
+
+    /**
+     * The guest's contact fields, shared by the slot booking and the no_time_slot
+     * order (both post the same `form`). `prefix` keeps the input ids unique.
+     */
+    function guestFields(prefix: string) {
+        return (
+            <div className="grid gap-4 sm:grid-cols-2">
+                <div className="flex flex-col gap-1.5">
+                    <Label htmlFor={`${prefix}-name`}>
+                        {t('tenant.book.form.name')}
+                    </Label>
+                    <Input
+                        id={`${prefix}-name`}
+                        value={form.data.name}
+                        onChange={(e) => form.setData('name', e.target.value)}
+                    />
+                    {form.errors.name ? (
+                        <p className="text-sm text-destructive">
+                            {form.errors.name}
+                        </p>
+                    ) : null}
+                </div>
+                <div className="flex flex-col gap-1.5">
+                    <Label htmlFor={`${prefix}-email`}>
+                        {t('tenant.book.form.email')}
+                    </Label>
+                    <Input
+                        id={`${prefix}-email`}
+                        type="email"
+                        value={form.data.email}
+                        onChange={(e) => form.setData('email', e.target.value)}
+                    />
+                    {form.errors.email ? (
+                        <p className="text-sm text-destructive">
+                            {form.errors.email}
+                        </p>
+                    ) : null}
+                </div>
+                <div className="flex flex-col gap-1.5">
+                    <Label htmlFor={`${prefix}-phone`}>
+                        {t('tenant.book.form.phone')}
+                    </Label>
+                    <Input
+                        id={`${prefix}-phone`}
+                        value={form.data.phone}
+                        onChange={(e) => form.setData('phone', e.target.value)}
+                    />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                    <Label htmlFor={`${prefix}-notes`}>
+                        {t('tenant.book.form.notes')}
+                    </Label>
+                    <Input
+                        id={`${prefix}-notes`}
+                        value={form.data.notes}
+                        onChange={(e) => form.setData('notes', e.target.value)}
+                    />
+                </div>
+            </div>
+        );
+    }
+
+    // no_time_slot order (SLO-101): the same details form, minus any slot — the
+    // service alone identifies what is being ordered.
+    function submitOrder(event: FormEvent) {
+        event.preventDefault();
+        if (!service) {
+            return;
+        }
+        form.transform((data) => ({ ...data, service_id: service.id }));
+        form.post('/order', { preserveScroll: true });
     }
 
     return (
@@ -484,85 +558,7 @@ export default function Book(props: BookProps) {
                                             </p>
                                         ) : null}
 
-                                        <div className="grid gap-4 sm:grid-cols-2">
-                                            <div className="flex flex-col gap-1.5">
-                                                <Label htmlFor="book-name">
-                                                    {t('tenant.book.form.name')}
-                                                </Label>
-                                                <Input
-                                                    id="book-name"
-                                                    value={form.data.name}
-                                                    onChange={(e) =>
-                                                        form.setData(
-                                                            'name',
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                />
-                                                {form.errors.name ? (
-                                                    <p className="text-sm text-destructive">
-                                                        {form.errors.name}
-                                                    </p>
-                                                ) : null}
-                                            </div>
-                                            <div className="flex flex-col gap-1.5">
-                                                <Label htmlFor="book-email">
-                                                    {t(
-                                                        'tenant.book.form.email',
-                                                    )}
-                                                </Label>
-                                                <Input
-                                                    id="book-email"
-                                                    type="email"
-                                                    value={form.data.email}
-                                                    onChange={(e) =>
-                                                        form.setData(
-                                                            'email',
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                />
-                                                {form.errors.email ? (
-                                                    <p className="text-sm text-destructive">
-                                                        {form.errors.email}
-                                                    </p>
-                                                ) : null}
-                                            </div>
-                                            <div className="flex flex-col gap-1.5">
-                                                <Label htmlFor="book-phone">
-                                                    {t(
-                                                        'tenant.book.form.phone',
-                                                    )}
-                                                </Label>
-                                                <Input
-                                                    id="book-phone"
-                                                    value={form.data.phone}
-                                                    onChange={(e) =>
-                                                        form.setData(
-                                                            'phone',
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                />
-                                            </div>
-                                            <div className="flex flex-col gap-1.5">
-                                                <Label htmlFor="book-notes">
-                                                    {t(
-                                                        'tenant.book.form.notes',
-                                                    )}
-                                                </Label>
-                                                <Input
-                                                    id="book-notes"
-                                                    value={form.data.notes}
-                                                    onChange={(e) =>
-                                                        form.setData(
-                                                            'notes',
-                                                            e.target.value,
-                                                        )
-                                                    }
-                                                />
-                                            </div>
-                                        </div>
+                                        {guestFields('book')}
 
                                         <Button
                                             type="submit"
@@ -803,6 +799,36 @@ export default function Book(props: BookProps) {
                                     </motion.form>
                                 ) : null}
                             </div>
+                        ) : isOrderMode ? (
+                            <motion.form
+                                initial={{ opacity: 0, y: 8 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.25 }}
+                                onSubmit={submitOrder}
+                                className="flex flex-col gap-4 rounded-xl border border-primary/40 bg-card p-5"
+                            >
+                                <p className="text-sm text-muted-foreground">
+                                    {t('tenant.book.order_intro')}
+                                </p>
+
+                                {service.fulfillment_type ? (
+                                    <p className="rounded-md bg-muted px-3 py-2 text-sm">
+                                        {t(
+                                            `tenant.book.fulfillment.${service.fulfillment_type}`,
+                                        )}
+                                    </p>
+                                ) : null}
+
+                                {guestFields('order')}
+
+                                <Button
+                                    type="submit"
+                                    disabled={form.processing}
+                                    className="w-full sm:w-auto sm:self-end"
+                                >
+                                    {t('tenant.book.order_confirm')}
+                                </Button>
+                            </motion.form>
                         ) : (
                             <p className="rounded-xl border border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
                                 {t('tenant.book.other_soon')}
