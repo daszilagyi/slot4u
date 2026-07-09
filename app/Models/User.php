@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\Role;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -9,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Spatie\Permission\PermissionRegistrar;
 use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable implements MustVerifyEmail
@@ -40,6 +42,34 @@ class User extends Authenticatable implements MustVerifyEmail
     public function isSuperAdmin(): bool
     {
         return $this->tenant_id === null;
+    }
+
+    /**
+     * Whether the user is a staff member of their tenant (operates the admin
+     * panel) rather than a customer (members area, SLO-94). Super-admins count as
+     * staff. The role check is scoped to the user's OWN tenant team and restored
+     * afterwards, so it is correct even off the tenant host (login/register run
+     * before IdentifyTenant sets the spatie team).
+     */
+    public function isStaff(): bool
+    {
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        if ($this->tenant_id === null) {
+            return false;
+        }
+
+        $registrar = app(PermissionRegistrar::class);
+        $previousTeamId = $registrar->getPermissionsTeamId();
+        $registrar->setPermissionsTeamId($this->tenant_id);
+
+        try {
+            return $this->hasAnyRole(Role::staffRoleNames());
+        } finally {
+            $registrar->setPermissionsTeamId($previousTeamId);
+        }
     }
 
     /**

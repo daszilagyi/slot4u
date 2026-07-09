@@ -20,6 +20,7 @@ use App\Http\Controllers\StaffProfileController;
 use App\Http\Controllers\Super\ImpersonationController;
 use App\Http\Controllers\Tenant\BookingController as TenantBookingController;
 use App\Http\Controllers\Tenant\HomeController as TenantHomeController;
+use App\Http\Controllers\Tenant\MyBookingController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -201,6 +202,18 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
         // StaffPolicy update ability.
         Route::get('/profile', [StaffProfileController::class, 'edit'])->name('tenant.profile.edit');
         Route::put('/profile', [StaffProfileController::class, 'update'])->name('tenant.profile.update');
+    });
+
+    // Members area (SLO-33): a logged-in customer's own account. A separate group
+    // from the admin panel — `ensure.customer` (not `ensure.staff`) gates it, so a
+    // staff user is kept out and a customer is kept out of the admin panel. Every
+    // route is customer-self-scoped: the list filters by customer_id, per-record
+    // routes 404 a booking that isn't theirs. Route-bound {booking} is tenant-scoped
+    // (BelongsToTenant global scope → cross-tenant 404).
+    Route::middleware(['auth', 'ensure.user.tenant', 'ensure.customer'])->group(function () {
+        Route::get('/my/bookings', [MyBookingController::class, 'index'])->name('tenant.my.bookings');
+        Route::post('/my/bookings/{booking}/cancel', [MyBookingController::class, 'cancel'])->name('tenant.my.bookings.cancel');
+        Route::get('/my/bookings/{booking}/ics', [MyBookingController::class, 'ics'])->name('tenant.my.bookings.ics');
     });
 });
 

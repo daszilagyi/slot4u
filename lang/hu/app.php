@@ -82,6 +82,29 @@ return [
             'badge' => 'Tenant',
             'logout' => 'Kijelentkezés',
         ],
+        'nav' => [
+            'my_bookings' => 'Foglalásaim',
+            'login' => 'Belépés',
+        ],
+        'my' => [
+            'bookings' => [
+                'title' => 'Foglalásaim',
+                'subtitle' => 'Itt látod a foglalásaidat, és lemondhatod őket a lemondási határidőn belül.',
+                'upcoming' => 'Közelgő',
+                'past' => 'Korábbi',
+                'empty' => 'Még nincs foglalásod.',
+                'empty_past' => 'Nincs korábbi foglalásod.',
+                'code_label' => 'Kód',
+                'no_time' => 'Időpont nélkül',
+                'ics' => 'Naptárhoz adás',
+                'cancel' => 'Lemondás',
+                'cancel_confirm_title' => 'Foglalás lemondása',
+                'cancel_confirm_body' => 'Biztosan lemondod ezt a foglalást? Ez a művelet nem vonható vissza.',
+                'cancel_submit' => 'Igen, lemondom',
+                'cancel_dismiss' => 'Mégsem',
+                'canceled' => 'A foglalásod lemondva.',
+            ],
+        ],
     ],
     'auth' => [
         'login' => [

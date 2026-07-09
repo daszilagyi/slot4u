@@ -12,9 +12,9 @@ use App\Models\Location;
 use App\Models\Room;
 use App\Models\Service;
 use App\Models\Staff;
-use App\Models\Tenant;
 use App\Services\Booking\AvailabilityService;
 use App\Services\Booking\Slot;
+use App\Support\IcsBuilder;
 use App\Tenancy\TenantManager;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -184,7 +184,7 @@ class BookingController extends Controller
         $booking->load('service:id,name');
         $tenantModel = app(TenantManager::class)->current();
 
-        return response($this->buildIcs($booking, $tenantModel), 200, [
+        return response(IcsBuilder::build($booking, $tenantModel), 200, [
             'Content-Type' => 'text/calendar; charset=utf-8',
             'Content-Disposition' => 'attachment; filename="foglalas-'.$booking->code.'.ics"',
         ]);
@@ -228,39 +228,6 @@ class BookingController extends Controller
     private function localDateTime(?Carbon $instant, string $timezone): ?string
     {
         return $instant?->copy()->timezone($timezone)->format('Y-m-d H:i');
-    }
-
-    /**
-     * A minimal VCALENDAR/VEVENT for the booking; times are UTC (Z-suffixed).
-     */
-    private function buildIcs(Booking $booking, Tenant $tenant): string
-    {
-        $start = $booking->starts_at?->copy()->utc()->format('Ymd\THis\Z') ?? '';
-        $end = $booking->ends_at?->copy()->utc()->format('Ymd\THis\Z') ?? '';
-        $summary = $this->escapeIcs($booking->service->name.' — '.$tenant->name);
-        $location = $this->escapeIcs($tenant->name);
-
-        $lines = [
-            'BEGIN:VCALENDAR',
-            'VERSION:2.0',
-            'PRODID:-//slot4u//booking//HU',
-            'BEGIN:VEVENT',
-            'UID:'.$booking->code.'@'.$tenant->slug,
-            'DTSTART:'.$start,
-            'DTEND:'.$end,
-            'SUMMARY:'.$summary,
-            'LOCATION:'.$location,
-            'DESCRIPTION:'.$this->escapeIcs(__('app.tenant.booked.ics_description', ['code' => $booking->code])),
-            'END:VEVENT',
-            'END:VCALENDAR',
-        ];
-
-        return implode("\r\n", $lines)."\r\n";
-    }
-
-    private function escapeIcs(string $value): string
-    {
-        return str_replace(['\\', ';', ',', "\n"], ['\\\\', '\\;', '\\,', '\\n'], $value);
     }
 
     /**

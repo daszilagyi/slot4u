@@ -10,11 +10,12 @@ use Symfony\Component\HttpFoundation\Response;
 
 /**
  * Domain-aware redirect after login/registration. A super-admin lands on the
- * admin panel; a tenant user lands on their own subdomain dashboard. Login and
- * registration may happen on a different host than the target (e.g. the central
- * domain), so cross-origin targets use Inertia's location response — the browser
- * performs a full visit and the shared session cookie (`.{central}`) carries the
- * authentication.
+ * admin panel; a staff tenant user lands on their own subdomain dashboard; a
+ * customer lands in the members area (SLO-33) — sending them to `/dashboard`
+ * would 403 at `ensure.staff`. Login and registration may happen on a different
+ * host than the target (e.g. the central domain), so cross-origin targets use
+ * Inertia's location response — the browser performs a full visit and the shared
+ * session cookie (`.{central}`) carries the authentication.
  */
 trait RedirectsToUserHome
 {
@@ -46,6 +47,8 @@ trait RedirectsToUserHome
             abort(403);
         }
 
-        return $scheme.'://'.$tenant->slug.'.'.$central.'/dashboard';
+        $path = $user->isStaff() ? '/dashboard' : '/my/bookings';
+
+        return $scheme.'://'.$tenant->slug.'.'.$central.$path;
     }
 }

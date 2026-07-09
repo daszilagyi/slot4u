@@ -23,15 +23,6 @@ use Symfony\Component\HttpFoundation\Response;
  */
 class EnsureUserIsStaff
 {
-    /**
-     * @var list<string>
-     */
-    private const STAFF_ROLES = [
-        Role::TenantAdmin->value,
-        Role::Manager->value,
-        Role::Employee->value,
-    ];
-
     public function handle(Request $request, Closure $next): Response
     {
         $user = $request->user();
@@ -40,7 +31,7 @@ class EnsureUserIsStaff
             return $next($request);
         }
 
-        if (! $user->hasAnyRole(self::STAFF_ROLES)) {
+        if (! $user->hasAnyRole(Role::staffRoleNames())) {
             abort(403);
         }
 

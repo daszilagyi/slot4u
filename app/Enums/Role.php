@@ -31,6 +31,29 @@ enum Role: string
     }
 
     /**
+     * Staff roles: the tenant members who operate the admin panel (docs/03).
+     * The customer role is deliberately excluded — customers live in the
+     * members area (SLO-33), not the admin panel; the EnsureUserIsStaff
+     * middleware gates the panel on exactly these roles.
+     *
+     * @return list<self>
+     */
+    public static function staffRoles(): array
+    {
+        return [self::TenantAdmin, self::Manager, self::Employee];
+    }
+
+    /**
+     * The `web`-guard role names for {@see staffRoles()}.
+     *
+     * @return list<string>
+     */
+    public static function staffRoleNames(): array
+    {
+        return array_map(fn (self $role) => $role->value, self::staffRoles());
+    }
+
+    /**
      * The default permission grant for this role (docs/03 matrix). Tenant admins
      * receive every permission; the super-admin grant is empty because the
      * Gate::before hook short-circuits its checks.
