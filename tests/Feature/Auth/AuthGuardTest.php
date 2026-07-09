@@ -1,8 +1,14 @@
 <?php
 
+use App\Enums\Role;
 use App\Models\Tenant;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
+use Spatie\Permission\PermissionRegistrar;
+
+afterEach(function () {
+    app(PermissionRegistrar::class)->setPermissionsTeamId(null);
+});
 
 function authTenantUrl(string $slug, string $path = '/'): string
 {
@@ -14,9 +20,11 @@ function authAdminUrl(string $path = '/'): string
     return 'http://'.config('tenancy.admin_subdomain').'.'.config('tenancy.central_domain').$path;
 }
 
-it('lets a tenant user reach their own dashboard', function () {
+it('lets a tenant staff user reach their own dashboard', function () {
     $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
+    app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getKey());
     $user = User::factory()->create(['tenant_id' => $tenant->id]);
+    $user->assignRole(Role::TenantAdmin->value);
 
     $this->actingAs($user)
         ->get(authTenantUrl('acme', '/dashboard'))

@@ -1,14 +1,30 @@
 <?php
 
+use App\Enums\Role;
 use App\Models\Tenant;
 use App\Models\User;
 use Inertia\Testing\AssertableInertia as Assert;
+use Spatie\Permission\PermissionRegistrar;
 
 // superUrl(), tenantHost() and superAdmin() live in tests/Pest.php.
 
+afterEach(function () {
+    app(PermissionRegistrar::class)->setPermissionsTeamId(null);
+});
+
+/** A staff member of the tenant (the admin panel is staff-only, SLO-86). */
+function shellStaff(Tenant $tenant): User
+{
+    app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getKey());
+    $user = User::factory()->create(['tenant_id' => $tenant->id]);
+    $user->assignRole(Role::TenantAdmin->value);
+
+    return $user;
+}
+
 it('renders the admin dashboard for a tenant user with tenant branding', function () {
     $tenant = Tenant::factory()->active()->create(['slug' => 'acme', 'name' => 'Acme']);
-    $user = User::factory()->create(['tenant_id' => $tenant->id]);
+    $user = shellStaff($tenant);
 
     $this->actingAs($user)
         ->get(tenantHost('acme', '/dashboard'))
@@ -21,7 +37,7 @@ it('renders the admin dashboard for a tenant user with tenant branding', functio
 
 it('renders the sample CRUD showcase for a tenant user', function () {
     $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
-    $user = User::factory()->create(['tenant_id' => $tenant->id]);
+    $user = shellStaff($tenant);
 
     $this->actingAs($user)
         ->get(tenantHost('acme', '/showcase'))

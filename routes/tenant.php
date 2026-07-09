@@ -42,10 +42,12 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
         Route::get('/booked/{booking:code}/ics', [TenantBookingController::class, 'ics'])->name('tenant.booked.ics');
     });
 
-    // Authenticated tenant area: only members of this tenant (super-admins are
-    // redirected to the admin panel unless impersonating). Extendable with
-    // ensure.feature + can:.
-    Route::middleware(['auth', 'ensure.user.tenant'])->group(function () {
+    // Authenticated tenant admin panel: only *staff* members of this tenant
+    // (super-admins are redirected to the admin panel unless impersonating).
+    // `ensure.staff` walls the panel off from the customer role — the members
+    // area (SLO-33) is a separate group — since several routes here carry no
+    // `can:` gate. Extendable with ensure.feature + can:.
+    Route::middleware(['auth', 'ensure.user.tenant', 'ensure.staff'])->group(function () {
         Route::get('/dashboard', fn () => Inertia::render('Admin/Dashboard'))->name('tenant.dashboard');
 
         // Sample CRUD assembled from the shared admin building blocks (SLO-15).
@@ -192,9 +194,11 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
             Route::post('/settings', [SettingsController::class, 'update'])->name('tenant.settings.update');
         });
 
-        // Employee self-service profile (SLO-17). Available to every tenant user
-        // (not staff.manage): a user linked to a staff record edits their own
-        // profile; ownership is enforced by the StaffPolicy update ability.
+        // Employee self-service profile (SLO-17). Available to every *staff*
+        // member (not staff.manage-gated, but behind ensure.staff like the rest
+        // of the panel — a customer cannot reach it): a user linked to a staff
+        // record edits their own profile; ownership is enforced by the
+        // StaffPolicy update ability.
         Route::get('/profile', [StaffProfileController::class, 'edit'])->name('tenant.profile.edit');
         Route::put('/profile', [StaffProfileController::class, 'update'])->name('tenant.profile.update');
     });
