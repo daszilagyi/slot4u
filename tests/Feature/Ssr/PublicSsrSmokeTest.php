@@ -1,14 +1,17 @@
 <?php
 
+use App\Enums\Role;
 use App\Models\Service;
 use App\Models\ServiceCategory;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Tenancy\TenantManager;
 use Illuminate\Support\Facades\Vite;
+use Spatie\Permission\PermissionRegistrar;
 
 afterEach(function () {
     app(TenantManager::class)->forget();
+    app(PermissionRegistrar::class)->setPermissionsTeamId(null);
 });
 
 /**
@@ -99,7 +102,11 @@ it('leaves the public home root non-empty (SSR actually ran, not a client shell)
 
 it('server-renders an authenticated admin page without breaking (global SSR)', function () {
     $tenant = Tenant::factory()->active()->create(['slug' => 'acme', 'name' => 'Acme']);
+
+    // The admin panel is staff-only (SLO-86), so a role-less user would 403 here.
+    app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getKey());
     $user = User::factory()->create(['tenant_id' => $tenant->id]);
+    $user->assignRole(Role::TenantAdmin->value);
 
     // Enabling SSR globally must not break the (auth-gated) admin area — with
     // throw_on_error on, a browser-API-in-render bug would fail loudly here.
