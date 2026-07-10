@@ -201,6 +201,25 @@ it('creates a quote_request service when the feature is enabled', function () {
     expect($service->settings['quote_fields'])->toBe(['Head count', 'Menu']);
 });
 
+it('rejects duplicate quote form labels', function () {
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
+    $admin = serviceAdmin($tenant);
+
+    // The labels key the public form's answers (SLO-102): a duplicate would
+    // silently overwrite an answer instead of asking twice.
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', '/services'), servicePayload([
+            'name' => 'Catering',
+            'booking_mode' => BookingMode::QuoteRequest->value,
+            'duration_minutes' => null,
+            'requires_staff' => false,
+            'settings' => ['quote_fields' => ['Head count', 'Head count']],
+        ]))
+        ->assertSessionHasErrors('settings.quote_fields.1');
+
+    expect(Service::where('name', 'Catering')->exists())->toBeFalse();
+});
+
 it('rejects quote_request when the feature is disabled', function () {
     $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
     $admin = serviceAdmin($tenant);

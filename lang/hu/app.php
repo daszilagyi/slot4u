@@ -51,7 +51,10 @@ return [
                 'downloadable' => 'A letöltési lehetőséget a megrendelés visszaigazolásában küldjük.',
                 'manual' => 'A megrendelésed rögzítjük, és kollégánk hamarosan teljesíti.',
             ],
-            'other_soon' => 'Ehhez a szolgáltatáshoz a foglalási felület hamarosan elérhető.',
+            'quote_intro' => 'Ehhez a szolgáltatáshoz egyedi ajánlatot készítünk — küldd el az adataidat, és hamarosan jelentkezünk az árajánlattal.',
+            'quote_confirm' => 'Ajánlatkérés elküldése',
+            'quote_unavailable' => 'Ehhez a szolgáltatáshoz jelenleg nem fogadunk ajánlatkérést.',
+            'quote_fields_mismatch' => 'Az űrlap időközben megváltozott. Töltsd be újra az oldalt, és próbáld újra.',
             'weekday' => [
                 '1' => 'H',
                 '2' => 'K',
@@ -91,6 +94,12 @@ return [
             'subtitle' => 'Értesítünk, amint felszabadul egy hely.',
             'position_label' => 'Pozíciód a várólistán',
             'event' => 'Esemény',
+            'back' => 'Vissza a főoldalra',
+        ],
+        'quote_sent' => [
+            'title' => 'Ajánlatkérésed megérkezett',
+            'subtitle' => 'Átnézzük a kérésed, és hamarosan elküldjük az árajánlatot emailben.',
+            'service' => 'Szolgáltatás',
             'back' => 'Vissza a főoldalra',
         ],
         'suspended' => [

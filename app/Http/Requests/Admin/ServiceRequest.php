@@ -71,7 +71,9 @@ class ServiceRequest extends FormRequest
             'settings.max_duration_minutes' => ['nullable', 'integer', 'min:1', 'max:1440'],
             'settings.deposit_minor' => ['nullable', 'integer', 'min:0'],
             'settings.quote_fields' => ['nullable', 'array'],
-            'settings.quote_fields.*' => ['required', 'string', 'max:255'],
+            // The labels are the keys of the public form's answers (`parameters`,
+            // SLO-102), so a duplicate would silently overwrite an answer.
+            'settings.quote_fields.*' => ['required', 'string', 'max:255', 'distinct'],
 
             'staff_ids' => ['nullable', 'array'],
             'staff_ids.*' => [

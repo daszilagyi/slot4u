@@ -37,6 +37,8 @@ type BookProps = {
     is_first_week?: boolean;
     slots?: BookSlot[];
     events?: BookEvent[];
+    quote_fields?: string[];
+    quote_enabled?: boolean;
     staff_options?: BookStaffOption[];
     room_options?: BookRoomOption[];
     location_options?: BookLocationOption[];
@@ -87,7 +89,9 @@ export default function Book(props: BookProps) {
         service?.booking_mode === 'resource_rental';
     const isEventMode = service?.booking_mode === 'event_based';
     const isOrderMode = service?.booking_mode === 'no_time_slot';
+    const isQuoteMode = service?.booking_mode === 'quote_request';
     const events = props.events ?? [];
+    const quoteFields = props.quote_fields ?? [];
 
     const locationOptions = props.location_options ?? [];
     const staffOptions = (props.staff_options ?? []).filter(
@@ -239,6 +243,40 @@ export default function Book(props: BookProps) {
         }
         form.transform((data) => ({ ...data, service_id: service.id }));
         form.post('/order', { preserveScroll: true });
+    }
+
+    // Quote request (SLO-102): the same details form plus the service's own
+    // questions (`quote_fields`). The answers are keyed by position *and* label
+    // — position alone would carry an answer over to the next service, and a
+    // label alone would merge two questions a tenant labelled identically — but
+    // submitted positionally, in the order the service defines them. Switching
+    // service keeps this component mounted (preserveState), so deriving the
+    // array at submit time is what keeps it in step with the rendered fields.
+    const [answers, setAnswers] = useState<Record<string, string>>({});
+    const answerKey = (label: string, index: number) => `${index}:${label}`;
+    // The field-count and feature errors are non-field errors on the shared bag.
+    const quoteError = (page.props.errors as Record<string, string> | undefined)
+        ?.quote;
+
+    function fieldError(index: number): string | undefined {
+        return (page.props.errors as Record<string, string> | undefined)?.[
+            `fields.${index}`
+        ];
+    }
+
+    function submitQuote(event: FormEvent) {
+        event.preventDefault();
+        if (!service) {
+            return;
+        }
+        form.transform((data) => ({
+            ...data,
+            service_id: service.id,
+            fields: quoteFields.map(
+                (label, index) => answers[answerKey(label, index)] ?? '',
+            ),
+        }));
+        form.post('/quote', { preserveScroll: true });
     }
 
     return (
@@ -829,9 +867,79 @@ export default function Book(props: BookProps) {
                                     {t('tenant.book.order_confirm')}
                                 </Button>
                             </motion.form>
+                        ) : isQuoteMode && props.quote_enabled ? (
+                            <motion.form
+                                initial={{ opacity: 0, y: 8 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ duration: 0.25 }}
+                                onSubmit={submitQuote}
+                                className="flex flex-col gap-4 rounded-xl border border-primary/40 bg-card p-5"
+                            >
+                                <p className="text-sm text-muted-foreground">
+                                    {t('tenant.book.quote_intro')}
+                                </p>
+
+                                {quoteError ? (
+                                    <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                                        {quoteError}
+                                    </p>
+                                ) : null}
+
+                                {quoteFields.length > 0 ? (
+                                    <div className="flex flex-col gap-4">
+                                        {quoteFields.map((label, index) => (
+                                            <div
+                                                key={answerKey(label, index)}
+                                                className="flex flex-col gap-1.5"
+                                            >
+                                                <Label
+                                                    htmlFor={`quote-field-${index}`}
+                                                >
+                                                    {label}
+                                                </Label>
+                                                <Input
+                                                    id={`quote-field-${index}`}
+                                                    value={
+                                                        answers[
+                                                            answerKey(
+                                                                label,
+                                                                index,
+                                                            )
+                                                        ] ?? ''
+                                                    }
+                                                    onChange={(e) =>
+                                                        setAnswers((prev) => ({
+                                                            ...prev,
+                                                            [answerKey(
+                                                                label,
+                                                                index,
+                                                            )]: e.target.value,
+                                                        }))
+                                                    }
+                                                />
+                                                {fieldError(index) ? (
+                                                    <p className="text-sm text-destructive">
+                                                        {fieldError(index)}
+                                                    </p>
+                                                ) : null}
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : null}
+
+                                {guestFields('quote')}
+
+                                <Button
+                                    type="submit"
+                                    disabled={form.processing}
+                                    className="w-full sm:w-auto sm:self-end"
+                                >
+                                    {t('tenant.book.quote_confirm')}
+                                </Button>
+                            </motion.form>
                         ) : (
                             <p className="rounded-xl border border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
-                                {t('tenant.book.other_soon')}
+                                {t('tenant.book.quote_unavailable')}
                             </p>
                         )}
                     </>

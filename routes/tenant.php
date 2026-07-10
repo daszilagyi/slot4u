@@ -48,6 +48,13 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
         Route::post('/events/{event}/book', [TenantBookingController::class, 'storeEvent'])->name('tenant.events.book');
         Route::post('/events/{event}/waitlist', [TenantBookingController::class, 'storeWaitlist'])->name('tenant.events.waitlist');
         Route::get('/waitlisted', [TenantBookingController::class, 'waitlisted'])->name('tenant.waitlisted');
+        // Public quote request (SLO-102, docs/04 §6). Gated by the same feature as
+        // the admin quote flow; the mode is re-checked in the controller. Creates
+        // no booking, so the confirmation is a flashed PRG page, not a code.
+        Route::post('/quote', [TenantBookingController::class, 'storeQuote'])
+            ->middleware('ensure.feature:'.Feature::QuoteRequest->value)
+            ->name('tenant.book.quote');
+        Route::get('/quote-sent', [TenantBookingController::class, 'quoteSent'])->name('tenant.quote_sent');
         Route::get('/booked/{booking:code}', [TenantBookingController::class, 'confirmation'])->name('tenant.booked');
         Route::get('/booked/{booking:code}/ics', [TenantBookingController::class, 'ics'])->name('tenant.booked.ics');
     });

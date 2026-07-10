@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Actions\Booking\CreateBooking;
 use App\Actions\Customer\FindOrCreateCustomer;
+use App\Actions\Quote\CreateQuoteRequest;
+use App\Actions\Quote\PostQuoteMessage;
 use App\Actions\Waitlist\JoinWaitlist;
 use App\Enums\BookingMode;
 use App\Enums\BookingSource;
@@ -14,6 +16,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Tenant\PublicBookingRequest;
 use App\Http\Requests\Tenant\PublicEventBookingRequest;
 use App\Http\Requests\Tenant\PublicOrderRequest;
+use App\Http\Requests\Tenant\PublicQuoteRequest;
 use App\Models\Booking;
 use App\Models\Customer;
 use App\Models\Event;
@@ -117,6 +120,8 @@ class BookingController extends Controller
             $props = [...$props, ...$this->slotView($service, $filters, $timezone)];
         } elseif ($service->booking_mode === BookingMode::EventBased) {
             $props = [...$props, ...$this->eventView($service, $timezone)];
+        } elseif ($service->booking_mode === BookingMode::QuoteRequest) {
+            $props = [...$props, ...$this->quoteView($service)];
         }
 
         return Inertia::render('Tenant/Book', $props);
@@ -190,6 +195,74 @@ class BookingController extends Controller
         ]);
 
         return redirect('/booked/'.$booking->code);
+    }
+
+    /**
+     * Submit a public quote request (SLO-102, docs/04 §6). This mode never books:
+     * it opens a `new` quote request whose `parameters` hold the answers to the
+     * service's own form, and the tenant works it up into a price. The guest's
+     * free-text message becomes the first message of the request's conversation
+     * thread, so an admin answers in one place. The route sits behind
+     * ensure.feature:feature_quote_request; the mode is re-checked here because a
+     * route-independent FormRequest cannot enforce it.
+     */
+    public function storeQuote(PublicQuoteRequest $request, CreateQuoteRequest $createQuoteRequest, PostQuoteMessage $postQuoteMessage, FindOrCreateCustomer $findOrCreateCustomer): RedirectResponse
+    {
+        $data = $request->validated();
+
+        $service = Service::query()->where('active', true)->findOrFail($data['service_id']);
+        abort_unless($service->booking_mode === BookingMode::QuoteRequest, 404);
+
+        $customer = $this->findGuest($findOrCreateCustomer, $data);
+
+        $quoteRequest = $createQuoteRequest($service, [
+            'customer_id' => $customer->id,
+            'parameters' => $this->quoteParameters($service, $data['fields'] ?? []),
+        ], $customer);
+
+        $message = trim((string) ($data['notes'] ?? ''));
+        if ($message !== '') {
+            $postQuoteMessage($quoteRequest, $message, $customer);
+        }
+
+        return redirect('/quote-sent')->with('quote', ['service' => $service->name]);
+    }
+
+    /**
+     * Quote request confirmation (SLO-102), reached by PRG redirect from
+     * storeQuote. A direct visit (no flash) falls back to the tenant home, like
+     * the waitlist confirmation.
+     */
+    public function quoteSent(Request $request): Response|RedirectResponse
+    {
+        $quote = $request->session()->get('quote');
+
+        if (! is_array($quote)) {
+            return redirect('/');
+        }
+
+        return Inertia::render('Tenant/QuoteSent', ['quote' => $quote]);
+    }
+
+    /**
+     * Pair the positional answers with the service's field labels (validated to
+     * be the same length by PublicQuoteRequest). Only the service's own labels
+     * ever become `parameters` keys.
+     *
+     * @param  array<int|string, mixed>  $answers
+     * @return array<string, string>|null
+     */
+    private function quoteParameters(Service $service, array $answers): ?array
+    {
+        $labels = $service->quoteFields();
+
+        if ($labels === []) {
+            return null;
+        }
+
+        $values = array_map(fn (mixed $value): string => (string) $value, array_values($answers));
+
+        return array_combine($labels, $values);
     }
 
     /**
@@ -532,6 +605,25 @@ class BookingController extends Controller
                     'waitlist_available' => $isFull && $event->waitlist_enabled && $waitlistFeature,
                 ];
             })->values()->all(),
+        ];
+    }
+
+    /**
+     * The customer-facing form of a quote_request service (SLO-102): the labels
+     * the tenant asks for, and whether the feature is on at all — a tenant whose
+     * feature_quote_request was switched off keeps the service but stops taking
+     * requests, so the page says so instead of offering a form that would 403.
+     *
+     * @return array{quote_fields: list<string>, quote_enabled: bool}
+     */
+    private function quoteView(Service $service): array
+    {
+        return [
+            'quote_fields' => $service->quoteFields(),
+            'quote_enabled' => app(FeatureResolver::class)->enabled(
+                app(TenantManager::class)->current(),
+                Feature::QuoteRequest,
+            ),
         ];
     }
 
