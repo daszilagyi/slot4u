@@ -14,6 +14,14 @@
 
 **Döntés:** a publikus foglalófelület NEM külön Astro/Next app, hanem ugyanaz a Laravel+Inertia alkalmazás publikus route-csoportja. SSR (Inertia SSR) bekapcsolva a publikus oldalakon SEO és sebesség miatt. Ha később mégis kell külön frontend, a Service réteg API-vá alakítható.
 
+### SEO assetek (SLO-89)
+
+Tenant-scoped, gépi (nem lokalizált UI) SEO végpontok a publikus felülethez, mind a bekötött tenant `BelongsToTenant` global scope-ján keresztül szűrve (`App\Http\Controllers\Tenant\SeoController`):
+
+- `GET /sitemap.xml` — XML sitemap a homepage-re, a `/book` belépőre és tenantonként az **aktív** szolgáltatások `/book?service={id}` mélylinkjeire (egyetlen lekérdezés, N+1-mentes). Az `ensure.tenant.active` mögött (csak operatív tenant).
+- `GET /robots.txt` — az `ensure.tenant.active`-en KÍVÜL, csak `identify.tenant` mögött, hogy egy **suspended/archived** tenant is választ adjon: ilyenkor `Disallow: /`. Operatív tenantnál engedi a publikus felületet, tiltja a `/my/`, `/dashboard`, `/settings` területet, és a sitemapre mutat.
+- `GET /og-image.png` — dinamikus, márka-színű 1200×630 Open Graph PNG **fej nélküli böngésző nélkül**, tiszta PHP GD-vel (a dev WSL-ben nincs Chrome): a tenant neve a beágyazott Inter fontból, kontraszt-tudatos szövegszínnel, opcionális logóval. A `public` diskre cache-elve (`og/{id}-{hash}.png`), a hash a branding-inputokból (név + primary color + logó) képződik; a homepage `og:image` a `?v={hash}` cache-buster query-vel hivatkozza, így rebrand friss fájlt ad. Lustán, első hívásra generálódik (`App\Services\Seo\OgImageGenerator`).
+
 ## Multi-tenancy modell
 
 **Döntés: shared database + `tenant_id` + global scope.** (Alternatíva — tenantonkénti DB — elvetve: üzemeltetési teher, migrációk N-szer, cross-tenant statisztika nehéz. A superadmin statisztikákhoz és a központi számlázáshoz a shared modell egyszerűbb.)

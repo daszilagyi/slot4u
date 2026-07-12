@@ -19,6 +19,8 @@ type HomeProps = {
     branding: PublicHomeBranding;
     categories: PublicHomeCategory[];
     locations: PublicHomeLocation[];
+    og_image?: string;
+    og_url?: string;
 };
 
 function formatAddress(
@@ -40,6 +42,8 @@ export default function TenantHome({
     branding,
     categories,
     locations,
+    og_image,
+    og_url,
 }: HomeProps) {
     const t = useTranslations();
 
@@ -69,6 +73,42 @@ export default function TenantHome({
                     content={metaDescription}
                 />
                 <meta head-key="og:type" property="og:type" content="website" />
+                {og_url ? (
+                    <meta
+                        head-key="og:url"
+                        property="og:url"
+                        content={og_url}
+                    />
+                ) : null}
+                {og_image ? (
+                    <meta
+                        head-key="og:image"
+                        property="og:image"
+                        content={og_image}
+                    />
+                ) : null}
+                <meta
+                    head-key="twitter:card"
+                    name="twitter:card"
+                    content="summary_large_image"
+                />
+                <meta
+                    head-key="twitter:title"
+                    name="twitter:title"
+                    content={profile.name}
+                />
+                <meta
+                    head-key="twitter:description"
+                    name="twitter:description"
+                    content={metaDescription}
+                />
+                {og_image ? (
+                    <meta
+                        head-key="twitter:image"
+                        name="twitter:image"
+                        content={og_image}
+                    />
+                ) : null}
             </Head>
 
             {/* Hero */}
