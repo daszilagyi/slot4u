@@ -205,3 +205,63 @@ it('still serves the ics download for a scheduled booking', function () {
         ->assertOk()
         ->assertHeader('Content-Type', 'text/calendar; charset=utf-8');
 });
+
+/**
+ * A no_time_slot booking (no appointment) in the given status for the service.
+ */
+function contentOrderBooking(Tenant $tenant, Service $service, BookingStatus $status): Booking
+{
+    return Booking::factory()->forTenant($tenant)->status($status)->create([
+        'service_id' => $service->id,
+        'booking_mode' => BookingMode::NoTimeSlot,
+        'starts_at' => null,
+        'ends_at' => null,
+    ]);
+}
+
+it('surfaces the content link on a completed digital order (SLO-105)', function () {
+    [$tenant, $service] = orderService('digital', [
+        'settings' => ['fulfillment_type' => 'digital', 'content_url' => 'https://cdn.example.test/course'],
+    ]);
+    $booking = contentOrderBooking($tenant, $service, BookingStatus::Completed);
+
+    $this->get(tenantHost('acme', '/booked/'.$booking->code))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Tenant/Booked')
+            ->where('booking.status', 'completed')
+            ->where('booking.content_url', 'https://cdn.example.test/course'));
+});
+
+it('never surfaces a stale content link on a manual order (SLO-105)', function () {
+    // A manual service must not carry a content link, but even if a stale value
+    // sits in settings the confirmation gate hides it (fulfilment is not digital).
+    [$tenant, $service] = orderService('manual', [
+        'settings' => ['fulfillment_type' => 'manual', 'content_url' => 'https://cdn.example.test/leak'],
+    ]);
+    $booking = contentOrderBooking($tenant, $service, BookingStatus::Completed);
+
+    $this->get(tenantHost('acme', '/booked/'.$booking->code))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->where('booking.content_url', null));
+});
+
+it('hides the content link until a digital order is completed (SLO-105)', function () {
+    [$tenant, $service] = orderService('digital', [
+        'settings' => ['fulfillment_type' => 'digital', 'content_url' => 'https://cdn.example.test/course'],
+    ]);
+    $booking = contentOrderBooking($tenant, $service, BookingStatus::Confirmed);
+
+    $this->get(tenantHost('acme', '/booked/'.$booking->code))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->where('booking.content_url', null));
+});
+
+it('has no content link when a digital service has none set (SLO-105)', function () {
+    [$tenant, $service] = orderService('digital');
+    $booking = contentOrderBooking($tenant, $service, BookingStatus::Completed);
+
+    $this->get(tenantHost('acme', '/booked/'.$booking->code))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->where('booking.content_url', null));
+});

@@ -99,6 +99,7 @@ export type ServiceSettings = {
     max_duration_minutes?: number;
     deposit_minor?: number;
     quote_fields?: string[];
+    content_url?: string;
 } | null;
 
 export type Service = {
@@ -438,6 +439,7 @@ export type BookedBooking = {
     starts_at: string | null;
     starts_local: string | null;
     ends_local: string | null;
+    content_url: string | null;
 };
 
 export type MyBooking = {

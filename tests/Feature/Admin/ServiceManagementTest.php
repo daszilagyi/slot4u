@@ -162,6 +162,88 @@ it('creates a no_time_slot service and keeps only its settings', function () {
         ->and($service->duration_minutes)->toBeNull();
 });
 
+it('keeps a content link on a digital no_time_slot service (SLO-105)', function () {
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
+    $admin = serviceAdmin($tenant);
+
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', '/services'), servicePayload([
+            'name' => 'Course',
+            'booking_mode' => BookingMode::NoTimeSlot->value,
+            'duration_minutes' => null,
+            'requires_staff' => false,
+            'settings' => ['fulfillment_type' => 'digital', 'content_url' => 'https://cdn.example.test/course'],
+        ]))
+        ->assertRedirect();
+
+    $service = Service::where('name', 'Course')->firstOrFail();
+    expect($service->settings)->toBe([
+        'fulfillment_type' => 'digital',
+        'content_url' => 'https://cdn.example.test/course',
+    ]);
+});
+
+it('drops the content link when the fulfilment is not digital (SLO-105)', function () {
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
+    $admin = serviceAdmin($tenant);
+
+    // A manual service must never carry a stale content link.
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', '/services'), servicePayload([
+            'name' => 'Recipe',
+            'booking_mode' => BookingMode::NoTimeSlot->value,
+            'duration_minutes' => null,
+            'requires_staff' => false,
+            'settings' => ['fulfillment_type' => 'manual', 'content_url' => 'https://cdn.example.test/leak'],
+        ]))
+        ->assertRedirect();
+
+    $service = Service::where('name', 'Recipe')->firstOrFail();
+    expect($service->settings)->toBe(['fulfillment_type' => 'manual']);
+});
+
+it('drops the content link when an existing digital service is switched to manual (SLO-105)', function () {
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
+    $admin = serviceAdmin($tenant);
+    $service = Service::factory()->forTenant($tenant)->create([
+        'name' => 'Course',
+        'booking_mode' => BookingMode::NoTimeSlot,
+        'duration_minutes' => null,
+        'settings' => ['fulfillment_type' => 'digital', 'content_url' => 'https://cdn.example.test/course'],
+    ]);
+
+    // Switching an existing digital service to manual must strip the stale link
+    // (NormalizesServiceData runs on the update path too).
+    $this->actingAs($admin)
+        ->put(tenantHost('acme', "/services/{$service->id}"), servicePayload([
+            'name' => 'Course',
+            'booking_mode' => BookingMode::NoTimeSlot->value,
+            'duration_minutes' => null,
+            'requires_staff' => false,
+            'settings' => ['fulfillment_type' => 'manual', 'content_url' => 'https://cdn.example.test/course'],
+        ]))
+        ->assertRedirect();
+
+    expect($service->refresh()->settings)->toBe(['fulfillment_type' => 'manual']);
+});
+
+it('rejects a non-url content link (SLO-105)', function () {
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
+    $admin = serviceAdmin($tenant);
+
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', '/services'), servicePayload([
+            'name' => 'Course',
+            'booking_mode' => BookingMode::NoTimeSlot->value,
+            'duration_minutes' => null,
+            'requires_staff' => false,
+            'settings' => ['fulfillment_type' => 'digital', 'content_url' => 'not-a-url'],
+        ]))
+        ->assertSessionHasErrors('settings.content_url');
+
+    expect(Service::where('name', 'Course')->exists())->toBeFalse();
+});
+
 it('creates a resource_rental service with a deposit in settings', function () {
     $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
     $admin = serviceAdmin($tenant);

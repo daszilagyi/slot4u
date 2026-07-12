@@ -8,11 +8,14 @@ Egységes `bookings` tábla, `booking_mode` diszkriminátor, Strategy pattern:
 Példa: videó/digitális termék vásárlás, receptkérés, dokumentumbeküldés.
 - Nincs starts_at/ends_at. Staff opcionális, fizetés opcionális.
 - `fulfillment_type`: digital (azonnali link) / manual (admin teljesíti) / downloadable.
+- Digitális teljesítésnél az „azonnali link" a `settings.content_url` mezőben él (lásd SLO-105 lent).
 - Állapot: `confirmed → completed` (manualnál admin zárja le).
 
 **Implementáció (SLO-27):** a `CreateBooking` a `no_time_slot` foglalást starts_at/ends_at nélkül hozza létre a service kezdő státuszába (`confirmed`, vagy `pending_payment`/`requested` a fizetés/jóváhagyás kapuknál). A `fulfillment_type` a service `settings`-ből olvasva (`Service::fulfillmentType()`): **digital** → ha a foglalás létrejöttekor `confirmed`, azonnal `completed`-be lép (az „azonnali link" kézbesítés a `ChangeBookingStatus`-on át); **manual/downloadable** → `confirmed` marad, az admin a **`CompleteBooking`** actionnel (`POST /bookings/{booking}/complete`, `booking.edit`) zárja le. A `CompleteBooking` szándékosan csak `no_time_slot` módra enged (422 egyébként) — az idősávos/esemény foglalások lezárása (részvétel-jelölés) az admin foglaláskezelő UI-jal jön (SLO-28).
 
 **Publikus megrendelés (SLO-101):** a `/book?service=X` no_time_slot ága időpontválasztó helyett egyszerű megrendelő űrlapot mutat (név/email/telefon/megjegyzés), a `settings.fulfillment_type`-hoz illő magyarázó szöveggel. Belépési pont `POST /order` (`PublicOrderRequest`, tenant-scope-olt aktív `service_id`); a controller újraellenőrzi a módot — bármely más mód **404** (a `quote_request` így sem kerülheti meg a saját életciklusát). Vendégből `FindOrCreateCustomer`-rel lesz ügyfél, a foglalást a `CreateBooking` hozza létre `source=online`-nal, tehát a jóváhagyás/fizetés kapuk érvényesek (`requires_approval` → `requested`). A visszaigazoló `/booked/{code}` időpont nélküli foglalásnál elrejti az „Időpont" sort és a naptár-gombot, a `GET /booked/{code}/ics` pedig **404**-gyel válaszol (starts_at/ends_at nélkül a VEVENT `DTSTART`-ja üres lenne).
+
+**Digitális tartalom-link (SLO-105):** a digitális teljesítés „azonnali linkjét" a `settings.content_url` mező hordozza (a `ServiceRequest` `nullable|url|max:2000`-ként validálja; a `NormalizesServiceData` csak digitális `fulfillment_type` mellett tartja meg, manual/downloadable módra vagy más módra váltáskor elhagyja — a `Service::contentUrl()` accessor olvassa). A `/booked/{code}` visszaigazoló akkor és csak akkor jeleníti meg a link-gombot, ha a foglalás `completed` **és** a szolgáltatás digitális `no_time_slot` — ilyenkor a publikus foglalási kód maga a hozzáférési kulcs (nincs külön auth: aki ismeri a visszaigazoló URL-t, láthatja a linket). A tényleges email-kézbesítés M5.
 
 ## 2. `duration_based` — Idősávos foglalás (CORE, legfontosabb)
 

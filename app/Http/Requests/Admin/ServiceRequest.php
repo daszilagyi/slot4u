@@ -67,6 +67,9 @@ class ServiceRequest extends FormRequest
 
             'settings' => ['nullable', 'array'],
             'settings.fulfillment_type' => ['nullable', 'string', Rule::in(['digital', 'manual', 'downloadable'])],
+            // http(s) only — the value is rendered as an <a href> on the public
+            // confirmation page, so a javascript:/data: scheme must never pass.
+            'settings.content_url' => ['nullable', 'string', 'url:http,https', 'max:2000'],
             'settings.min_duration_minutes' => ['nullable', 'integer', 'min:1', 'max:1440'],
             'settings.max_duration_minutes' => ['nullable', 'integer', 'min:1', 'max:1440'],
             'settings.deposit_minor' => ['nullable', 'integer', 'min:0'],

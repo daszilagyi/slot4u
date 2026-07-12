@@ -53,7 +53,7 @@ trait NormalizesServiceData
     private function normalizeSettings(BookingMode $mode, array $settings): ?array
     {
         $kept = match ($mode) {
-            BookingMode::NoTimeSlot => array_intersect_key($settings, array_flip(['fulfillment_type'])),
+            BookingMode::NoTimeSlot => $this->noTimeSlotSettings($settings),
             BookingMode::ResourceRental => array_intersect_key($settings, array_flip([
                 'min_duration_minutes', 'max_duration_minutes', 'deposit_minor',
             ])),
@@ -62,5 +62,22 @@ trait NormalizesServiceData
         };
 
         return $kept === [] ? null : $kept;
+    }
+
+    /**
+     * no_time_slot keeps its fulfilment type, plus a content link only for a digital
+     * fulfilment (docs/04 §1, SLO-105) — a manual/downloadable service never carries one.
+     *
+     * @param  array<string, mixed>  $settings
+     * @return array<string, mixed>
+     */
+    private function noTimeSlotSettings(array $settings): array
+    {
+        $kept = array_intersect_key($settings, array_flip(['fulfillment_type', 'content_url']));
+        if (($kept['fulfillment_type'] ?? null) !== 'digital') {
+            unset($kept['content_url']);
+        }
+
+        return $kept;
     }
 }
