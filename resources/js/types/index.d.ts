@@ -380,6 +380,9 @@ export type BookServiceDetail = {
     currency: string;
     booking_mode: BookingModeValue;
     duration_minutes: number | null;
+    /** Free-range resource_rental bounds (SLO-92); null otherwise. */
+    min_duration_minutes: number | null;
+    max_duration_minutes: number | null;
     /** no_time_slot only (SLO-101): digital / manual / downloadable, or null. */
     fulfillment_type: FulfillmentTypeValue | null;
 };
