@@ -17,8 +17,12 @@ use Illuminate\Validation\ValidationException;
  * MVP scope (docs/04 §2): only time-slot modes (duration_based / resource_rental)
  * can be rescheduled — no_time_slot has no slot to move, event_based means changing
  * event registration, and quote_request is bound to an accepted quote. A non-slot
- * mode is rejected up front (before the original is touched); cancellation here is
- * admin-initiated (no cancellation-deadline check).
+ * mode is rejected up front (before the original is touched).
+ *
+ * The `$online` flag is threaded into the inner {@see CancelBooking}: an online
+ * (customer/members-area, SLO-97) reschedule enforces the tenant cancellation
+ * deadline — otherwise a within-deadline booking could be moved to sidestep the
+ * cancellation window. The admin path leaves it false (deadline-free).
  */
 class RescheduleBooking
 {
@@ -29,10 +33,12 @@ class RescheduleBooking
 
     /**
      * @param  array<string, mixed>  $data  the new booking's attributes
+     * @param  bool  $online  enforce the cancellation deadline (customer reschedule)
      *
-     * @throws ValidationException when the booking's mode cannot be rescheduled
+     * @throws ValidationException when the mode cannot be rescheduled, or (online) the
+     *                             cancellation deadline has passed
      */
-    public function __invoke(Booking $original, Service $service, array $data, ?User $actor = null): Booking
+    public function __invoke(Booking $original, Service $service, array $data, ?User $actor = null, bool $online = false): Booking
     {
         // Guard the mode here (not just in the UI) so a direct API call can't move a
         // no_time_slot/event/quote booking into an invalid state (docs/04 §2).
@@ -42,8 +48,11 @@ class RescheduleBooking
             ]);
         }
 
-        return DB::transaction(function () use ($original, $service, $data, $actor): Booking {
-            ($this->cancelBooking)($original, $actor, __('app.booking.rescheduled'));
+        return DB::transaction(function () use ($original, $service, $data, $actor, $online): Booking {
+            // online: true enforces the cancellation deadline in CancelBooking; a
+            // within-deadline attempt throws (on the `cancel` key) and rolls the whole
+            // transaction back, so the original booking survives untouched (SLO-97).
+            ($this->cancelBooking)($original, $actor, __('app.booking.rescheduled'), $online);
 
             return ($this->createBooking)($service, $data, $actor);
         });

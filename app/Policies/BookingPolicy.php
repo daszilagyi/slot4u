@@ -3,6 +3,7 @@
 namespace App\Policies;
 
 use App\Actions\Booking\CancelBooking;
+use App\Actions\Booking\RescheduleBooking;
 use App\Enums\Permission;
 use App\Models\Booking;
 use App\Models\User;
@@ -77,6 +78,16 @@ class BookingPolicy
      * ability is only the ownership gate.
      */
     public function cancelOwn(User $user, Booking $booking): bool
+    {
+        return $booking->customer_id === $user->getKey();
+    }
+
+    /**
+     * A customer rescheduling their OWN booking online (members area, SLO-97).
+     * Same ownership rule as cancelOwn; the cancellation deadline is enforced in
+     * {@see RescheduleBooking} (online: true), not here.
+     */
+    public function rescheduleOwn(User $user, Booking $booking): bool
     {
         return $booking->customer_id === $user->getKey();
     }

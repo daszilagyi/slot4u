@@ -452,6 +452,18 @@ export type MyBooking = {
     starts_local: string | null;
     ends_local: string | null;
     can_cancel: boolean;
+    can_reschedule: boolean;
+};
+
+export type RescheduleBooking = {
+    id: number;
+    code: string;
+    service: string;
+    booking_mode: BookingModeValue;
+    duration_minutes: number | null;
+    min_duration_minutes: number | null;
+    max_duration_minutes: number | null;
+    current_local: string | null;
 };
 
 export type WaitlistStatusValue =
