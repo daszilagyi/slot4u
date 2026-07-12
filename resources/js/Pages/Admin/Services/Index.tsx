@@ -80,6 +80,7 @@ const emptyForm = {
     online_payment_required: false,
     active: true,
     fulfillment_type: 'digital' as FulfillmentTypeValue,
+    content_url: '' as string,
     min_duration_minutes: '' as number | '',
     max_duration_minutes: '' as number | '',
     deposit: '' as number | '',
@@ -175,6 +176,7 @@ export default function ServicesIndex({
             online_payment_required: service.online_payment_required,
             active: service.active,
             fulfillment_type: service.settings?.fulfillment_type ?? 'digital',
+            content_url: service.settings?.content_url ?? '',
             min_duration_minutes: service.settings?.min_duration_minutes ?? '',
             max_duration_minutes: service.settings?.max_duration_minutes ?? '',
             deposit:
@@ -191,7 +193,14 @@ export default function ServicesIndex({
     function buildSettings(data: ServiceForm) {
         const f = MODE_FIELDS[data.booking_mode];
         if (f.fulfillment) {
-            return { fulfillment_type: data.fulfillment_type };
+            return {
+                fulfillment_type: data.fulfillment_type,
+                content_url:
+                    data.fulfillment_type === 'digital' &&
+                    data.content_url.trim() !== ''
+                        ? data.content_url.trim()
+                        : null,
+            };
         }
         if (f.rental) {
             return {
@@ -708,6 +717,40 @@ export default function ServicesIndex({
                                 </option>
                             ))}
                         </select>
+                    </div>
+                ) : null}
+
+                {fields.fulfillment &&
+                form.data.fulfillment_type === 'digital' ? (
+                    <div className="flex flex-col gap-2">
+                        <Label htmlFor="svc-content-url">
+                            {t('admin.services.field.content_url')}
+                        </Label>
+                        <Input
+                            id="svc-content-url"
+                            type="url"
+                            placeholder={t(
+                                'admin.services.field.content_url_placeholder',
+                            )}
+                            value={form.data.content_url}
+                            onChange={(e) =>
+                                form.setData('content_url', e.target.value)
+                            }
+                        />
+                        <p className="text-xs text-muted-foreground">
+                            {t('admin.services.field.content_url_hint')}
+                        </p>
+                        {(form.errors as Record<string, string>)[
+                            'settings.content_url'
+                        ] ? (
+                            <p className="text-sm text-destructive">
+                                {
+                                    (form.errors as Record<string, string>)[
+                                        'settings.content_url'
+                                    ]
+                                }
+                            </p>
+                        ) : null}
                     </div>
                 ) : null}
 

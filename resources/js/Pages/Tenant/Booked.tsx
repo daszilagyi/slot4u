@@ -53,6 +53,23 @@ export default function Booked({ booking }: BookedProps) {
                     </p>
                 </div>
 
+                {booking.content_url ? (
+                    <div className="flex flex-col items-center gap-3 rounded-xl border border-primary/40 bg-card px-4 py-6 text-center">
+                        <p className="text-sm text-muted-foreground">
+                            {t('tenant.booked.content_intro')}
+                        </p>
+                        <Button asChild>
+                            <a
+                                href={booking.content_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                {t('tenant.booked.content_link')}
+                            </a>
+                        </Button>
+                    </div>
+                ) : null}
+
                 <div className="flex flex-col items-center gap-1 rounded-xl border border-border bg-card px-4 py-6 text-center">
                     <span className="text-xs text-muted-foreground uppercase">
                         {t('tenant.booked.code_label')}

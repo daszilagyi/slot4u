@@ -9,6 +9,7 @@ use App\Actions\Quote\PostQuoteMessage;
 use App\Actions\Waitlist\JoinWaitlist;
 use App\Enums\BookingMode;
 use App\Enums\BookingSource;
+use App\Enums\BookingStatus;
 use App\Enums\EventStatus;
 use App\Enums\Feature;
 use App\Exceptions\SlotUnavailableException;
@@ -389,8 +390,19 @@ class BookingController extends Controller
      */
     public function confirmation(string $tenant, Booking $booking): Response
     {
-        $booking->load(['service:id,name', 'staff:id,name']);
+        $booking->load(['service:id,name,settings,booking_mode', 'staff:id,name']);
         $timezone = app(TenantManager::class)->current()->timezone;
+
+        $service = $booking->service;
+        // Deliver the digital content link only once the order is completed and the
+        // service is a digital no_time_slot (docs/04 §1, SLO-105). The public code is the
+        // access key, so anyone with the confirmation URL may see it.
+        $contentUrl = ($booking->status === BookingStatus::Completed
+            && $service !== null
+            && $service->booking_mode === BookingMode::NoTimeSlot
+            && $service->fulfillmentType() === 'digital')
+            ? $service->contentUrl()
+            : null;
 
         return Inertia::render('Tenant/Booked', [
             'booking' => [
@@ -401,6 +413,7 @@ class BookingController extends Controller
                 'starts_at' => $booking->starts_at?->toIso8601String(),
                 'starts_local' => $this->localDateTime($booking->starts_at, $timezone),
                 'ends_local' => $this->localDateTime($booking->ends_at, $timezone),
+                'content_url' => $contentUrl,
             ],
             'timezone' => $timezone,
         ]);

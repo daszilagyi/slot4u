@@ -81,6 +81,8 @@ return [
             'when' => 'Időpont',
             'ics' => 'Hozzáadás a naptárhoz',
             'back' => 'Vissza a főoldalra',
+            'content_intro' => 'A megrendelt tartalom elérhető:',
+            'content_link' => 'Tartalom megnyitása',
             'ics_description' => 'slot4u foglalás — kód: :code',
             'status' => [
                 'confirmed' => 'A foglalásod megerősítve.',
@@ -536,6 +538,9 @@ return [
                 'buffer_after' => 'Ráhagyás utána (perc)',
                 'capacity' => 'Kapacitás (fő)',
                 'fulfillment' => 'Teljesítés módja',
+                'content_url' => 'Tartalom linkje',
+                'content_url_hint' => 'A digitális tartalom URL-je — a vevő a visszaigazoló oldalon éri el a teljesítés után.',
+                'content_url_placeholder' => 'https://…',
                 'min_duration' => 'Min. időtartam (perc)',
                 'max_duration' => 'Max. időtartam (perc)',
                 'deposit' => 'Kaució',

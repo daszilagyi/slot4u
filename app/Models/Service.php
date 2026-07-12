@@ -131,6 +131,18 @@ class Service extends Model
     }
 
     /**
+     * The digital content link delivered on a completed no_time_slot order (docs/04
+     * §1, SLO-105), stored in `settings.content_url`; null when unset. Only surfaced
+     * for a digital fulfilment on the public confirmation.
+     */
+    public function contentUrl(): ?string
+    {
+        $value = $this->settings['content_url'] ?? null;
+
+        return is_string($value) && $value !== '' ? $value : null;
+    }
+
+    /**
      * The customer-facing form fields a quote_request service asks for (docs/04
      * §6), stored in `settings.quote_fields`. Empty when unset.
      *
