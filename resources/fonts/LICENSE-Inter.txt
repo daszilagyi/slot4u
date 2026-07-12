@@ -1,0 +1,15 @@
+Inter is licensed under the SIL Open Font License 1.1
+(https://github.com/rsms/inter). Bundled here for server-side OG-image text
+rendering (SLO-89).
+
+Copyright (c) 2016 The Inter Project Authors (https://github.com/rsms/inter)
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1.
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+the Font Software, to use, study, copy, merge, embed, modify, redistribute, and
+sell modified and unmodified copies of the Font Software, subject to the terms of
+the OFL: the Font Software may be bundled, embedded, or redistributed provided
+that any reserved names are not used and the licence text is included. The Font
+Software is provided "AS IS", without warranty of any kind.
+
+Full licence text: https://openfontlicense.org/

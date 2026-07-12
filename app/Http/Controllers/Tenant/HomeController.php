@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Location;
 use App\Models\Service;
 use App\Models\ServiceCategory;
+use App\Services\Seo\OgImageGenerator;
 use App\Settings\TenantBranding;
 use App\Settings\TenantSettings;
 use App\Tenancy\TenantManager;
@@ -33,7 +34,13 @@ class HomeController extends Controller
         $branding = TenantBranding::fromArray($tenant->branding);
         $branded = Pennant::active(Feature::Branding->value);
 
+        // The branded OG image is rendered lazily on first /og-image.png hit; here
+        // we only compute the cheap cacheKey hash to bust crawler caches on rebrand.
+        $ogImage = url('/og-image.png').'?v='.app(OgImageGenerator::class)->cacheKey($tenant);
+
         return Inertia::render('Tenant/Home', [
+            'og_image' => $ogImage,
+            'og_url' => url('/'),
             'profile' => [
                 'name' => $tenant->name,
                 'description' => $settings->description,

@@ -22,6 +22,7 @@ use App\Http\Controllers\Tenant\BookingController as TenantBookingController;
 use App\Http\Controllers\Tenant\HomeController as TenantHomeController;
 use App\Http\Controllers\Tenant\MyBookingController;
 use App\Http\Controllers\Tenant\MyProfileController;
+use App\Http\Controllers\Tenant\SeoController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -31,6 +32,17 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
     // Public surface (no auth): the tenant landing page — profile, locations,
     // service catalogue (SLO-29).
     Route::get('/', [TenantHomeController::class, 'index'])->name('tenant.home');
+
+    // Per-tenant SEO machine assets (SLO-89). Not Inertia. The branded OG PNG is
+    // lazily rendered with GD and cached to the public disk; a light throttle caps
+    // the pre-cache GD render cost against a crawler-mimicking burst. Both sit
+    // inside ensure.tenant.active, so a suspended tenant gets the 503 status page
+    // rather than XML/PNG — intentional (crawlers back off, and robots.txt below,
+    // which lives outside that gate, already tells them Disallow: /).
+    Route::middleware('throttle:60,1')->group(function () {
+        Route::get('/sitemap.xml', [SeoController::class, 'sitemap'])->name('tenant.sitemap');
+        Route::get('/og-image.png', [SeoController::class, 'ogImage'])->name('tenant.og_image');
+    });
 
     // Public slot-picker (SLO-30) + booking submission (SLO-31). Unauthenticated
     // and availability/write heavy, so both are throttled. The guest becomes a
@@ -242,6 +254,12 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
             ->middleware('throttle:6,1')
             ->name('tenant.my.password.update');
     });
+});
+
+// robots.txt must answer for a suspended tenant too (Disallow: /), so it sits
+// outside ensure.tenant.active — only the tenant needs resolving (SLO-89).
+Route::middleware(['identify.tenant'])->group(function () {
+    Route::get('/robots.txt', [SeoController::class, 'robots'])->name('tenant.robots');
 });
 
 // Impersonation exit (SLO-79). Same-origin with the tenant pages that show the
