@@ -35,6 +35,7 @@ return [
             'timezone_note' => 'Minden időpont :tz idő szerint.',
             'minutes' => ':count perc',
             'no_slots' => 'Erre a napra nincs szabad időpont.',
+            'duration_label' => 'Időtartam',
             'selected' => 'Kiválasztott időpont',
             'no_events' => 'Jelenleg nincs meghirdetett alkalom.',
             'event_remaining' => ':remaining / :capacity szabad hely',
@@ -911,12 +912,14 @@ return [
     ],
     'booking' => [
         'rescheduled' => 'Átfoglalva',
+        'duration' => 'Időtartam',
         'reason' => [
             'hold_expired' => 'A jóváhagyási határidő lejárt — az ideiglenes foglalás automatikusan felszabadult.',
         ],
         'error' => [
             'cancel_deadline_passed' => 'A foglalás már nem mondható le online — a lemondási határidő (:hours óra) lejárt. Vedd fel a kapcsolatot a szolgáltatóval.',
             'slot_unavailable' => 'Ez az időpont időközben betelt. Kérjük, válassz másikat.',
+            'duration_out_of_range' => 'A választott időtartam nem engedélyezett ehhez a szolgáltatáshoz.',
             'event_full' => 'Erre az eseményre már nincs szabad hely.',
             'invalid_transition' => 'Ez a művelet a foglalás jelenlegi állapotában nem végezhető el.',
             'complete_mode_only' => 'Csak időpont nélküli szolgáltatás zárható le ezen a módon.',

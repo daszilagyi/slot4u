@@ -46,6 +46,8 @@ Példa: teremfoglalás, pálya, szauna, eszközbérlés.
 - Opcionális kaució (`deposit_minor`) — online előleg, ha `feature_online_payment` aktív.
 - Elérhetőség: room nyitvatartása − foglalások; ütközésvédelem ugyanaz, mint 2-nél.
 
+**Publikus ág (SLO-92, M4):** a `/book?service=X` slot-választója a **fix** időtartamú bérlést az SLO-31 óta kezeli; a **szabad-tartományú** esetnél (`duration_minutes` a service-en `null`, `settings.min/max_duration_minutes` eltér) a kiválasztott slot alatt egy időtartam-választó jelenik meg (min→max, a tenant `slot_interval_minutes` lépésein, plusz a pontos max), és a választott hossz szerint hosszabbítja a slot végét. A `POST /book` a beküldött `duration_minutes`-t **soha nem tárolja nyersen**: az `AvailabilityService::matchRentalSlot()` a szerveren újra-validálja a **teljes** választott `[start, start+duration]` tartományt — a `duration` a service min/max korlátjába essen (`isDurationAllowed`), a `start` legyen valódi min-hosszú rácspont (off-grid → elutasítás), a tartomány férjen a room nyitvatartásába, és ne ütközzön meglévő foglalással (a min-slot szabadsága nem elég, ha a hosszabb range belelóg egy foglalásba). A `PublicBookingRequest::withValidator` defense-in-depth a min/max korlátot előre ellenőrzi (`app.booking.error.duration_out_of_range`); a range-ütközés a szokásos `slot_unavailable` hibát adja. A room-kötés tenant-scope-olt (idegen room → elutasítás), a foglalás a szentesített `CreateBooking`-on át `source=online`.
+
 ## 5. `manual_approval` — Jóváhagyáshoz kötött foglalás
 
 Példa: orvosi konzultáció előszűréssel, nagy értékű szolgáltatás.

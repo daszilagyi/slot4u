@@ -35,6 +35,7 @@ type BookProps = {
     prev_week?: string;
     next_week?: string;
     is_first_week?: boolean;
+    slot_interval_minutes?: number;
     slots?: BookSlot[];
     events?: BookEvent[];
     quote_fields?: string[];
@@ -48,6 +49,19 @@ type BookProps = {
 function selectedStartFrom(url: string): string | null {
     const query = url.split('?')[1] ?? '';
     return new URLSearchParams(query).get('start');
+}
+
+/**
+ * The "HH:mm" wall-clock end time `minutes` after a "HH:mm" start, wrapping past
+ * midnight (SLO-92 free-range rental preview). String math keeps it in the slot's
+ * displayed tenant-local time without re-deriving a timezone.
+ */
+function endTimeFrom(start: string, minutes: number): string {
+    const [h, m] = start.split(':').map(Number);
+    const total = (h * 60 + m + minutes) % (24 * 60);
+    const eh = Math.floor(total / 60);
+    const em = total % 60;
+    return `${String(eh).padStart(2, '0')}:${String(em).padStart(2, '0')}`;
 }
 
 export default function Book(props: BookProps) {
@@ -106,6 +120,56 @@ export default function Book(props: BookProps) {
     const week = props.week ?? [];
     const selectedSlot = slots.find((s) => s.start === selectedStart) ?? null;
 
+    // Free-range resource_rental (SLO-92): the guest picks a length between the
+    // service's min and max, stepped on the tenant's slot grid. A fixed-duration
+    // rental (duration_minutes set) or equal bounds means no picker — book min.
+    const isFreeRangeRental =
+        service?.booking_mode === 'resource_rental' &&
+        service?.duration_minutes === null;
+    const slotInterval = props.slot_interval_minutes ?? 15;
+    const minDuration = service?.min_duration_minutes ?? null;
+    const maxDuration = service?.max_duration_minutes ?? null;
+
+    const durationOptions: number[] = [];
+    if (
+        isFreeRangeRental &&
+        minDuration !== null &&
+        maxDuration !== null &&
+        maxDuration > minDuration
+    ) {
+        for (let d = minDuration; d < maxDuration; d += slotInterval) {
+            durationOptions.push(d);
+        }
+        // Always offer the exact max, even if it is not on the grid from min.
+        if (durationOptions[durationOptions.length - 1] !== maxDuration) {
+            durationOptions.push(maxDuration);
+        }
+    }
+
+    // The min-length slot the picker builds on (its own start/end come from the
+    // selected grid slot; a longer choice extends the end from that start).
+    const slotLengthMinutes = selectedSlot
+        ? Math.round(
+              (Date.parse(selectedSlot.end) - Date.parse(selectedSlot.start)) /
+                  60000,
+          )
+        : null;
+    // A new slot restarts the length at min: reset during render when the selected
+    // start changes (React's "adjust state on prop change" pattern, no effect).
+    const [duration, setDuration] = useState<number | null>(null);
+    const [durationSlotStart, setDurationSlotStart] = useState<string | null>(
+        selectedSlot?.start ?? null,
+    );
+    let effectiveDuration = duration;
+    if ((selectedSlot?.start ?? null) !== durationSlotStart) {
+        setDurationSlotStart(selectedSlot?.start ?? null);
+        setDuration(null);
+        effectiveDuration = null;
+    }
+    const chosenDuration = isFreeRangeRental
+        ? (effectiveDuration ?? minDuration ?? slotLengthMinutes ?? 0)
+        : null;
+
     // Booking details form (prefilled for a logged-in customer). The slot fields
     // are injected from the selected slot at submit time.
     const authUser = page.props.auth.user;
@@ -150,6 +214,14 @@ export default function Book(props: BookProps) {
     const bookingError = (
         page.props.errors as Record<string, string> | undefined
     )?.booking;
+    // The free-range rental duration-bounds error (PublicBookingRequest::withValidator,
+    // SLO-92) also arrives on the shared bag. It is normally unreachable — the picker
+    // only offers server-reported bounds — but surfaces if the tenant narrows the
+    // bounds while the page is open, so the guest sees feedback instead of a silent
+    // no-op.
+    const durationError = (
+        page.props.errors as Record<string, string> | undefined
+    )?.duration_minutes;
     // Likewise the waitlist join errors (not_full / already_listed, JoinWaitlist)
     // arrive on the shared `waitlist` key, not eventForm.errors.
     const eventError = (page.props.errors as Record<string, string> | undefined)
@@ -166,7 +238,18 @@ export default function Book(props: BookProps) {
             staff_id: selectedSlot.staff_id,
             room_id: selectedSlot.room_id,
             starts_at: selectedSlot.start,
-            ends_at: selectedSlot.end,
+            // A free-range rental extends the end from the slot start by the chosen
+            // length; every other mode books the slot's own end (SLO-92).
+            ends_at:
+                isFreeRangeRental && chosenDuration
+                    ? new Date(
+                          Date.parse(selectedSlot.start) +
+                              chosenDuration * 60000,
+                      ).toISOString()
+                    : selectedSlot.end,
+            ...(isFreeRangeRental
+                ? { duration_minutes: chosenDuration }
+                : {}),
         }));
         // On success the server PRG-redirects to /booked/{code} (Inertia follows).
         form.post('/book', { preserveScroll: true });
@@ -587,6 +670,10 @@ export default function Book(props: BookProps) {
                                                 {props.selected_date}
                                                 {' · '}
                                                 {selectedSlot.time}
+                                                {isFreeRangeRental &&
+                                                chosenDuration
+                                                    ? ` – ${endTimeFrom(selectedSlot.time, chosenDuration)}`
+                                                    : null}
                                             </div>
                                         </div>
 
@@ -594,6 +681,52 @@ export default function Book(props: BookProps) {
                                             <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
                                                 {bookingError}
                                             </p>
+                                        ) : null}
+
+                                        {isFreeRangeRental &&
+                                        durationOptions.length > 1 ? (
+                                            <div className="flex flex-col gap-1.5">
+                                                <Label htmlFor="book-duration">
+                                                    {t(
+                                                        'tenant.book.duration_label',
+                                                    )}
+                                                </Label>
+                                                <select
+                                                    id="book-duration"
+                                                    value={chosenDuration ?? ''}
+                                                    onChange={(e) =>
+                                                        setDuration(
+                                                            Number(
+                                                                e.target.value,
+                                                            ),
+                                                        )
+                                                    }
+                                                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm"
+                                                >
+                                                    {durationOptions.map(
+                                                        (opt) => (
+                                                            <option
+                                                                key={opt}
+                                                                value={opt}
+                                                            >
+                                                                {t(
+                                                                    'tenant.book.minutes',
+                                                                    {
+                                                                        count: String(
+                                                                            opt,
+                                                                        ),
+                                                                    },
+                                                                )}
+                                                            </option>
+                                                        ),
+                                                    )}
+                                                </select>
+                                                {durationError ? (
+                                                    <p className="text-sm text-destructive">
+                                                        {durationError}
+                                                    </p>
+                                                ) : null}
+                                            </div>
                                         ) : null}
 
                                         {guestFields('book')}

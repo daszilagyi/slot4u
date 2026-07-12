@@ -144,6 +144,28 @@ class Service extends Model
     }
 
     /**
+     * The free-range rental duration bounds (docs/04 §4), or null for a fixed-duration
+     * or non-rental service. Both bounds come from the `settings` json.
+     *
+     * @return array{min: int, max: int}|null
+     */
+    public function rentalDurationBounds(): ?array
+    {
+        if ($this->booking_mode !== BookingMode::ResourceRental || $this->duration_minutes !== null) {
+            return null;
+        }
+
+        $min = $this->settings['min_duration_minutes'] ?? null;
+        $max = $this->settings['max_duration_minutes'] ?? null;
+
+        if ($min === null || $max === null) {
+            return null;
+        }
+
+        return ['min' => (int) $min, 'max' => (int) $max];
+    }
+
+    /**
      * Whether the service has upcoming bookings that block hard deletion (it must
      * be inactivated instead). The bookings table arrives with the booking engine
      * (M3); until then a service can never have a booking, so this is false.

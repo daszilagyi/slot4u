@@ -27,6 +27,7 @@ use App\Models\Staff;
 use App\Services\Booking\AvailabilityService;
 use App\Services\Booking\Slot;
 use App\Services\Feature\FeatureResolver;
+use App\Settings\TenantSettings;
 use App\Support\IcsBuilder;
 use App\Tenancy\TenantManager;
 use Illuminate\Http\RedirectResponse;
@@ -102,6 +103,10 @@ class BookingController extends Controller
                 'currency' => $service->currency,
                 'booking_mode' => $service->booking_mode->value,
                 'duration_minutes' => $service->duration_minutes,
+                // Free-range rental bounds (SLO-92): drive the duration picker; null
+                // for a fixed-duration rental and every other mode.
+                'min_duration_minutes' => $service->rentalDurationBounds()['min'] ?? null,
+                'max_duration_minutes' => $service->rentalDurationBounds()['max'] ?? null,
                 // Drives the "what happens after you order" note on the
                 // no_time_slot form (docs/04 §1); null for every other mode.
                 'fulfillment_type' => $service->booking_mode === BookingMode::NoTimeSlot
@@ -434,6 +439,22 @@ class BookingController extends Controller
      */
     private function matchAvailableSlot(Service $service, array $data): Slot
     {
+        // A free-range resource_rental books a caller-chosen length: validate the full
+        // chosen range is free, not just the min-length grid slot (SLO-92).
+        if ($service->booking_mode === BookingMode::ResourceRental && $service->duration_minutes === null) {
+            $slot = $this->availability->matchRentalSlot(
+                $service,
+                Carbon::parse($data['starts_at']),
+                (int) ($data['duration_minutes'] ?? 0),
+                isset($data['room_id']) ? (int) $data['room_id'] : null,
+            );
+            if ($slot === null) {
+                throw ValidationException::withMessages(['booking' => __('app.booking.error.slot_unavailable')]);
+            }
+
+            return $slot;
+        }
+
         $timezone = app(TenantManager::class)->current()->timezone;
         $start = Carbon::parse($data['starts_at']);
         $staffId = isset($data['staff_id']) ? (int) $data['staff_id'] : null;
@@ -543,6 +564,9 @@ class BookingController extends Controller
             'prev_week' => $weekStart->copy()->subDay()->toDateString(),
             'next_week' => $weekStart->copy()->addDays(7)->toDateString(),
             'is_first_week' => $weekStart->lte($today),
+            // The grid step the free-range rental duration picker builds options on
+            // (SLO-92); harmless for a fixed-duration service that has no picker.
+            'slot_interval_minutes' => TenantSettings::fromArray(app(TenantManager::class)->current()->settings)->slotIntervalMinutes,
             'slots' => array_map(fn (Slot $slot) => [
                 'start' => $slot->start->toIso8601String(),
                 'end' => $slot->end->toIso8601String(),

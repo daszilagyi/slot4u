@@ -140,6 +140,70 @@ class AvailabilityService
     }
 
     /**
+     * The bookable slot for a caller-chosen free-range rental duration (docs/04 §4),
+     * or null if the requested [start, start+duration] range is not fully free:
+     * wrong mode / fixed duration, a duration outside the min/max bounds, an off-grid
+     * start, an overrun past the room's opening, or a clash with a booking. Mirrors
+     * slotsForDay's rules for one caller-chosen length instead of the min-length grid.
+     */
+    public function matchRentalSlot(Service $service, Carbon $start, int $duration, ?int $roomId): ?Slot
+    {
+        if ($service->booking_mode !== BookingMode::ResourceRental || $service->duration_minutes !== null) {
+            return null;
+        }
+
+        if ($roomId === null || ! $service->rooms->contains('id', $roomId)) {
+            return null;
+        }
+
+        if (! $this->isDurationAllowed($service, $duration)) {
+            return null;
+        }
+
+        $timezone = $service->tenant->timezone;
+        $settings = TenantSettings::fromArray($service->tenant->settings);
+        $interval = $settings->slotIntervalMinutes;
+        $minDuration = $this->effectiveDuration($service, $settings);
+
+        $day = $start->copy()->timezone($timezone)->startOfDay();
+        $tenantId = (int) $service->tenant_id;
+
+        $schedules = $this->loadSchedules($tenantId, 'room', [$roomId], $day);
+        $exceptions = $this->loadExceptions($tenantId, 'room', [$roomId], $day);
+        $windows = $this->freeWindows('room', $roomId, $day, $timezone, $schedules, $exceptions);
+
+        // The start MUST be a legit min-length grid start: since $duration >=
+        // $minDuration, any valid longer-duration start is also a valid min-length
+        // grid start, so this rejects off-grid crafted starts.
+        $startLocal = $start->copy()->timezone($timezone);
+        $onGrid = false;
+        foreach ($this->gridStarts($windows, $minDuration, $interval) as $gridStart) {
+            if ($gridStart->equalTo($startLocal)) {
+                $onGrid = true;
+                break;
+            }
+        }
+        if (! $onGrid) {
+            return null;
+        }
+
+        $endLocal = $startLocal->copy()->addMinutes($duration);
+        if (! $this->fitsWindows($startLocal, $endLocal, $windows)) {
+            return null;
+        }
+
+        $startUtc = $startLocal->copy()->utc();
+        $endUtc = $endLocal->copy()->utc();
+
+        $bookings = $this->loadBookings($tenantId, 'room', [$roomId], $day)[$roomId] ?? collect();
+        if ($this->clashesWithBooking($startUtc, $endUtc, $bookings, $service)) {
+            return null;
+        }
+
+        return new Slot(start: $startUtc, end: $endUtc, staffId: null, roomId: $roomId);
+    }
+
+    /**
      * Whether a requested rental duration is within the service's min/max bounds
      * (docs/04 §4, resource_rental). A fixed-duration service ignores the request.
      */
