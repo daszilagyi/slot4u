@@ -454,6 +454,39 @@ export type MyBooking = {
     can_cancel: boolean;
 };
 
+export type WaitlistStatusValue =
+    | 'waiting'
+    | 'offered'
+    | 'converted'
+    | 'expired';
+
+export type MyWaitlistEntry = {
+    id: number;
+    service_name: string | null;
+    event_starts_local: string | null;
+    position: number;
+    status: WaitlistStatusValue;
+    offered_until_local: string | null;
+    party_size: number;
+};
+
+export type QuoteRequestStatusValue =
+    | 'new'
+    | 'in_progress'
+    | 'quoted'
+    | 'accepted'
+    | 'rejected';
+
+export type MyQuoteRequest = {
+    id: number;
+    service_name: string | null;
+    status: QuoteRequestStatusValue;
+    price_minor: number | null;
+    currency: string | null;
+    valid_until_local: string | null;
+    created_local: string | null;
+};
+
 declare module '@inertiajs/core' {
     interface PageProps {
         locale: string;

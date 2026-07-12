@@ -5,6 +5,7 @@ import type { CSSProperties, PropsWithChildren } from 'react';
 import ImpersonationBanner from '@/components/ImpersonationBanner';
 import ThemeToggle from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
+import { useFeatures } from '@/lib/features';
 import { useTranslations } from '@/lib/i18n';
 
 /**
@@ -15,6 +16,7 @@ import { useTranslations } from '@/lib/i18n';
  */
 export default function PublicLayout({ children }: PropsWithChildren) {
     const t = useTranslations();
+    const feature = useFeatures();
     const { tenant, auth } = usePage().props;
 
     const brandStyle = tenant
@@ -22,11 +24,29 @@ export default function PublicLayout({ children }: PropsWithChildren) {
         : undefined;
 
     // A guest is offered login; a signed-in customer (never staff — they belong
-    // in the admin panel) gets their members-area links (SLO-33/SLO-96).
+    // in the admin panel) gets their members-area links (SLO-33/SLO-96/SLO-98).
+    // The waitlist/quote sections are feature-gated, so their links only appear
+    // when the tenant has the feature on — a customer never sees a link that 403s.
     const accountLinks =
         auth.user && !auth.user.is_staff
             ? [
                   { href: '/my/bookings', label: t('tenant.nav.my_bookings') },
+                  ...(feature('feature_waitlist')
+                      ? [
+                            {
+                                href: '/my/waitlist',
+                                label: t('tenant.nav.my_waitlist'),
+                            },
+                        ]
+                      : []),
+                  ...(feature('feature_quote_request')
+                      ? [
+                            {
+                                href: '/my/quotes',
+                                label: t('tenant.nav.my_quotes'),
+                            },
+                        ]
+                      : []),
                   { href: '/my/profile', label: t('tenant.nav.my_profile') },
               ]
             : auth.user
