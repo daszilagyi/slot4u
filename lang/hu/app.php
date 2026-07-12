@@ -118,8 +118,38 @@ return [
         ],
         'nav' => [
             'my_bookings' => 'Foglalásaim',
+            'my_waitlist' => 'Várólistáim',
+            'my_quotes' => 'Ajánlatkéréseim',
             'my_profile' => 'Profilom',
             'login' => 'Belépés',
+        ],
+        'my_waitlist' => [
+            'title' => 'Várólista-pozícióim',
+            'empty' => 'Jelenleg nem vagy egyetlen várólistán sem.',
+            'position' => ':position. hely',
+            'event' => 'Alkalom',
+            'offer_deadline' => 'Ajánlat érvényes eddig:',
+            'party_size' => 'Létszám: :count fő',
+        ],
+        'my_quotes' => [
+            'title' => 'Ajánlatkéréseim',
+            'empty' => 'Még nincs ajánlatkérésed.',
+            'price' => 'Ajánlott ár',
+            'valid_until' => 'Érvényes eddig:',
+            'submitted' => 'Beküldve',
+        ],
+        'waitlist_status' => [
+            'waiting' => 'Várakozik',
+            'offered' => 'Felajánlva',
+            'converted' => 'Foglalássá vált',
+            'expired' => 'Lejárt',
+        ],
+        'quote_status' => [
+            'new' => 'Új',
+            'in_progress' => 'Feldolgozás alatt',
+            'quoted' => 'Ajánlat elküldve',
+            'accepted' => 'Elfogadva',
+            'rejected' => 'Elutasítva',
         ],
         'my' => [
             'profile' => [

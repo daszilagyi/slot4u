@@ -22,6 +22,7 @@ use App\Http\Controllers\Tenant\BookingController as TenantBookingController;
 use App\Http\Controllers\Tenant\HomeController as TenantHomeController;
 use App\Http\Controllers\Tenant\MyBookingController;
 use App\Http\Controllers\Tenant\MyProfileController;
+use App\Http\Controllers\Tenant\MyRequestsController;
 use App\Http\Controllers\Tenant\SeoController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -253,6 +254,17 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
         Route::put('/my/password', [MyProfileController::class, 'updatePassword'])
             ->middleware('throttle:6,1')
             ->name('tenant.my.password.update');
+
+        // My waitlist positions (SLO-98). Feature-gated; the members nav only shows
+        // the link when the feature is on (shared `features` prop), so a customer
+        // never hits the 403.
+        Route::get('/my/waitlist', [MyRequestsController::class, 'waitlist'])
+            ->middleware('ensure.feature:'.Feature::Waitlist->value)
+            ->name('tenant.my.waitlist');
+        // My quote requests (SLO-98). Feature-gated the same way.
+        Route::get('/my/quotes', [MyRequestsController::class, 'quotes'])
+            ->middleware('ensure.feature:'.Feature::QuoteRequest->value)
+            ->name('tenant.my.quotes');
     });
 });
 
