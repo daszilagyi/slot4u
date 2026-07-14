@@ -6,6 +6,7 @@ use App\Models\Service;
 use App\Models\ServiceCategory;
 use App\Models\Tenant;
 use App\Models\TenantFeature;
+use App\Settings\TenantBranding;
 use App\Tenancy\TenantManager;
 use Inertia\Testing\AssertableInertia as Assert;
 
@@ -96,6 +97,38 @@ it('shows the cover image when feature_branding is enabled', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('branding.cover_url', fn (?string $url) => is_string($url) && $url !== ''));
+});
+
+it('gates the shared logo + primary colour behind feature_branding (off by default)', function () {
+    // A custom logo + colour are stored, but branding is off on the base plan →
+    // the shared `tenant` prop falls back to no logo + the default colour (SLO-90).
+    Tenant::factory()->active()->create([
+        'slug' => 'acme',
+        'branding' => ['logo_path' => 'tenants/1/logo.png', 'primary_color' => '#123456'],
+    ]);
+
+    $this->get(tenantHost('acme'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('tenant.logo_url', null)
+            ->where('tenant.primary_color', TenantBranding::DEFAULT_PRIMARY_COLOR));
+});
+
+it('exposes the shared logo + primary colour when feature_branding is enabled', function () {
+    $tenant = Tenant::factory()->active()->create([
+        'slug' => 'acme',
+        'branding' => ['logo_path' => 'tenants/1/logo.png', 'primary_color' => '#123456'],
+    ]);
+
+    app(TenantManager::class)->set($tenant);
+    TenantFeature::factory()->create(['feature_code' => Feature::Branding, 'enabled' => true]);
+    app(TenantManager::class)->forget();
+
+    $this->get(tenantHost('acme'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('tenant.logo_url', fn (?string $url) => is_string($url) && $url !== '')
+            ->where('tenant.primary_color', '#123456'));
 });
 
 it('exposes the company profile from tenant settings', function () {

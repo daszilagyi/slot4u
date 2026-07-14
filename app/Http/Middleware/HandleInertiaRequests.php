@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Enums\Feature;
 use App\Enums\Permission;
 use App\Models\User;
 use App\Services\Feature\FeatureResolver;
@@ -27,6 +28,14 @@ class HandleInertiaRequests extends Middleware
      * @var string
      */
     protected $rootView = 'app';
+
+    /**
+     * Memoised enabled-feature codes for the current tenant, so the `features`
+     * and `tenant` shared-prop closures resolve them with a single query.
+     *
+     * @var list<string>|null
+     */
+    private ?array $enabledFeatures = null;
 
     /**
      * Determines the current asset version.
@@ -113,21 +122,30 @@ class HandleInertiaRequests extends Middleware
     /**
      * Enabled feature codes for the current tenant, so the frontend can gate UI
      * on them (mirrors the server-side EnsureFeatureEnabled middleware). Empty
-     * outside tenant context (central/admin domains).
+     * outside tenant context (central/admin domains). Memoised for the request so
+     * the `features` and `tenant` shared props share one tenant_features query.
      *
      * @return list<string>
      */
     private function enabledFeatures(): array
     {
+        if ($this->enabledFeatures !== null) {
+            return $this->enabledFeatures;
+        }
+
         $tenant = $this->tenants->current();
 
-        return $tenant === null ? [] : $this->features->enabledCodes($tenant);
+        return $this->enabledFeatures = $tenant === null
+            ? []
+            : $this->features->enabledCodes($tenant);
     }
 
     /**
      * Minimal current-tenant identity for admin branding, or null off-tenant.
-     * Includes the tenant's logo + primary colour (SLO-21) so the admin chrome —
-     * and the M4 public page — can render the brand.
+     * The tenant's logo + primary colour (SLO-21) are gated behind
+     * `feature_branding` (docs/03): when the feature is off the brand falls back
+     * to no logo + the default colour, matching the cover gate in HomeController
+     * and the locked branding editor in SettingsController (SLO-90).
      *
      * @return array{name: string, slug: string, logo_url: string|null, primary_color: string}|null
      */
@@ -140,12 +158,17 @@ class HandleInertiaRequests extends Middleware
         }
 
         $branding = TenantBranding::fromArray($tenant->branding);
+        // Reuse the memoised feature list rather than a second tenant_features
+        // query — the `features` shared prop already resolves it this request.
+        $branded = in_array(Feature::Branding->value, $this->enabledFeatures(), true);
 
         return [
             'name' => $tenant->name,
             'slug' => $tenant->slug,
-            'logo_url' => $branding->logoUrl(),
-            'primary_color' => $branding->primaryColor,
+            'logo_url' => $branded ? $branding->logoUrl() : null,
+            'primary_color' => $branded
+                ? $branding->primaryColor
+                : TenantBranding::DEFAULT_PRIMARY_COLOR,
         ];
     }
 
