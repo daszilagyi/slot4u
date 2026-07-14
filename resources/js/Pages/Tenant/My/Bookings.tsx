@@ -1,5 +1,5 @@
 import { Head, useForm, usePage } from '@inertiajs/react';
-import { CalendarPlusIcon, XCircleIcon } from 'lucide-react';
+import { CalendarPlusIcon, PencilIcon, XCircleIcon } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -163,6 +163,16 @@ function BookingSection({
                                         {t('tenant.my.bookings.ics')}
                                     </a>
                                 </Button>
+                                {booking.can_reschedule ? (
+                                    <Button asChild variant="outline" size="sm">
+                                        <a
+                                            href={`/my/bookings/${booking.id}/reschedule`}
+                                        >
+                                            <PencilIcon className="size-4" />
+                                            {t('tenant.my.bookings.reschedule')}
+                                        </a>
+                                    </Button>
+                                ) : null}
                                 {booking.can_cancel ? (
                                     <Button
                                         variant="destructive"

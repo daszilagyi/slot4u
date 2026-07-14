@@ -3,10 +3,16 @@
 namespace App\Http\Controllers\Tenant;
 
 use App\Actions\Booking\CancelBooking;
+use App\Actions\Booking\RescheduleBooking;
+use App\Enums\BookingSource;
 use App\Enums\BookingStatus;
+use App\Exceptions\SlotUnavailableException;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Tenant\Concerns\BuildsSlotView;
 use App\Http\Requests\Tenant\CancelMyBookingRequest;
+use App\Http\Requests\Tenant\RescheduleMyBookingRequest;
 use App\Models\Booking;
+use App\Services\Booking\AvailabilityService;
 use App\Settings\TenantSettings;
 use App\Support\IcsBuilder;
 use App\Tenancy\TenantManager;
@@ -14,6 +20,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 use Symfony\Component\HttpFoundation\Response as HttpResponse;
@@ -29,6 +36,10 @@ use Symfony\Component\HttpFoundation\Response as HttpResponse;
  */
 class MyBookingController extends Controller
 {
+    use BuildsSlotView;
+
+    public function __construct(private readonly AvailabilityService $availability) {}
+
     public function index(Request $request): Response
     {
         $tenant = app(TenantManager::class)->current();
@@ -79,6 +90,97 @@ class MyBookingController extends Controller
     }
 
     /**
+     * Slot re-picker for rescheduling one of the customer's own time-slot bookings
+     * (SLO-97). Ownership 404 (rescheduleOwn); only a time-slot mode with a live,
+     * non-terminal booking can be moved. Reuses the public slot-picker view.
+     */
+    public function rescheduleForm(Request $request, string $tenant, Booking $booking): Response
+    {
+        abort_unless($request->user()->can('rescheduleOwn', $booking), 404);
+
+        // The service loads with all columns (AvailabilityService needs its tenant +
+        // settings; the picker uses its bounds) — only the nested resources are
+        // column-restricted for the filter options.
+        $booking->load(['service.staff:id,name', 'service.staff.locations:id,name,active', 'service.rooms:id,name,location_id', 'service.rooms.location:id,name,active']);
+        $service = $booking->service;
+        // Only a time-slot booking that can still be canceled (non-terminal) is movable.
+        abort_unless(
+            $service !== null
+                && $service->booking_mode->usesTimeSlot()
+                && $booking->status->canTransitionTo(BookingStatus::Canceled),
+            404,
+        );
+
+        $tenantModel = app(TenantManager::class)->current();
+        $timezone = $tenantModel->timezone;
+
+        // Prefill the picker with the booking's current staff/room + a starting date.
+        $filters = ['staff' => $booking->staff_id, 'room' => $booking->room_id, 'location' => null, 'date' => $request->query('date')];
+
+        return Inertia::render('Tenant/My/Reschedule', [
+            ...$this->slotView($service, $filters, $timezone),
+            'booking' => [
+                'id' => $booking->id,
+                'code' => $booking->code,
+                'service' => $service->name,
+                'booking_mode' => $service->booking_mode->value,
+                'duration_minutes' => $service->duration_minutes,
+                'min_duration_minutes' => $service->rentalDurationBounds()['min'] ?? null,
+                'max_duration_minutes' => $service->rentalDurationBounds()['max'] ?? null,
+                'current_local' => $this->localDateTime($booking->starts_at, $timezone),
+            ],
+            'timezone' => $timezone,
+            'filters' => ['staff' => $booking->staff_id, 'room' => $booking->room_id, 'location' => null],
+        ]);
+    }
+
+    /**
+     * Apply the reschedule (SLO-97). The new slot is re-validated against live
+     * availability; RescheduleBooking cancels the old + creates the new in one
+     * transaction with online: true, so the tenant cancellation deadline is enforced
+     * (a within-deadline attempt surfaces on the `cancel` key and rolls back).
+     */
+    public function reschedule(RescheduleMyBookingRequest $request, string $tenant, Booking $booking, RescheduleBooking $reschedule): RedirectResponse
+    {
+        abort_unless($request->user()->can('rescheduleOwn', $booking), 404);
+
+        // The service loads with all columns: matchAvailableSlot / AvailabilityService
+        // read its tenant + settings, and CreateBooking snapshots its price/config.
+        $booking->load(['service.staff:id', 'service.rooms:id']);
+        $service = $booking->service;
+        // Mirror rescheduleForm's guard: only a time-slot, still-cancelable booking
+        // is movable. The state machine would also reject a terminal booking (clean
+        // 422), but guarding here keeps the 404 consistent with the form (SLO-97).
+        abort_unless(
+            $service !== null
+                && $service->booking_mode->usesTimeSlot()
+                && $booking->status->canTransitionTo(BookingStatus::Canceled),
+            404,
+        );
+
+        $data = $request->validated();
+        $slot = $this->matchAvailableSlot($service, [...$data, 'service_id' => $service->id]);
+
+        try {
+            $reschedule($booking, $service, [
+                'customer_id' => $booking->customer_id,
+                'staff_id' => $slot->staffId,
+                'room_id' => $slot->roomId,
+                'starts_at' => $slot->start->toDateTimeString(),
+                'ends_at' => $slot->end->toDateTimeString(),
+                'party_size' => 1,
+                'source' => BookingSource::Online->value,
+            ], $request->user(), online: true);
+        } catch (SlotUnavailableException) {
+            throw ValidationException::withMessages([
+                'booking' => __('app.booking.error.slot_unavailable'),
+            ]);
+        }
+
+        return redirect('/my/bookings');
+    }
+
+    /**
      * Download one of the customer's own bookings as an .ics calendar event.
      */
     public function ics(Request $request, string $tenant, Booking $booking): HttpResponse
@@ -116,11 +218,10 @@ class MyBookingController extends Controller
             'starts_local' => $this->localDateTime($booking->starts_at, $timezone),
             'ends_local' => $this->localDateTime($booking->ends_at, $timezone),
             'can_cancel' => $canCancel,
+            // A reschedule moves a time-slot booking to a new slot (SLO-97); offered
+            // only for a movable (time-slot, non-terminal) booking still within the
+            // cancellation policy — same online guard as can_cancel.
+            'can_reschedule' => $booking->booking_mode->usesTimeSlot() && $canCancel,
         ];
-    }
-
-    private function localDateTime(?Carbon $instant, string $timezone): ?string
-    {
-        return $instant?->copy()->timezone($timezone)->format('Y-m-d H:i');
     }
 }

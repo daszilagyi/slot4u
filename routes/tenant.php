@@ -242,6 +242,11 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
     Route::middleware(['auth', 'ensure.user.tenant', 'ensure.customer'])->group(function () {
         Route::get('/my/bookings', [MyBookingController::class, 'index'])->name('tenant.my.bookings');
         Route::post('/my/bookings/{booking}/cancel', [MyBookingController::class, 'cancel'])->name('tenant.my.bookings.cancel');
+        // Online reschedule (SLO-97): re-pick a slot for a time-slot booking. The
+        // POST runs through RescheduleBooking with online: true, so the tenant
+        // cancellation deadline is enforced (a within-deadline move is refused).
+        Route::get('/my/bookings/{booking}/reschedule', [MyBookingController::class, 'rescheduleForm'])->name('tenant.my.bookings.reschedule.form');
+        Route::post('/my/bookings/{booking}/reschedule', [MyBookingController::class, 'reschedule'])->name('tenant.my.bookings.reschedule');
         Route::get('/my/bookings/{booking}/ics', [MyBookingController::class, 'ics'])->name('tenant.my.bookings.ics');
 
         // Profile self-service (SLO-96): the customer edits their own name/phone
