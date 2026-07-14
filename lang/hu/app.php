@@ -986,5 +986,15 @@ return [
             'action' => 'Jelszó beállítása',
             'outro' => 'Ha nem számítottál erre a meghívóra, nyugodtan hagyd figyelmen kívül ezt az emailt.',
         ],
+        'booking_confirmed' => [
+            'subject' => 'Foglalásod visszaigazolva – :tenant',
+            'greeting' => 'Szia :name!',
+            'intro' => 'Foglalásodat rögzítettük és visszaigazoltuk a(z) :tenant oldalán. Az adatok:',
+            'code' => 'Foglalási kód: :code',
+            'service' => 'Szolgáltatás: :service',
+            'when' => 'Időpont: :when',
+            'action' => 'Foglalás megtekintése',
+            'outro' => 'Ha kérdésed van, válaszolj erre az emailre. Köszönjük, hogy minket választottál!',
+        ],
     ],
 ];

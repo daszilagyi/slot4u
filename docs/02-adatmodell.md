@@ -147,7 +147,11 @@ message_templates  id, tenant_id, key(booking_confirmed|booking_modified|booking
                    reminder_24h|payment_success|payment_failed), channel(email|sms),
                    locale, subject, body, enabled
 messages           id, tenant_id, sender_id, recipient_id, booking_id(nullable), body, read_at
-notifications_log  id, tenant_id, type, recipient, channel, status, sent_at, error
+notifications_log  id, tenant_id, type, channel, recipient, status(pending|sent|failed),
+                   dedupe_key(nullable), sent_at, error, timestamps
+                   — unique(tenant_id, type, dedupe_key): idempotencia-kulcs, egy
+                   értesítés (pl. booking:{id}, booking:{id}:reminder_24h) legfeljebb
+                   egyszer megy ki (SLO-108)
 audit_logs         id, tenant_id(nullable), user_id(nullable), action, auditable_type/id(nullable), old_values/new_values(json), ip_address, created_at(immutable, nincs updated_at)
 ```
 

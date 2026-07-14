@@ -2,6 +2,7 @@
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Tests\TestCase;
 
 /*
@@ -18,6 +19,12 @@ use Tests\TestCase;
 pest()->extend(TestCase::class)
     ->use(RefreshDatabase::class)
     ->in('Feature');
+
+// Fake notifications by default so the suite never renders/sends real mail. Every
+// notification-asserting test already relied on this locally; making it the default
+// keeps booking-heavy tests fast now that a confirmed booking emails the customer
+// (SLO-108). Delivery-status logging is covered by driving the listener directly.
+pest()->beforeEach(fn () => Notification::fake())->in('Feature');
 
 /*
 |--------------------------------------------------------------------------

@@ -2,12 +2,19 @@
 
 namespace App\Providers;
 
+use App\Events\BookingCreated;
+use App\Events\BookingStatusChanged;
+use App\Listeners\RecordNotificationDelivery;
+use App\Listeners\SendBookingConfirmation;
 use App\Models\Room;
 use App\Models\Staff;
 use App\Models\User;
 use App\Services\Feature\FeatureResolver;
 use App\Tenancy\TenantManager;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Notifications\Events\NotificationFailed;
+use Illuminate\Notifications\Events\NotificationSent;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -44,5 +51,13 @@ class AppServiceProvider extends ServiceProvider
 
         // Platform super-admins bypass all tenant permission checks.
         Gate::before(fn ($user) => $user instanceof User && $user->isSuperAdmin() ? true : null);
+
+        // Notification wiring (SLO-35/SLO-108): a booking reaching `confirmed`
+        // emails the customer, and every tracked notification's delivery outcome
+        // is recorded in notifications_log.
+        Event::listen(BookingCreated::class, SendBookingConfirmation::class);
+        Event::listen(BookingStatusChanged::class, SendBookingConfirmation::class);
+        Event::listen(NotificationSent::class, [RecordNotificationDelivery::class, 'sent']);
+        Event::listen(NotificationFailed::class, [RecordNotificationDelivery::class, 'failed']);
     }
 }
