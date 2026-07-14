@@ -41,7 +41,14 @@ class Notifier
         string $recipientEmail,
         RecordsDelivery $notification,
     ): ?NotificationLog {
-        $log = NotificationLog::withoutGlobalScopes()->createOrFirst(
+        // withoutEvents: BelongsToTenant's creating-hook stamps the AMBIENT tenant
+        // over any supplied tenant_id (it defends against forged request data). Here
+        // the notification's OWN tenant is the authority — the row is looked up by
+        // it, so letting the hook write a different one would file the claim under
+        // the wrong tenant AND break the dedup (the next lookup would miss it and
+        // mail twice). Suppressing the hook keeps the written tenant_id equal to the
+        // one we keyed on (SLO-109).
+        $log = NotificationLog::withoutEvents(fn () => NotificationLog::withoutGlobalScopes()->createOrFirst(
             [
                 'tenant_id' => $tenant->getKey(),
                 'type' => $type->value,
@@ -52,7 +59,7 @@ class Notifier
                 'recipient' => $recipientEmail,
                 'status' => NotificationStatus::Pending->value,
             ],
-        );
+        ));
 
         // Already claimed by an earlier send → idempotent no-op.
         if (! $log->wasRecentlyCreated) {

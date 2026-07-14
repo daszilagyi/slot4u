@@ -106,7 +106,7 @@ it('marks the log sent when the notification is delivered', function () {
         'dedupe_key' => 'booking:'.$booking->id,
     ]);
 
-    $notification = (new BookingConfirmedNotification($booking))->withNotificationLog($log->id);
+    $notification = (new BookingConfirmedNotification($booking, $tenant))->withNotificationLog($log->id);
     event(new NotificationSent($customer, $notification, 'mail'));
 
     $log->refresh();
@@ -128,7 +128,7 @@ it('records a failed delivery with its error message', function () {
         'dedupe_key' => 'booking:'.$booking->id,
     ]);
 
-    $notification = (new BookingConfirmedNotification($booking))->withNotificationLog($log->id);
+    $notification = (new BookingConfirmedNotification($booking, $tenant))->withNotificationLog($log->id);
     event(new NotificationFailed($customer, $notification, 'mail', ['message' => 'SMTP connection refused']));
 
     $log->refresh();
@@ -160,7 +160,7 @@ it('renders the confirmation mail with the code, service and confirmation link',
         'starts_at' => '2026-09-07 07:00:00',
     ]);
 
-    $mail = (new BookingConfirmedNotification($booking))->toMail($customer);
+    $mail = (new BookingConfirmedNotification($booking, $tenant))->toMail($customer);
 
     expect($mail->subject)->toContain('Acme Szalon')
         ->and($mail->actionUrl)->toBe('https://acme.'.config('tenancy.central_domain').'/booked/'.$booking->code);
@@ -178,7 +178,7 @@ it('preserves the notification log id across serialization onto the queue', func
         'status' => BookingStatus::Requested,
     ]);
 
-    $notification = (new BookingConfirmedNotification($booking))->withNotificationLog(42);
+    $notification = (new BookingConfirmedNotification($booking, $tenant))->withNotificationLog(42);
     $restored = unserialize(serialize($notification));
 
     expect($restored->notificationLogId())->toBe(42);

@@ -73,7 +73,11 @@ bookings           id, tenant_id, code(publikus azonosító), customer_id(users)
                    service_id, booking_mode(snapshot), staff_id, room_id, event_id(nullable),
                    starts_at, ends_at (nullable időpont nélküli módnál),
                    status(enum), party_size, price_minor, currency, notes,
-                   source(online|admin), canceled_at, cancel_reason, approved_by, approved_at
+                   source(online|admin), canceled_at, cancel_reason, approved_by, approved_at,
+                   hold_expires_at(nullable), reject_reason(nullable),
+                   rescheduled_from_id(nullable, self-FK: melyik foglalást váltja fel — az
+                   átütemezés lemondás+új foglalás pár, ez köti össze a kettőt; a
+                   `booking_modified` értesítés is ezen dől el, SLO-109)
 booking_status_history id, booking_id, from, to, actor_id, created_at
 waitlist_entries   id, tenant_id, event_id|service_id, customer_id, position,
                    status(waiting|offered|converted|expired), offered_until
@@ -144,14 +148,17 @@ Szenzitív adat (kártya, API kulcs) maszkolva; retention 90 nap. Részletek: `0
 
 ```
 message_templates  id, tenant_id, key(booking_confirmed|booking_modified|booking_canceled|
+                   booking_rejected|waitlist_offer|quote_ready|
                    reminder_24h|payment_success|payment_failed), channel(email|sms),
                    locale, subject, body, enabled
 messages           id, tenant_id, sender_id, recipient_id, booking_id(nullable), body, read_at
 notifications_log  id, tenant_id, type, channel, recipient, status(pending|sent|failed),
                    dedupe_key(nullable), sent_at, error, timestamps
+                   — type: a message_templates key-ekkel azonos halmaz (NotificationType enum)
                    — unique(tenant_id, type, dedupe_key): idempotencia-kulcs, egy
-                   értesítés (pl. booking:{id}, booking:{id}:reminder_24h) legfeljebb
-                   egyszer megy ki (SLO-108)
+                   értesítés (pl. booking:{id}, booking:{id}:reminder_24h,
+                   waitlist_entry:{id}, quote_request:{id}) legfeljebb egyszer megy ki
+                   (SLO-108/SLO-109)
 audit_logs         id, tenant_id(nullable), user_id(nullable), action, auditable_type/id(nullable), old_values/new_values(json), ip_address, created_at(immutable, nincs updated_at)
 ```
 

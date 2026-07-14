@@ -31,9 +31,14 @@ class ChangeBookingStatus
     public function __construct(private readonly WaitlistService $waitlist) {}
 
     /**
+     * @param  bool  $rescheduled  the cancellation is the first half of a reschedule
+     *                             (docs/04 §2) — carried into {@see BookingCanceled}
+     *                             so the notification listeners send one "moved" mail
+     *                             instead of a cancel + confirm pair (SLO-109)
+     *
      * @throws InvalidBookingTransitionException
      */
-    public function __invoke(Booking $booking, BookingStatus $to, ?User $actor = null, ?string $reason = null): Booking
+    public function __invoke(Booking $booking, BookingStatus $to, ?User $actor = null, ?string $reason = null, bool $rescheduled = false): Booking
     {
         $from = $booking->status;
 
@@ -43,7 +48,7 @@ class ChangeBookingStatus
 
         $actor ??= Auth::user();
 
-        return DB::transaction(function () use ($booking, $from, $to, $actor, $reason): Booking {
+        return DB::transaction(function () use ($booking, $from, $to, $actor, $reason, $rescheduled): Booking {
             // Serialise concurrent status writers — the soft-hold expiry job now
             // races admin approve/reject on the same row (SLO-26). Re-read under a
             // lock and bail if the status already moved, so a stale write can't
@@ -93,7 +98,7 @@ class ChangeBookingStatus
             BookingStatusChanged::dispatch($booking, $from, $to, $actor);
 
             if ($to === BookingStatus::Canceled) {
-                BookingCanceled::dispatch($booking, $actor);
+                BookingCanceled::dispatch($booking, $actor, $rescheduled);
             }
 
             return $booking;
