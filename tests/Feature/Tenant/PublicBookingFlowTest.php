@@ -206,6 +206,23 @@ it('shows the confirmation page by code and 404s a cross-tenant code', function 
     $this->get(tenantHost('other', "/booked/{$booking->code}"))->assertNotFound();
 });
 
+it('still resolves the permanent confirmation link after the booking is canceled', function () {
+    // The /booked/{code} link never expires, so a later cancel/reject must still
+    // render the page — the frontend maps the status to its own message (SLO-93).
+    [$tenant, $service, $staff] = flowService();
+    $booking = Booking::factory()->forTenant($tenant)->create([
+        'service_id' => $service->id,
+        'staff_id' => $staff->id,
+        'status' => BookingStatus::Canceled,
+    ]);
+
+    $this->get(tenantHost('acme', "/booked/{$booking->code}"))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->component('Tenant/Booked')
+            ->where('booking.status', 'canceled'));
+});
+
 it('downloads the booking as an ics calendar file', function () {
     [$tenant, $service, $staff] = flowService();
     $booking = Booking::factory()->forTenant($tenant)->create([
