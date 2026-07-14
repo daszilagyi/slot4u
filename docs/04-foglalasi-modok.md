@@ -91,6 +91,23 @@ Sima (nem jóváhagyásos) foglalás `confirmed`-ön (vagy `pending_payment`-en)
 
 **Implementáció (SLO-23, M3):** a `BookingStatus` enum tartja az átmenet-mátrixot (`allowedTransitions()`/`canTransitionTo()`/`isTerminal()`) — ez az egyetlen igazság-forrás. A `ChangeBookingStatus` action az egyetlen szentesített státuszváltó: érvénytelen átmenetnél `InvalidBookingTransitionException`-t dob, minden átmenetet `booking_status_history`-ba ír (from/to/actor), rögzíti a mellékhatásokat (`approved_by`/`approved_at` jóváhagyáskor, `canceled_at`/`cancel_reason` lemondáskor), és `BookingStatusChanged` (+ lemondáskor `BookingCanceled`) domain eventet dob. Létrehozáskor a `Booking` model `null → kezdő státusz` history-t ír és `BookingCreated`-et dob; a listenerek M5-ben kapcsolódnak. **Lemondási szabály:** a `CancelBooking` action az **online** (ügyfél) lemondást elutasítja a tenant `cancellation_deadline_hours` (docs/02 §Beállítások, SLO-21) ablakán belül; admin bármikor lemondhat. **Publikus kód:** a `Booking` létrehozáskor egyedi, nem találgatható 8 karakteres kódot kap. Idő UTC-ben (docs/01 §7). A `BookingModeStrategy` mód-specifikus rétege (availability/create) az azt implementáló issue-kkal jön (SLO-22 availability, SLO-24 create) — az állapotgép közös és mód-független.
 
+**Életciklus-értesítések (SLO-108/SLO-109):** a domain eventekre kötött listenerek (`AppServiceProvider`) az `App\Services\Notification\Notifier`-en át küldenek, amely a küldés előtt **igényel egy `notifications_log` sort** (`unique(tenant_id, type, dedupe_key)`) — így minden értesítés legfeljebb egyszer megy ki, ismételt event / queue-újrapróbálkozás mellett is. Az emailek queue-oltak (`ShouldQueue`), a tenant **locale-jában és időzónájában** renderelnek, és a tenant aldomainjére mutatnak (a queue worker-ben nincs kérés-kontextus).
+
+| Event | Értesítés | `type` | dedup kulcs |
+|---|---|---|---|
+| `BookingCreated` / `BookingStatusChanged` → `confirmed` | foglalás visszaigazolva | `booking_confirmed` | `booking:{id}` |
+| ugyanaz, ha a foglalás **átütemezéssel** jött létre | foglalás módosítva | `booking_modified` | `booking:{új id}` |
+| `BookingCanceled` | lemondás visszaigazolva | `booking_canceled` | `booking:{id}` |
+| `BookingStatusChanged` → `rejected` | kérés elutasítva (indoklással) | `booking_rejected` | `booking:{id}` |
+| `WaitlistOffered` | felszabadult egy hely (`offered_until` határidővel) | `waitlist_offer` | `waitlist_entry:{id}` |
+| `QuoteRequestStatusChanged` → `quoted` | elkészült az árajánlat (ár + érvényesség) | `quote_ready` | `quote_request:{id}` |
+
+**Nem-operatív tenant → nincs email.** A listener a tenantot a modellből oldja fel (`withTrashed()`, mert a `Tenant` soft-deletable: archiváltnál a sima reláció `null`-t adna, és mivel a listenerek a státuszváltó **tranzakcióján belül, szinkron** futnak, ez visszagörgetné az átmenetet és megölné a tenant-független cronokat — `bookings:expire-soft-holds`, `waitlist:expire-offers` — *minden* tenantra). Ha a tenant nem operatív (`suspended`/`archived` — `TenantStatus::isOperational()`), az értesítés némán kimarad: a publikus felülete 503/404 (`EnsureTenantActive`), tehát a levél minden linkje halott lenne.
+
+⚠️ **A `cancel_reason` / `reject_reason` mostantól ügyfél-látható** (bekerül a lemondás/elutasítás emailbe) — eddig admin-belső mezőként viselkedett.
+
+**Átütemezés = EGY email.** A `RescheduleBooking` lemondás+létrehozás párja önmagában két emailt (lemondás + visszaigazolás) küldene, ami az ügyfélnek félrevezető. Ezért: a lemondás `rescheduled: true`-val fut végig a `CancelBooking` → `ChangeBookingStatus` → `BookingCanceled` láncon (a lemondás-listener némán kilép), az új foglalás pedig **perzisztensen** hordozza az előzményét (`bookings.rescheduled_from_id`, docs/02) — ezért a visszaigazolás-listener a `booking_modified` emailt küldi helyette, a régi és az új időponttal. A perzisztens (nem memóriabeli) jelölés miatt ez akkor is helyes, ha az új foglalás **jóváhagyásra vár** (`requested`), és csak később, egy másik kérésben lép `confirmed`-be.
+
 ## Edge case-ek (tesztelendő!)
 
 - Párhuzamos foglalás ugyanarra a slotra (race condition) — pontosan 1 sikeres

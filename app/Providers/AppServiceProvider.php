@@ -2,12 +2,26 @@
 
 namespace App\Providers;
 
+use App\Events\BookingCanceled;
+use App\Events\BookingCreated;
+use App\Events\BookingStatusChanged;
+use App\Events\QuoteRequestStatusChanged;
+use App\Events\WaitlistOffered;
+use App\Listeners\RecordNotificationDelivery;
+use App\Listeners\SendBookingCancellation;
+use App\Listeners\SendBookingConfirmation;
+use App\Listeners\SendBookingRejection;
+use App\Listeners\SendQuoteReady;
+use App\Listeners\SendWaitlistOffer;
 use App\Models\Room;
 use App\Models\Staff;
 use App\Models\User;
 use App\Services\Feature\FeatureResolver;
 use App\Tenancy\TenantManager;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Notifications\Events\NotificationFailed;
+use Illuminate\Notifications\Events\NotificationSent;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -44,5 +58,18 @@ class AppServiceProvider extends ServiceProvider
 
         // Platform super-admins bypass all tenant permission checks.
         Gate::before(fn ($user) => $user instanceof User && $user->isSuperAdmin() ? true : null);
+
+        // Notification wiring (SLO-35/SLO-108/SLO-109): the booking lifecycle mails
+        // the customer — confirmed (or moved, on a reschedule), canceled, rejected —
+        // plus the waitlist offer and the finished quote. Every tracked
+        // notification's delivery outcome is recorded in notifications_log.
+        Event::listen(BookingCreated::class, SendBookingConfirmation::class);
+        Event::listen(BookingStatusChanged::class, SendBookingConfirmation::class);
+        Event::listen(BookingStatusChanged::class, SendBookingRejection::class);
+        Event::listen(BookingCanceled::class, SendBookingCancellation::class);
+        Event::listen(WaitlistOffered::class, SendWaitlistOffer::class);
+        Event::listen(QuoteRequestStatusChanged::class, SendQuoteReady::class);
+        Event::listen(NotificationSent::class, [RecordNotificationDelivery::class, 'sent']);
+        Event::listen(NotificationFailed::class, [RecordNotificationDelivery::class, 'failed']);
     }
 }

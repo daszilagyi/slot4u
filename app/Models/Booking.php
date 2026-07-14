@@ -45,6 +45,7 @@ use Illuminate\Support\Facades\Auth;
  * @property Carbon|null $approved_at
  * @property Carbon|null $hold_expires_at
  * @property string|null $reject_reason
+ * @property int|null $rescheduled_from_id
  */
 class Booking extends Model
 {
@@ -52,9 +53,10 @@ class Booking extends Model
     use BelongsToTenant, HasFactory;
 
     /**
-     * status, code, canceled_at, the approved_* fields, hold_expires_at and
-     * reject_reason are managed by the Action layer (ChangeBookingStatus /
-     * CreateBooking), never mass-assigned from request input.
+     * status, code, canceled_at, the approved_* fields, hold_expires_at,
+     * reject_reason and rescheduled_from_id are managed by the Action layer
+     * (ChangeBookingStatus / CreateBooking), never mass-assigned from request
+     * input.
      *
      * @var list<string>
      */
@@ -202,6 +204,18 @@ class Booking extends Model
     public function event(): BelongsTo
     {
         return $this->belongsTo(Event::class);
+    }
+
+    /**
+     * The (now canceled) booking this one replaces, when it was created by a
+     * reschedule (docs/04 §2, SLO-109). Set by the CreateBooking action on the
+     * reschedule path only — a fresh booking has none.
+     *
+     * @return BelongsTo<Booking, $this>
+     */
+    public function rescheduledFrom(): BelongsTo
+    {
+        return $this->belongsTo(Booking::class, 'rescheduled_from_id');
     }
 
     /**
