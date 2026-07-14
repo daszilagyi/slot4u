@@ -5,6 +5,7 @@ namespace App\Listeners;
 use App\Enums\NotificationType;
 use App\Events\BookingCanceled;
 use App\Notifications\BookingCanceledNotification;
+use App\Services\Notification\CustomerNotifier;
 
 /**
  * Emails the customer that their booking was canceled (docs/04 §5, SLO-109) —
@@ -14,8 +15,10 @@ use App\Notifications\BookingCanceledNotification;
  * customer still has an appointment, and the replacement booking sends the single
  * "your booking was moved" mail (docs/04 §2).
  */
-class SendBookingCancellation extends SendsCustomerNotification
+class SendBookingCancellation
 {
+    public function __construct(private readonly CustomerNotifier $notifier) {}
+
     public function handle(BookingCanceled $event): void
     {
         if ($event->rescheduled) {
@@ -23,13 +26,13 @@ class SendBookingCancellation extends SendsCustomerNotification
         }
 
         $booking = $event->booking;
-        $tenant = $this->operationalTenant($booking);
+        $tenant = $this->notifier->operationalTenant($booking);
 
         if ($tenant === null) {
             return;
         }
 
-        $this->sendToCustomer(
+        $this->notifier->sendToCustomer(
             tenant: $tenant,
             type: NotificationType::BookingCanceled,
             dedupeKey: 'booking:'.$booking->getKey(),

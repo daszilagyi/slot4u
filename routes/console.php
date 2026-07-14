@@ -17,3 +17,10 @@ Schedule::command('waitlist:expire-offers')->hourly()->withoutOverlapping();
 
 // Release approval-pending bookings whose soft hold has lapsed (SLO-26).
 Schedule::command('bookings:expire-soft-holds')->hourly()->withoutOverlapping();
+
+// Remind customers of the bookings starting within 24 hours (SLO-110). Hourly, not
+// daily: a booking made two days out must still be reminded ~24h before it starts,
+// whatever hour that falls on. Re-running is free — the notifications_log claim
+// (booking:{id}:reminder_24h) makes the reminder exactly-once, so a missed run is
+// caught by the next one. withoutOverlapping keeps a slow run from racing itself.
+Schedule::command('bookings:remind')->hourly()->withoutOverlapping();

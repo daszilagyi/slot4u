@@ -8,6 +8,7 @@ use App\Events\BookingCreated;
 use App\Events\BookingStatusChanged;
 use App\Notifications\BookingConfirmedNotification;
 use App\Notifications\BookingRescheduledNotification;
+use App\Services\Notification\CustomerNotifier;
 
 /**
  * Emails the customer their booking confirmation the moment the booking reaches
@@ -20,8 +21,10 @@ use App\Notifications\BookingRescheduledNotification;
  * (docs/04 §2, SLO-109); with the predecessor's cancellation staying silent, a
  * reschedule is exactly one email to the customer.
  */
-class SendBookingConfirmation extends SendsCustomerNotification
+class SendBookingConfirmation
 {
+    public function __construct(private readonly CustomerNotifier $notifier) {}
+
     public function handle(BookingCreated|BookingStatusChanged $event): void
     {
         $booking = $event->booking;
@@ -36,7 +39,7 @@ class SendBookingConfirmation extends SendsCustomerNotification
             return;
         }
 
-        $tenant = $this->operationalTenant($booking);
+        $tenant = $this->notifier->operationalTenant($booking);
 
         if ($tenant === null) {
             return;
@@ -52,7 +55,7 @@ class SendBookingConfirmation extends SendsCustomerNotification
             ? [NotificationType::BookingConfirmed, new BookingConfirmedNotification($booking, $tenant)]
             : [NotificationType::BookingModified, new BookingRescheduledNotification($booking, $original, $tenant)];
 
-        $this->sendToCustomer(
+        $this->notifier->sendToCustomer(
             tenant: $tenant,
             type: $type,
             dedupeKey: 'booking:'.$booking->getKey(),

@@ -1039,6 +1039,16 @@ return [
             'action' => 'Hely lefoglalása',
             'outro' => 'A helyet a foglalás véglegesíti — ha a határidőig nem foglalsz, a hely tovább száll.',
         ],
+        'reminder_24h' => [
+            'subject' => 'Emlékeztető: közelgő foglalásod – :tenant',
+            'greeting' => 'Szia :name!',
+            'intro' => 'Emlékeztetünk, hogy közeleg a foglalásod a(z) :tenant oldalán.',
+            'service' => 'Szolgáltatás: :service',
+            'when' => 'Időpont: :when',
+            'code' => 'Foglalási kód: :code',
+            'action' => 'Foglalás megtekintése',
+            'outro' => 'Ha mégsem tudsz jönni, kérjük, mondd le vagy módosítsd időben. Várunk!',
+        ],
         'quote_ready' => [
             'subject' => 'Elkészült az árajánlatod – :tenant',
             'greeting' => 'Szia :name!',

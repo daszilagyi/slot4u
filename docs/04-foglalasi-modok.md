@@ -101,6 +101,19 @@ Sima (nem jóváhagyásos) foglalás `confirmed`-ön (vagy `pending_payment`-en)
 | `BookingStatusChanged` → `rejected` | kérés elutasítva (indoklással) | `booking_rejected` | `booking:{id}` |
 | `WaitlistOffered` | felszabadult egy hely (`offered_until` határidővel) | `waitlist_offer` | `waitlist_entry:{id}` |
 | `QuoteRequestStatusChanged` → `quoted` | elkészült az árajánlat (ár + érvényesség) | `quote_ready` | `quote_request:{id}` |
+| `bookings:remind` (óránkénti job) | emlékeztető a 24 órán belül kezdődő foglalásról | `reminder_24h` | `booking:{id}:reminder_24h` |
+
+**Ütemezett jobok (SLO-110, `routes/console.php`).** Mindhárom **tenant-független** (minden tenant sorait végigpásztázza), és a tenantot soronként, a modellből oldja fel:
+
+| Parancs | Ütemezés | Mit csinál |
+|---|---|---|
+| `bookings:remind` | óránként | a következő 24 órában kezdődő `confirmed` foglalásokra emlékeztető email |
+| `waitlist:expire-offers` | óránként | lejárt `offered` → `expired`, a felszabadult hely a következő várakozónak (`WaitlistOffered` → ajánlat-email) |
+| `bookings:expire-soft-holds` | óránként | lejárt soft-hold (`requested`) foglalás lemondása → az ügyfél lemondás-emailt kap |
+
+Az **emlékeztető pontosan-egyszer** garanciáját nem az ütemezés adja, hanem a `notifications_log` claim (`booking:{id}:reminder_24h`): az óránkénti futás a foglalás kezdetéig minden órában újra kiválasztja ugyanazt a sort, és az első utáni futások no-opok. Ettől **öngyógyító** is: egy kimaradt vagy elhasalt futást a következő pótol, nem vész el az emlékeztető. **DST:** az ablak fix 24 órás időtartam a tárolt **UTC** instantokon — nem nyer/veszít órát a tenant faliórájának átállásakor (docs/01 §7); csak a *megjelenítés* tenant-idő. Aki **24 órán belül foglal**, nem kap 24h-emlékeztetőt (a visszaigazolója már tartalmazza az időpontot).
+
+⚠️ **`pending_payment` TTL: nincs.** A soft-hold job csak a jóváhagyásra váró (`requested`) foglalásokat engedi el; a fizetésre váró foglalás lejáratása a fizetési flow-val (M6) érkezik — a `pending_payment` sorokat addig senki nem takarítja.
 
 **Nem-operatív tenant → nincs email.** A listener a tenantot a modellből oldja fel (`withTrashed()`, mert a `Tenant` soft-deletable: archiváltnál a sima reláció `null`-t adna, és mivel a listenerek a státuszváltó **tranzakcióján belül, szinkron** futnak, ez visszagörgetné az átmenetet és megölné a tenant-független cronokat — `bookings:expire-soft-holds`, `waitlist:expire-offers` — *minden* tenantra). Ha a tenant nem operatív (`suspended`/`archived` — `TenantStatus::isOperational()`), az értesítés némán kimarad: a publikus felülete 503/404 (`EnsureTenantActive`), tehát a levél minden linkje halott lenne.
 

@@ -6,6 +6,7 @@ use App\Enums\BookingStatus;
 use App\Enums\NotificationType;
 use App\Events\BookingStatusChanged;
 use App\Notifications\BookingRejectedNotification;
+use App\Services\Notification\CustomerNotifier;
 
 /**
  * Emails the customer when their booking request is turned down in the approval
@@ -13,8 +14,10 @@ use App\Notifications\BookingRejectedNotification;
  * the `booking:{id}` dedup key (under the booking_rejected type) keeps a repeated
  * event from mailing twice.
  */
-class SendBookingRejection extends SendsCustomerNotification
+class SendBookingRejection
 {
+    public function __construct(private readonly CustomerNotifier $notifier) {}
+
     public function handle(BookingStatusChanged $event): void
     {
         if ($event->to !== BookingStatus::Rejected) {
@@ -22,13 +25,13 @@ class SendBookingRejection extends SendsCustomerNotification
         }
 
         $booking = $event->booking;
-        $tenant = $this->operationalTenant($booking);
+        $tenant = $this->notifier->operationalTenant($booking);
 
         if ($tenant === null) {
             return;
         }
 
-        $this->sendToCustomer(
+        $this->notifier->sendToCustomer(
             tenant: $tenant,
             type: NotificationType::BookingRejected,
             dedupeKey: 'booking:'.$booking->getKey(),
