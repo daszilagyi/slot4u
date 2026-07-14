@@ -12,6 +12,9 @@ enum NotificationType: string
     case BookingConfirmed = 'booking_confirmed';
     case BookingModified = 'booking_modified';
     case BookingCanceled = 'booking_canceled';
+    case BookingRejected = 'booking_rejected';
+    case WaitlistOffer = 'waitlist_offer';
+    case QuoteReady = 'quote_ready';
     case Reminder24h = 'reminder_24h';
     case PaymentSuccess = 'payment_success';
     case PaymentFailed = 'payment_failed';

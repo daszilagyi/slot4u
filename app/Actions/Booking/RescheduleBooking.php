@@ -52,9 +52,13 @@ class RescheduleBooking
             // online: true enforces the cancellation deadline in CancelBooking; a
             // within-deadline attempt throws (on the `cancel` key) and rolls the whole
             // transaction back, so the original booking survives untouched (SLO-97).
-            ($this->cancelBooking)($original, $actor, __('app.booking.rescheduled'), $online);
+            //
+            // rescheduled: true keeps the customer from being told their booking was
+            // canceled — the replacement carries the pointer back to this booking, and
+            // sends a single "your booking was moved" mail instead (SLO-109).
+            ($this->cancelBooking)($original, $actor, __('app.booking.rescheduled'), $online, rescheduled: true);
 
-            return ($this->createBooking)($service, $data, $actor);
+            return ($this->createBooking)($service, $data, $actor, rescheduledFrom: $original);
         });
     }
 }

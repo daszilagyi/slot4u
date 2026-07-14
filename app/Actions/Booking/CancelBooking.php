@@ -19,9 +19,13 @@ class CancelBooking
     public function __construct(private readonly ChangeBookingStatus $changeStatus) {}
 
     /**
+     * @param  bool  $rescheduled  this cancellation is the first half of a reschedule
+     *                             (docs/04 §2) — passed on so the notification
+     *                             listeners stay silent for it (SLO-109)
+     *
      * @throws ValidationException when an online cancellation is past the deadline
      */
-    public function __invoke(Booking $booking, ?User $actor = null, ?string $reason = null, bool $online = false): Booking
+    public function __invoke(Booking $booking, ?User $actor = null, ?string $reason = null, bool $online = false, bool $rescheduled = false): Booking
     {
         if ($online) {
             // withTrashed: an archived tenant's settings must still resolve for a
@@ -36,6 +40,6 @@ class CancelBooking
             }
         }
 
-        return ($this->changeStatus)($booking, BookingStatus::Canceled, $actor, $reason);
+        return ($this->changeStatus)($booking, BookingStatus::Canceled, $actor, $reason, $rescheduled);
     }
 }

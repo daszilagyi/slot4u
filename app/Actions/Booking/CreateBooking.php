@@ -50,11 +50,27 @@ class CreateBooking
 
     /**
      * @param  array<string, mixed>  $data
+     * @param  Booking|null  $rescheduledFrom  the booking this one replaces, when created by
+     *                                         a reschedule (docs/04 §2). Recorded on the new
+     *                                         row so the lifecycle listeners send a single
+     *                                         "moved" mail rather than a confirmation, and so
+     *                                         the replacement chain stays auditable (SLO-109).
+     *                                         Passed as a model (never a request key) — the
+     *                                         column is guarded against mass assignment.
      *
      * @throws SlotUnavailableException
      */
-    public function __invoke(Service $service, array $data, ?User $actor = null): Booking
+    public function __invoke(Service $service, array $data, ?User $actor = null, ?Booking $rescheduledFrom = null): Booking
     {
+        // The replacement chain must never cross a tenant boundary: both entry points
+        // pass a route-bound (tenant-scoped) booking today, but the Action layer is
+        // entry-point-independent (docs/01 §4 — the Phase-2 API and queue jobs call it
+        // too), and a foreign predecessor would leak the other tenant's old time into
+        // the "moved" mail.
+        if ($rescheduledFrom !== null && (int) $rescheduledFrom->tenant_id !== (int) $service->tenant_id) {
+            throw new RuntimeException('A booking can only replace another booking of the same tenant (SLO-109).');
+        }
+
         $source = BookingSource::tryFrom((string) ($data['source'] ?? '')) ?? BookingSource::Admin;
         $status = $this->initialStatus($service, $source);
 
@@ -80,9 +96,11 @@ class CreateBooking
             'source' => $source,
         ];
 
+        // Only a time-slot booking can be rescheduled (docs/04 §2, guarded in
+        // RescheduleBooking) — the other modes never receive a predecessor.
         return match ($service->booking_mode) {
             BookingMode::EventBased => $this->createEventBooking($attributes, $status, (int) $service->tenant_id, $holdExpiresAt),
-            BookingMode::DurationBased, BookingMode::ResourceRental => $this->createTimeSlotBooking($attributes, $status, $service, $holdExpiresAt),
+            BookingMode::DurationBased, BookingMode::ResourceRental => $this->createTimeSlotBooking($attributes, $status, $service, $holdExpiresAt, $rescheduledFrom),
             BookingMode::NoTimeSlot => $this->createNoTimeSlotBooking($attributes, $status, $service, $holdExpiresAt),
             // A quote_request booking is generated only when an accepted quote is
             // turned into an engagement (docs/04 §6, SLO-27) — never time-slotted,
@@ -120,9 +138,9 @@ class CreateBooking
     /**
      * @param  array<string, mixed>  $attributes
      */
-    private function createTimeSlotBooking(array $attributes, BookingStatus $status, Service $service, ?Carbon $holdExpiresAt): Booking
+    private function createTimeSlotBooking(array $attributes, BookingStatus $status, Service $service, ?Carbon $holdExpiresAt, ?Booking $rescheduledFrom = null): Booking
     {
-        return DB::transaction(function () use ($attributes, $status, $service, $holdExpiresAt): Booking {
+        return DB::transaction(function () use ($attributes, $status, $service, $holdExpiresAt, $rescheduledFrom): Booking {
             // Lock the resource row(s) so concurrent bookings for the same staff/
             // room serialise even when no conflicting booking exists yet.
             if ($attributes['staff_id'] !== null) {
@@ -136,7 +154,7 @@ class CreateBooking
                 throw SlotUnavailableException::slotTaken();
             }
 
-            return $this->persist($attributes, $status, $holdExpiresAt);
+            return $this->persist($attributes, $status, $holdExpiresAt, $rescheduledFrom);
         });
     }
 
@@ -262,13 +280,18 @@ class CreateBooking
     /**
      * @param  array<string, mixed>  $attributes
      */
-    private function persist(array $attributes, BookingStatus $status, ?Carbon $holdExpiresAt = null): Booking
+    private function persist(array $attributes, BookingStatus $status, ?Carbon $holdExpiresAt = null, ?Booking $rescheduledFrom = null): Booking
     {
         $booking = new Booking;
         $booking->fill($attributes);
-        // status + hold_expires_at are guarded (not fillable) — set from the action.
+        // status, hold_expires_at and rescheduled_from_id are guarded (not fillable)
+        // — set from the action.
         $booking->status = $status;
         $booking->hold_expires_at = $holdExpiresAt;
+        // Must be set BEFORE the insert: the model's created hook dispatches
+        // BookingCreated, and the notification listener reads the predecessor off
+        // the booking to pick the "moved" mail over the confirmation (SLO-109).
+        $booking->rescheduled_from_id = $rescheduledFrom?->getKey();
         $booking->save();
 
         return $booking;

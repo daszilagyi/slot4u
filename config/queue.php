@@ -29,6 +29,16 @@ return [
     |
     */
 
+    /*
+    | after_commit: the booking engine dispatches its notifications from inside a
+    | DB transaction (CreateBooking / ChangeBookingStatus / RescheduleBooking fire
+    | their domain events under the lock). If that transaction later rolls back —
+    | a taken slot, a failed quote acceptance — the mail must NOT go out for work
+    | that never happened, and the notifications_log claim that rolled back with it
+    | would otherwise never be retried. So the queue drivers we actually run on
+    | (database in dev, redis + Horizon in prod) hold jobs until commit (SLO-109).
+    */
+
     'connections' => [
 
         'sync' => [
@@ -41,7 +51,7 @@ return [
             'table' => env('DB_QUEUE_TABLE', 'jobs'),
             'queue' => env('DB_QUEUE', 'default'),
             'retry_after' => (int) env('DB_QUEUE_RETRY_AFTER', 90),
-            'after_commit' => false,
+            'after_commit' => true,
         ],
 
         'beanstalkd' => [
@@ -70,7 +80,7 @@ return [
             'queue' => env('REDIS_QUEUE', 'default'),
             'retry_after' => (int) env('REDIS_QUEUE_RETRY_AFTER', 90),
             'block_for' => null,
-            'after_commit' => false,
+            'after_commit' => true,
         ],
 
         'deferred' => [
