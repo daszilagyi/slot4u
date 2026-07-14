@@ -1,7 +1,9 @@
 <?php
 
+use App\Enums\Feature;
 use App\Models\Service;
 use App\Models\Tenant;
+use App\Models\TenantFeature;
 use App\Services\Seo\OgImageGenerator;
 use App\Tenancy\TenantManager;
 use Illuminate\Support\Facades\Storage;
@@ -13,6 +15,13 @@ afterEach(function () {
 function seoTenant(string $slug = 'acme', array $attributes = []): Tenant
 {
     return Tenant::factory()->active()->create(array_merge(['slug' => $slug], $attributes));
+}
+
+function seoEnableBranding(Tenant $tenant): void
+{
+    app(TenantManager::class)->set($tenant);
+    TenantFeature::factory()->create(['feature_code' => Feature::Branding, 'enabled' => true]);
+    app(TenantManager::class)->forget();
 }
 
 function seoServiceFor(Tenant $tenant, string $name, bool $active = true): Service
@@ -70,6 +79,7 @@ it('disallows everything in robots.txt for a suspended tenant (outside ensure.te
 it('renders and caches a branded PNG OG image on the public disk', function () {
     Storage::fake('public');
     $tenant = seoTenant('acme', ['name' => 'Acme Szalon', 'branding' => ['primary_color' => '#123456']]);
+    seoEnableBranding($tenant);
 
     $response = $this->get(tenantHost('acme', '/og-image.png'));
 
@@ -91,13 +101,38 @@ it('renders and caches a branded PNG OG image on the public disk', function () {
 });
 
 it('derives a stable cacheKey that changes only when branding changes', function () {
+    // A fresh generator per assertion mirrors production (one instance per request);
+    // the generator memoises the resolved branding for its own lifetime (SLO-107).
     Storage::fake('public');
     $tenant = seoTenant('acme', ['name' => 'Acme', 'branding' => ['primary_color' => '#123456']]);
-    $generator = app(OgImageGenerator::class);
+    seoEnableBranding($tenant);
 
-    $key = $generator->cacheKey($tenant);
-    expect($generator->cacheKey($tenant->fresh()))->toBe($key);
+    $key = app(OgImageGenerator::class)->cacheKey($tenant);
+    expect(app(OgImageGenerator::class)->cacheKey($tenant->fresh()))->toBe($key);
 
     $tenant->update(['branding' => ['primary_color' => '#abcdef']]);
-    expect($generator->cacheKey($tenant->fresh()))->not->toBe($key);
+    expect(app(OgImageGenerator::class)->cacheKey($tenant->fresh()))->not->toBe($key);
+});
+
+it('gates the OG image branding behind feature_branding (default look when off)', function () {
+    // With branding off (base-plan default), the custom colour/logo must not feed
+    // the image or its cacheKey — the OG share preview matches the default-branded
+    // look, consistent with the shared prop + cover gates (SLO-90/SLO-107).
+    Storage::fake('public');
+    $branded = seoTenant('acme', ['name' => 'Acme', 'branding' => ['primary_color' => '#123456']]);
+    $plain = seoTenant('plain', ['name' => 'Acme']);
+
+    // A stored custom colour is ignored while the feature is off → same key as a
+    // tenant with no branding at all (only the shared name differs, which matches).
+    expect(app(OgImageGenerator::class)->cacheKey($branded))
+        ->toBe(app(OgImageGenerator::class)->cacheKey($plain));
+
+    // Changing the (ungated) custom colour does not bust the cache when off.
+    $key = app(OgImageGenerator::class)->cacheKey($branded);
+    $branded->update(['branding' => ['primary_color' => '#abcdef']]);
+    expect(app(OgImageGenerator::class)->cacheKey($branded->fresh()))->toBe($key);
+
+    // Turning the feature on surfaces the custom colour → a fresh key.
+    seoEnableBranding($branded);
+    expect(app(OgImageGenerator::class)->cacheKey($branded->fresh()))->not->toBe($key);
 });
