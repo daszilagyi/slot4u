@@ -2,7 +2,9 @@
 
 namespace App\Services\Seo;
 
+use App\Enums\Feature;
 use App\Models\Tenant;
+use App\Services\Feature\FeatureResolver;
 use App\Settings\TenantBranding;
 use Illuminate\Support\Facades\Storage;
 
@@ -13,12 +15,28 @@ use Illuminate\Support\Facades\Storage;
  * the public disk keyed by a hash of the branding inputs, so a colour/logo/name
  * change yields a fresh file and stale crawler caches are busted via the ?v query
  * on the homepage og:image URL.
+ *
+ * The logo + primary colour are gated behind `feature_branding` (docs/03), same as
+ * the shared `tenant` prop (SLO-90) and the homepage cover: a tenant with branding
+ * off gets the default-colour image with no logo, and toggling the feature busts
+ * the cache because the gated inputs feed the cacheKey (SLO-107). The tenant name
+ * is company profile, not branding, so it always renders.
  */
 class OgImageGenerator
 {
     private const WIDTH = 1200;
 
     private const HEIGHT = 630;
+
+    /**
+     * Resolved branding per tenant, memoised so a single OG-image request (which
+     * computes the cacheKey and then renders) resolves the feature-gate once.
+     *
+     * @var array<int, TenantBranding>
+     */
+    private array $effectiveBranding = [];
+
+    public function __construct(private readonly FeatureResolver $features) {}
 
     /**
      * Absolute filesystem path of the cached PNG on the public disk, generating it
@@ -41,9 +59,22 @@ class OgImageGenerator
      */
     public function cacheKey(Tenant $tenant): string
     {
-        $branding = TenantBranding::fromArray($tenant->branding);
+        $branding = $this->effectiveBranding($tenant);
 
         return substr(sha1($tenant->name.'|'.$branding->primaryColor.'|'.($branding->logoPath ?? '')), 0, 12);
+    }
+
+    /**
+     * The branding actually rendered for this tenant: the stored brand when
+     * `feature_branding` is on, otherwise the default look (default colour, no
+     * logo). Gating here means both the cacheKey and the pixels stay consistent
+     * with the rest of the branding surface (SLO-90/SLO-107).
+     */
+    private function effectiveBranding(Tenant $tenant): TenantBranding
+    {
+        return $this->effectiveBranding[$tenant->getKey()] ??= $this->features->enabled($tenant, Feature::Branding)
+            ? TenantBranding::fromArray($tenant->branding)
+            : new TenantBranding;
     }
 
     private function relativePath(Tenant $tenant): string
@@ -53,7 +84,7 @@ class OgImageGenerator
 
     private function generate(Tenant $tenant, string $relative): string
     {
-        $branding = TenantBranding::fromArray($tenant->branding);
+        $branding = $this->effectiveBranding($tenant);
         [$r, $g, $b] = $this->parseColor($branding->primaryColor);
 
         $img = imagecreatetruecolor(self::WIDTH, self::HEIGHT);
