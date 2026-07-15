@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\BookingController;
 use App\Http\Controllers\Admin\CustomerController;
 use App\Http\Controllers\Admin\EventController;
 use App\Http\Controllers\Admin\LocationController;
+use App\Http\Controllers\Admin\MessageTemplateController;
 use App\Http\Controllers\Admin\QuoteRequestController;
 use App\Http\Controllers\Admin\RoomController;
 use App\Http\Controllers\Admin\ScheduleController;
@@ -222,6 +223,16 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
         Route::middleware('can:'.Permission::SettingsEdit->value)->group(function () {
             Route::get('/settings', [SettingsController::class, 'edit'])->name('tenant.settings.edit');
             Route::post('/settings', [SettingsController::class, 'update'])->name('tenant.settings.update');
+        });
+
+        // Tenant-editable email templates (SLO-112/SLO-114). Gated by
+        // template.manage (tenant-admin only per docs/03). The override renders in
+        // place of the built-in default for the matching notification (SLO-113);
+        // {key} is a NotificationType value, validated against the editable set.
+        Route::middleware('can:'.Permission::TemplateManage->value)->group(function () {
+            Route::get('/settings/templates', [MessageTemplateController::class, 'index'])->name('tenant.templates.index');
+            Route::put('/settings/templates/{key}', [MessageTemplateController::class, 'update'])->name('tenant.templates.update');
+            Route::delete('/settings/templates/{key}', [MessageTemplateController::class, 'destroy'])->name('tenant.templates.destroy');
         });
 
         // Employee self-service profile (SLO-17). Available to every *staff*
