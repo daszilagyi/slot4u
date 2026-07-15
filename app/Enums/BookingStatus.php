@@ -65,6 +65,21 @@ enum BookingStatus: string
     }
 
     /**
+     * The statuses a booking may still be canceled from (docs/04 §3, SLO-111) —
+     * used to bulk-cancel registrants when their event is called off. Terminal
+     * states are excluded, so re-cancelling a dead booking is a no-op.
+     *
+     * @return list<string>
+     */
+    public static function cancelableValues(): array
+    {
+        return array_values(array_map(
+            fn (self $status) => $status->value,
+            array_filter(self::cases(), fn (self $status) => $status->canTransitionTo(self::Canceled)),
+        ));
+    }
+
+    /**
      * The status values that block a slot (SLO-22 availability).
      *
      * @return list<string>
