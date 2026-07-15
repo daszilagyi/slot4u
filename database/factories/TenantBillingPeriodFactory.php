@@ -23,6 +23,7 @@ class TenantBillingPeriodFactory extends Factory
             'tenant_id' => Tenant::factory(),
             'period' => fake()->dateTimeThisYear()->format('Y-m'),
             'turnover_minor' => 0,
+            'billable_base_minor' => 0,
             'commission_minor' => 0,
             'cap_reached' => false,
             'status' => BillingPeriodStatus::Open,

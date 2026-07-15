@@ -217,6 +217,7 @@ booking_commission_items  id, tenant_id, booking_id(FK, unique), period(YYYY-MM,
 ```
 tenant_billing_periods  id, tenant_id, period(YYYY-MM),
                         turnover_minor(default 0),      -- jutalékköteles forgalom összege
+                        billable_base_minor(default 0), -- a küszöb feletti, jutalékalap (§2.3, plafon előtt)
                         commission_minor(default 0),    -- a §2.3 szerint számolt jutalék
                         cap_reached(bool, default false),
                         status(open|invoiced|paid|overdue|void),
