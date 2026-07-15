@@ -281,6 +281,12 @@ it('rejects a quote_request service on the generic /bookings endpoint', function
 // --- valid_until timezone conversion (docs/01 §7) ---
 
 it('stores valid_until converted from tenant timezone to UTC', function () {
+    // Freeze the clock to a fixed summer instant before the submitted date, so the
+    // "must be after now" validation is deterministic — the hardcoded date used to
+    // be a time bomb that failed once wall-clock passed 2026-07-15 12:00 CEST
+    // (SLO-115). Reset before the assertions so a failure can't leak the fake time.
+    Carbon::setTestNow('2026-06-15 09:00:00');
+
     $tenant = Tenant::factory()->active()->create(['slug' => 'acme', 'timezone' => 'Europe/Budapest']);
     app(TenantManager::class)->set($tenant);
     $service = qrService($tenant);
@@ -289,11 +295,14 @@ it('stores valid_until converted from tenant timezone to UTC', function () {
     app(TenantManager::class)->forget();
 
     // 12:00 Budapest summer time (CEST, UTC+2) → 10:00 UTC.
-    $this->actingAs($admin)
+    $response = $this->actingAs($admin)
         ->post(tenantHost('acme', "/quote-requests/{$quote->id}/submit"), [
             'price_minor' => 400000, 'currency' => 'HUF', 'valid_until' => '2026-07-15T12:00',
-        ])
-        ->assertRedirect()->assertSessionHasNoErrors();
+        ]);
+
+    Carbon::setTestNow();
+
+    $response->assertRedirect()->assertSessionHasNoErrors();
 
     expect($quote->fresh()->valid_until->toDateTimeString())->toBe('2026-07-15 10:00:00');
 });
