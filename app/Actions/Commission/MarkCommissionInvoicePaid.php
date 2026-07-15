@@ -25,6 +25,11 @@ final class MarkCommissionInvoicePaid
 
     public function __invoke(CommissionInvoice $invoice, ?string $method = null): CommissionInvoice
     {
+        // Whether this payment clears a dunning-overdue invoice — only that ties the
+        // tenant's suspension to non-payment (a manual superadmin suspension must not
+        // be auto-lifted just because an invoice got paid).
+        $wasOverdue = $invoice->status === CommissionInvoiceStatus::Overdue;
+
         $invoice->status = CommissionInvoiceStatus::Paid;
         $invoice->paid_at = Carbon::now();
         if ($method !== null) {
@@ -37,7 +42,9 @@ final class MarkCommissionInvoicePaid
             ->where('period', $invoice->period)
             ->update(['status' => BillingPeriodStatus::Paid->value]);
 
-        $this->reactivateIfCleared($invoice);
+        if ($wasOverdue) {
+            $this->reactivateIfCleared($invoice);
+        }
 
         return $invoice;
     }

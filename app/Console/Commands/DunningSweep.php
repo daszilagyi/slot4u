@@ -35,7 +35,7 @@ class DunningSweep extends Command
         $now = Carbon::now();
 
         $reminded = $this->flagOverdue($now, $notifier);
-        $suspended = $this->suspendPastGrace($now, $changeStatus);
+        $suspended = $this->suspendPastGrace($now, $changeStatus, $notifier);
 
         $this->info("Dunning: {$reminded} reminded, {$suspended} suspended.");
 
@@ -68,7 +68,7 @@ class DunningSweep extends Command
 
             $tenant = $invoice->tenant;
             if ($tenant instanceof Tenant) {
-                $notifier->notify($tenant, new CommissionInvoiceNotification($invoice, $tenant, overdue: true));
+                $notifier->notify($tenant, new CommissionInvoiceNotification($invoice, $tenant, CommissionInvoiceNotification::OVERDUE));
                 $reminded++;
             }
         }
@@ -77,9 +77,10 @@ class DunningSweep extends Command
     }
 
     /**
-     * Suspend tenants whose invoice has been overdue beyond the grace window.
+     * Suspend tenants whose invoice has been overdue beyond the grace window, and
+     * email the tenant admins the suspension notice (docs/10 §11).
      */
-    private function suspendPastGrace(Carbon $now, ChangeTenantStatus $changeStatus): int
+    private function suspendPastGrace(Carbon $now, ChangeTenantStatus $changeStatus, TenantAdminNotifier $notifier): int
     {
         $suspended = 0;
         $cutoff = $now->copy()->subDays(self::GRACE_DAYS);
@@ -98,6 +99,7 @@ class DunningSweep extends Command
             // and archived tenants untouched.
             if ($tenant instanceof Tenant && $tenant->status->isOperational()) {
                 ($changeStatus)($tenant, TenantStatus::Suspended);
+                $notifier->notify($tenant, new CommissionInvoiceNotification($invoice, $tenant, CommissionInvoiceNotification::SUSPENDED));
                 $suspended++;
             }
         }

@@ -10,19 +10,26 @@ use Illuminate\Notifications\Notification;
 use Illuminate\Support\Number;
 
 /**
- * Emails a tenant admin about their monthly commission invoice (docs/10 §6.5/6.6):
- * the `issued` variant when it is first raised, the `overdue` variant as the
- * dunning reminder once the due date has passed. Rendered in the tenant's locale
- * regardless of queue context; amounts are the gross total in the tenant's currency.
+ * Emails a tenant admin about their monthly commission invoice (docs/10 §6.5/6.6,
+ * §11). One of three variants: `issued` when it is first raised, `overdue` as the
+ * dunning reminder once the due date passes, and `suspended` when non-payment past
+ * the grace window suspends the tenant. Rendered in the tenant's locale regardless
+ * of queue context; amounts are the gross total in the tenant's currency.
  */
 class CommissionInvoiceNotification extends Notification
 {
     use Queueable;
 
+    public const string ISSUED = 'issued';
+
+    public const string OVERDUE = 'overdue';
+
+    public const string SUSPENDED = 'suspended';
+
     public function __construct(
         private readonly CommissionInvoice $invoice,
         private readonly Tenant $tenant,
-        private readonly bool $overdue = false,
+        private readonly string $variant = self::ISSUED,
     ) {
         $this->locale = $tenant->locale;
     }
@@ -37,7 +44,7 @@ class CommissionInvoiceNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        $variant = $this->overdue ? 'overdue' : 'issued';
+        $variant = $this->variant;
 
         return (new MailMessage)
             ->subject(__("app.mail.commission_invoice.{$variant}.subject", ['period' => $this->invoice->period]))

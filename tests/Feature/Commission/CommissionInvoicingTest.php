@@ -160,11 +160,25 @@ it('reactivates a tenant suspended for non-payment once it settles up', function
     $tenant = Tenant::factory()->active()->create();
     billable($tenant, '2026-06', 100000);
     $invoice = app(GenerateCommissionInvoice::class)($tenant->id, '2026-06');
+    // Dunning ran: the invoice went overdue and the tenant was suspended.
+    $invoice->update(['status' => CommissionInvoiceStatus::Overdue]);
     app(ChangeTenantStatus::class)($tenant, TenantStatus::Suspended);
 
     app(MarkCommissionInvoicePaid::class)($invoice);
 
     expect($tenant->fresh()->status)->toBe(TenantStatus::Active);
+});
+
+it('does not auto-reactivate a manually suspended tenant on a routine payment', function () {
+    $tenant = Tenant::factory()->active()->create();
+    billable($tenant, '2026-06', 100000);
+    $invoice = app(GenerateCommissionInvoice::class)($tenant->id, '2026-06'); // issued, not overdue
+    // A superadmin suspended the tenant for an unrelated reason.
+    app(ChangeTenantStatus::class)($tenant, TenantStatus::Suspended);
+
+    app(MarkCommissionInvoicePaid::class)($invoice);
+
+    expect($tenant->fresh()->status)->toBe(TenantStatus::Suspended);
 });
 
 it('closes only periods whose grace window has passed', function () {
@@ -204,8 +218,10 @@ it('flags overdue invoices and reminds the tenant', function () {
     Notification::assertSentTo($admin, CommissionInvoiceNotification::class);
 });
 
-it('suspends a tenant whose invoice stays overdue beyond the grace window', function () {
+it('suspends a tenant whose invoice stays overdue beyond the grace window and warns it', function () {
+    Notification::fake();
     $tenant = Tenant::factory()->active()->create();
+    $admin = tenantAdmin($tenant);
     CommissionInvoice::factory()->create([
         'tenant_id' => $tenant->id,
         'period' => '2026-05',
@@ -217,6 +233,8 @@ it('suspends a tenant whose invoice stays overdue beyond the grace window', func
     $this->artisan('billing:dunning-sweep')->assertSuccessful();
 
     expect($tenant->fresh()->status)->toBe(TenantStatus::Suspended);
+    // docs/10 §11: the tenant is emailed a suspension notice, not silently locked out.
+    Notification::assertSentTo($admin, CommissionInvoiceNotification::class);
 });
 
 it('does not suspend a tenant still within the grace window', function () {
@@ -232,6 +250,25 @@ it('does not suspend a tenant still within the grace window', function () {
     $this->artisan('billing:dunning-sweep')->assertSuccessful();
 
     expect($tenant->fresh()->status)->toBe(TenantStatus::Active);
+});
+
+it('respects the tenant-timezone grace boundary when closing a period', function () {
+    // Grace for 2026-06 = 2nd of July 00:00 Europe/Budapest (CEST +2) = 2026-07-01 22:00 UTC.
+    $tenant = Tenant::factory()->active()->create(['timezone' => 'Europe/Budapest']);
+    billable($tenant, '2026-06', 100000);
+    app(RecomputeTenantPeriod::class)($tenant->id, '2026-06');
+
+    // Before the grace instant → stays open.
+    Carbon::setTestNow('2026-07-01 21:00:00');
+    $this->artisan('billing:close-periods')->assertSuccessful();
+    expect(TenantBillingPeriod::withoutGlobalScopes()->where('tenant_id', $tenant->id)->sole()->status)
+        ->toBe(BillingPeriodStatus::Open);
+
+    // Past the grace instant → closes.
+    Carbon::setTestNow('2026-07-01 23:00:00');
+    $this->artisan('billing:close-periods')->assertSuccessful();
+    expect(TenantBillingPeriod::withoutGlobalScopes()->where('tenant_id', $tenant->id)->sole()->status)
+        ->toBe(BillingPeriodStatus::Invoiced);
 });
 
 it('still computes the period of a suspended tenant (§12/17)', function () {

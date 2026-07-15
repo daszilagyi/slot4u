@@ -1108,6 +1108,12 @@ return [
                 'intro' => 'A(z) :tenant :period havi jutalékszámlája lejárt és még rendezetlen.',
                 'outro' => 'Kérjük, mielőbb rendezd a számlát a szolgáltatás felfüggesztésének elkerülése érdekében.',
             ],
+            'suspended' => [
+                'subject' => 'Fiók felfüggesztve – rendezetlen jutalékszámla (:period)',
+                'greeting' => 'Szia :name!',
+                'intro' => 'A(z) :tenant fiókját a rendezetlen :period havi jutalékszámla miatt felfüggesztettük, a publikus foglalófelület átmenetileg nem elérhető.',
+                'outro' => 'A számla rendezése után a szolgáltatás automatikusan újraaktiválódik.',
+            ],
             'amount' => 'Fizetendő összeg: :amount (fizetési határidő: :due).',
             'action' => 'Számlázás megnyitása',
         ],
