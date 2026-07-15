@@ -163,6 +163,9 @@ class HandleInertiaRequests extends Middleware
         $branded = in_array(Feature::Branding->value, $this->enabledFeatures(), true);
 
         return [
+            // Numeric id for the private realtime channel (`tenant.{id}.bookings`,
+            // SLO-118); name/slug/branding drive the sidebar identity.
+            'id' => $tenant->getKey(),
             'name' => $tenant->name,
             'slug' => $tenant->slug,
             'logo_url' => $branded ? $branding->logoUrl() : null,

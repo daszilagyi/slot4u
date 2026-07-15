@@ -10,6 +10,7 @@ import AdminLayout from '@/Layouts/AdminLayout';
 import PageHeader from '@/components/admin/PageHeader';
 import StatCard from '@/components/admin/StatCard';
 import { useTranslations } from '@/lib/i18n';
+import { useLiveBookings } from '@/lib/useLiveBookings';
 
 const STATS = [
     { key: 'today_bookings', icon: CalendarCheckIcon, value: '0' },
@@ -20,7 +21,10 @@ const STATS = [
 
 export default function AdminDashboard() {
     const t = useTranslations();
-    const { auth } = usePage().props;
+    const { auth, tenant } = usePage().props;
+
+    // Live booking feed: a toast + chime the moment a booking comes in (SLO-118).
+    useLiveBookings(tenant?.id);
 
     return (
         <AdminLayout>
