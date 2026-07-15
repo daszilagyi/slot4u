@@ -20,6 +20,7 @@ use Illuminate\Support\Carbon;
  * @property int $tenant_id
  * @property string $period
  * @property int $turnover_minor
+ * @property int $billable_base_minor
  * @property int $commission_minor
  * @property bool $cap_reached
  * @property BillingPeriodStatus $status
@@ -39,6 +40,7 @@ class TenantBillingPeriod extends Model
     protected $fillable = [
         'period',
         'turnover_minor',
+        'billable_base_minor',
         'commission_minor',
         'cap_reached',
         'status',
@@ -53,6 +55,7 @@ class TenantBillingPeriod extends Model
     {
         return [
             'turnover_minor' => 'integer',
+            'billable_base_minor' => 'integer',
             'commission_minor' => 'integer',
             'cap_reached' => 'boolean',
             'status' => BillingPeriodStatus::class,

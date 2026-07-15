@@ -24,3 +24,14 @@ Schedule::command('bookings:expire-soft-holds')->hourly()->withoutOverlapping();
 // (booking:{id}:reminder_24h) makes the reminder exactly-once, so a missed run is
 // caught by the next one. withoutOverlapping keeps a slow run from racing itself.
 Schedule::command('bookings:remind')->hourly()->withoutOverlapping();
+
+// Close each tenant's elapsed billing period and issue the commission invoice
+// (SLO-69). Hourly, not daily: tenants span timezones, so each month's grace instant
+// (2nd of next month, tenant tz) falls at a different UTC hour — an hourly run closes
+// each within the hour. Idempotent (BillingPeriodStatus gate), withoutOverlapping.
+Schedule::command('billing:close-periods')->hourly()->withoutOverlapping();
+
+// Dunning: flip overdue commission invoices, remind tenants, and suspend after the
+// grace window (SLO-69). Daily is enough — due dates and the grace window are
+// day-grained. withoutOverlapping keeps a slow run from racing itself.
+Schedule::command('billing:dunning-sweep')->daily()->withoutOverlapping();

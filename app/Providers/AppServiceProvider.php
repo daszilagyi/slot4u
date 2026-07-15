@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Events\BookingCanceled;
 use App\Events\BookingCreated;
 use App\Events\BookingStatusChanged;
+use App\Events\CommissionInvoiceIssued;
 use App\Events\QuoteRequestStatusChanged;
 use App\Events\WaitlistOffered;
 use App\Listeners\RecordBookingCommission;
@@ -12,6 +13,7 @@ use App\Listeners\RecordNotificationDelivery;
 use App\Listeners\SendBookingCancellation;
 use App\Listeners\SendBookingConfirmation;
 use App\Listeners\SendBookingRejection;
+use App\Listeners\SendCommissionInvoiceIssued;
 use App\Listeners\SendQuoteReady;
 use App\Listeners\SendWaitlistOffer;
 use App\Models\Room;
@@ -78,5 +80,9 @@ class AppServiceProvider extends ServiceProvider
         // recomputes the tenant's monthly aggregate, synchronously with the change.
         Event::listen(BookingCreated::class, RecordBookingCommission::class);
         Event::listen(BookingStatusChanged::class, RecordBookingCommission::class);
+
+        // Commission invoicing (SLO-69 / docs/10 §6.5): a freshly issued monthly
+        // invoice is emailed to the tenant's admins.
+        Event::listen(CommissionInvoiceIssued::class, SendCommissionInvoiceIssued::class);
     }
 }

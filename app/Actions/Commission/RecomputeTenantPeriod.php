@@ -81,6 +81,7 @@ final class RecomputeTenantPeriod
             );
 
             $aggregate->turnover_minor = $result->turnoverMinor;
+            $aggregate->billable_base_minor = $result->billableBaseMinor;
             $aggregate->commission_minor = $result->commissionMinor;
             $aggregate->cap_reached = $result->capReached;
             $aggregate->recomputed_at = Carbon::now();
