@@ -22,6 +22,7 @@ export type ImpersonationState = {
 };
 
 export type TenantIdentity = {
+    id: number;
     name: string;
     slug: string;
     logo_url: string | null;

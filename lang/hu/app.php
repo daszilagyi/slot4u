@@ -378,6 +378,12 @@ return [
             'recent_empty' => 'Még nincsenek foglalások.',
             'today_title' => 'Mai nap',
             'today_empty' => 'Mára nincs teendő.',
+            'live' => [
+                'title' => 'Új foglalás érkezett',
+                'body' => ':service — :customer',
+                'unknown_service' => 'Ismeretlen szolgáltatás',
+                'unknown_customer' => 'Ismeretlen ügyfél',
+            ],
         ],
         'common' => [
             'search_placeholder' => 'Keresés…',
