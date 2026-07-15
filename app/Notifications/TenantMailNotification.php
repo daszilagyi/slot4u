@@ -2,11 +2,15 @@
 
 namespace App\Notifications;
 
+use App\Enums\NotificationType;
+use App\Models\MessageTemplate;
 use App\Models\Tenant;
 use App\Notifications\Concerns\RecordsDelivery;
 use App\Notifications\Concerns\TracksDelivery;
+use App\Services\Notification\MessageTemplateRenderer;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Number;
@@ -35,6 +39,71 @@ abstract class TenantMailNotification extends Notification implements RecordsDel
     public function via(object $notifiable): array
     {
         return ['mail'];
+    }
+
+    /**
+     * The notification kind, used to look up a tenant's template override.
+     */
+    abstract protected function templateType(): NotificationType;
+
+    /**
+     * The `:placeholder` values available to this notification's template — every
+     * variable its default body can reference, so a tenant override may use any of
+     * them. Always include `name` (the greeting) and `tenant`.
+     *
+     * @return array<string, string|int|null>
+     */
+    abstract protected function templateVars(object $notifiable): array;
+
+    /**
+     * The call-to-action button [label, url]. Kept out of the editable body so a
+     * tenant override can't break the link; it is appended after the body either way.
+     *
+     * @return array{0: string, 1: string}
+     */
+    abstract protected function templateAction(): array;
+
+    /**
+     * The built-in mail, rendered from lang keys — used when the tenant has no
+     * enabled override for this kind. This is the notification's original body.
+     */
+    abstract protected function defaultMail(object $notifiable): MailMessage;
+
+    /**
+     * Render the mail: a tenant's enabled template override if one exists, otherwise
+     * the built-in default. Both paths end in the same CTA button.
+     */
+    public function toMail(object $notifiable): MailMessage
+    {
+        $override = app(MessageTemplateRenderer::class)
+            ->resolve($this->tenant, $this->templateType(), $this->locale);
+
+        if ($override === null) {
+            return $this->defaultMail($notifiable);
+        }
+
+        return $this->renderFromTemplate($override, $notifiable);
+    }
+
+    /**
+     * Build the mail from a tenant override: subject + body with placeholders
+     * substituted, an automatic greeting, and the fixed CTA button.
+     */
+    protected function renderFromTemplate(MessageTemplate $template, object $notifiable): MailMessage
+    {
+        $renderer = app(MessageTemplateRenderer::class);
+        $vars = $this->templateVars($notifiable);
+        [$actionLabel, $actionUrl] = $this->templateAction();
+
+        $mail = (new MailMessage)
+            ->subject($renderer->substitute($template->subject, $vars))
+            ->greeting($renderer->substitute(__('app.mail.greeting'), $vars));
+
+        foreach ($renderer->bodyLines($renderer->substitute($template->body, $vars)) as $line) {
+            $mail->line($line);
+        }
+
+        return $mail->action($actionLabel, $actionUrl);
     }
 
     /**

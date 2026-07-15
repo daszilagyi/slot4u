@@ -980,6 +980,8 @@ return [
         ],
     ],
     'mail' => [
+        // Shared greeting used when a tenant email template override is rendered.
+        'greeting' => 'Szia :name!',
         'staff_invitation' => [
             'subject' => 'Meghívás – :tenant',
             'greeting' => 'Szia :name!',
