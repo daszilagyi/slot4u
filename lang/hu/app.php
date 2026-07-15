@@ -719,9 +719,10 @@ return [
             'updated' => 'Esemény frissítve.',
             'deleted' => 'Esemény törölve.',
             'canceled_msg' => 'Esemény lemondva.',
+            'cancel_booking_reason' => 'Az esemény elmaradt.',
             'add_cancel' => 'Lemondás',
             'cancel_title' => 'Esemény lemondása',
-            'cancel_body' => 'Biztosan lemondod ezt az eseményt? A jelentkezők értesítést kapnak (M5).',
+            'cancel_body' => 'Biztosan lemondod ezt az eseményt? A jelentkezők foglalása lemondásra kerül, és értesítést kapnak róla.',
             'delete_title' => 'Esemény törlése',
             'delete_body' => 'Biztosan törlöd ezt az eseményt? A művelet nem vonható vissza.',
             'field' => [
