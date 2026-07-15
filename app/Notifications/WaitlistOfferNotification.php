@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Enums\NotificationType;
 use App\Models\Tenant;
 use App\Models\WaitlistEntry;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -22,7 +23,33 @@ class WaitlistOfferNotification extends TenantMailNotification
         $this->renderForTenant($tenant);
     }
 
-    public function toMail(object $notifiable): MailMessage
+    protected function templateType(): NotificationType
+    {
+        return NotificationType::WaitlistOffer;
+    }
+
+    protected function templateVars(object $notifiable): array
+    {
+        $event = $this->entry->event;
+
+        return [
+            'name' => $notifiable->name,
+            'tenant' => $this->tenant->name,
+            'service' => $event?->service?->name,
+            'when' => $event?->starts_at !== null ? $this->tenantTime($event->starts_at) : null,
+            'deadline' => $this->entry->offered_until !== null ? $this->tenantTime($this->entry->offered_until) : null,
+        ];
+    }
+
+    protected function templateAction(): array
+    {
+        return [
+            __('app.mail.waitlist_offer.action'),
+            $this->bookingUrl(),
+        ];
+    }
+
+    protected function defaultMail(object $notifiable): MailMessage
     {
         $event = $this->entry->event;
 
@@ -47,8 +74,10 @@ class WaitlistOfferNotification extends TenantMailNotification
             ]));
         }
 
+        [$actionLabel, $actionUrl] = $this->templateAction();
+
         return $mail
-            ->action(__('app.mail.waitlist_offer.action'), $this->bookingUrl())
+            ->action($actionLabel, $actionUrl)
             ->line(__('app.mail.waitlist_offer.outro'));
     }
 

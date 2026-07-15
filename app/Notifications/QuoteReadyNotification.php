@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Enums\NotificationType;
 use App\Models\QuoteRequest;
 use App\Models\Tenant;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -19,7 +20,35 @@ class QuoteReadyNotification extends TenantMailNotification
         $this->renderForTenant($tenant);
     }
 
-    public function toMail(object $notifiable): MailMessage
+    protected function templateType(): NotificationType
+    {
+        return NotificationType::QuoteReady;
+    }
+
+    protected function templateVars(object $notifiable): array
+    {
+        return [
+            'name' => $notifiable->name,
+            'tenant' => $this->tenant->name,
+            'service' => $this->quoteRequest->service?->name,
+            // A quoted request always carries its currency alongside the price
+            // (SubmitQuote sets both); HUF is the platform default fallback.
+            'price' => $this->quoteRequest->price_minor !== null
+                ? $this->money($this->quoteRequest->price_minor, $this->quoteRequest->currency ?? 'HUF')
+                : null,
+            'date' => $this->quoteRequest->valid_until !== null ? $this->tenantTime($this->quoteRequest->valid_until) : null,
+        ];
+    }
+
+    protected function templateAction(): array
+    {
+        return [
+            __('app.mail.quote_ready.action'),
+            $this->tenantUrl('/my/quotes'),
+        ];
+    }
+
+    protected function defaultMail(object $notifiable): MailMessage
     {
         $mail = (new MailMessage)
             ->subject(__('app.mail.quote_ready.subject', ['tenant' => $this->tenant->name]))
@@ -32,8 +61,6 @@ class QuoteReadyNotification extends TenantMailNotification
 
         if ($this->quoteRequest->price_minor !== null) {
             $mail->line(__('app.mail.quote_ready.price', [
-                // A quoted request always carries its currency alongside the price
-                // (SubmitQuote sets both); HUF is the platform default fallback.
                 'price' => $this->money(
                     $this->quoteRequest->price_minor,
                     $this->quoteRequest->currency ?? 'HUF',
@@ -47,8 +74,10 @@ class QuoteReadyNotification extends TenantMailNotification
             ]));
         }
 
+        [$actionLabel, $actionUrl] = $this->templateAction();
+
         return $mail
-            ->action(__('app.mail.quote_ready.action'), $this->tenantUrl('/my/quotes'))
+            ->action($actionLabel, $actionUrl)
             ->line(__('app.mail.quote_ready.outro'));
     }
 }

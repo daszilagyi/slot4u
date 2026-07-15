@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Enums\NotificationType;
 use App\Models\Booking;
 use App\Models\Tenant;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -22,7 +23,32 @@ class BookingRescheduledNotification extends TenantMailNotification
         $this->renderForTenant($tenant);
     }
 
-    public function toMail(object $notifiable): MailMessage
+    protected function templateType(): NotificationType
+    {
+        return NotificationType::BookingModified;
+    }
+
+    protected function templateVars(object $notifiable): array
+    {
+        return [
+            'name' => $notifiable->name,
+            'tenant' => $this->tenant->name,
+            'previous' => $this->original->starts_at !== null ? $this->tenantTime($this->original->starts_at) : null,
+            'when' => $this->booking->starts_at !== null ? $this->tenantTime($this->booking->starts_at) : null,
+            'service' => $this->booking->service?->name,
+            'code' => $this->booking->code,
+        ];
+    }
+
+    protected function templateAction(): array
+    {
+        return [
+            __('app.mail.booking_modified.action'),
+            $this->tenantUrl('/booked/'.$this->booking->code),
+        ];
+    }
+
+    protected function defaultMail(object $notifiable): MailMessage
     {
         $mail = (new MailMessage)
             ->subject(__('app.mail.booking_modified.subject', ['tenant' => $this->tenant->name]))
@@ -45,12 +71,11 @@ class BookingRescheduledNotification extends TenantMailNotification
             $mail->line(__('app.mail.booking_modified.service', ['service' => $this->booking->service->name]));
         }
 
+        [$actionLabel, $actionUrl] = $this->templateAction();
+
         return $mail
             ->line(__('app.mail.booking_modified.code', ['code' => $this->booking->code]))
-            ->action(
-                __('app.mail.booking_modified.action'),
-                $this->tenantUrl('/booked/'.$this->booking->code),
-            )
+            ->action($actionLabel, $actionUrl)
             ->line(__('app.mail.booking_modified.outro'));
     }
 }

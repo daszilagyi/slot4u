@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Enums\NotificationType;
 use App\Models\Booking;
 use App\Models\Tenant;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -19,7 +20,32 @@ class BookingCanceledNotification extends TenantMailNotification
         $this->renderForTenant($tenant);
     }
 
-    public function toMail(object $notifiable): MailMessage
+    protected function templateType(): NotificationType
+    {
+        return NotificationType::BookingCanceled;
+    }
+
+    protected function templateVars(object $notifiable): array
+    {
+        return [
+            'name' => $notifiable->name,
+            'tenant' => $this->tenant->name,
+            'code' => $this->booking->code,
+            'service' => $this->booking->service?->name,
+            'when' => $this->booking->starts_at !== null ? $this->tenantTime($this->booking->starts_at) : null,
+            'reason' => $this->booking->cancel_reason,
+        ];
+    }
+
+    protected function templateAction(): array
+    {
+        return [
+            __('app.mail.booking_canceled.action'),
+            $this->tenantUrl('/book'),
+        ];
+    }
+
+    protected function defaultMail(object $notifiable): MailMessage
     {
         $mail = (new MailMessage)
             ->subject(__('app.mail.booking_canceled.subject', ['tenant' => $this->tenant->name]))
@@ -41,8 +67,10 @@ class BookingCanceledNotification extends TenantMailNotification
             $mail->line(__('app.mail.booking_canceled.reason', ['reason' => $this->booking->cancel_reason]));
         }
 
+        [$actionLabel, $actionUrl] = $this->templateAction();
+
         return $mail
-            ->action(__('app.mail.booking_canceled.action'), $this->tenantUrl('/book'))
+            ->action($actionLabel, $actionUrl)
             ->line(__('app.mail.booking_canceled.outro'));
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Enums\NotificationType;
 use App\Models\Booking;
 use App\Models\Tenant;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -20,7 +21,31 @@ class BookingReminderNotification extends TenantMailNotification
         $this->renderForTenant($tenant);
     }
 
-    public function toMail(object $notifiable): MailMessage
+    protected function templateType(): NotificationType
+    {
+        return NotificationType::Reminder24h;
+    }
+
+    protected function templateVars(object $notifiable): array
+    {
+        return [
+            'name' => $notifiable->name,
+            'tenant' => $this->tenant->name,
+            'service' => $this->booking->service?->name,
+            'when' => $this->booking->starts_at !== null ? $this->tenantTime($this->booking->starts_at) : null,
+            'code' => $this->booking->code,
+        ];
+    }
+
+    protected function templateAction(): array
+    {
+        return [
+            __('app.mail.reminder_24h.action'),
+            $this->tenantUrl('/booked/'.$this->booking->code),
+        ];
+    }
+
+    protected function defaultMail(object $notifiable): MailMessage
     {
         $mail = (new MailMessage)
             ->subject(__('app.mail.reminder_24h.subject', ['tenant' => $this->tenant->name]))
@@ -39,12 +64,11 @@ class BookingReminderNotification extends TenantMailNotification
             ]));
         }
 
+        [$actionLabel, $actionUrl] = $this->templateAction();
+
         return $mail
             ->line(__('app.mail.reminder_24h.code', ['code' => $this->booking->code]))
-            ->action(
-                __('app.mail.reminder_24h.action'),
-                $this->tenantUrl('/booked/'.$this->booking->code),
-            )
+            ->action($actionLabel, $actionUrl)
             ->line(__('app.mail.reminder_24h.outro'));
     }
 }
