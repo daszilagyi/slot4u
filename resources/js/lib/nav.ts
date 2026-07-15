@@ -5,6 +5,7 @@ import {
     CalendarPlusIcon,
     ContactIcon,
     LayoutDashboardIcon,
+    MailIcon,
     MapPinIcon,
     SettingsIcon,
     SparklesIcon,
@@ -91,6 +92,14 @@ export const navItems: NavItem[] = [
         href: '/customers',
         icon: ContactIcon,
         permission: 'customer.view',
+        ready: true,
+    },
+    {
+        key: 'templates',
+        labelKey: 'admin.nav.templates',
+        href: '/settings/templates',
+        icon: MailIcon,
+        permission: 'template.manage',
         ready: true,
     },
     {
