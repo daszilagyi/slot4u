@@ -7,6 +7,7 @@ use App\Events\BookingCreated;
 use App\Events\BookingStatusChanged;
 use App\Events\QuoteRequestStatusChanged;
 use App\Events\WaitlistOffered;
+use App\Listeners\RecordBookingCommission;
 use App\Listeners\RecordNotificationDelivery;
 use App\Listeners\SendBookingCancellation;
 use App\Listeners\SendBookingConfirmation;
@@ -71,5 +72,11 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(QuoteRequestStatusChanged::class, SendQuoteReady::class);
         Event::listen(NotificationSent::class, [RecordNotificationDelivery::class, 'sent']);
         Event::listen(NotificationFailed::class, [RecordNotificationDelivery::class, 'failed']);
+
+        // Commission ledger (SLO-68 / docs/10 §6.3): a booking created into or
+        // transitioning through a billable status updates its ledger entry and
+        // recomputes the tenant's monthly aggregate, synchronously with the change.
+        Event::listen(BookingCreated::class, RecordBookingCommission::class);
+        Event::listen(BookingStatusChanged::class, RecordBookingCommission::class);
     }
 }
