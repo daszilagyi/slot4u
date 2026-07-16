@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Super\AuditLogController;
+use App\Http\Controllers\Super\CommissionController;
 use App\Http\Controllers\Super\ImpersonationController;
 use App\Http\Controllers\Super\TenantController;
 use Illuminate\Support\Facades\Route;
@@ -30,4 +31,13 @@ Route::middleware(['auth', 'ensure.superadmin'])->group(function () {
 
     // Audit log viewer (SLO-78).
     Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('super.audit-logs.index');
+
+    // Commission configuration (SLO-121, docs/10 §10). Versions are immutable:
+    // publishing is the only write, hence no update/destroy route. The tenant
+    // override hangs off the tenant it prices; withTrashed to match the other
+    // tenant routes (an archived tenant still has billing history).
+    Route::get('/commission', [CommissionController::class, 'index'])->name('super.commission.index');
+    Route::post('/commission', [CommissionController::class, 'store'])->name('super.commission.store');
+    Route::put('/tenants/{tenant}/commission-override', [CommissionController::class, 'updateOverride'])->withTrashed()->name('super.tenants.commission-override.update');
+    Route::delete('/tenants/{tenant}/commission-override', [CommissionController::class, 'clearOverride'])->withTrashed()->name('super.tenants.commission-override.destroy');
 });

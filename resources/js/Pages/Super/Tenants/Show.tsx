@@ -2,6 +2,10 @@ import { Head, Link, router, useForm } from '@inertiajs/react';
 import type { FormEvent } from 'react';
 
 import AppLayout from '@/Layouts/AppLayout';
+import CommissionOverrideSection, {
+    type CommissionEffective,
+    type CommissionOverride,
+} from '@/components/super/CommissionOverrideSection';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,9 +19,16 @@ type FeatureState = { code: string; enabled: boolean };
 type ShowProps = {
     tenant: TenantDetail;
     featureStates: FeatureState[];
+    commissionOverride: CommissionOverride | null;
+    commissionEffective: CommissionEffective | null;
 };
 
-export default function TenantsShow({ tenant, featureStates }: ShowProps) {
+export default function TenantsShow({
+    tenant,
+    featureStates,
+    commissionOverride,
+    commissionEffective,
+}: ShowProps) {
     const t = useTranslations();
 
     const form = useForm({
@@ -235,6 +246,13 @@ export default function TenantsShow({ tenant, featureStates }: ShowProps) {
                         ))}
                     </div>
                 </section>
+
+                {/* Commission override (SLO-121) */}
+                <CommissionOverrideSection
+                    tenantId={tenant.id}
+                    override={commissionOverride}
+                    effective={commissionEffective}
+                />
             </div>
         </AppLayout>
     );

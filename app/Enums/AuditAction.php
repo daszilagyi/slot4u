@@ -19,4 +19,10 @@ enum AuditAction: string
     case TenantUpdated = 'tenant.updated';
     case ImpersonationStarted = 'impersonation.started';
     case ImpersonationStopped = 'impersonation.stopped';
+
+    // Commission configuration (J8a, docs/10 §10). Pricing changes money, so
+    // every version and per-tenant override lands in the trail.
+    case CommissionSettingsCreated = 'commission.settings_created';
+    case CommissionOverrideUpdated = 'commission.override_updated';
+    case CommissionOverrideCleared = 'commission.override_cleared';
 }

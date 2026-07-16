@@ -350,7 +350,19 @@ N+1 ellenőrzés a tételes listán (DoD).
 
 ## 11. i18n (lang/hu — hardcoded string TILOS, docs/01 §5)
 
-Új kulcscsoportok (legalább): `billing.commission.*` (forgalom, küszöb, plafon, effektív ráta, tételsorok, export, hátralévő keret), `billing.invoice.*` (jutalékszámla, nettó/ÁFA/bruttó, határidő, státusz, PDF), `billing.rate_notice` (miért 1% vagy 1,5%), `billing.threshold_reached`, `billing.cap_reached`, `billing.late_cancel_notice` (24h szabály), superadmin `admin.commission.*`. Email-sablon kulcsok (tenant-szerkeszthető, docs/02 `message_templates`-hez igazítva, de slot4u→tenant irányban): havi jutalékszámla-értesítő, fizetési emlékeztető, felfüggesztés-figyelmeztetés.
+Új kulcscsoportok. A tényleges kulcsutak a repo konvencióját követik (`admin.*` = **tenant** admin panel, `super.*` = superadmin felület), ezért a v2-ben vázolt rövid nevek így valósultak meg:
+
+| docs v2 vázlat | tényleges kulcs (J7/J8a) |
+|---|---|
+| `billing.commission.*` | `admin.billing.commission.*` (forgalom, küszöb, plafon, effektív ráta, tételsorok, export, hátralévő keret) |
+| `billing.invoice.*` | `admin.billing.invoice.*` (jutalékszámla, nettó/ÁFA/bruttó, határidő, státusz, PDF) |
+| `billing.rate_notice` | `admin.billing.rate_notice_base` / `admin.billing.rate_notice_integration` (miért 1% vagy 1,5% — két eset, külön szöveg) |
+| `billing.threshold_reached`, `billing.cap_reached`, `billing.late_cancel_notice` | `admin.billing.threshold_reached`, `admin.billing.cap_reached`, `admin.billing.late_cancel_notice` |
+| superadmin `admin.commission.*` | `super.commission.*` (az `admin.*` a tenant panelé lenne — félrevezető) |
+
+Az audit-akciók címkéi: `audit_action.commission.*` — **ágyazottan** (a frontend `t()` pont-útvonalon old fel, lásd SLO-80/SLO-124).
+
+Email-sablon kulcsok (tenant-szerkeszthető, docs/02 `message_templates`-hez igazítva, de slot4u→tenant irányban): havi jutalékszámla-értesítő, fizetési emlékeztető, felfüggesztés-figyelmeztetés.
 
 ---
 

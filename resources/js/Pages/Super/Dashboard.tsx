@@ -29,6 +29,11 @@ export default function SuperDashboard() {
                         <Link href="/tenants">{t('super.dashboard.tenants_link')}</Link>
                     </Button>
                     <Button asChild size="lg" variant="outline">
+                        <Link href="/commission">
+                            {t('super.dashboard.commission_link')}
+                        </Link>
+                    </Button>
+                    <Button asChild size="lg" variant="outline">
                         <Link href="/audit-logs">{t('super.audit.title')}</Link>
                     </Button>
                 </div>

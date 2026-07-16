@@ -266,6 +266,63 @@ return [
             'subtitle' => 'Központi adminisztrációs felület — fejlesztés alatt.',
             'badge' => 'Superadmin',
             'tenants_link' => 'Tenantok kezelése',
+            'commission_link' => 'Jutalék-beállítások',
+        ],
+        // Jutalék-konfiguráció (docs/10 §10). A docs §11 `admin.commission.*`-ot
+        // említ, de a repóban az `admin.*` a TENANT admin panelé — a superadmin
+        // felület kulcsai `super.*` alatt élnek (docs/10 §11 pontosítva).
+        'commission' => [
+            'title' => 'Jutalék-beállítások',
+            'subtitle' => 'A platform árazása. A verziók módosíthatatlanok — a változtatás mindig új verzió, saját hatálybalépéssel.',
+            'back' => 'Vissza a vezérlőpultra',
+            'effective_badge' => 'Hatályos',
+            'scheduled_badge' => 'Ütemezett',
+            'superseded_badge' => 'Lejárt',
+            'none_effective' => 'Jelenleg nincs hatályos jutalék-beállítás. Amíg nincs, a rendszer egyetlen foglalás után sem számol jutalékot.',
+            'history_title' => 'Verziótörténet',
+            'empty' => 'Még nincs egyetlen jutalék-beállítás verzió sem.',
+            'no_cap' => 'Nincs plafon',
+            'system_author' => 'Rendszer',
+            'col' => [
+                'effective_from' => 'Hatályos ettől',
+                'threshold' => 'Ingyenes keret',
+                'rate' => 'Ráta',
+                'rate_integration' => 'Ráta integrációval',
+                'cap' => 'Havi plafon',
+                'author' => 'Létrehozta',
+                'state' => 'Állapot',
+            ],
+            'form' => [
+                'title' => 'Új verzió',
+                'subtitle' => 'Az itt megadott értékek a hatálybalépéstől érvényesek. A korábbi verziók változatlanok maradnak.',
+                'threshold' => 'Ingyenes keret (fillér)',
+                'threshold_hint' => 'Eddig a havi forgalomig nem számolunk jutalékot.',
+                'rate' => 'Ráta (bázispont)',
+                'rate_hint' => '100 bázispont = 1%.',
+                'rate_integration' => 'Ráta rátaemelő integrációval (bázispont)',
+                'rate_integration_hint' => 'Nem lehet kisebb az alaprátánál.',
+                'cap' => 'Havi plafon (fillér)',
+                'cap_hint' => 'Üresen hagyva: nincs plafon.',
+                'effective_from' => 'Hatályos ettől',
+                'effective_from_hint' => 'A tenant időzónájától függetlenül, UTC-ben tárolva.',
+                'backdate_warning' => 'Múltbeli időpontot adtál meg: ez a még nyitott hónapokat újraszámolja. A már kiszámlázott hónapok nem változnak.',
+                'submit' => 'Verzió közzététele',
+            ],
+            'override' => [
+                'title' => 'Jutalék-override',
+                'subtitle' => 'Csak ennek a tenantnak. Üresen hagyott mező = a platform beállítását örökli.',
+                'none' => 'Ez a tenant a platform beállítását örökli.',
+                'active' => 'Egyedi árazás van érvényben.',
+                'inherited' => 'Öröklött: :value',
+                'not_configured' => 'Nincs hatályos platform-beállítás, ezért nem számolható, mit fizet ez a tenant.',
+                'note' => 'Megjegyzés',
+                'note_hint' => 'Miért kap ez a tenant egyedi árazást?',
+                'note_placeholder' => 'pl. korai partner, egyedi megállapodás',
+                'updated_at' => 'Módosítva: :time',
+                'save' => 'Override mentése',
+                'clear' => 'Override törlése',
+                'clear_confirm' => 'Biztosan törlöd az egyedi árazást? A tenant ezután a platform beállítását örökli.',
+            ],
         ],
         'tenants' => [
             'title' => 'Tenantok',
@@ -1058,6 +1115,14 @@ return [
         'impersonation' => [
             'started' => 'Impersonation indítva',
             'stopped' => 'Impersonation leállítva',
+        ],
+        // Nested for the same reason as impersonation above (SLO-80): the
+        // frontend resolves audit_action.commission.settings_created as a
+        // dot-path, so a flat 'commission.settings_created' key would not match.
+        'commission' => [
+            'settings_created' => 'Jutalék-beállítás új verzió',
+            'override_updated' => 'Tenant jutalék-override módosítva',
+            'override_cleared' => 'Tenant jutalék-override törölve',
         ],
     ],
     'features' => [
