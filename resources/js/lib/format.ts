@@ -35,6 +35,29 @@ export function formatMoney(minor: number, currency = 'HUF'): string {
     }).format(minor / 100);
 }
 
+/** Format integer basis points as a percentage (100 bps → "1%", 150 → "1,5%"). */
+export function formatRate(bps: number): string {
+    return new Intl.NumberFormat('hu-HU', {
+        style: 'percent',
+        maximumFractionDigits: 2,
+    }).format(bps / 10000);
+}
+
+/** Tailwind classes for a commission invoice / billing period status badge. */
+export function billingStatusBadgeClass(status: string): string {
+    const map: Record<string, string> = {
+        open: 'bg-blue-500/15 text-blue-400',
+        draft: 'bg-muted text-muted-foreground',
+        issued: 'bg-blue-500/15 text-blue-400',
+        invoiced: 'bg-blue-500/15 text-blue-400',
+        paid: 'bg-green-500/15 text-green-400',
+        overdue: 'bg-red-500/15 text-red-400',
+        void: 'bg-muted text-muted-foreground',
+    };
+
+    return map[status] ?? 'bg-muted text-muted-foreground';
+}
+
 /** Tailwind classes for a tenant status badge. */
 export function statusBadgeClass(status: string): string {
     const map: Record<string, string> = {

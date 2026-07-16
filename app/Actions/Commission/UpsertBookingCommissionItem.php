@@ -6,13 +6,12 @@ namespace App\Actions\Commission;
 
 use App\Enums\BookingStatus;
 use App\Enums\CommissionItemState;
-use App\Enums\Feature;
 use App\Models\Booking;
 use App\Models\BookingCommissionItem;
 use App\Models\Tenant;
 use App\Models\TenantBillingPeriod;
+use App\Services\Commission\RateRaisingIntegrations;
 use App\Services\Commission\ResolveTenantCommissionSettings;
-use App\Services\Feature\FeatureResolver;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 
@@ -33,7 +32,7 @@ final class UpsertBookingCommissionItem
 {
     public function __construct(
         private readonly ResolveTenantCommissionSettings $resolveSettings,
-        private readonly FeatureResolver $features,
+        private readonly RateRaisingIntegrations $integrations,
         private readonly RecomputeTenantPeriod $recompute,
     ) {}
 
@@ -160,7 +159,7 @@ final class UpsertBookingCommissionItem
             return null;
         }
 
-        $rateBps = $settings->rateFor($this->rateRaisingIntegrationActive($tenant));
+        $rateBps = $settings->rateFor($this->integrations->active($tenant));
 
         $item = new BookingCommissionItem([
             'booking_id' => $booking->getKey(),
@@ -183,21 +182,5 @@ final class UpsertBookingCommissionItem
                 ->where('booking_id', $booking->getKey())
                 ->firstOrFail();
         }
-    }
-
-    /**
-     * Whether any rate-raising integration (online payment, invoicing — docs/10
-     * §2.4) is active for the tenant right now. Resolved per explicit tenant so it
-     * is correct off the request cycle (no ambient Pennant scope).
-     */
-    private function rateRaisingIntegrationActive(Tenant $tenant): bool
-    {
-        foreach (Feature::cases() as $feature) {
-            if ($feature->raisesCommissionRate() && $this->features->enabled($tenant, $feature)) {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

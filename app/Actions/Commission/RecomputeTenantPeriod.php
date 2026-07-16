@@ -10,6 +10,7 @@ use App\Events\TenantPeriodRecomputed;
 use App\Models\BookingCommissionItem;
 use App\Models\Tenant;
 use App\Models\TenantBillingPeriod;
+use App\Services\Commission\BillingPeriodClock;
 use App\Services\Commission\CommissionCalculator;
 use App\Services\Commission\CommissionItem;
 use App\Services\Commission\ResolveTenantCommissionSettings;
@@ -36,6 +37,7 @@ final class RecomputeTenantPeriod
     public function __construct(
         private readonly ResolveTenantCommissionSettings $resolveSettings,
         private readonly CommissionCalculator $calculator,
+        private readonly BillingPeriodClock $clock,
     ) {}
 
     /**
@@ -72,7 +74,7 @@ final class RecomputeTenantPeriod
                 ))
                 ->all();
 
-            $settings = $this->resolveSettings->resolve($tenant, $this->periodReferenceInstant($period, $tenant->timezone));
+            $settings = $this->resolveSettings->resolve($tenant, $this->clock->referenceInstant($period, $tenant->timezone));
 
             $result = $this->calculator->calculate(
                 $items,
@@ -130,25 +132,5 @@ final class RecomputeTenantPeriod
             ->where('period', $period)
             ->lockForUpdate()
             ->first();
-    }
-
-    /**
-     * The instant the period's effective commission settings are pinned to: the
-     * end of the period's month in the tenant's timezone, but never in the future
-     * (a still-open period pins to "now" so a settings version scheduled later
-     * this month is not applied early). This keeps a past period auditable — it
-     * reconstructs with the settings in force at its close (docs/10 §12/16).
-     */
-    private function periodReferenceInstant(string $period, string $timezone): Carbon
-    {
-        // Anchor to the first of the month before ->endOfMonth() so a short month
-        // never overflows from createFromFormat filling the day from "today".
-        $endOfPeriod = Carbon::createFromFormat('Y-m-d', $period.'-01', $timezone)
-            ->endOfMonth()
-            ->utc();
-
-        $now = Carbon::now();
-
-        return $endOfPeriod->greaterThan($now) ? $now : $endOfPeriod;
     }
 }
