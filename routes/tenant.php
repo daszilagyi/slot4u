@@ -2,6 +2,7 @@
 
 use App\Enums\Feature;
 use App\Enums\Permission;
+use App\Http\Controllers\Admin\BillingController;
 use App\Http\Controllers\Admin\BookingApprovalController;
 use App\Http\Controllers\Admin\BookingController;
 use App\Http\Controllers\Admin\CustomerController;
@@ -233,6 +234,16 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
             Route::get('/settings/templates', [MessageTemplateController::class, 'index'])->name('tenant.templates.index');
             Route::put('/settings/templates/{key}', [MessageTemplateController::class, 'update'])->name('tenant.templates.update');
             Route::delete('/settings/templates/{key}', [MessageTemplateController::class, 'destroy'])->name('tenant.templates.destroy');
+        });
+
+        // Commission transparency dashboard (SLO-70, docs/10 §9). Gated by
+        // billing.view (tenant-admin only per docs/03) — read-only: the aggregate
+        // is a cache the recompute owns and the invoices are issued by the
+        // platform. Route-bound {invoice} is tenant-scoped → cross-tenant 404.
+        Route::middleware('can:'.Permission::BillingView->value)->group(function () {
+            Route::get('/billing', [BillingController::class, 'index'])->name('tenant.billing.index');
+            Route::get('/billing/export', [BillingController::class, 'export'])->name('tenant.billing.export');
+            Route::get('/billing/invoices/{invoice}/pdf', [BillingController::class, 'invoicePdf'])->name('tenant.billing.invoice_pdf');
         });
 
         // Employee self-service profile (SLO-17). Available to every *staff*

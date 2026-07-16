@@ -7,6 +7,7 @@ import {
     LayoutDashboardIcon,
     MailIcon,
     MapPinIcon,
+    ReceiptTextIcon,
     SettingsIcon,
     SparklesIcon,
     UsersIcon,
@@ -92,6 +93,14 @@ export const navItems: NavItem[] = [
         href: '/customers',
         icon: ContactIcon,
         permission: 'customer.view',
+        ready: true,
+    },
+    {
+        key: 'billing',
+        labelKey: 'admin.nav.billing',
+        href: '/billing',
+        icon: ReceiptTextIcon,
+        permission: 'billing.view',
         ready: true,
     },
     {
