@@ -143,8 +143,20 @@ docs/                 # ez a dokumentáció
 
 ## Környezetek és üzemeltetés
 
-- Saját hosting (nem self-hosted ügyfeleknél!): 1 produkciós környezet + staging.
-- Docker Compose (PHP-FPM, nginx, MariaDB, Redis, Reverb, Horizon worker) — fejlesztésre és prod-ra is.
+Két külön profil fut: a **dev/CI referencia-stack** (Docker Compose) és az **éles profil** (osztott cPanel tárhely, Tárhely.Eu). A kód mindkettőn azonos — az eltérés csak env/konfiguráció/deploy-tooling (SLO-125). A részletes deploy-runbook és a szerver-felmérés (SSH-hozzáféréssel) a **publikus repón kívül**, privát üzemeltetési jegyzetként él.
+
+**Dev / CI (referencia-stack):**
+- Docker Compose (PHP-FPM, nginx, MariaDB, Redis, Reverb, Horizon worker) — fejlesztésre és a stack-ekvivalencia igazolására.
 - CI: GitHub Actions — Pint, Larastan, Pest, build.
-- Wildcard TLS `*.slot4u.hu` + egyedi domainekhez (`feature_custom_domain`) Let's Encrypt automatika (pl. Caddy vagy certbot DNS hook) — külön issue.
+
+**Éles profil (Tárhely.Eu osztott cPanel, `slot4u.hu`):**
+- **PHP 8.4** — CLI-ban teljes útvonallal (`/opt/cpanel/ea-php84/root/usr/bin/php`; a default 8.2 a compose-deppekhez kevés).
+- **Broadcast:** hosted, Pusher-protokollú szolgáltató (Pusher Channels, EU cluster) — `BROADCAST_CONNECTION=pusher`. A Reverb Pusher-kompatibilis, ezért az eventek/csatornák/Echo-kliens változatlanok; a frontend a `VITE_REVERB_*` értékeket build-időben kapja (`ws-eu.pusher.com:443`). Nincs self-hosted Reverb daemon (osztott tárhelyen nem nyitható port).
+- **Queue:** `QUEUE_CONNECTION=database` + percenkénti cron worker `flock`-kal az átfedés ellen (`queue:work --stop-when-empty --max-time=55`). Nincs Horizon. Következmény: az utómunkák (email, webhook-utókezelés) worst-case ~1 perc késleltetésűek; a Barion-webhook **fogadása** szinkron HTTP, azt nem érinti.
+- **Cache / session:** `CACHE_STORE=database`, `SESSION_DRIVER=database` (nincs Redis-szerver, csak kliens; a `phpredis` az `ea-php84`-en nincs). Redis-t a host később adhat → visszaállítható, nem blokkoló.
+- **Mail:** `MAIL_MAILER=smtp` (`no-reply@slot4u.hu`, `smtps` séma a 465-ös porton — Laravel 11/12 `MAIL_SCHEME=smtps`, nem `MAIL_ENCRYPTION`); DKIM a cPanel Email Deliverability alatt.
+- **TLS / aldomének:** DNS Cloudflare mögött, Universal SSL fedi a `*.slot4u.hu`-t az edge-en; origin felé cPanel cert. cPanel `*` wildcard aldomain → docroot az app `public/`-ja. Az egyedi tenant-domain (`feature_custom_domain`) külön onboarding (SLO-42).
+- **Cloudflare mögötti IP/séma:** az Apache már visszaállítja a valódi klienst (mod_cloudflare), a Laravel `trustProxies` a CF-tartományokra ennek framework-szintű biztosítéka (rate limit + audit valódi kliens-IP-t, `X-Forwarded-Proto` HTTPS-sémát lát) — l. `bootstrap/app.php`.
+- **SSR:** kikapcsolva indulunk (`INERTIA_SSR_ENABLED=false`, nincs Node daemon) — a SEO-hatás vállalt; külön spike, ha Passengerrel megoldható.
+- **Deploy-sajátosságok:** `storage:link` helyett shell `ln -s` (a PHP `symlink()` tiltott); Vite build lokálisan/CI-ban, csak a build-output megy fel; scheduler cron `schedule:run` percenként.
 - Backup: napi DB dump + storage sync, visszaállási teszt negyedévente.
