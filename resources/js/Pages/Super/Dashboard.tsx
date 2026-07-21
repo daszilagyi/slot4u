@@ -34,6 +34,11 @@ export default function SuperDashboard() {
                         </Link>
                     </Button>
                     <Button asChild size="lg" variant="outline">
+                        <Link href="/commission-invoices">
+                            {t('super.dashboard.invoices_link')}
+                        </Link>
+                    </Button>
+                    <Button asChild size="lg" variant="outline">
                         <Link href="/audit-logs">{t('super.audit.title')}</Link>
                     </Button>
                 </div>

@@ -24,4 +24,24 @@ class CommissionInvoicePolicy
     {
         return $user->can(Permission::BillingView->value);
     }
+
+    /**
+     * The superadmin cross-tenant invoice list (J8b, docs/10 §10). Super-admins
+     * pass via Gate::before, so this only ever runs for a tenant user — who is
+     * never platform-level and is therefore denied. Made explicit rather than
+     * relying on the before-hook alone (docs/01 §2).
+     */
+    public function manageAny(User $user): bool
+    {
+        return $user->tenant_id === null;
+    }
+
+    /**
+     * Settle / void / resend a specific invoice (J8b). Superadmin-only, same as
+     * manageAny: platform operations on slot4u's own revenue, never a tenant's.
+     */
+    public function manage(User $user, CommissionInvoice $invoice): bool
+    {
+        return $user->tenant_id === null;
+    }
 }
