@@ -11,12 +11,17 @@ use App\Enums\TenantStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Super\UpdateTenantRequest;
 use App\Models\Tenant;
+use App\Models\TenantCommissionOverride;
+use App\Services\Commission\ResolveTenantCommissionSettings;
 use App\Services\Feature\FeatureResolver;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
+use RuntimeException;
 
 /**
  * Superadmin tenant management (SLO-77). The whole controller lives behind
@@ -54,9 +59,17 @@ class TenantController extends Controller
         ]);
     }
 
-    public function show(Tenant $tenant, FeatureResolver $features): Response
-    {
+    public function show(
+        Tenant $tenant,
+        FeatureResolver $features,
+        ResolveTenantCommissionSettings $resolveSettings,
+    ): Response {
         $tenant->loadCount('users');
+
+        // The page carries the commission override editor, so the read is gated
+        // by the same policy as the writes rather than relying on the route
+        // group alone (a future entry point would inherit this method's rules).
+        Gate::authorize('manage', TenantCommissionOverride::class);
 
         // Resolve all features in two queries (not one per feature).
         $enabled = array_flip($features->enabledCodes($tenant));
@@ -67,6 +80,11 @@ class TenantController extends Controller
                 'timezone' => $tenant->timezone,
                 'locale' => $tenant->locale,
             ],
+            // Commission override editor (SLO-121, docs/10 §5.2/§10): the raw
+            // override (null field = inherit) plus what the tenant is actually
+            // priced at once the platform version and the override are merged.
+            'commissionOverride' => $this->overrideProps($tenant),
+            'commissionEffective' => $this->effectiveCommissionProps($tenant, $resolveSettings),
             // Named featureStates (not "features") to avoid shadowing the
             // shared Inertia `features` prop (the tenant's enabled code list).
             'featureStates' => array_map(fn (Feature $feature) => [
@@ -126,6 +144,59 @@ class TenantController extends Controller
         );
 
         return back();
+    }
+
+    /**
+     * The tenant's override row, or null when it inherits the platform settings
+     * wholesale. Keyed lookup with global scopes off — the superadmin panel
+     * binds no tenant (TenantScope no-ops there, but the intent is explicit).
+     *
+     * @return array<string, mixed>|null
+     */
+    private function overrideProps(Tenant $tenant): ?array
+    {
+        $override = TenantCommissionOverride::query()
+            ->withoutGlobalScopes()
+            ->whereKey($tenant->getKey())
+            ->first();
+
+        if (! $override instanceof TenantCommissionOverride) {
+            return null;
+        }
+
+        return [
+            'free_threshold_minor' => $override->free_threshold_minor,
+            'rate_bps' => $override->rate_bps,
+            'rate_with_integration_bps' => $override->rate_with_integration_bps,
+            'monthly_cap_minor' => $override->monthly_cap_minor,
+            'note' => $override->note,
+            'updated_at' => $override->updated_at?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * What the tenant is priced at right now (platform version + override), so
+     * the editor shows the inherited value behind each blank field. Null while
+     * no commission settings version exists yet — the resolver throws rather
+     * than inventing a zero threshold (docs/10 §6.4).
+     *
+     * @return array<string, mixed>|null
+     */
+    private function effectiveCommissionProps(Tenant $tenant, ResolveTenantCommissionSettings $resolveSettings): ?array
+    {
+        try {
+            $settings = $resolveSettings->resolve($tenant, Carbon::now());
+        } catch (RuntimeException) {
+            return null;
+        }
+
+        return [
+            'free_threshold_minor' => $settings->freeThresholdMinor,
+            'rate_bps' => $settings->rateBps,
+            'rate_with_integration_bps' => $settings->rateWithIntegrationBps,
+            'monthly_cap_minor' => $settings->monthlyCapMinor,
+            'currency' => $settings->currency,
+        ];
     }
 
     /**
