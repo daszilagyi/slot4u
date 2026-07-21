@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Super\AuditLogController;
 use App\Http\Controllers\Super\CommissionController;
+use App\Http\Controllers\Super\CommissionInvoiceController;
 use App\Http\Controllers\Super\ImpersonationController;
 use App\Http\Controllers\Super\TenantController;
 use Illuminate\Support\Facades\Route;
@@ -40,4 +41,13 @@ Route::middleware(['auth', 'ensure.superadmin'])->group(function () {
     Route::post('/commission', [CommissionController::class, 'store'])->name('super.commission.store');
     Route::put('/tenants/{tenant}/commission-override', [CommissionController::class, 'updateOverride'])->withTrashed()->name('super.tenants.commission-override.update');
     Route::delete('/tenants/{tenant}/commission-override', [CommissionController::class, 'clearOverride'])->withTrashed()->name('super.tenants.commission-override.destroy');
+
+    // Commission invoice management (SLO-122, docs/10 §10). The cross-tenant
+    // invoice list plus manual settle / void / resend. Settle and void are gated
+    // to outstanding invoices in the controller; resend is throttled as a mail
+    // spam guard on top of the superadmin gate.
+    Route::get('/commission-invoices', [CommissionInvoiceController::class, 'index'])->name('super.commission-invoices.index');
+    Route::post('/commission-invoices/{invoice}/mark-paid', [CommissionInvoiceController::class, 'markPaid'])->name('super.commission-invoices.mark-paid');
+    Route::post('/commission-invoices/{invoice}/void', [CommissionInvoiceController::class, 'void'])->name('super.commission-invoices.void');
+    Route::post('/commission-invoices/{invoice}/resend', [CommissionInvoiceController::class, 'resend'])->middleware('throttle:12,1')->name('super.commission-invoices.resend');
 });

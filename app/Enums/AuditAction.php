@@ -25,4 +25,11 @@ enum AuditAction: string
     case CommissionSettingsCreated = 'commission.settings_created';
     case CommissionOverrideUpdated = 'commission.override_updated';
     case CommissionOverrideCleared = 'commission.override_cleared';
+
+    // Commission invoice management (J8b, docs/10 §10). Settling, voiding and
+    // re-sending a slot4u→tenant invoice all move real money / suspension state,
+    // so each superadmin action is recorded.
+    case CommissionInvoicePaid = 'commission.invoice_paid';
+    case CommissionInvoiceVoided = 'commission.invoice_voided';
+    case CommissionInvoiceResent = 'commission.invoice_resent';
 }

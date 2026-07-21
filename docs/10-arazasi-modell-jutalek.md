@@ -343,7 +343,11 @@ N+1 ellenőrzés a tételes listán (DoD).
 
 - `commission_settings` szerkesztő (új verzió létrehozása `effective_from`-mal); a régi verziók read-only history.
 - Tenant-szintű `tenant_commission_overrides` szerkesztő (auditolva).
-- Jutalékszámlák kezelése: kézi „fizetettnek jelölés", storno, újraküldés; dunning státusz.
+- Jutalékszámlák kezelése: kézi „fizetettnek jelölés", storno, újraküldés; dunning státusz. **(J8b, SLO-122):**
+  - A műveletek CSAK **kiállított/lejárt** (outstanding) számlán érhetők el; a fizetett vagy már stornózott számla nem módosítható innen (a refund/jóváírás külön eset, §8.2/§8.3).
+  - **Storno:** a számla ÉS a period is `void` lesz (a zéró-jutalék→void-period szemantikát tükrözi, §6.5). A period **nem** nyílik vissza `open`-ra, és **nem** számlázható újra — a könyvelési stabilitás (§8.2) miatt a korrekció az aktuális nyitott periodba folyik.
+  - **Felfüggesztés-feloldás:** a „fizetettnek jelölés" ÉS a storno is feloldja a **nemfizetés miatti** felfüggesztést, ha a számla `overdue` volt és a tenantnak nincs több outstanding számlája (`reactivateIfCleared`). Manuális superadmin-felfüggesztést egyik sem old fel.
+  - **Újraküldés:** a státusznak megfelelő e-mail-variánst küldi (issued/overdue) a tenant adminjainak; rate-limitelt, és minden művelet **auditálva** (`commission.invoice_paid|voided|resent`).
 - Globális jutalék-statisztika: havi jutalékbevétel (új MRR-proxy), top tenantok forgalom szerint, plafont elérők száma, küszöb alatt „ragadt" (még nem fizető) tenantok aránya és aktiválási funnel, lejárt számlák / felfüggesztés-kockázat.
 
 ---

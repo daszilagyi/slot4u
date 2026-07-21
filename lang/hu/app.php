@@ -267,6 +267,7 @@ return [
             'badge' => 'Superadmin',
             'tenants_link' => 'Tenantok kezelése',
             'commission_link' => 'Jutalék-beállítások',
+            'invoices_link' => 'Jutalékszámlák',
         ],
         // Jutalék-konfiguráció (docs/10 §10). A docs §11 `admin.commission.*`-ot
         // említ, de a repóban az `admin.*` a TENANT admin panelé — a superadmin
@@ -322,6 +323,78 @@ return [
                 'save' => 'Override mentése',
                 'clear' => 'Override törlése',
                 'clear_confirm' => 'Biztosan törlöd az egyedi árazást? A tenant ezután a platform beállítását örökli.',
+            ],
+        ],
+        // Jutalékszámla-kezelés (SLO-122, docs/10 §10) — a slot4u→tenant havi
+        // számlák kereszt-tenant listája + kézi műveletek.
+        'commission_invoices' => [
+            'title' => 'Jutalékszámlák',
+            'subtitle' => 'A slot4u havi jutalékszámlái minden tenantra. Kézi fizetettnek jelölés, storno, újraküldés.',
+            'back' => 'Vissza a vezérlőpultra',
+            'empty' => 'Nincs a szűrésnek megfelelő jutalékszámla.',
+            'filter' => [
+                'status' => 'Státusz',
+                'all_statuses' => 'Összes státusz',
+                'period' => 'Időszak (ÉÉÉÉ-HH)',
+                'period_placeholder' => 'pl. 2026-07',
+                'tenant_id' => 'Tenant azonosító',
+                'apply' => 'Szűrés',
+                'reset' => 'Szűrők törlése',
+            ],
+            'col' => [
+                'tenant' => 'Tenant',
+                'period' => 'Időszak',
+                'net' => 'Nettó',
+                'vat' => 'ÁFA',
+                'gross' => 'Bruttó',
+                'status' => 'Státusz',
+                'issued' => 'Kiállítva',
+                'due' => 'Fizetési határidő',
+                'dunning' => 'Dunning',
+                'actions' => 'Műveletek',
+            ],
+            'status' => [
+                'draft' => 'Piszkozat',
+                'issued' => 'Kiállítva',
+                'paid' => 'Fizetve',
+                'overdue' => 'Lejárt',
+                'void' => 'Stornózva',
+            ],
+            'dunning' => [
+                'overdue_days' => ':days napja lejárt',
+                'suspend_in' => 'Felfüggesztés :days nap múlva',
+                'suspend_due' => 'Felfüggesztés esedékes',
+                'none' => '—',
+            ],
+            'paid_at' => 'Fizetve: :time',
+            'paid_method' => 'Mód: :method',
+            'action' => [
+                'mark_paid' => 'Fizetettnek jelöl',
+                'void' => 'Storno',
+                'resend' => 'Újraküldés',
+            ],
+            'mark_paid_dialog' => [
+                'title' => 'Fizetettnek jelölés',
+                'description' => ':tenant — :period időszak jutalékszámlája. A period is „fizetve" lesz, és ha a tenant nemfizetés miatt fel volt függesztve, feloldódik (ha nincs több nyitott számlája).',
+                'method' => 'Fizetési mód (opcionális)',
+                'method_placeholder' => 'pl. banki átutalás',
+                'confirm' => 'Fizetettnek jelölés',
+            ],
+            'void_dialog' => [
+                'title' => 'Számla stornózása',
+                'description' => ':tenant — :period. A számla és a period is „stornó" lesz; ez a period nem számlázható újra (a korrekció a nyitott hónapba folyik). Lejárt számla stornója feloldhatja a nemfizetés miatti felfüggesztést.',
+                'reason' => 'Indok (opcionális, az auditba kerül)',
+                'reason_placeholder' => 'pl. tévesen kiállított számla',
+                'confirm' => 'Stornózás',
+            ],
+            'grace_note' => 'A lejárt számla :days nap türelmi idő után a tenant automatikus felfüggesztését vonja maga után (dunning).',
+            'resend_dialog' => [
+                'title' => 'Számla újraküldése',
+            ],
+            'resend_confirm' => 'Újraküldöd a számlát a tenant adminjainak e-mailben? A státusznak megfelelő változat megy (kiállított / lejárt).',
+            'cancel' => 'Mégse',
+            'error' => [
+                'not_outstanding' => 'Ez a művelet csak kiállított vagy lejárt számlán végezhető el.',
             ],
         ],
         'tenants' => [
@@ -1123,6 +1196,9 @@ return [
             'settings_created' => 'Jutalék-beállítás új verzió',
             'override_updated' => 'Tenant jutalék-override módosítva',
             'override_cleared' => 'Tenant jutalék-override törölve',
+            'invoice_paid' => 'Jutalékszámla fizetettnek jelölve',
+            'invoice_voided' => 'Jutalékszámla stornózva',
+            'invoice_resent' => 'Jutalékszámla újraküldve',
         ],
     ],
     'features' => [
