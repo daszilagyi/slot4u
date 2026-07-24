@@ -109,12 +109,19 @@ booking_commission_items     id, tenant_id, booking_id(FK, unique), period(YYYY-
                              amount_minor(snapshot listaár), rate_bps(snapshot), realized_at,
                              state(billable|removed), settings_id(FK), currency, timestamps
                              -- ledger / forrás-igazság: minden jutalékköteles foglalásra egy sor
+commission_corrections       id, tenant_id, type(booking_adjustment|carry_over), booking_id(nullable FK),
+                             source_period(YYYY-MM, a korrigált LEZÁRT hónap), period(YYYY-MM, ahova a
+                             jóváírás kerül), corrected_amount_minor(nullable), corrected_state(nullable),
+                             commission_delta_minor(előjeles, <= 0), currency, timestamps
+                             -- index(tenant_id, period) + index(tenant_id, source_period)
+                             -- lezárt period utólagos változásának jóváírása (docs/10 §8.2)
 tenant_billing_periods       id, tenant_id, period(YYYY-MM), turnover_minor, commission_minor,
+                             correction_minor(<= 0, a period commission_corrections összege),
                              cap_reached(bool), status(open|invoiced|paid|overdue|void),
                              invoice_id(nullable FK), recomputed_at, updated_at  -- unique(tenant_id, period)
                              -- DERIVÁLT cache a booking_commission_items-ből újraszámolva
 commission_invoices          id, tenant_id, period(YYYY-MM, unique a tenanton belül), turnover_minor,
-                             billable_base_minor, commission_net_minor, vat_bps, vat_minor,
+                             billable_base_minor, correction_minor, commission_net_minor, vat_bps, vat_minor,
                              total_gross_minor, currency, status(draft|issued|paid|overdue|void),
                              issued_at, due_at, paid_at, paid_method(nullable),
                              provider(nullable), provider_ref(nullable), pdf_path(nullable), created_at

@@ -31,6 +31,8 @@ type Overview = {
     turnover_minor: number;
     billable_base_minor: number;
     commission_minor: number;
+    correction_minor: number;
+    net_payable_minor: number;
     free_threshold_minor: number | null;
     free_remaining_minor: number | null;
     monthly_cap_minor: number | null;
@@ -54,9 +56,20 @@ type CommissionItem = {
     currency: string;
 };
 
+type Correction = {
+    id: number;
+    type: 'booking_adjustment' | 'carry_over';
+    booking_code: string | null;
+    source_period: string;
+    commission_delta_minor: number;
+    currency: string;
+    created_at: string | null;
+};
+
 type Invoice = {
     id: number;
     period: string;
+    correction_minor: number;
     commission_net_minor: number;
     vat_minor: number;
     vat_bps: number;
@@ -72,6 +85,7 @@ type Invoice = {
 type IndexProps = {
     overview: Overview;
     items: Paginator<CommissionItem>;
+    corrections: Correction[];
     invoices: Invoice[];
     periods: string[];
     filters: { period: string };
@@ -80,6 +94,7 @@ type IndexProps = {
 export default function BillingIndex({
     overview,
     items,
+    corrections,
     invoices,
     periods,
     filters,
@@ -194,6 +209,13 @@ export default function BillingIndex({
                         state: t('commission_item_state.removed'),
                     })}
                 </p>
+
+                {corrections.length > 0 ? (
+                    <Corrections
+                        corrections={corrections}
+                        overview={overview}
+                    />
+                ) : null}
 
                 <Invoices invoices={invoices} />
             </div>
@@ -521,8 +543,108 @@ function ItemsTable({
     );
 }
 
+/**
+ * Credits landing in this period for a month that was already invoiced
+ * (docs/10 §8.2). Shown only when there are any — the honest answer to "why is
+ * this month's invoice lower than the ledger above suggests".
+ */
+function Corrections({
+    corrections,
+    overview,
+}: {
+    corrections: Correction[];
+    overview: Overview;
+}) {
+    const t = useTranslations();
+    const currency = overview.currency;
+    // Corrections are negative; show the credit as a positive magnitude and let
+    // the wording carry the direction.
+    const credit = -overview.correction_minor;
+    const carriesForward =
+        overview.commission_minor + overview.correction_minor < 0;
+
+    return (
+        <section className="flex flex-col gap-3">
+            <div>
+                <h2 className="text-lg font-semibold">
+                    {t('admin.billing.correction.title')}
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                    {t('admin.billing.correction.subtitle')}
+                </p>
+            </div>
+
+            <div className="overflow-x-auto rounded-2xl border border-border">
+                <table className="w-full text-sm">
+                    <thead className="bg-muted/40 text-left text-xs uppercase text-muted-foreground">
+                        <tr>
+                            <th className="px-4 py-3 font-medium">
+                                {t('admin.billing.table.booking')}
+                            </th>
+                            <th className="px-4 py-3 font-medium">
+                                {t('admin.billing.correction.source_period')}
+                            </th>
+                            <th className="px-4 py-3 font-medium">
+                                {t('admin.billing.correction.type')}
+                            </th>
+                            <th className="px-4 py-3 font-medium">
+                                {t('admin.billing.correction.created_at')}
+                            </th>
+                            <th className="px-4 py-3 text-right font-medium">
+                                {t('admin.billing.correction.amount')}
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                        {corrections.map((correction) => (
+                            <tr key={correction.id}>
+                                <td className="px-4 py-3 font-mono text-xs">
+                                    {correction.booking_code ?? '—'}
+                                </td>
+                                <td className="px-4 py-3 text-muted-foreground">
+                                    {correction.source_period}
+                                </td>
+                                <td className="px-4 py-3">
+                                    <Badge variant="secondary">
+                                        {t(
+                                            `admin.billing.correction.type_${correction.type}`,
+                                        )}
+                                    </Badge>
+                                </td>
+                                <td className="px-4 py-3 text-muted-foreground">
+                                    {formatDate(correction.created_at)}
+                                </td>
+                                <td className="px-4 py-3 text-right tabular-nums text-green-400">
+                                    {formatMoney(
+                                        correction.commission_delta_minor,
+                                        correction.currency || currency,
+                                    )}
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+
+            <p className="max-w-3xl text-sm text-muted-foreground">
+                {t('admin.billing.correction.summary', {
+                    commission: formatMoney(overview.commission_minor, currency),
+                    credit: formatMoney(credit, currency),
+                    net: formatMoney(overview.net_payable_minor, currency),
+                })}
+                {carriesForward
+                    ? ` ${t('admin.billing.correction.carry_forward')}`
+                    : ''}
+            </p>
+        </section>
+    );
+}
+
 function Invoices({ invoices }: { invoices: Invoice[] }) {
     const t = useTranslations();
+    const hasCredit = invoices.some(
+        (invoice) => invoice.correction_minor !== 0,
+    );
 
     return (
         <section className="flex flex-col gap-3">
@@ -548,6 +670,11 @@ function Invoices({ invoices }: { invoices: Invoice[] }) {
                                 <th className="px-4 py-3 font-medium">
                                     {t('admin.billing.invoice.period')}
                                 </th>
+                                {hasCredit ? (
+                                    <th className="px-4 py-3 text-right font-medium">
+                                        {t('admin.billing.invoice.correction')}
+                                    </th>
+                                ) : null}
                                 <th className="px-4 py-3 text-right font-medium">
                                     {t('admin.billing.invoice.net')}
                                 </th>
@@ -578,6 +705,16 @@ function Invoices({ invoices }: { invoices: Invoice[] }) {
                                     <td className="px-4 py-3 font-medium">
                                         {invoice.period}
                                     </td>
+                                    {hasCredit ? (
+                                        <td className="px-4 py-3 text-right tabular-nums text-green-400">
+                                            {invoice.correction_minor === 0
+                                                ? '—'
+                                                : formatMoney(
+                                                      invoice.correction_minor,
+                                                      invoice.currency,
+                                                  )}
+                                        </td>
+                                    ) : null}
                                     <td className="px-4 py-3 text-right tabular-nums">
                                         {formatMoney(
                                             invoice.commission_net_minor,

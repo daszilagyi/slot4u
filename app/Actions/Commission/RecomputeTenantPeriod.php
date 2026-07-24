@@ -8,6 +8,7 @@ use App\Enums\BillingPeriodStatus;
 use App\Enums\CommissionItemState;
 use App\Events\TenantPeriodRecomputed;
 use App\Models\BookingCommissionItem;
+use App\Models\CommissionCorrection;
 use App\Models\Tenant;
 use App\Models\TenantBillingPeriod;
 use App\Services\Commission\BillingPeriodClock;
@@ -30,7 +31,8 @@ use Illuminate\Support\Facades\DB;
  * concurrent booking transitions on the same period serialise and the last
  * writer sees the full ledger (docs/10 §12/19). A closed (invoiced/paid) period
  * is accounting-stable and is never recomputed — corrections land in the current
- * open period instead (§8.2).
+ * open period instead (§8.2), where this recompute sums them into
+ * `correction_minor`.
  */
 final class RecomputeTenantPeriod
 {
@@ -85,6 +87,13 @@ final class RecomputeTenantPeriod
             $aggregate->turnover_minor = $result->turnoverMinor;
             $aggregate->billable_base_minor = $result->billableBaseMinor;
             $aggregate->commission_minor = $result->commissionMinor;
+            // Credits carried in from closed periods (§8.2) sit beside the month's
+            // own commission, never inside it: the cap applies to what this month
+            // earned, and the dashboard shows the credit as its own line.
+            $aggregate->correction_minor = (int) CommissionCorrection::withoutGlobalScopes()
+                ->where('tenant_id', $tenantId)
+                ->where('period', $period)
+                ->sum('commission_delta_minor');
             $aggregate->cap_reached = $result->capReached;
             $aggregate->recomputed_at = Carbon::now();
             $aggregate->save();

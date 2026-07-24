@@ -219,6 +219,7 @@ tenant_billing_periods  id, tenant_id, period(YYYY-MM),
                         turnover_minor(default 0),      -- jutalékköteles forgalom összege
                         billable_base_minor(default 0), -- a küszöb feletti, jutalékalap (§2.3, plafon előtt)
                         commission_minor(default 0),    -- a §2.3 szerint számolt jutalék
+                        correction_minor(default 0),    -- lezárt period jóváírásai (<= 0, §5.7/§8.2)
                         cap_reached(bool, default false),
                         status(open|invoiced|paid|overdue|void),
                         invoice_id(nullable, FK), recomputed_at, updated_at
@@ -241,11 +242,31 @@ commission_invoices   id, tenant_id, period(YYYY-MM, unique a tenanton belül),
                       -- a period zárásakor generálódik, ha commission_net_minor > 0
 ```
 
+> **`correction_minor`** (SLO-119): a számlán beszámított jóváírás (<= 0, §5.7). A `commission_net_minor` a jóváírás UTÁNI fizetendő nettó, és az ÁFA is erre számol.
+
 ### 5.6 Plan / feature táblák szerepe
 
 A `plans` / `plan_limits` / `plan_features` táblák (docs/02, M1) **megmaradnak**, de a seed átáll **egyetlen `base` plan**-re nagyvonalú limitekkel; a háromlépcsős (basic/mid/max) csomag **megszűnik**. A feature-engedélyezés a `tenant_features`-ön keresztül történik (superadmin, ill. integráció-bekapcsolás). A rátaemelő integrációk (`feature_online_payment`, `feature_invoicing`) szabadon bekapcsolhatók — nem fizetős add-on-ok, csak a jutalékrátát emelik. A migrációs lépést §13/J4 fedi.
 
 > **Add-on-ok (opcionális, később):** ha egy jövőbeli funkciónak valós külső költsége van (pl. SMS/`feature_sms`), az pass-through vagy különálló add-on lehet — ez **nem** része az MVP core monetizációnak, és **nem** érinti a jutalékrátát. P2.
+
+### 5.7 Korrekciós tételek — lezárt period jóváírása (SLO-119)
+
+```
+commission_corrections  id, tenant_id, type(booking_adjustment|carry_over),
+                        booking_id(nullable FK),
+                        source_period(YYYY-MM),  -- a LEZÁRT period, amit korrigálunk
+                        period(YYYY-MM, indexelt),-- a NYITOTT period, ahova a jóváírás kerül
+                        corrected_amount_minor(nullable), corrected_state(nullable),
+                        commission_delta_minor,   -- előjeles, MINDIG <= 0 (jóváírás)
+                        currency, timestamps
+                        -- index(tenant_id, period) + index(tenant_id, source_period)
+```
+
+- `booking_adjustment`: egy lezárt period foglalása utólag csökkent vagy jutalékmentessé vált. A `corrected_amount_minor`/`corrected_state` a **már jóváírt valóság** snapshotja — egy újabb változás ehhez képest mérődik, nem az eredeti ledger-tételhez (nincs dupla jóváírás).
+- `carry_over`: ha a jóváírás nagyobb, mint az adott hónap saját jutaléka, a maradék a **következő** period-ba kerül át (nem vész el). `booking_id = null`.
+
+A `tenant_billing_periods.correction_minor` ezek period-onkénti összege (a `RecomputeTenantPeriod` írja). **Nem** olvad bele a `commission_minor`-ba: a plafon a hónap SAJÁT jutalékára vonatkozik, a jóváírás pedig külön soron jelenik meg a tenant dashboardján (§9).
 
 ---
 
@@ -319,6 +340,14 @@ Bármely állapotváltás (lemondás, no-show, ár-módosítás) → `UpsertBook
 
 Lezárt period-ot **nem** módosítunk visszamenőleg (könyvelési stabilitás). Ha egy már kiszámlázott foglalás utólag változik (pl. késői admin-storno, vagy az ügyfél refundot kap egy tenant-fizetésnél), a korrekció **az aktuális nyitott period-ba** kerül **jóváírásként** (negatív korrekciós tétel / a következő számla csökkentése). Esetek tesztelendők (§12/13). Pontos mechanizmus: §15.5.
 
+**Implementáció (SLO-119, `RecordClosedPeriodCorrection`):**
+
+1. **A jóváírás mértéke = a lezárt hónap ÚJRAJÁTSZÁSA.** A §2.3 algoritmust lefuttatjuk a lezárt period ledgerére úgy, hogy az érintett foglalás **mostani valóságát** helyettesítjük be (a többi tétel a saját, korábban már jóváírt valóságával szerepel), a period **saját** hatályos beállításaival (§2.4). A különbözet a már felszámított összeghez képest (`commission_minor + eddigi jóváírások`) a `commission_delta_minor`. Azért újrajátszás és nem „a foglalásra eső jutalék visszaadása", mert a marginális küszöb és a havi plafon mellett **nincs** értelmes per-foglalás jutalékrész: a küszöb alatti foglalás nulla jutalékot okozott, a plafont elért hónapban egy tétel kiesése pedig gyakran **semmit** nem változtat — a helyes válasz mindkét esetben 0 jóváírás.
+2. **Csak jóváírás.** Ha a változás **emelné** a lezárt hónap jutalékát (utólagos ár-emelés), **nem** számlázunk utólag; a már megadott jóváírás megmarad, és a nyilvántartott valóság ott marad, ahol volt — így egy későbbi csökkenés sem írható jóvá kétszer.
+3. **Hova kerül:** a tenant aktuális (tenant-tz szerinti) period-jába; ha az már lezárt, az első nem lezárt későbbibe.
+4. **Számlázás:** `commission_net_minor = commission_minor + correction_minor` (a korrekció negatív), az ÁFA erre a nettóra számol. Ha a jóváírás **nagyobb**, mint a hónap jutaléka, a period `void` lesz (nincs számla), a maradék pedig `carry_over` sorként a **következő** period-ba kerül át — a tenant jóváírása nem vész el (a §12/13 „clamp vagy carry-over" döntés: **carry-over**).
+5. A lezárt period aggregátuma és ledger-tételei **változatlanok** maradnak (a `booking_commission_items` sor befagy) — a hónap bármikor rekonstruálható a kiállított számlához.
+
 ### 8.3 Tenant-oldali ügyfél-refund
 
 Ha a tenant a saját fizetési integrációján keresztül visszatérít az ügyfélnek, az **a tenant és az ügyfél** ügye. A slot4u jutalékára ez csak akkor hat, ha a foglalás emiatt jutalékmentes állapotba kerül (pl. teljes storno 24h+ szabály szerint). A részleges ügyfél-refund **nem** csökkenti automatikusan a jutalékalapot (a foglalás listaára változatlan) — kivéve ha a tenant ténylegesen módosítja a foglalás árát (§3.3).
@@ -332,7 +361,8 @@ A tenant billing oldalán (jog: `billing.view`), valós időben, i18n-nel:
 - Aktuális period: **forgalom eddig**, **ingyenes keretből hátralévő** (`F − turnover`), **felhalmozott jutalék**, **plafonból hátralévő**, **effektív ráta** (1% vagy 1,5% + magyarázat, miért).
 - Vizuális sáv: hol tart a tenant a küszöb → plafon skálán.
 - Tételes lista: `booking_commission_items` (foglalás kódja, dátum, listaár, ráta, állapot) — szűrhető period-ra, exportálható. A 24 órán túl lemondott (`removed`) tételek külön jelölve (miért nem számítanak).
-- Havi jutalékszámlák listája (`commission_invoices`): period, nettó, ÁFA, bruttó, státusz, PDF letöltés, fizetési határidő.
+- **Jóváírások** (`commission_corrections`, §5.7): ha egy már kiszámlázott hónap foglalása utólag változott, a jóváírás **külön szekcióban** jelenik meg (érintett hónap, foglalás kódja, jogcím, összeg) + egy összegző mondat (hónap jutaléka − jóváírás = fizetendő nettó). Csak akkor látszik, ha van ilyen tétel.
+- Havi jutalékszámlák listája (`commission_invoices`): period, nettó, ÁFA, bruttó, státusz, PDF letöltés, fizetési határidő; a jóváírás-oszlop csak akkor jelenik meg, ha valamelyik számlán volt korrekció.
 - Tájékoztató szöveg (kulcs-alapú, tenant-tz/locale): „A foglalási rendszer ingyenes. Jutalékot csak {threshold} feletti havi forgalom esetén számolunk, a feletti részre {rate}, max {cap}/hó. A 24 óránál korábban lemondott foglalások nem számítanak."
 
 N+1 ellenőrzés a tételes listán (DoD).
@@ -389,7 +419,7 @@ Email-sablon kulcsok (tenant-szerkeszthető, docs/02 `message_templates`-hez iga
 10. 24 órán **túli** lemondás → a tétel `removed`, nem számít; a forgalom csökken.
 11. 24 órán **belüli** lemondás és `no_show` → **számít** (bennmarad).
 12. `requested`/`approved`/`rejected` foglalás → soha nem keletkeztet ledger-tételt, amíg nem `confirmed`.
-13. Refund / lezárt period utólagos változása → korrekció az aktuális period-ban (negatív tétel), a lezárt period érintetlen.
+13. Refund / lezárt period utólagos változása → korrekció az aktuális period-ban (negatív tétel), a lezárt period érintetlen. **Részletesen (SLO-119, §8.2):** (a) a jóváírás a lezárt hónap újrajátszásából jön; (b) küszöb alatti vagy plafonos hónapnál **nincs** jóváírás (nem változott a hónap jutaléka); (c) ismételt változás a már jóváírt valósághoz mérődik (nincs dupla jóváírás); (d) utólagos emelés → **nincs** visszamenőleges terhelés; (e) a következő számla nettója a jóváírással csökken, az ÁFA a nettóra; (f) a hónap jutalékánál nagyobb jóváírás → `void` period + `carry_over` a következő hónapra.
 14. Rátaemelő integráció aktiválása hónap közben → az aktiválás utáni foglalások 1,5%, a korábbiak 1% (nem retroaktív).
 15. Period-határ tenant-tz szerint; **DST-átállásos** hónap (Europe/Budapest, március/október) — a period helyesen zár; a hónap utolsó napi foglalás a helyes period-ba esik.
 16. `commission_settings` verzióváltás hónap közben → a period a period-en belül hatályos beállítással számol (audit-rekonstrukció).
@@ -399,7 +429,7 @@ Email-sablon kulcsok (tenant-szerkeszthető, docs/02 `message_templates`-hez iga
 20. ÁFA-számítás: `commission_net_minor` → `vat_minor` → `total_gross_minor` integer-aritmetikával, kerekítés rögzítve.
 
 **Tenant-izoláció (KÖTELEZŐ minden új modellre, docs/01 DoD):**
-21. `booking_commission_items`, `tenant_billing_periods`, `tenant_commission_overrides`, `commission_invoices` — cross-tenant olvasás/írás tiltva; cross-tenant ID → `404` (nem `403`).
+21. `booking_commission_items`, `tenant_billing_periods`, `tenant_commission_overrides`, `commission_invoices`, `commission_corrections` — cross-tenant olvasás/írás tiltva; cross-tenant ID → `404` (nem `403`).
 
 ---
 

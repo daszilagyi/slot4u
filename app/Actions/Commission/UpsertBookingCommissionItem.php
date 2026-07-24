@@ -23,7 +23,9 @@ use Illuminate\Support\Carbon;
  * The ledger entry's rate, settings version and realized-at instant are frozen
  * when the booking first becomes billable (§2.4 — a mid-month integration toggle
  * never applies retroactively); later transitions only sync the amount and flip
- * the state between billable and removed.
+ * the state between billable and removed. Once the entry's period is closed the
+ * entry itself is frozen and the change becomes a credit on the current open
+ * period instead ({@see RecordClosedPeriodCorrection}, §8.2).
  *
  * Runs synchronously from a booking-lifecycle listener, inside the same
  * transaction as the status change, so the ledger stays atomic with the booking.
@@ -34,6 +36,7 @@ final class UpsertBookingCommissionItem
         private readonly ResolveTenantCommissionSettings $resolveSettings,
         private readonly RateRaisingIntegrations $integrations,
         private readonly RecomputeTenantPeriod $recompute,
+        private readonly RecordClosedPeriodCorrection $correctClosedPeriod,
     ) {}
 
     public function __invoke(Booking $booking): void
@@ -50,9 +53,18 @@ final class UpsertBookingCommissionItem
 
         // A booking whose commission was already invoiced in a now-closed period
         // is accounting-stable: leave its ledger entry and the frozen aggregate
-        // untouched. Any later change is corrected in the current open period as a
-        // credit, not by rewriting history (docs/10 §8.2 — the J6 mechanism).
+        // untouched. Any later change is credited to the current open period
+        // instead of rewriting history (docs/10 §8.2).
         if ($existing instanceof BookingCommissionItem && $this->periodIsClosed($tenant, $existing->period)) {
+            ($this->correctClosedPeriod)(
+                $tenant,
+                $existing,
+                $booking->price_minor,
+                $this->isBillable($booking, $existing)
+                    ? CommissionItemState::Billable
+                    : CommissionItemState::Removed,
+            );
+
             return;
         }
 

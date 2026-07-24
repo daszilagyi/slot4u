@@ -25,6 +25,18 @@ final class BillingPeriodClock
     }
 
     /**
+     * The period after the given one — where an unabsorbed credit moves on
+     * (docs/10 §8.2). Timezone-free: `YYYY-MM` keys are consecutive calendar
+     * months whichever zone drew their boundaries.
+     */
+    public function nextPeriod(string $period): string
+    {
+        return Carbon::createFromFormat('Y-m-d', $period.'-01', 'UTC')
+            ->addMonthNoOverflow()
+            ->format('Y-m');
+    }
+
+    /**
      * The instant a period's effective commission settings are pinned to: the end
      * of the period's month in the tenant's timezone, but never in the future — a
      * still-open period pins to "now", so a settings version scheduled later this

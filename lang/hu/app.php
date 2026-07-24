@@ -1103,8 +1103,22 @@ return [
                 'due_at' => 'Fizetési határidő',
                 'paid_at' => 'Kifizetve',
                 'pdf' => 'PDF',
+                'correction' => 'Jóváírás',
                 'empty' => 'Még nem állítottunk ki jutalékszámlát.',
                 'overdue_notice' => 'Lejárt jutalékszámlád van. Rendezd, hogy a foglalási felületed elérhető maradjon.',
+            ],
+            // §8.2: már kiszámlázott hónap utólagos változása → jóváírás ebben az időszakban.
+            'correction' => [
+                'title' => 'Jóváírások',
+                'subtitle' => 'Egy már kiszámlázott hónap foglalása utólag változott. A lezárt hónapot nem írjuk át — a különbözetet ebben az időszakban írjuk jóvá.',
+                'source_period' => 'Érintett időszak',
+                'type' => 'Jogcím',
+                'amount' => 'Jóváírás',
+                'created_at' => 'Rögzítve',
+                'type_booking_adjustment' => 'Lezárt hónap korrekciója',
+                'type_carry_over' => 'Előző hónapról áthozva',
+                'summary' => 'Az időszak jutaléka :commission, a jóváírás :credit — a fizetendő nettó :net.',
+                'carry_forward' => 'A jóváírás meghaladja az időszak jutalékát; a maradékot a következő időszakra visszük át.',
             ],
             // §11: miért 1% vagy 1,5% — a rátaemelő integrációk néven nevezve.
             'rate_notice_integration' => 'A rátád :rate, mert aktív rátaemelő integrációd van (:integrations).',

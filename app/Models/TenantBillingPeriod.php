@@ -22,6 +22,7 @@ use Illuminate\Support\Carbon;
  * @property int $turnover_minor
  * @property int $billable_base_minor
  * @property int $commission_minor
+ * @property int $correction_minor
  * @property bool $cap_reached
  * @property BillingPeriodStatus $status
  * @property int|null $invoice_id
@@ -42,6 +43,7 @@ class TenantBillingPeriod extends Model
         'turnover_minor',
         'billable_base_minor',
         'commission_minor',
+        'correction_minor',
         'cap_reached',
         'status',
         'invoice_id',
@@ -57,6 +59,7 @@ class TenantBillingPeriod extends Model
             'turnover_minor' => 'integer',
             'billable_base_minor' => 'integer',
             'commission_minor' => 'integer',
+            'correction_minor' => 'integer',
             'cap_reached' => 'boolean',
             'status' => BillingPeriodStatus::class,
             'invoice_id' => 'integer',
