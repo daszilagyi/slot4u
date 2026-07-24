@@ -348,7 +348,9 @@ N+1 ellenőrzés a tételes listán (DoD).
   - **Storno:** a számla ÉS a period is `void` lesz (a zéró-jutalék→void-period szemantikát tükrözi, §6.5). A period **nem** nyílik vissza `open`-ra, és **nem** számlázható újra — a könyvelési stabilitás (§8.2) miatt a korrekció az aktuális nyitott periodba folyik.
   - **Felfüggesztés-feloldás:** a „fizetettnek jelölés" ÉS a storno is feloldja a **nemfizetés miatti** felfüggesztést, ha a számla `overdue` volt és a tenantnak nincs több outstanding számlája (`reactivateIfCleared`). Manuális superadmin-felfüggesztést egyik sem old fel.
   - **Újraküldés:** a státusznak megfelelő e-mail-variánst küldi (issued/overdue) a tenant adminjainak; rate-limitelt, és minden művelet **auditálva** (`commission.invoice_paid|voided|resent`).
-- Globális jutalék-statisztika: havi jutalékbevétel (új MRR-proxy), top tenantok forgalom szerint, plafont elérők száma, küszöb alatt „ragadt" (még nem fizető) tenantok aránya és aktiválási funnel, lejárt számlák / felfüggesztés-kockázat.
+- Globális jutalék-statisztika **(J8c, SLO-123)**: a superadmin vezérlőpult (`Super/Dashboard`) valódi tartalma — havi jutalékbevétel (MRR-proxy: a hónapra elhatárolt nettó jutalék, `tenant_billing_periods` aggregátumból, §5.4), top tenantok forgalom szerint, plafont elérők száma, küszöb alatt „ragadt" (van forgalma, de még nem jutalékköteles) tenantok aránya és aktiválási tölcsér (aktív → forgalmazó → fizető), lejárt számlák / felfüggesztés-kockázat (`due_at` + `DunningSweep::GRACE_DAYS`).
+  - A számokat a `BuildCommissionStatistics` service adja (a J7 `BuildTenantBillingOverview` mintájára), egyetlen hónap-aggregáló query-vel (feltételes `SUM`-ok); a controller vékony.
+  - **Additív indexek a platform-szintű query-khez** (a kereszt-tenant scan egyetlen `tenant_id`-vezérelt indexet sem tudott használni): `tenant_billing_periods.period` (a dashboard hónap-aggregációja) + `tenant_billing_periods.status` (a `CloseBillingPeriods` `where('status','open')`-je), és `commission_invoices(status, due_at)` (a `DunningSweep` mindkét scan-je + a dashboard lejárt-lista).
 
 ---
 
