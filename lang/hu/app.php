@@ -112,6 +112,8 @@ return [
             'title' => 'A szolgáltatás átmenetileg nem elérhető',
             'subtitle' => 'Ez a fiók jelenleg fel van függesztve. Kérjük, vedd fel a kapcsolatot az üzemeltetővel.',
             'badge' => 'Felfüggesztve',
+            'billing_cta' => 'Jutalékszámlák megtekintése',
+            'billing_hint' => 'A felfüggesztés a rendezetlen jutalékszámla miatt van. A számlák rendezése után a fiók újra aktiválható.',
         ],
         'dashboard' => [
             'title' => 'Vezérlőpult',
@@ -1063,6 +1065,10 @@ return [
             'subtitle' => 'A foglalási rendszer ingyenes — a slot4u csak a havi jutalékát számlázza. Itt tételesen látod, miből áll össze.',
             'period_label' => 'Időszak',
             'not_configured' => 'Még nincs élő jutalék-árazás beállítva, ezért erre az időszakra nem számolunk jutalékot.',
+            'suspended_notice' => [
+                'title' => 'A fiók fel van függesztve rendezetlen jutalékszámla miatt.',
+                'body' => 'A lenti számlák rendezése után a fiók újra aktiválható. A publikus foglalófelület a rendezésig nem elérhető.',
+            ],
             'commission' => [
                 'turnover' => 'Forgalom eddig',
                 'turnover_hint' => 'A jutalékköteles foglalások listaárának összege ebben az időszakban.',

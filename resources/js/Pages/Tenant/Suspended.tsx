@@ -1,13 +1,15 @@
-import { Head } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
 
 import PublicLayout from '@/Layouts/PublicLayout';
+import { Button } from '@/components/ui/button';
 import { useTranslations } from '@/lib/i18n';
 
 interface SuspendedProps {
     tenantName: string;
+    canAccessBilling?: boolean;
 }
 
-export default function Suspended({ tenantName }: SuspendedProps) {
+export default function Suspended({ tenantName, canAccessBilling = false }: SuspendedProps) {
     const t = useTranslations();
 
     return (
@@ -26,6 +28,17 @@ export default function Suspended({ tenantName }: SuspendedProps) {
                 <p className="text-lg text-muted-foreground">
                     {t('tenant.suspended.subtitle')}
                 </p>
+
+                {canAccessBilling ? (
+                    <div className="flex flex-col items-center gap-2">
+                        <Button asChild>
+                            <Link href="/billing">{t('tenant.suspended.billing_cta')}</Link>
+                        </Button>
+                        <p className="text-sm text-muted-foreground/70">
+                            {t('tenant.suspended.billing_hint')}
+                        </p>
+                    </div>
+                ) : null}
 
                 <p className="text-sm text-muted-foreground/70">{tenantName}</p>
             </div>

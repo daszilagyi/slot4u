@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Enums\BillingPeriodStatus;
+use App\Enums\TenantStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\BillingPeriodFilterRequest;
 use App\Models\BookingCommissionItem;
@@ -70,6 +71,11 @@ class BillingController extends Controller
             'invoices' => $this->invoiceRows(),
             'periods' => $periods,
             'filters' => ['period' => $selected],
+            // A suspended tenant reaches this page (it lives outside
+            // ensure.tenant.active, SLO-120) precisely to settle what it owes —
+            // surface why, so the page reads as the "figyelmeztető + fizetés"
+            // screen docs/03 describes.
+            'suspended' => $tenant->status === TenantStatus::Suspended,
         ]);
     }
 
