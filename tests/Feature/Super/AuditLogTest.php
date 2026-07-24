@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\AuditAction;
 use App\Enums\Feature;
 use App\Enums\TenantStatus;
 use App\Models\AuditLog;
@@ -7,6 +8,7 @@ use App\Models\Concerns\BelongsToTenant;
 use App\Models\Tenant;
 use App\Models\User;
 use Database\Seeders\BasePlanSeeder;
+use Illuminate\Support\Arr;
 use Inertia\Testing\AssertableInertia as Assert;
 
 // superUrl(), tenantHost() and superAdmin() live in tests/Pest.php.
@@ -136,6 +138,24 @@ it('forbids the audit-log viewer for a tenant user (403)', function () {
     $user = User::factory()->create(['tenant_id' => $tenant->id]);
 
     $this->actingAs($user)->get(superUrl('/audit-logs'))->assertForbidden();
+});
+
+it('resolves a Hungarian label for every audit action via the frontend dot-path (SLO-124)', function () {
+    // The frontend t('audit_action.'+action) (resources/js/lib/i18n.ts) splits the
+    // key on '.' and walks the shared `app` translations object — exactly what
+    // Arr::get does here against `(array) trans('app')`. A flat literal key like
+    // 'tenant.suspended' would NOT resolve this way (the bug), so this guards that
+    // every AuditAction value is nested and renders a real label, not a raw key.
+    $translations = (array) trans('app');
+
+    foreach (AuditAction::cases() as $action) {
+        $key = "audit_action.{$action->value}";
+        $label = Arr::get($translations, $key);
+
+        expect($label)
+            ->toBeString("Missing nested lang label for {$key}")
+            ->not->toBe($key);
+    }
 });
 
 it('is deliberately not tenant-scoped (platform-level log)', function () {

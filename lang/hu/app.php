@@ -1226,15 +1226,21 @@ return [
         'void' => 'Érvénytelen',
     ],
     'audit_action' => [
-        'tenant.suspended' => 'Tenant felfüggesztve',
-        'tenant.activated' => 'Tenant aktiválva',
-        'tenant.archived' => 'Tenant archiválva',
-        'tenant.status_changed' => 'Tenant státusz módosítva',
-        'tenant.trial_extended' => 'Trial meghosszabbítva',
-        'tenant.feature_toggled' => 'Funkció átállítva',
-        'tenant.updated' => 'Tenant adatok módosítva',
+        // Nested so the frontend t('audit_action.tenant.suspended') dot-path
+        // resolves — a flat 'tenant.suspended' literal would not match (SLO-124,
+        // same fix as impersonation/commission below; the AuditAction enum values
+        // stay 'tenant.suspended' etc.).
+        'tenant' => [
+            'suspended' => 'Tenant felfüggesztve',
+            'activated' => 'Tenant aktiválva',
+            'archived' => 'Tenant archiválva',
+            'status_changed' => 'Tenant státusz módosítva',
+            'trial_extended' => 'Trial meghosszabbítva',
+            'feature_toggled' => 'Funkció átállítva',
+            'updated' => 'Tenant adatok módosítva',
+        ],
         // Nested so the frontend t('audit_action.impersonation.started') dot-path
-        // resolves (the tenant.* keys above are flat literals — see SLO-80).
+        // resolves (see SLO-80).
         'impersonation' => [
             'started' => 'Impersonation indítva',
             'stopped' => 'Impersonation leállítva',
