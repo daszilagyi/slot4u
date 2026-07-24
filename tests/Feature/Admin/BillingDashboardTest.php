@@ -9,6 +9,7 @@ use App\Events\BookingCreated;
 use App\Events\BookingStatusChanged;
 use App\Models\Booking;
 use App\Models\BookingCommissionItem;
+use App\Models\CommissionCorrection;
 use App\Models\CommissionInvoice;
 use App\Models\CommissionSetting;
 use App\Models\Tenant;
@@ -303,6 +304,55 @@ it('lists the tenant commission invoices with net, VAT and gross', function () {
             ->where('invoices.0.total_gross_minor', 127_000)
             ->where('invoices.0.status', 'issued')
             ->where('invoices.0.has_pdf', false));
+});
+
+it('shows the credits carried in from an already-invoiced period', function () {
+    // docs/10 §8.2: the tenant must be able to see why this month's invoice is
+    // lower than its own ledger — the credit is a line of its own, not a silent
+    // adjustment of the accrued figure.
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
+    $admin = billingUser($tenant, Role::TenantAdmin);
+    $item = ledgerItem($tenant, '2026-07', 2_000_000);
+
+    CommissionCorrection::factory()->create([
+        'tenant_id' => $tenant->id,
+        'booking_id' => $item->booking_id,
+        'source_period' => '2026-06',
+        'period' => '2026-07',
+        'commission_delta_minor' => -4_000,
+    ]);
+    app(RecomputeTenantPeriod::class)($tenant->getKey(), '2026-07');
+
+    $this->actingAs($admin)
+        ->get(tenantHost('acme', '/billing'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('corrections', 1)
+            ->where('corrections.0.source_period', '2026-06')
+            ->where('corrections.0.type', 'booking_adjustment')
+            ->where('corrections.0.commission_delta_minor', -4_000)
+            ->where('overview.correction_minor', -4_000)
+            // 1% of the 1 000 000 above the threshold = 10 000, less the credit.
+            ->where('overview.commission_minor', 10_000)
+            ->where('overview.net_payable_minor', 6_000));
+});
+
+it('never shows another tenant credits', function () {
+    $acme = Tenant::factory()->active()->create(['slug' => 'acme']);
+    $other = Tenant::factory()->active()->create(['slug' => 'other']);
+    $admin = billingUser($acme, Role::TenantAdmin);
+
+    CommissionCorrection::factory()->create([
+        'tenant_id' => $other->id,
+        'booking_id' => null,
+        'period' => '2026-07',
+        'commission_delta_minor' => -9_999,
+    ]);
+
+    $this->actingAs($admin)
+        ->get(tenantHost('acme', '/billing'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->has('corrections', 0));
 });
 
 it('404s the invoice PDF while no provider has stored one', function () {

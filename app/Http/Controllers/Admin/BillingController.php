@@ -7,6 +7,7 @@ use App\Enums\TenantStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\BillingPeriodFilterRequest;
 use App\Models\BookingCommissionItem;
+use App\Models\CommissionCorrection;
 use App\Models\CommissionInvoice;
 use App\Models\Tenant;
 use App\Models\TenantBillingPeriod;
@@ -68,6 +69,7 @@ class BillingController extends Controller
         return Inertia::render('Admin/Billing/Index', [
             'overview' => $this->overviewProps($overview, $aggregate),
             'items' => $items,
+            'corrections' => $this->correctionRows($selected),
             'invoices' => $this->invoiceRows(),
             'periods' => $periods,
             'filters' => ['period' => $selected],
@@ -216,6 +218,10 @@ class BillingController extends Controller
             'turnover_minor' => $overview->turnoverMinor,
             'billable_base_minor' => $overview->billableBaseMinor,
             'commission_minor' => $overview->commissionMinor,
+            // Credits carried in from an already-invoiced period (§8.2) and what
+            // the period would actually invoice after them.
+            'correction_minor' => $overview->correctionMinor,
+            'net_payable_minor' => $overview->netPayableMinor(),
             'free_threshold_minor' => $overview->freeThresholdMinor,
             'free_remaining_minor' => $overview->freeRemainingMinor,
             'monthly_cap_minor' => $overview->monthlyCapMinor,
@@ -247,6 +253,34 @@ class BillingController extends Controller
     }
 
     /**
+     * The credits landing in the selected period (docs/10 §8.2): a booking from an
+     * already-invoiced month that later shrank or dropped out, or the unused
+     * remainder of such a credit moved on from the previous month. Few rows by
+     * nature — listed whole, not paginated — and the booking is eager-loaded, so
+     * no N+1.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function correctionRows(string $period): array
+    {
+        return CommissionCorrection::query()
+            ->where('period', $period)
+            ->with('booking:id,code')
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn (CommissionCorrection $correction): array => [
+                'id' => $correction->id,
+                'type' => $correction->type->value,
+                'booking_code' => $correction->booking->code ?? null,
+                'source_period' => $correction->source_period,
+                'commission_delta_minor' => $correction->commission_delta_minor,
+                'currency' => $correction->currency,
+                'created_at' => $correction->created_at?->toIso8601String(),
+            ])
+            ->all();
+    }
+
+    /**
      * @return list<array<string, mixed>>
      */
     private function invoiceRows(): array
@@ -257,6 +291,7 @@ class BillingController extends Controller
             ->map(fn (CommissionInvoice $invoice): array => [
                 'id' => $invoice->id,
                 'period' => $invoice->period,
+                'correction_minor' => $invoice->correction_minor,
                 'commission_net_minor' => $invoice->commission_net_minor,
                 'vat_minor' => $invoice->vat_minor,
                 'vat_bps' => $invoice->vat_bps,

@@ -43,12 +43,14 @@ final class BuildTenantBillingOverview
         $turnover = 0;
         $billableBase = 0;
         $commission = 0;
+        $correction = 0;
         $capReached = false;
 
         if ($aggregate instanceof TenantBillingPeriod) {
             $turnover = $aggregate->turnover_minor;
             $billableBase = $aggregate->billable_base_minor;
             $commission = $aggregate->commission_minor;
+            $correction = $aggregate->correction_minor;
             $capReached = $aggregate->cap_reached;
         }
 
@@ -68,6 +70,7 @@ final class BuildTenantBillingOverview
                 turnoverMinor: $turnover,
                 billableBaseMinor: $billableBase,
                 commissionMinor: $commission,
+                correctionMinor: $correction,
                 freeThresholdMinor: null,
                 freeRemainingMinor: null,
                 monthlyCapMinor: null,
@@ -91,6 +94,7 @@ final class BuildTenantBillingOverview
             turnoverMinor: $turnover,
             billableBaseMinor: $billableBase,
             commissionMinor: $commission,
+            correctionMinor: $correction,
             freeThresholdMinor: $settings->freeThresholdMinor,
             freeRemainingMinor: max(0, $settings->freeThresholdMinor - $turnover),
             monthlyCapMinor: $cap,

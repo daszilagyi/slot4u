@@ -28,6 +28,8 @@ final readonly class TenantBillingOverview
         public int $turnoverMinor,
         public int $billableBaseMinor,
         public int $commissionMinor,
+        /** Credits carried in from an already-invoiced period (docs/10 §8.2); <= 0. */
+        public int $correctionMinor,
         public ?int $freeThresholdMinor,
         public ?int $freeRemainingMinor,
         public ?int $monthlyCapMinor,
@@ -40,4 +42,14 @@ final readonly class TenantBillingOverview
         public array $integrationCodes,
         public ?Carbon $recomputedAt,
     ) {}
+
+    /**
+     * What the period would invoice today: its own commission less any credit
+     * carried in, floored at zero — a credit bigger than the month's commission
+     * is not payable as a negative, it moves on to the next period (§8.2).
+     */
+    public function netPayableMinor(): int
+    {
+        return max(0, $this->commissionMinor + $this->correctionMinor);
+    }
 }

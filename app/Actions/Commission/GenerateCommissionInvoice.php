@@ -5,11 +5,14 @@ declare(strict_types=1);
 namespace App\Actions\Commission;
 
 use App\Enums\BillingPeriodStatus;
+use App\Enums\CommissionCorrectionType;
 use App\Enums\CommissionInvoiceStatus;
 use App\Enums\CommissionItemState;
 use App\Events\CommissionInvoiceIssued;
 use App\Models\BookingCommissionItem;
+use App\Models\CommissionCorrection;
 use App\Models\CommissionInvoice;
+use App\Services\Commission\BillingPeriodClock;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Carbon;
 
@@ -18,10 +21,12 @@ use Illuminate\Support\Carbon;
  * (docs/10 §6.5). slot4u is the vendor, so the commission is its net SaaS fee
  * and the invoice adds slot4u's Hungarian VAT on top (§15.1, net + 27%).
  *
- * Steps: finalise the aggregate (RecomputeTenantPeriod), then — if any commission
- * is owed — insert the invoice, freeze the period as `invoiced`, and raise
+ * Steps: finalise the aggregate (RecomputeTenantPeriod), net off any credits
+ * carried in from an already-invoiced period (§8.2), then — if anything is owed —
+ * insert the invoice, freeze the period as `invoiced`, and raise
  * CommissionInvoiceIssued (tenant email; external provider is a later slice).
- * A period with zero commission is voided with no invoice.
+ * A period with nothing owed is voided with no invoice; a credit it could not
+ * absorb carries on to the next period.
  *
  * Idempotent per (tenant, period): a period already closed keeps its existing
  * invoice, and a concurrent double-close resolves to the single unique row.
@@ -34,7 +39,10 @@ final class GenerateCommissionInvoice
     /** Payment term in days from issue (docs/10 §15.3). */
     public const int PAYMENT_DUE_DAYS = 8;
 
-    public function __construct(private readonly RecomputeTenantPeriod $recompute) {}
+    public function __construct(
+        private readonly RecomputeTenantPeriod $recompute,
+        private readonly BillingPeriodClock $clock,
+    ) {}
 
     public function __invoke(int $tenantId, string $period): ?CommissionInvoice
     {
@@ -53,15 +61,26 @@ final class GenerateCommissionInvoice
                 ->first();
         }
 
-        // Nothing owed → void the period, no invoice (docs/10 §6.5).
-        if ($aggregate->commission_minor === 0) {
+        // Credits carried in from an already-invoiced period (§8.2) reduce what is
+        // payable now; the correction is negative, so this is a subtraction.
+        $credit = $aggregate->correction_minor;
+        $net = $aggregate->commission_minor + $credit;
+        $currency = $this->periodCurrency($tenantId, $period);
+
+        // Nothing owed → void the period, no invoice (docs/10 §6.5). A credit
+        // bigger than the month's own commission is not forfeited: the unused
+        // remainder moves on to the next period rather than being clamped away.
+        if ($net <= 0) {
+            if ($net < 0) {
+                $this->carryOver($tenantId, $period, $net, $currency);
+            }
+
             $aggregate->status = BillingPeriodStatus::Void;
             $aggregate->save();
 
             return null;
         }
 
-        $net = $aggregate->commission_minor;
         $vatMinor = intdiv($net * self::VAT_BPS, 10_000);
         $now = Carbon::now();
 
@@ -69,11 +88,12 @@ final class GenerateCommissionInvoice
             'period' => $period,
             'turnover_minor' => $aggregate->turnover_minor,
             'billable_base_minor' => $aggregate->billable_base_minor,
+            'correction_minor' => $credit,
             'commission_net_minor' => $net,
             'vat_bps' => self::VAT_BPS,
             'vat_minor' => $vatMinor,
             'total_gross_minor' => $net + $vatMinor,
-            'currency' => $this->periodCurrency($tenantId, $period),
+            'currency' => $currency,
             'status' => CommissionInvoiceStatus::Issued,
             'issued_at' => $now,
             'due_at' => $now->copy()->addDays(self::PAYMENT_DUE_DAYS),
@@ -100,8 +120,35 @@ final class GenerateCommissionInvoice
     }
 
     /**
+     * Moves a credit the period could not absorb on to the next one, so a
+     * refund larger than a month's commission is not lost (docs/10 §8.2). The
+     * period is closed right after, which makes this run once.
+     */
+    private function carryOver(int $tenantId, string $period, int $remaining, string $currency): void
+    {
+        $next = $this->clock->nextPeriod($period);
+
+        $carry = new CommissionCorrection([
+            'type' => CommissionCorrectionType::CarryOver,
+            'booking_id' => null,
+            'source_period' => $period,
+            'period' => $next,
+            'commission_delta_minor' => $remaining,
+            'currency' => $currency,
+        ]);
+        $carry->tenant_id = $tenantId;
+        // saveQuietly: invoicing runs from a tenant-less scheduled job, and the
+        // BelongsToTenant creating hook would stamp any ambient tenant over the
+        // one being invoiced.
+        $carry->saveQuietly();
+
+        ($this->recompute)($tenantId, $next);
+    }
+
+    /**
      * The invoice currency: the one snapshotted on the period's ledger entries
-     * (a tenant bills in a single currency — multi-currency is out of MVP, §15.7).
+     * (a tenant bills in a single currency — multi-currency is out of MVP, §15.7),
+     * falling back to a credit-only period's corrections.
      */
     private function periodCurrency(int $tenantId, string $period): string
     {
@@ -109,6 +156,11 @@ final class GenerateCommissionInvoice
             ->where('tenant_id', $tenantId)
             ->where('period', $period)
             ->where('state', CommissionItemState::Billable->value)
-            ->value('currency') ?? 'HUF';
+            ->value('currency')
+            ?? CommissionCorrection::withoutGlobalScopes()
+                ->where('tenant_id', $tenantId)
+                ->where('period', $period)
+                ->value('currency')
+            ?? 'HUF';
     }
 }

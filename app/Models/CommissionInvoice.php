@@ -19,6 +19,7 @@ use Illuminate\Support\Carbon;
  * @property string $period
  * @property int $turnover_minor
  * @property int $billable_base_minor
+ * @property int $correction_minor
  * @property int $commission_net_minor
  * @property int $vat_bps
  * @property int $vat_minor
@@ -47,6 +48,7 @@ class CommissionInvoice extends Model
         'period',
         'turnover_minor',
         'billable_base_minor',
+        'correction_minor',
         'commission_net_minor',
         'vat_bps',
         'vat_minor',
@@ -70,6 +72,7 @@ class CommissionInvoice extends Model
         return [
             'turnover_minor' => 'integer',
             'billable_base_minor' => 'integer',
+            'correction_minor' => 'integer',
             'commission_net_minor' => 'integer',
             'vat_bps' => 'integer',
             'vat_minor' => 'integer',
