@@ -3,15 +3,16 @@
 use App\Http\Controllers\Super\AuditLogController;
 use App\Http\Controllers\Super\CommissionController;
 use App\Http\Controllers\Super\CommissionInvoiceController;
+use App\Http\Controllers\Super\DashboardController;
 use App\Http\Controllers\Super\ImpersonationController;
 use App\Http\Controllers\Super\TenantController;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
 // Superadmin panel (admin.{central}) — no tenant context. Gated to platform
 // super-admins (tenant_id = null).
 Route::middleware(['auth', 'ensure.superadmin'])->group(function () {
-    Route::get('/', fn () => Inertia::render('Super/Dashboard'))->name('super.dashboard');
+    // Dashboard = platform-wide commission statistics + navigation hub (SLO-123).
+    Route::get('/', [DashboardController::class, 'index'])->name('super.dashboard');
 
     // Tenant management (SLO-77). withTrashed so archived (soft-deleted) tenants
     // still resolve for the superadmin on the detail/action routes.

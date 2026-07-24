@@ -26,4 +26,15 @@ class TenantBillingPeriodPolicy
     {
         return $user->can(Permission::BillingView->value);
     }
+
+    /**
+     * The cross-tenant, platform-wide billing view (SLO-123 superadmin
+     * statistics): only super-admins (tenant_id = null) aggregate every tenant's
+     * periods at once. A tenant admin's `viewAny` above is scoped to its own
+     * tenant by the global scope and never crosses this line.
+     */
+    public function viewGlobal(User $user): bool
+    {
+        return $user->tenant_id === null;
+    }
 }

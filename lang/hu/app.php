@@ -263,11 +263,61 @@ return [
     'super' => [
         'dashboard' => [
             'title' => 'Superadmin vezérlőpult',
-            'subtitle' => 'Központi adminisztrációs felület — fejlesztés alatt.',
+            'subtitle' => 'A platform jutalék-üzletének áttekintése: havi bevétel, aktiválási tölcsér, top tenantok és felfüggesztés-kockázat.',
             'badge' => 'Superadmin',
             'tenants_link' => 'Tenantok kezelése',
             'commission_link' => 'Jutalék-beállítások',
             'invoices_link' => 'Jutalékszámlák',
+            'audit_link' => 'Audit napló',
+            'nav_heading' => 'Kezelőfelületek',
+            // Period filter
+            'period_label' => 'Időszak',
+            'period_placeholder' => 'ÉÉÉÉ-HH',
+            'period_apply' => 'Mutasd',
+            'period_current' => 'Aktuális hónap',
+            'period_hint' => 'A megjelenített hónap: :period',
+            'not_configured' => 'Nincs hatályos jutalék-beállítás erre a hónapra, ezért a rendszer egyetlen foglalás után sem számol jutalékot. Az összegek addig nullák maradnak.',
+            // Revenue block
+            'revenue_heading' => 'Havi jutalékbevétel',
+            'revenue_accrued' => 'Elhatárolt jutalék (MRR-proxy)',
+            'revenue_accrued_hint' => 'A hónap teljes, nettó jutaléka — ez a platform havi bevételének közelítése.',
+            'revenue_turnover' => 'Jutalékköteles forgalom',
+            'revenue_of_which' => 'Ebből:',
+            'revenue_open' => 'Nyitott',
+            'revenue_invoiced' => 'Kiszámlázva',
+            'revenue_paid' => 'Befizetve',
+            'revenue_overdue' => 'Lejárt',
+            // Activation funnel
+            'funnel_heading' => 'Aktiválási tölcsér',
+            'funnel_active' => 'Aktív tenantok',
+            'funnel_active_hint' => 'Trial vagy aktív állapotú tenantok.',
+            'funnel_with_turnover' => 'Forgalmat termelt',
+            'funnel_paying' => 'Jutalékköteles (fizető)',
+            'funnel_stuck' => 'Küszöb alatt „ragadt”',
+            'funnel_stuck_hint' => 'Van forgalma, de még nem érte el az ingyenes keretet — :ratio a forgalmazók közül.',
+            'funnel_cap_reached' => 'Plafont elért',
+            'funnel_tenants_unit' => ':count tenant',
+            // Top tenants
+            'top_heading' => 'Top tenantok forgalom szerint',
+            'top_empty' => 'Ebben a hónapban még egyetlen tenant sem termelt forgalmat.',
+            'top_col_tenant' => 'Tenant',
+            'top_col_status' => 'Állapot',
+            'top_col_turnover' => 'Forgalom',
+            'top_col_commission' => 'Jutalék',
+            'top_cap_badge' => 'Plafon elérve',
+            // Suspension risk
+            'risk_heading' => 'Lejárt számlák / felfüggesztés-kockázat',
+            'risk_empty' => 'Nincs lejárt jutalékszámla — jelenleg nincs nemfizetés miatti felfüggesztés-kockázat.',
+            'risk_summary' => ':count lejárt számla, összesen :total.',
+            'risk_col_tenant' => 'Tenant',
+            'risk_col_period' => 'Időszak',
+            'risk_col_gross' => 'Bruttó',
+            'risk_col_due' => 'Fizetési határidő',
+            'risk_col_suspend' => 'Felfüggesztés',
+            'risk_suspend_in' => ':days nap múlva',
+            'risk_suspend_due' => 'Esedékes',
+            // Tenant-státusz címkék a globális `tenant_status.*` kulcsból (nincs
+            // duplikátum) — a badge a top-tenant táblában.
         ],
         // Jutalék-konfiguráció (docs/10 §10). A docs §11 `admin.commission.*`-ot
         // említ, de a repóban az `admin.*` a TENANT admin panelé — a superadmin
