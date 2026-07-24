@@ -36,6 +36,12 @@ class EnsureTenantActive
         if ($tenant->status === TenantStatus::Suspended) {
             return Inertia::render('Tenant/Suspended', [
                 'tenantName' => $tenant->name,
+                // A logged-in member of this tenant can still reach the billing
+                // page (it lives outside this middleware, SLO-120) to settle the
+                // unpaid invoice that caused the suspension — offer the way there.
+                // billing.view is enforced on that route; a non-admin who follows
+                // the link is redirected/403'd, which is acceptable and rare.
+                'canAccessBilling' => $request->user()?->tenant_id === $tenant->id,
             ])->toResponse($request)->setStatusCode(503);
         }
 

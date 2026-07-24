@@ -236,16 +236,6 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
             Route::delete('/settings/templates/{key}', [MessageTemplateController::class, 'destroy'])->name('tenant.templates.destroy');
         });
 
-        // Commission transparency dashboard (SLO-70, docs/10 §9). Gated by
-        // billing.view (tenant-admin only per docs/03) — read-only: the aggregate
-        // is a cache the recompute owns and the invoices are issued by the
-        // platform. Route-bound {invoice} is tenant-scoped → cross-tenant 404.
-        Route::middleware('can:'.Permission::BillingView->value)->group(function () {
-            Route::get('/billing', [BillingController::class, 'index'])->name('tenant.billing.index');
-            Route::get('/billing/export', [BillingController::class, 'export'])->name('tenant.billing.export');
-            Route::get('/billing/invoices/{invoice}/pdf', [BillingController::class, 'invoicePdf'])->name('tenant.billing.invoice_pdf');
-        });
-
         // Employee self-service profile (SLO-17). Available to every *staff*
         // member (not staff.manage-gated, but behind ensure.staff like the rest
         // of the panel — a customer cannot reach it): a user linked to a staff
@@ -293,6 +283,21 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
             ->middleware('ensure.feature:'.Feature::QuoteRequest->value)
             ->name('tenant.my.quotes');
     });
+});
+
+// Commission transparency dashboard (SLO-70, docs/10 §9). Deliberately OUTSIDE
+// ensure.tenant.active (SLO-120): a tenant is suspended *for non-payment*
+// (docs/10 §6.6), so its admin must still reach the invoices to see what to pay
+// and clear the suspension — docs/03 spells this out ("csak figyelmeztető +
+// jutalékszámla-fizetés oldal"). The public booking surface and the rest of the
+// admin panel stay 503. Still fully gated: tenant resolved (archived tenants 404
+// at identify.tenant — soft-deleted, never resolve) + auth + staff (customers
+// out) + billing.view (tenant-admin only, docs/03). Read-only; route-bound
+// {invoice} is tenant-scoped → cross-tenant 404.
+Route::middleware(['identify.tenant', 'auth', 'ensure.user.tenant', 'ensure.staff', 'can:'.Permission::BillingView->value])->group(function () {
+    Route::get('/billing', [BillingController::class, 'index'])->name('tenant.billing.index');
+    Route::get('/billing/export', [BillingController::class, 'export'])->name('tenant.billing.export');
+    Route::get('/billing/invoices/{invoice}/pdf', [BillingController::class, 'invoicePdf'])->name('tenant.billing.invoice_pdf');
 });
 
 // robots.txt must answer for a suspended tenant too (Disallow: /), so it sits

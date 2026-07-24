@@ -75,6 +75,7 @@ type IndexProps = {
     invoices: Invoice[];
     periods: string[];
     filters: { period: string };
+    suspended: boolean;
 };
 
 export default function BillingIndex({
@@ -83,6 +84,7 @@ export default function BillingIndex({
     invoices,
     periods,
     filters,
+    suspended,
 }: IndexProps) {
     const t = useTranslations();
     const currency = overview.currency;
@@ -106,7 +108,16 @@ export default function BillingIndex({
                     description={t('admin.billing.subtitle')}
                 />
 
-                {hasOverdue ? (
+                {suspended ? (
+                    <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm">
+                        <p className="font-medium text-destructive">
+                            {t('admin.billing.suspended_notice.title')}
+                        </p>
+                        <p className="mt-1 text-muted-foreground">
+                            {t('admin.billing.suspended_notice.body')}
+                        </p>
+                    </div>
+                ) : hasOverdue ? (
                     <p className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
                         {t('admin.billing.invoice.overdue_notice')}
                     </p>
