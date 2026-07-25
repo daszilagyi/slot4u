@@ -10,6 +10,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Models\WaitlistEntry;
 use App\Notifications\Concerns\RecordsDelivery;
+use App\Notifications\GuestRecipient;
 use Illuminate\Notifications\Notification;
 
 /**
@@ -63,6 +64,47 @@ class CustomerNotifier
         }
 
         return $tenant;
+    }
+
+    /**
+     * Send once to whoever this record belongs to: its customer account, or the
+     * account-less guest who created it (SLO-128). Returns the claimed log row, or
+     * null when nothing was sent (no contact, or already claimed).
+     *
+     * A guest carries no tenant_id to cross-check, but it cannot cross a boundary
+     * either: the address lives on the record itself, which is the tenant's own.
+     *
+     * @param  RecordsDelivery&Notification  $notification
+     */
+    public function sendToContact(
+        Tenant $tenant,
+        NotificationType $type,
+        string $dedupeKey,
+        Booking|QuoteRequest $record,
+        RecordsDelivery $notification,
+    ): ?NotificationLog {
+        if (! $record->isGuest()) {
+            return $this->sendToCustomer($tenant, $type, $dedupeKey, $record->customer, $notification);
+        }
+
+        if ((int) $record->tenant_id !== (int) $tenant->getKey()) {
+            return null;
+        }
+
+        $guest = $record->contactNotifiable();
+
+        if (! $guest instanceof GuestRecipient) {
+            return null;
+        }
+
+        return $this->notifier->sendOnce(
+            tenant: $tenant,
+            type: $type,
+            dedupeKey: $dedupeKey,
+            recipient: $guest,
+            recipientEmail: $guest->email,
+            notification: $notification,
+        );
     }
 
     /**

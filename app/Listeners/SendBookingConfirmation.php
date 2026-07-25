@@ -55,11 +55,11 @@ class SendBookingConfirmation
             ? [NotificationType::BookingConfirmed, new BookingConfirmedNotification($booking, $tenant)]
             : [NotificationType::BookingModified, new BookingRescheduledNotification($booking, $original, $tenant)];
 
-        $this->notifier->sendToCustomer(
+        $this->notifier->sendToContact(
             tenant: $tenant,
             type: $type,
             dedupeKey: 'booking:'.$booking->getKey(),
-            customer: $booking->customer,
+            record: $booking,
             notification: $notification,
         );
     }

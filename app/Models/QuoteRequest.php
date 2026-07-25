@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Actions\Quote\ChangeQuoteRequestStatus;
 use App\Enums\QuoteRequestStatus;
 use App\Models\Concerns\BelongsToTenant;
+use App\Models\Concerns\HasGuestContact;
 use Database\Factories\QuoteRequestFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -22,6 +23,9 @@ use Illuminate\Support\Carbon;
  * @property int $tenant_id
  * @property int $service_id
  * @property int|null $customer_id
+ * @property string|null $guest_name
+ * @property string|null $guest_email
+ * @property string|null $guest_phone
  * @property QuoteRequestStatus $status
  * @property array<string, mixed>|null $parameters
  * @property int|null $price_minor
@@ -33,7 +37,7 @@ use Illuminate\Support\Carbon;
 class QuoteRequest extends Model
 {
     /** @use HasFactory<QuoteRequestFactory> */
-    use BelongsToTenant, HasFactory;
+    use BelongsToTenant, HasFactory, HasGuestContact;
 
     /**
      * @var list<string>
@@ -41,6 +45,9 @@ class QuoteRequest extends Model
     protected $fillable = [
         'service_id',
         'customer_id',
+        'guest_name',
+        'guest_email',
+        'guest_phone',
         'parameters',
         'internal_notes',
     ];

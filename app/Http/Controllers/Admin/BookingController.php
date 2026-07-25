@@ -248,7 +248,10 @@ class BookingController extends Controller
         return [
             'id' => $booking->id,
             'code' => $booking->code,
-            'customer' => $booking->customer?->name,
+            // A guest booking (SLO-128) has no account behind it — show the name it
+            // was made with, flagged so the row reads honestly.
+            'customer' => $booking->contactName(),
+            'is_guest' => $booking->isGuest(),
             'service' => $booking->service?->name,
             'staff' => $booking->staff?->name,
             'status' => $booking->status->value,
@@ -268,7 +271,9 @@ class BookingController extends Controller
      */
     private function detail(Booking $booking): array
     {
-        $booking->load(['customer:id,name,email', 'service:id,name', 'staff:id,name', 'room:id,name']);
+        // phone is selected too: the card shows the contact's phone, which comes
+        // from the account for a customer and from the row for a guest (SLO-128).
+        $booking->load(['customer:id,name,email,phone', 'service:id,name', 'staff:id,name', 'room:id,name']);
 
         $history = $booking->statusHistory()
             ->with('actor:id,name')
@@ -287,8 +292,10 @@ class BookingController extends Controller
             'code' => $booking->code,
             'status' => $booking->status->value,
             'booking_mode' => $booking->booking_mode->value,
-            'customer' => $booking->customer?->name,
-            'customer_email' => $booking->customer?->email,
+            'customer' => $booking->contactName(),
+            'customer_email' => $booking->contactEmail(),
+            'customer_phone' => $booking->contactPhone(),
+            'is_guest' => $booking->isGuest(),
             'service' => $booking->service?->name,
             'staff' => $booking->staff?->name,
             'room' => $booking->room?->name,

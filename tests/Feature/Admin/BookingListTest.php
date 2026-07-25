@@ -247,6 +247,50 @@ it('shows a booking card with status history', function () {
             ->where('booking.history.0.from_status', null));
 });
 
+it('shows a guest booking with the contact from the row, flagged as a guest', function () {
+    $tenant = bkTenant(['slug' => 'acme']);
+    $admin = bkUser($tenant, Role::TenantAdmin);
+    // A guest booking (SLO-128): no account, the contact lives on the booking.
+    $booking = bkBooking($tenant, [
+        'customer_id' => null,
+        'guest_name' => 'Teszt Vendég',
+        'guest_email' => 'guest@example.test',
+        'guest_phone' => '+3611234567',
+    ]);
+    app(TenantManager::class)->forget();
+
+    $this->actingAs($admin)
+        ->get(tenantHost('acme', '/bookings'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('bookings.data.0.customer', 'Teszt Vendég')
+            ->where('bookings.data.0.is_guest', true));
+
+    $this->actingAs($admin)
+        ->get(tenantHost('acme', "/bookings/{$booking->id}"))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('booking.customer', 'Teszt Vendég')
+            ->where('booking.customer_email', 'guest@example.test')
+            ->where('booking.customer_phone', '+3611234567')
+            ->where('booking.is_guest', true));
+});
+
+it('does not flag a customer-backed booking as a guest', function () {
+    $tenant = bkTenant(['slug' => 'acme']);
+    $admin = bkUser($tenant, Role::TenantAdmin);
+    $customer = User::factory()->create(['tenant_id' => $tenant->id, 'name' => 'Régi Ügyfél']);
+    $booking = bkBooking($tenant, ['customer_id' => $customer->id]);
+    app(TenantManager::class)->forget();
+
+    $this->actingAs($admin)
+        ->get(tenantHost('acme', "/bookings/{$booking->id}"))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('booking.customer', 'Régi Ügyfél')
+            ->where('booking.is_guest', false));
+});
+
 // --- Quick actions ---
 
 it('lets an admin cancel a booking', function () {

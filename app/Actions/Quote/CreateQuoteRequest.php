@@ -31,6 +31,10 @@ class CreateQuoteRequest
         $quoteRequest->fill([
             'service_id' => $service->id,
             'customer_id' => $data['customer_id'] ?? null,
+            // Contact details of an account-less guest (SLO-128).
+            'guest_name' => $data['guest_name'] ?? null,
+            'guest_email' => $data['guest_email'] ?? null,
+            'guest_phone' => $data['guest_phone'] ?? null,
             'parameters' => $data['parameters'] ?? null,
             'internal_notes' => $data['internal_notes'] ?? null,
         ]);

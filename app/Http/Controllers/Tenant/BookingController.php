@@ -4,6 +4,8 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Actions\Booking\CreateBooking;
 use App\Actions\Customer\FindOrCreateCustomer;
+use App\Actions\Customer\PublicContact;
+use App\Actions\Customer\ResolvePublicContact;
 use App\Actions\Quote\CreateQuoteRequest;
 use App\Actions\Quote\PostQuoteMessage;
 use App\Actions\Waitlist\JoinWaitlist;
@@ -138,7 +140,7 @@ class BookingController extends Controller
      * picker can prompt a fresh slot. On success we PRG-redirect to the
      * confirmation page.
      */
-    public function store(PublicBookingRequest $request, CreateBooking $createBooking, FindOrCreateCustomer $findOrCreateCustomer): RedirectResponse
+    public function store(PublicBookingRequest $request, CreateBooking $createBooking, ResolvePublicContact $resolvePublicContact): RedirectResponse
     {
         $data = $request->validated();
 
@@ -152,10 +154,10 @@ class BookingController extends Controller
         // instants — so a crafted POST can't book off-grid or with a wrong length.
         $slot = $this->matchAvailableSlot($service, $data);
 
-        $customer = $this->findGuest($findOrCreateCustomer, $data);
+        $contact = $this->resolveContact($resolvePublicContact, $data);
 
         $booking = $createBooking($service, [
-            'customer_id' => $customer->id,
+            ...$contact->recordAttributes(),
             'staff_id' => $slot->staffId,
             'room_id' => $slot->roomId,
             'starts_at' => $slot->start->toDateTimeString(),
@@ -178,7 +180,7 @@ class BookingController extends Controller
      * gates via source=online and completes a confirmed digital order on the spot
      * (docs/04 §1); manual/downloadable stay confirmed for an admin to close.
      */
-    public function storeOrder(PublicOrderRequest $request, CreateBooking $createBooking, FindOrCreateCustomer $findOrCreateCustomer): RedirectResponse
+    public function storeOrder(PublicOrderRequest $request, CreateBooking $createBooking, ResolvePublicContact $resolvePublicContact): RedirectResponse
     {
         $data = $request->validated();
 
@@ -188,10 +190,10 @@ class BookingController extends Controller
         // valid target for this endpoint.
         abort_unless($service->booking_mode === BookingMode::NoTimeSlot, 404);
 
-        $customer = $this->findGuest($findOrCreateCustomer, $data);
+        $contact = $this->resolveContact($resolvePublicContact, $data);
 
         $booking = $createBooking($service, [
-            'customer_id' => $customer->id,
+            ...$contact->recordAttributes(),
             'party_size' => 1,
             'notes' => $data['notes'] ?? null,
             'source' => BookingSource::Online->value,
@@ -209,23 +211,25 @@ class BookingController extends Controller
      * ensure.feature:feature_quote_request; the mode is re-checked here because a
      * route-independent FormRequest cannot enforce it.
      */
-    public function storeQuote(PublicQuoteRequest $request, CreateQuoteRequest $createQuoteRequest, PostQuoteMessage $postQuoteMessage, FindOrCreateCustomer $findOrCreateCustomer): RedirectResponse
+    public function storeQuote(PublicQuoteRequest $request, CreateQuoteRequest $createQuoteRequest, PostQuoteMessage $postQuoteMessage, ResolvePublicContact $resolvePublicContact): RedirectResponse
     {
         $data = $request->validated();
 
         $service = Service::query()->where('active', true)->findOrFail($data['service_id']);
         abort_unless($service->booking_mode === BookingMode::QuoteRequest, 404);
 
-        $customer = $this->findGuest($findOrCreateCustomer, $data);
+        $contact = $this->resolveContact($resolvePublicContact, $data);
 
         $quoteRequest = $createQuoteRequest($service, [
-            'customer_id' => $customer->id,
+            ...$contact->recordAttributes(),
             'parameters' => $this->quoteParameters($service, $data['fields'] ?? []),
-        ], $customer);
+        ], $contact->customer);
 
         $message = trim((string) ($data['notes'] ?? ''));
         if ($message !== '') {
-            $postQuoteMessage($quoteRequest, $message, $customer);
+            // A guest has no user row to author the message with — it lands as an
+            // authorless (guest) message on the thread, like a system entry.
+            $postQuoteMessage($quoteRequest, $message, $contact->customer);
         }
 
         return redirect('/quote-sent')->with('quote', ['service' => $service->name]);
@@ -276,15 +280,15 @@ class BookingController extends Controller
      * atomic claim throws and we surface it on the form (the guest can then join
      * the waitlist if it is offered).
      */
-    public function storeEvent(PublicEventBookingRequest $request, string $tenant, Event $event, CreateBooking $createBooking, FindOrCreateCustomer $findOrCreateCustomer): RedirectResponse
+    public function storeEvent(PublicEventBookingRequest $request, string $tenant, Event $event, CreateBooking $createBooking, ResolvePublicContact $resolvePublicContact): RedirectResponse
     {
         $service = $this->bookableEventService($event);
         $data = $request->validated();
-        $customer = $this->findGuest($findOrCreateCustomer, $data);
+        $contact = $this->resolveContact($resolvePublicContact, $data);
 
         try {
             $booking = $createBooking($service, [
-                'customer_id' => $customer->id,
+                ...$contact->recordAttributes(),
                 'event_id' => $event->id,
                 'starts_at' => $event->starts_at->toDateTimeString(),
                 'ends_at' => $event->ends_at->toDateTimeString(),
@@ -366,8 +370,25 @@ class BookingController extends Controller
     }
 
     /**
-     * Resolve the guest into a customer (FindOrCreateCustomer), surfacing the
-     * "email belongs to another account" error on the public form's email field.
+     * Resolve the visitor into a customer of this tenant or an account-less guest
+     * (SLO-128). Never fails on a taken email: a visitor who does not want to log
+     * in — or whose address belongs to an account elsewhere on the platform —
+     * books as a guest.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    private function resolveContact(ResolvePublicContact $resolvePublicContact, array $data): PublicContact
+    {
+        return $resolvePublicContact($data['email'], $data['name'], $data['phone'] ?? null);
+    }
+
+    /**
+     * Resolve the visitor into a real customer account, surfacing the "email
+     * belongs to another account" error on the public form's email field.
+     *
+     * Still used by the waitlist join, which cannot take a guest: the offer that
+     * follows is accepted in the members area (`/my/waitlist`), so an account-less
+     * waiter would have no way to claim the seat (SLO-103 opens that up).
      *
      * @param  array<string, mixed>  $data
      */

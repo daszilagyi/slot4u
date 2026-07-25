@@ -60,6 +60,11 @@ class AcceptQuoteRequest
 
         return ($this->createBooking)($service, [
             'customer_id' => $quoteRequest->customer_id,
+            // A guest's quote (SLO-128) has no account to hang the booking on — carry
+            // the contact details over so the generated booking can still be mailed.
+            'guest_name' => $quoteRequest->guest_name,
+            'guest_email' => $quoteRequest->guest_email,
+            'guest_phone' => $quoteRequest->guest_phone,
             // The accepted quote is authoritative (docs/04 §6) — override the list price.
             'price_minor' => $quoteRequest->price_minor,
             'currency' => $quoteRequest->currency,

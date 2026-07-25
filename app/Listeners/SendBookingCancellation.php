@@ -32,11 +32,11 @@ class SendBookingCancellation
             return;
         }
 
-        $this->notifier->sendToCustomer(
+        $this->notifier->sendToContact(
             tenant: $tenant,
             type: NotificationType::BookingCanceled,
             dedupeKey: 'booking:'.$booking->getKey(),
-            customer: $booking->customer,
+            record: $booking,
             notification: new BookingCanceledNotification($booking, $tenant),
         );
     }

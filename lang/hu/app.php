@@ -950,9 +950,12 @@ return [
             'all_services' => 'Minden szolgáltatás',
             'filter' => 'Szűrés',
             'clear' => 'Szűrők törlése',
+            'guest' => 'Vendég',
             'field' => [
                 'code' => 'Azonosító',
                 'customer' => 'Ügyfél',
+                'customer_email' => 'Email',
+                'customer_phone' => 'Telefon',
                 'service' => 'Szolgáltatás',
                 'staff' => 'Dolgozó',
                 'room' => 'Helyiség',

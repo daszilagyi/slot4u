@@ -82,6 +82,11 @@ class CreateBooking
 
         $attributes = [
             'customer_id' => $data['customer_id'] ?? null,
+            // Contact details of an account-less guest (SLO-128); null on every
+            // customer-backed booking, where the account holds them.
+            'guest_name' => $data['guest_name'] ?? null,
+            'guest_email' => $data['guest_email'] ?? null,
+            'guest_phone' => $data['guest_phone'] ?? null,
             'service_id' => $service->id,
             'booking_mode' => $service->booking_mode,
             'staff_id' => $data['staff_id'] ?? null,
