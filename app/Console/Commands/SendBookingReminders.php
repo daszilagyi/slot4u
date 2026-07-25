@@ -65,11 +65,11 @@ class SendBookingReminders extends Command
                         continue;
                     }
 
-                    $log = $notifier->sendToCustomer(
+                    $log = $notifier->sendToContact(
                         tenant: $tenant,
                         type: NotificationType::Reminder24h,
                         dedupeKey: 'booking:'.$booking->getKey().':reminder_24h',
-                        customer: $booking->customer,
+                        record: $booking,
                         notification: new BookingReminderNotification($booking, $tenant),
                     );
 

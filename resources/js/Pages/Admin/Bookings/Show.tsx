@@ -19,7 +19,19 @@ export default function BookingShow({ booking }: ShowProps) {
     const rows: { label: string; value: string }[] = [
         {
             label: t('admin.bookings.field.customer'),
-            value: booking.customer ?? '—',
+            value: booking.customer
+                ? booking.is_guest
+                    ? `${booking.customer} (${t('admin.bookings.guest')})`
+                    : booking.customer
+                : '—',
+        },
+        {
+            label: t('admin.bookings.field.customer_email'),
+            value: booking.customer_email ?? '—',
+        },
+        {
+            label: t('admin.bookings.field.customer_phone'),
+            value: booking.customer_phone ?? '—',
         },
         {
             label: t('admin.bookings.field.service'),

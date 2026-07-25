@@ -31,11 +31,11 @@ class SendQuoteReady
             return;
         }
 
-        $this->notifier->sendToCustomer(
+        $this->notifier->sendToContact(
             tenant: $tenant,
             type: NotificationType::QuoteReady,
             dedupeKey: 'quote_request:'.$quoteRequest->getKey(),
-            customer: $quoteRequest->customer,
+            record: $quoteRequest,
             notification: new QuoteReadyNotification($quoteRequest, $tenant),
         );
     }

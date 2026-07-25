@@ -337,6 +337,14 @@ export default function BookingsIndex({
                                                 >
                                                     {booking.customer ?? '—'}
                                                 </Link>
+                                                {booking.is_guest && (
+                                                    <Badge
+                                                        variant="outline"
+                                                        className="ml-2 align-middle text-[10px]"
+                                                    >
+                                                        {t('admin.bookings.guest')}
+                                                    </Badge>
+                                                )}
                                                 <div className="text-xs text-muted-foreground">
                                                     {booking.service ?? '—'}
                                                     <span className="ml-2 font-mono">

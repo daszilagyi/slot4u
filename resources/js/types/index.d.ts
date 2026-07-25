@@ -279,6 +279,8 @@ export type BookingSummary = {
     id: number;
     code: string;
     customer: string | null;
+    /** Booked without an account (SLO-128) — `customer` is the guest's own name. */
+    is_guest: boolean;
     service: string | null;
     staff: string | null;
     status: BookingStatusValue;
@@ -304,6 +306,9 @@ export type BookingDetail = {
     booking_mode: BookingModeValue;
     customer: string | null;
     customer_email: string | null;
+    customer_phone: string | null;
+    /** Booked without an account (SLO-128) — the contact fields are the guest's own. */
+    is_guest: boolean;
     service: string | null;
     staff: string | null;
     room: string | null;

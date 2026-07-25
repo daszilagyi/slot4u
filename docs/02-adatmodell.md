@@ -69,7 +69,10 @@ events             id, tenant_id, service_id, staff_id, room_id, starts_at, ends
 ## Foglalások
 
 ```
-bookings           id, tenant_id, code(publikus azonosító), customer_id(users),
+bookings           id, tenant_id, code(publikus azonosító), customer_id(users, nullable),
+                   guest_name/guest_email/guest_phone (nullable — vendég-foglalás fiók
+                   nélkül, SLO-128; ügyfélhez kötött foglalásnál mindhárom NULL, a fiók
+                   az igazság forrása. Index: (tenant_id, guest_email)),
                    service_id, booking_mode(snapshot), staff_id, room_id, event_id(nullable),
                    starts_at, ends_at (nullable időpont nélküli módnál),
                    status(enum), party_size, price_minor, currency, notes,
@@ -81,7 +84,9 @@ bookings           id, tenant_id, code(publikus azonosító), customer_id(users)
 booking_status_history id, booking_id, from, to, actor_id, created_at
 waitlist_entries   id, tenant_id, event_id|service_id, customer_id, position,
                    status(waiting|offered|converted|expired), offered_until
-quote_requests     id, tenant_id, service_id, customer_id(nullable), parameters(json), status
+quote_requests     id, tenant_id, service_id, customer_id(nullable),
+                   guest_name/guest_email/guest_phone (nullable — mint a bookings-nál,
+                   SLO-128), parameters(json), status
                    (new|in_progress|quoted|accepted|rejected), price_minor(nullable),
                    currency(nullable), valid_until(nullable), internal_notes(nullable),
                    booking_id(nullable, az accepted-kor generált foglalás)

@@ -31,11 +31,11 @@ class SendBookingRejection
             return;
         }
 
-        $this->notifier->sendToCustomer(
+        $this->notifier->sendToContact(
             tenant: $tenant,
             type: NotificationType::BookingRejected,
             dedupeKey: 'booking:'.$booking->getKey(),
-            customer: $booking->customer,
+            record: $booking,
             notification: new BookingRejectedNotification($booking, $tenant),
         );
     }

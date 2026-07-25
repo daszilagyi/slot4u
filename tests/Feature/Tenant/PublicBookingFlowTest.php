@@ -174,16 +174,22 @@ it('rejects a service_id that belongs to another tenant', function () {
         ->and(tenantBookings($other)->count())->toBe(0);
 });
 
-it('rejects an email that already belongs to another account', function () {
+it('books as a guest when the email already belongs to another account', function () {
     [$tenant, $service, $staff] = flowService();
     // Same email owned by another tenant's user (global unique email, MVP auth).
     $other = Tenant::factory()->active()->create(['slug' => 'other']);
     User::factory()->create(['tenant_id' => $other->id, 'email' => 'guest@example.test']);
 
     $this->post(tenantHost('acme', '/book'), bookingPayload($service, $staff))
-        ->assertSessionHasErrors('email');
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
 
-    expect(tenantBookings($tenant)->count())->toBe(0);
+    $booking = tenantBookings($tenant)->first();
+    expect($booking)->not->toBeNull()
+        ->and($booking->customer_id)->toBeNull()
+        ->and($booking->guest_email)->toBe('guest@example.test')
+        // No account was minted for the foreign address.
+        ->and(User::withoutGlobalScopes()->where('email', 'guest@example.test')->count())->toBe(1);
 });
 
 it('shows the confirmation page by code and 404s a cross-tenant code', function () {

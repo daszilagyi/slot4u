@@ -7,6 +7,7 @@ use App\Enums\BookingSource;
 use App\Enums\BookingStatus;
 use App\Events\BookingCreated;
 use App\Models\Concerns\BelongsToTenant;
+use App\Models\Concerns\HasGuestContact;
 use Database\Factories\BookingFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -26,6 +27,9 @@ use Illuminate\Support\Facades\Auth;
  * @property int $tenant_id
  * @property string $code
  * @property int|null $customer_id
+ * @property string|null $guest_name
+ * @property string|null $guest_email
+ * @property string|null $guest_phone
  * @property int $service_id
  * @property BookingMode $booking_mode
  * @property int|null $staff_id
@@ -50,7 +54,7 @@ use Illuminate\Support\Facades\Auth;
 class Booking extends Model
 {
     /** @use HasFactory<BookingFactory> */
-    use BelongsToTenant, HasFactory;
+    use BelongsToTenant, HasFactory, HasGuestContact;
 
     /**
      * status, code, canceled_at, the approved_* fields, hold_expires_at,
@@ -62,6 +66,9 @@ class Booking extends Model
      */
     protected $fillable = [
         'customer_id',
+        'guest_name',
+        'guest_email',
+        'guest_phone',
         'service_id',
         'booking_mode',
         'staff_id',
