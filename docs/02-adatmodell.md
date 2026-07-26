@@ -142,8 +142,13 @@ payments           id, tenant_id, booking_id, provider(sandbox|barion|stripe), p
                    amount_minor, currency, status(pending|paid|failed|refunded), paid_at, payload(json)
                    -- egy sor / checkout-kísérlet (SLO-130); unique(provider, provider_ref) = a
                    -- webhook idempotencia-kulcsa; `sandbox` = beépített teszt-gateway (nem prod)
-refunds            id, payment_id, amount_minor, reason, status(pending|completed|failed),
-                   refunded_at               -- teljes/részleges/manuális/API refund (SLO-40)
+refunds            id, tenant_id, payment_id, amount_minor, currency, status(pending|completed|failed),
+                   reason, provider_ref, refunded_at
+                   -- teljes/részleges/manuális refund (SLO-131). Előbb SZÁNDÉK (`pending`) a
+                   -- lemondás tranzakciójában, a gateway-hívást a ProcessRefund job zárja le →
+                   -- gateway-kiesésnél auditálható tartozás marad. Több részleges refund
+                   -- állhat egy payment-en; az összegük a fizetett összegre van vágva.
+                   -- A payment `refunded` csak TELJES visszatérítésnél lesz.
 invoices           id, tenant_id, booking_id, provider(szamlazzhu), provider_ref, number,
                    status(issued|storno|failed), pdf_path, issued_at
 ```

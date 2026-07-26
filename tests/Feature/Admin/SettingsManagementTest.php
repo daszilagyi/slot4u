@@ -199,3 +199,49 @@ it('redirects a guest to login', function () {
 
     $this->get(tenantHost('acme', '/settings'))->assertRedirectContains('/login');
 });
+
+it('saves the refund policy and its share (SLO-131)', function () {
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
+    $admin = settingsAdmin($tenant);
+
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', '/settings'), settingsPayload([
+            'refund_policy' => 'partial',
+            'refund_percent' => 40,
+        ]))
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    // Entered as a percentage, stored in basis points like every other rate.
+    expect($tenant->fresh()->settings['refund_policy'])->toBe('partial')
+        ->and($tenant->fresh()->settings['refund_percent_bps'])->toBe(4000);
+});
+
+it('rejects a partial refund policy without a share', function () {
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
+    $admin = settingsAdmin($tenant);
+
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', '/settings'), settingsPayload(['refund_policy' => 'partial']))
+        ->assertSessionHasErrors('refund_percent');
+});
+
+it('keeps settings the form does not expose when saving (SLO-131)', function () {
+    // The page posts only its own fields; the hold windows behind them must not be
+    // silently reset to their defaults by a save.
+    $tenant = Tenant::factory()->active()->create([
+        'slug' => 'acme',
+        'settings' => ['payment_hold_minutes' => 5, 'approval_hold_hours' => 12],
+    ]);
+    $admin = settingsAdmin($tenant);
+
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', '/settings'), settingsPayload(['cancellation_deadline_hours' => 48]))
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $settings = $tenant->fresh()->settings;
+    expect($settings['payment_hold_minutes'])->toBe(5)
+        ->and($settings['approval_hold_hours'])->toBe(12)
+        ->and($settings['cancellation_deadline_hours'])->toBe(48);
+});

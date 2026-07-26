@@ -191,6 +191,9 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
         // from booking.edit per docs/03); admin-initiated, no deadline check.
         Route::middleware('can:'.Permission::BookingCancel->value)->group(function () {
             Route::post('/bookings/{booking}/cancel', [BookingController::class, 'cancel'])->name('tenant.bookings.cancel');
+            // Manual refund on top of the tenant's automatic policy (SLO-131) —
+            // the money side of calling a booking off, so it shares booking.cancel.
+            Route::post('/bookings/{booking}/refund', [BookingController::class, 'refund'])->name('tenant.bookings.refund');
         });
 
         // Quote request flow (quote_request mode, docs/04 §6, SLO-27). Gated by

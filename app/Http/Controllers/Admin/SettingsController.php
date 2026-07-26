@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Actions\Tenant\UpdateTenantSettings;
 use App\Enums\Feature;
+use App\Enums\RefundPolicy;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\SettingsRequest;
 use App\Settings\TenantBranding;
@@ -42,6 +43,10 @@ class SettingsController extends Controller
             'brandingEnabled' => Pennant::active(Feature::Branding->value),
             'slotIntervals' => TenantSettings::SLOT_INTERVALS,
             'socialPlatforms' => TenantSettings::SOCIAL_PLATFORMS,
+            // The refund policy only does anything for a tenant that can take money
+            // online, so the section is shown gated on the same feature (SLO-131).
+            'refundPolicies' => array_map(fn (RefundPolicy $policy) => $policy->value, RefundPolicy::cases()),
+            'onlinePaymentEnabled' => Pennant::active(Feature::OnlinePayment->value),
         ]);
     }
 

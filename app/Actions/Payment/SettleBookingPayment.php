@@ -25,7 +25,10 @@ use Illuminate\Support\Facades\Log;
  */
 final class SettleBookingPayment
 {
-    public function __construct(private readonly ChangeBookingStatus $changeStatus) {}
+    public function __construct(
+        private readonly ChangeBookingStatus $changeStatus,
+        private readonly RefundBookingPayments $refundPayments,
+    ) {}
 
     /**
      * @param  array<string, mixed>  $payload  the verified gateway callback, stored for audit
@@ -58,11 +61,22 @@ final class SettleBookingPayment
                     ->whereKeyNot($locked->getKey())
                     ->where('status', PaymentStatus::Pending->value)
                     ->update(['status' => PaymentStatus::Failed->value]);
+            } elseif ($booking instanceof Booking && $booking->status === BookingStatus::Canceled) {
+                // Money for a booking that no longer exists: the hold expired and the
+                // slot was released just before the callback landed. The customer gets
+                // it all back automatically — they have nothing to show for it
+                // (SLO-131). The payment stays recorded, with the refund against it.
+                Log::warning('Payment settled after its booking was released — refunding in full', [
+                    'payment_id' => $locked->getKey(),
+                    'booking_id' => $locked->booking_id,
+                ]);
+
+                ($this->refundPayments)(
+                    $booking,
+                    RefundBookingPayments::FULL_REFUND,
+                    __('app.booking.reason.payment_expired'),
+                );
             } else {
-                // Money for a booking that is no longer waiting for it — the hold
-                // expired and the slot was released just before the callback landed.
-                // The payment stays recorded (and refundable) rather than silently
-                // dropped; automatic refunding is SLO-131.
                 Log::warning('Payment settled for a booking that no longer awaits payment', [
                     'payment_id' => $locked->getKey(),
                     'booking_id' => $locked->booking_id,

@@ -34,4 +34,15 @@ interface PaymentGateway
      * caller treats a null as "reject the request", never as "payment failed".
      */
     public function parseWebhook(Request $request): ?WebhookResult;
+
+    /**
+     * Return money to the customer against a settled payment (SLO-131). Called
+     * from a queued job, never inside the cancelling transaction. Throws when the
+     * gateway refuses; the caller records the refund as failed and keeps it
+     * visible as an outstanding obligation.
+     *
+     * @param  int  $amountMinor  may be less than the payment (partial refund)
+     * @return string the gateway's refund reference
+     */
+    public function refund(Payment $payment, int $amountMinor): string;
 }

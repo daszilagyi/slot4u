@@ -39,12 +39,13 @@ final class StartBookingPayment
         }
 
         $gateway = $this->gateways->default();
+        $amount = self::chargeableMinor($booking);
 
-        return DB::transaction(function () use ($booking, $gateway, $returnUrl): CheckoutSession {
+        return DB::transaction(function () use ($booking, $gateway, $returnUrl, $amount): CheckoutSession {
             $payment = new Payment([
                 'booking_id' => $booking->getKey(),
                 'provider' => $gateway->provider(),
-                'amount_minor' => $booking->price_minor,
+                'amount_minor' => $amount,
                 'currency' => $booking->currency,
             ]);
             // Explicit tenant stamp + quiet save: the action runs off the request
@@ -60,5 +61,16 @@ final class StartBookingPayment
 
             return $session;
         });
+    }
+
+    /**
+     * What the customer is charged online now: a resource_rental's deposit when the
+     * service asks for one, otherwise the whole booking price (docs/04 §4,
+     * SLO-131). The rest of a deposit booking is settled on site — the booking's
+     * own `price_minor` (and with it the commission base, docs/10 §3) is unchanged.
+     */
+    public static function chargeableMinor(Booking $booking): int
+    {
+        return $booking->service?->depositMinor() ?? $booking->price_minor;
     }
 }

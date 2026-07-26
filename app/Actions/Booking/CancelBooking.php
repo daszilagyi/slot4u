@@ -2,6 +2,7 @@
 
 namespace App\Actions\Booking;
 
+use App\Actions\Payment\RefundBookingPayments;
 use App\Enums\BookingStatus;
 use App\Models\Booking;
 use App\Models\User;
@@ -16,16 +17,21 @@ use Illuminate\Validation\ValidationException;
  */
 class CancelBooking
 {
-    public function __construct(private readonly ChangeBookingStatus $changeStatus) {}
+    public function __construct(
+        private readonly ChangeBookingStatus $changeStatus,
+        private readonly RefundBookingPayments $refundPayments,
+    ) {}
 
     /**
      * @param  bool  $rescheduled  this cancellation is the first half of a reschedule
      *                             (docs/04 §2) — passed on so the notification
      *                             listeners stay silent for it (SLO-109)
+     * @param  int|null  $refundMinor  refund exactly this much instead of the tenant's
+     *                                 policy amount (admin override, SLO-131)
      *
      * @throws ValidationException when an online cancellation is past the deadline
      */
-    public function __invoke(Booking $booking, ?User $actor = null, ?string $reason = null, bool $online = false, bool $rescheduled = false): Booking
+    public function __invoke(Booking $booking, ?User $actor = null, ?string $reason = null, bool $online = false, bool $rescheduled = false, ?int $refundMinor = null): Booking
     {
         if ($online) {
             // withTrashed: an archived tenant's settings must still resolve for a
@@ -40,6 +46,16 @@ class CancelBooking
             }
         }
 
-        return ($this->changeStatus)($booking, BookingStatus::Canceled, $actor, $reason, $rescheduled);
+        $canceled = ($this->changeStatus)($booking, BookingStatus::Canceled, $actor, $reason, $rescheduled);
+
+        // A reschedule keeps the appointment (and the money with it), so the old
+        // half of the pair must not refund anything (docs/04 §2, SLO-109). Any other
+        // cancellation returns what the tenant's refund policy says — or exactly what
+        // an admin decided (SLO-131).
+        if (! $rescheduled) {
+            ($this->refundPayments)($canceled, $refundMinor, $reason);
+        }
+
+        return $canceled;
     }
 }

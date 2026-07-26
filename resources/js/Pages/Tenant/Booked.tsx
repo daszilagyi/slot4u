@@ -83,12 +83,28 @@ export default function Booked({ booking }: BookedProps) {
                                   })
                                 : t('tenant.booked.pay_intro')}
                         </p>
+                        {/* A rental may only take a deposit now — say what is left
+                            to settle on site (SLO-131). */}
+                        {booking.due_minor < booking.price_minor ? (
+                            <p className="text-sm text-muted-foreground">
+                                {t('tenant.booked.deposit_note', {
+                                    deposit: formatMoney(
+                                        booking.due_minor,
+                                        booking.currency,
+                                    ),
+                                    balance: formatMoney(
+                                        booking.price_minor - booking.due_minor,
+                                        booking.currency,
+                                    ),
+                                })}
+                            </p>
+                        ) : null}
                         <Button asChild>
                             <a href={`/pay/${booking.code}`}>
                                 <CreditCardIcon className="size-4" />
                                 {t('tenant.booked.pay', {
                                     amount: formatMoney(
-                                        booking.price_minor,
+                                        booking.due_minor,
                                         booking.currency,
                                     ),
                                 })}

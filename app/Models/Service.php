@@ -143,6 +143,29 @@ class Service extends Model
     }
 
     /**
+     * The deposit charged online for a resource_rental instead of the full price
+     * (docs/04 §4, SLO-131), from `settings.deposit_minor`; null when the whole
+     * price is due up front. Ignored on the other modes and when it is not less
+     * than the price — a "deposit" equal to the price is just the price.
+     */
+    public function depositMinor(): ?int
+    {
+        if ($this->booking_mode !== BookingMode::ResourceRental) {
+            return null;
+        }
+
+        $value = $this->settings['deposit_minor'] ?? null;
+
+        if (! is_numeric($value)) {
+            return null;
+        }
+
+        $deposit = (int) $value;
+
+        return $deposit > 0 && $deposit < $this->price_minor ? $deposit : null;
+    }
+
+    /**
      * The customer-facing form fields a quote_request service asks for (docs/04
      * §6), stored in `settings.quote_fields`. Empty when unset.
      *
