@@ -149,8 +149,17 @@ refunds            id, tenant_id, payment_id, amount_minor, currency, status(pen
                    -- gateway-kiesésnél auditálható tartozás marad. Több részleges refund
                    -- állhat egy payment-en; az összegük a fizetett összegre van vágva.
                    -- A payment `refunded` csak TELJES visszatérítésnél lesz.
-invoices           id, tenant_id, booking_id, provider(szamlazzhu), provider_ref, number,
-                   status(issued|storno|failed), pdf_path, issued_at
+invoices           id, tenant_id, booking_id, payment_id(unique), provider(sandbox|szamlazzhu),
+                   provider_ref, number, amount_minor, currency,
+                   status(pending|issued|storno|failed), pdf_path, issued_at,
+                   storno_number, storno_pdf_path, stornoed_at, error
+                   -- egy sor / kifizetett payment (SLO-133); `pending`-ként jön létre, a
+                   -- queue-job tölti ki → provider-kiesésnél látható, újrapróbálható sor marad.
+                   -- Teljes visszatérítés a SORT sztornózza (nem új sort nyit).
+                   -- A PDF PRIVÁT diszken (`config/invoicing.disk`), csak auth-os letöltés.
+
+tenants.invoicing  -- titkosított (encrypted:array) oszlop: számlázó API kulcs + eladó adatok
+                   -- (SLO-133). NEM a sima `settings` json-ban, és sosem megy Inertia propba.
 ```
 
 ## Integrációs naplózás (M6-tól, minden külső hívásra)

@@ -1,4 +1,4 @@
-import { Head, Link, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
 import { ArrowLeftIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -10,12 +10,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatDateTime, formatMoney } from '@/lib/format';
 import { useTranslations } from '@/lib/i18n';
-import type { BookingDetail, BookingPayment } from '@/types';
+import type { BookingDetail, BookingInvoice, BookingPayment } from '@/types';
 
 type ShowProps = {
     booking: BookingDetail;
     payments: BookingPayment[];
     refundable_minor: number;
+    invoice: BookingInvoice | null;
     can: { edit: boolean; cancel: boolean };
 };
 
@@ -23,6 +24,7 @@ export default function BookingShow({
     booking,
     payments,
     refundable_minor: refundableMinor,
+    invoice,
     can,
 }: ShowProps) {
     const t = useTranslations();
@@ -320,6 +322,82 @@ export default function BookingShow({
                         )
                     ) : null}
                 </div>
+
+                {invoice ? (
+                    <div className="flex flex-col gap-3">
+                        <h2 className="text-lg font-semibold">
+                            {t('admin.bookings.invoice.title')}
+                        </h2>
+
+                        <div className="flex flex-col gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-mono font-medium">
+                                    {invoice.number ??
+                                        t('admin.bookings.invoice.none')}
+                                </span>
+                                <Badge variant="outline">
+                                    {t(
+                                        `admin.bookings.invoice.status.${invoice.status}`,
+                                    )}
+                                </Badge>
+                                <span className="ml-auto text-xs text-muted-foreground">
+                                    {invoice.issued_at
+                                        ? t('admin.bookings.invoice.issued_at', {
+                                              date: formatDateTime(
+                                                  invoice.issued_at,
+                                              ),
+                                          })
+                                        : formatMoney(
+                                              invoice.amount_minor,
+                                              invoice.currency,
+                                          )}
+                                </span>
+                            </div>
+
+                            {invoice.error ? (
+                                <p className="text-xs text-destructive">
+                                    {invoice.error}
+                                </p>
+                            ) : null}
+
+                            <div className="flex flex-wrap gap-2">
+                                {invoice.has_pdf ? (
+                                    <Button asChild variant="outline" size="sm">
+                                        <a
+                                            href={`/bookings/${booking.id}/invoices/${invoice.id}/pdf`}
+                                        >
+                                            {t(
+                                                'admin.bookings.invoice.download',
+                                            )}
+                                        </a>
+                                    </Button>
+                                ) : null}
+                                {can.edit && invoice.can_retry ? (
+                                    <Button
+                                        size="sm"
+                                        onClick={() =>
+                                            router.post(
+                                                `/bookings/${booking.id}/invoices/${invoice.id}/retry`,
+                                                {},
+                                                {
+                                                    preserveScroll: true,
+                                                    onSuccess: () =>
+                                                        toast.success(
+                                                            t(
+                                                                'admin.bookings.toast_invoice_retry',
+                                                            ),
+                                                        ),
+                                                },
+                                            )
+                                        }
+                                    >
+                                        {t('admin.bookings.invoice.retry')}
+                                    </Button>
+                                ) : null}
+                            </div>
+                        </div>
+                    </div>
+                ) : null}
 
                 <div className="flex flex-col gap-3">
                     <h2 className="text-lg font-semibold">

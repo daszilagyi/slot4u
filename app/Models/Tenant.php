@@ -22,6 +22,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $trial_ends_at
  * @property array<string, mixed>|null $branding
  * @property array<string, mixed>|null $settings
+ * @property array<string, mixed>|null $invoicing seller details + provider API key (encrypted at rest)
  */
 #[ObservedBy([TenantObserver::class])]
 class Tenant extends Model
@@ -41,6 +42,8 @@ class Tenant extends Model
         'trial_ends_at',
         'branding',
         'settings',
+        // NOTE: `invoicing` holds a provider credential and is deliberately NOT
+        // fillable — it is written through UpdateTenantInvoicing only (SLO-133).
     ];
 
     /**
@@ -53,6 +56,8 @@ class Tenant extends Model
             'trial_ends_at' => 'datetime',
             'branding' => 'array',
             'settings' => 'array',
+            // Encrypted at rest: it carries the invoicing provider's API key.
+            'invoicing' => 'encrypted:array',
         ];
     }
 

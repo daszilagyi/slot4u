@@ -531,6 +531,32 @@ export type QuoteRequestStatusValue =
     | 'accepted'
     | 'rejected';
 
+/** One of the customer's own invoices (SLO-133). */
+export type MyInvoice = {
+    id: number;
+    number: string | null;
+    booking_code: string | null;
+    service_name: string | null;
+    amount_minor: number;
+    currency: string;
+    status: 'issued' | 'storno';
+    issued_local: string | null;
+    has_pdf: boolean;
+};
+
+/** The customer invoice shown on the admin booking page (SLO-133). */
+export type BookingInvoice = {
+    id: number;
+    number: string | null;
+    status: 'pending' | 'issued' | 'storno' | 'failed';
+    amount_minor: number;
+    currency: string;
+    issued_at: string | null;
+    error: string | null;
+    can_retry: boolean;
+    has_pdf: boolean;
+};
+
 /** One of the customer's own online payments, with its refunds (SLO-132). */
 export type MyPayment = {
     id: number;

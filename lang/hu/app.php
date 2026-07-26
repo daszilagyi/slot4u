@@ -140,6 +140,7 @@ return [
             'my_waitlist' => 'Várólistáim',
             'my_quotes' => 'Ajánlatkéréseim',
             'my_payments' => 'Fizetéseim',
+            'my_invoices' => 'Számláim',
             'my_profile' => 'Profilom',
             'login' => 'Belépés',
         ],
@@ -176,6 +177,18 @@ return [
             'refund_status' => [
                 'pending' => 'Folyamatban',
                 'completed' => 'Teljesítve',
+            ],
+        ],
+        'my_invoices' => [
+            'title' => 'Számláim',
+            'empty' => 'Még nincs kiállított számlád.',
+            'number' => 'Számlaszám',
+            'code' => 'Foglalási kód',
+            'issued_at' => 'Kiállítva: :date',
+            'download' => 'PDF letöltése',
+            'status' => [
+                'issued' => 'Kiállítva',
+                'storno' => 'Sztornózva',
             ],
         ],
         'waitlist_status' => [
@@ -1048,9 +1061,25 @@ return [
                     'completed' => 'Teljesítve',
                 ],
             ],
+            'invoice' => [
+                'title' => 'Számla',
+                'none' => 'Ehhez a foglaláshoz nem készült számla.',
+                'number' => 'Számlaszám',
+                'issued_at' => 'Kiállítva: :date',
+                'download' => 'PDF letöltése',
+                'retry' => 'Kiállítás újrapróbálása',
+                'status' => [
+                    'pending' => 'Kiállítás folyamatban',
+                    'issued' => 'Kiállítva',
+                    'storno' => 'Sztornózva',
+                    'failed' => 'Sikertelen kiállítás',
+                ],
+            ],
             'toast_refunded' => 'Visszatérítés elindítva.',
+            'toast_invoice_retry' => 'Számla kiállítása újraindítva.',
             'error' => [
                 'nothing_to_refund' => 'Ehhez a foglaláshoz nincs visszatéríthető fizetés.',
+                'invoice_not_retryable' => 'Ez a számla nem próbálható újra — csak a sikertelen kiállítás ismételhető.',
                 'event_required' => 'Eseményalapú szolgáltatáshoz válassz eseményt.',
                 'slot_required' => 'Add meg a foglalás kezdő és záró időpontját.',
                 'resource_required' => 'Válassz dolgozót vagy helyiséget a foglaláshoz.',

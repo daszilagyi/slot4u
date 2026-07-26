@@ -55,6 +55,14 @@ export default function PublicLayout({ children }: PropsWithChildren) {
                             },
                         ]
                       : []),
+                  ...(feature('feature_invoicing')
+                      ? [
+                            {
+                                href: '/my/invoices',
+                                label: t('tenant.nav.my_invoices'),
+                            },
+                        ]
+                      : []),
                   { href: '/my/profile', label: t('tenant.nav.my_profile') },
               ]
             : auth.user
