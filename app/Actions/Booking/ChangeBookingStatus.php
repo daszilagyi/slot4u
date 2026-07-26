@@ -9,8 +9,10 @@ use App\Events\BookingStatusChanged;
 use App\Exceptions\InvalidBookingTransitionException;
 use App\Models\Booking;
 use App\Models\Event;
+use App\Models\Tenant;
 use App\Models\User;
 use App\Services\Booking\WaitlistService;
+use App\Settings\TenantSettings;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -75,9 +77,19 @@ class ChangeBookingStatus
                 $booking->reject_reason = $reason;
             }
 
-            // Leaving the requested state releases its soft hold (docs/04 §5, SLO-26).
-            if ($from === BookingStatus::Requested) {
+            // Leaving a holding state releases its soft hold: the approval window
+            // (docs/04 §5, SLO-26) or the payment window (SLO-130). Otherwise a
+            // paid booking would still carry a deadline for the sweeps to trip over.
+            if ($from === BookingStatus::Requested || $from === BookingStatus::PendingPayment) {
                 $booking->hold_expires_at = null;
+            }
+
+            // Entering the payment window starts its clock — this is the approval
+            // path (approved → pending_payment), where the deadline cannot have been
+            // stamped at creation (SLO-130). Without it the booking would hold its
+            // slot forever if the customer never paid.
+            if ($to === BookingStatus::PendingPayment) {
+                $booking->hold_expires_at = Carbon::now()->addMinutes($this->paymentHoldMinutes($booking));
             }
 
             $booking->save();
@@ -103,6 +115,17 @@ class ChangeBookingStatus
 
             return $booking;
         });
+    }
+
+    /**
+     * The booking tenant's payment hold window (SLO-130). Read per booking rather
+     * than from the ambient tenant: this action runs from tenant-less sweeps too.
+     */
+    private function paymentHoldMinutes(Booking $booking): int
+    {
+        $tenant = Tenant::withoutGlobalScopes()->find($booking->tenant_id);
+
+        return TenantSettings::fromArray($tenant?->settings)->paymentHoldMinutes;
     }
 
     /**

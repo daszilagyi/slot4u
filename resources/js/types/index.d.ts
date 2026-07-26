@@ -446,6 +446,19 @@ export type BookedBooking = {
     starts_local: string | null;
     ends_local: string | null;
     content_url: string | null;
+    /** Still awaiting online payment and the integration is on (SLO-130). */
+    payable: boolean;
+    price_minor: number;
+    currency: string;
+    /** When the unpaid booking releases its slot (tenant-local), if payable. */
+    payment_deadline_local: string | null;
+};
+
+/** The sandbox gateway's checkout screen (SLO-130, non-production only). */
+export type SandboxCheckoutPayment = {
+    reference: string | null;
+    amount_minor: number;
+    currency: string;
 };
 
 export type MyBooking = {

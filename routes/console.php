@@ -18,6 +18,12 @@ Schedule::command('waitlist:expire-offers')->hourly()->withoutOverlapping();
 // Release approval-pending bookings whose soft hold has lapsed (SLO-26).
 Schedule::command('bookings:expire-soft-holds')->hourly()->withoutOverlapping();
 
+// Release bookings whose online payment window has lapsed (SLO-130). Every ten
+// minutes, not hourly: the payment hold is minute-grained (30 min by default), so an
+// hourly sweep would hold a slot for twice its advertised window. withoutOverlapping
+// keeps a slow run from racing itself; the sweep is idempotent either way.
+Schedule::command('bookings:expire-pending-payments')->everyTenMinutes()->withoutOverlapping();
+
 // Remind customers of the bookings starting within 24 hours (SLO-110). Hourly, not
 // daily: a booking made two days out must still be reminded ~24h before it starts,
 // whatever hour that falls on. Re-running is free — the notifications_log claim

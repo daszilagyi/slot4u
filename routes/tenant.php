@@ -25,6 +25,7 @@ use App\Http\Controllers\Tenant\HomeController as TenantHomeController;
 use App\Http\Controllers\Tenant\MyBookingController;
 use App\Http\Controllers\Tenant\MyProfileController;
 use App\Http\Controllers\Tenant\MyRequestsController;
+use App\Http\Controllers\Tenant\PaymentController;
 use App\Http\Controllers\Tenant\SeoController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -72,6 +73,20 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
         Route::get('/quote-sent', [TenantBookingController::class, 'quoteSent'])->name('tenant.quote_sent');
         Route::get('/booked/{booking:code}', [TenantBookingController::class, 'confirmation'])->name('tenant.booked');
         Route::get('/booked/{booking:code}/ics', [TenantBookingController::class, 'ics'])->name('tenant.booked.ics');
+    });
+
+    // Customer online payment (SLO-130). Public like the booking flow: the booking
+    // code / the gateway's transaction reference are the access keys, and both
+    // route-bound models are tenant-scoped (cross-tenant → 404). Behind
+    // feature_online_payment — a tenant without the integration has nothing to pay
+    // with, and its pending_payment bookings simply lapse.
+    // Tighter throttle than the booking pages: every checkout opens a payment row,
+    // so this caps how many attempts one visitor can pile onto a booking.
+    Route::middleware(['throttle:20,1', 'ensure.feature:'.Feature::OnlinePayment->value])->group(function () {
+        Route::get('/pay/{booking:code}', [PaymentController::class, 'checkout'])->name('tenant.pay');
+        // The built-in sandbox gateway's checkout screen (disabled in production).
+        Route::get('/payments/sandbox/{payment:provider_ref}', [PaymentController::class, 'sandbox'])->name('tenant.payments.sandbox');
+        Route::post('/payments/sandbox/{payment:provider_ref}', [PaymentController::class, 'sandboxOutcome'])->name('tenant.payments.sandbox.outcome');
     });
 
     // Authenticated tenant admin panel: only *staff* members of this tenant
@@ -298,6 +313,17 @@ Route::middleware(['identify.tenant', 'auth', 'ensure.user.tenant', 'ensure.staf
     Route::get('/billing', [BillingController::class, 'index'])->name('tenant.billing.index');
     Route::get('/billing/export', [BillingController::class, 'export'])->name('tenant.billing.export');
     Route::get('/billing/invoices/{invoice}/pdf', [BillingController::class, 'invoicePdf'])->name('tenant.billing.invoice_pdf');
+});
+
+// Payment gateway callbacks (SLO-130). Deliberately OUTSIDE ensure.tenant.active
+// and outside the feature gate: a callback for a payment made just before the
+// tenant was suspended (or before the integration was switched off) must still be
+// recorded — money that arrived is a fact, not a permission (the SLO-120 pattern).
+// Authenticated by the gateway's own signature, not by session/CSRF (exempted in
+// bootstrap/app.php); the payment is looked up tenant-scoped, so a reference from
+// another tenant's gateway account 404s.
+Route::middleware(['identify.tenant', 'throttle:120,1'])->group(function () {
+    Route::post('/payments/webhook/{provider}', [PaymentController::class, 'webhook'])->name('tenant.payments.webhook');
 });
 
 // robots.txt must answer for a suspended tenant too (Disallow: /), so it sits

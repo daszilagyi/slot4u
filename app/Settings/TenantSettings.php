@@ -20,6 +20,14 @@ final class TenantSettings
     /** How long a requested (approval-pending) booking soft-holds its slot. */
     public const DEFAULT_APPROVAL_HOLD_HOURS = 48;
 
+    /**
+     * How long a pending_payment booking holds its slot before the expiry sweep
+     * releases it (docs/04, SLO-130). Minutes, not hours: an unpaid checkout must
+     * hand the slot back quickly. Falls back to the platform default in
+     * `config/payments.php`.
+     */
+    public const DEFAULT_PAYMENT_HOLD_MINUTES = 30;
+
     /** Allowed slot grid intervals in minutes (docs/02 booking rules). */
     public const SLOT_INTERVALS = [15, 30];
 
@@ -42,6 +50,7 @@ final class TenantSettings
         public readonly int $slotIntervalMinutes = self::DEFAULT_SLOT_INTERVAL_MINUTES,
         public readonly int $waitlistOfferHours = self::DEFAULT_WAITLIST_OFFER_HOURS,
         public readonly int $approvalHoldHours = self::DEFAULT_APPROVAL_HOLD_HOURS,
+        public readonly int $paymentHoldMinutes = self::DEFAULT_PAYMENT_HOLD_MINUTES,
     ) {}
 
     /**
@@ -73,6 +82,7 @@ final class TenantSettings
             slotIntervalMinutes: in_array($interval, self::SLOT_INTERVALS, true) ? $interval : self::DEFAULT_SLOT_INTERVAL_MINUTES,
             waitlistOfferHours: max(1, (int) ($data['waitlist_offer_hours'] ?? self::DEFAULT_WAITLIST_OFFER_HOURS)),
             approvalHoldHours: max(1, (int) ($data['approval_hold_hours'] ?? self::DEFAULT_APPROVAL_HOLD_HOURS)),
+            paymentHoldMinutes: max(1, (int) ($data['payment_hold_minutes'] ?? config('payments.hold_minutes', self::DEFAULT_PAYMENT_HOLD_MINUTES))),
         );
     }
 
@@ -94,6 +104,7 @@ final class TenantSettings
             'slot_interval_minutes' => $this->slotIntervalMinutes,
             'waitlist_offer_hours' => $this->waitlistOfferHours,
             'approval_hold_hours' => $this->approvalHoldHours,
+            'payment_hold_minutes' => $this->paymentHoldMinutes,
         ];
     }
 

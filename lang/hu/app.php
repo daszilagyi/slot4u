@@ -83,6 +83,9 @@ return [
             'back' => 'Vissza a főoldalra',
             'content_intro' => 'A megrendelt tartalom elérhető:',
             'content_link' => 'Tartalom megnyitása',
+            'pay' => 'Fizetés — :amount',
+            'pay_intro' => 'A foglalásod a fizetés beérkezéséig nincs véglegesítve.',
+            'pay_deadline' => 'A foglalásod a fizetés beérkezéséig nincs véglegesítve. Az időpontot :deadline-ig tartjuk fenn.',
             'ics_description' => 'slot4u foglalás — kód: :code',
             'status' => [
                 'confirmed' => 'A foglalásod megerősítve.',
@@ -94,6 +97,16 @@ return [
                 'no_show' => 'A foglalásod lezárva, mert nem jelentél meg.',
                 'default' => 'A foglalásod rögzítve.',
             ],
+        ],
+        'sandbox_checkout' => [
+            'title' => 'Fizetés',
+            'subtitle' => 'Teszt fizetési felület — itt döntheted el, hogy a fizetés sikerül vagy elutasításra kerül.',
+            'badge' => 'Teszt üzemmód',
+            'service' => 'Szolgáltatás',
+            'code' => 'Foglalási kód',
+            'amount' => 'Fizetendő',
+            'pay' => 'Sikeres fizetés',
+            'decline' => 'Fizetés elutasítása',
         ],
         'waitlisted' => [
             'title' => 'Felkerültél a várólistára',
@@ -1301,6 +1314,7 @@ return [
         'duration' => 'Időtartam',
         'reason' => [
             'hold_expired' => 'A jóváhagyási határidő lejárt — az ideiglenes foglalás automatikusan felszabadult.',
+            'payment_expired' => 'A fizetési határidő lejárt — a foglalás automatikusan felszabadult.',
         ],
         'error' => [
             'cancel_deadline_passed' => 'A foglalás már nem mondható le online — a lemondási határidő (:hours óra) lejárt. Vedd fel a kapcsolatot a szolgáltatóval.',
