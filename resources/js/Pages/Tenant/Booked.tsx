@@ -1,9 +1,15 @@
 import { Head, Link } from '@inertiajs/react';
-import { CalendarPlusIcon, CheckCircle2Icon, XCircleIcon } from 'lucide-react';
+import {
+    CalendarPlusIcon,
+    CheckCircle2Icon,
+    CreditCardIcon,
+    XCircleIcon,
+} from 'lucide-react';
 
 import PublicLayout from '@/Layouts/PublicLayout';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { formatMoney } from '@/lib/format';
 import { useTranslations } from '@/lib/i18n';
 import type { BookedBooking } from '@/types';
 
@@ -67,6 +73,29 @@ export default function Booked({ booking }: BookedProps) {
                         {t(`tenant.booked.status.${statusKey}`)}
                     </p>
                 </div>
+
+                {booking.payable ? (
+                    <div className="flex flex-col items-center gap-3 rounded-xl border border-primary/40 bg-card px-4 py-6 text-center">
+                        <p className="text-sm text-muted-foreground">
+                            {booking.payment_deadline_local
+                                ? t('tenant.booked.pay_deadline', {
+                                      deadline: booking.payment_deadline_local,
+                                  })
+                                : t('tenant.booked.pay_intro')}
+                        </p>
+                        <Button asChild>
+                            <a href={`/pay/${booking.code}`}>
+                                <CreditCardIcon className="size-4" />
+                                {t('tenant.booked.pay', {
+                                    amount: formatMoney(
+                                        booking.price_minor,
+                                        booking.currency,
+                                    ),
+                                })}
+                            </a>
+                        </Button>
+                    </div>
+                ) : null}
 
                 {booking.content_url ? (
                     <div className="flex flex-col items-center gap-3 rounded-xl border border-primary/40 bg-card px-4 py-6 text-center">

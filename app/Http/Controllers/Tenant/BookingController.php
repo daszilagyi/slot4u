@@ -167,9 +167,7 @@ class BookingController extends Controller
             'source' => BookingSource::Online->value,
         ]);
 
-        // Relative redirect keeps us on the current tenant subdomain (the named
-        // route is domain-bound and would need the {tenant} param).
-        return redirect('/booked/'.$booking->code);
+        return $this->afterBooking($booking);
     }
 
     /**
@@ -199,7 +197,24 @@ class BookingController extends Controller
             'source' => BookingSource::Online->value,
         ]);
 
-        return redirect('/booked/'.$booking->code);
+        return $this->afterBooking($booking);
+    }
+
+    /**
+     * Where a freshly created public booking goes (SLO-130): straight to checkout
+     * when it is waiting on money, otherwise to its confirmation page. A tenant
+     * whose online-payment integration is off has nowhere to pay — the booking
+     * lands on the confirmation page and lapses when its hold expires.
+     *
+     * Relative redirect keeps us on the current tenant subdomain (the named route
+     * is domain-bound and would need the {tenant} param).
+     */
+    private function afterBooking(Booking $booking): RedirectResponse
+    {
+        $awaitingPayment = $booking->status === BookingStatus::PendingPayment
+            && app(FeatureResolver::class)->enabled(app(TenantManager::class)->current(), Feature::OnlinePayment);
+
+        return redirect(($awaitingPayment ? '/pay/' : '/booked/').$booking->code);
     }
 
     /**
@@ -302,7 +317,7 @@ class BookingController extends Controller
             ]);
         }
 
-        return redirect('/booked/'.$booking->code);
+        return $this->afterBooking($booking);
     }
 
     /**
@@ -409,7 +424,8 @@ class BookingController extends Controller
     public function confirmation(string $tenant, Booking $booking): Response
     {
         $booking->load(['service:id,name,settings,booking_mode', 'staff:id,name']);
-        $timezone = app(TenantManager::class)->current()->timezone;
+        $tenantModel = app(TenantManager::class)->current();
+        $timezone = $tenantModel->timezone;
 
         $service = $booking->service;
         // Deliver the digital content link only once the order is completed and the
@@ -422,6 +438,12 @@ class BookingController extends Controller
             ? $service->contentUrl()
             : null;
 
+        // A booking still waiting on money offers a (re)payment link until its hold
+        // expires — a refused card leaves the booking payable, not cancelled
+        // (SLO-130). Without the integration there is nowhere to pay.
+        $payable = $booking->status === BookingStatus::PendingPayment
+            && app(FeatureResolver::class)->enabled($tenantModel, Feature::OnlinePayment);
+
         return Inertia::render('Tenant/Booked', [
             'booking' => [
                 'code' => $booking->code,
@@ -432,6 +454,12 @@ class BookingController extends Controller
                 'starts_local' => $this->localDateTime($booking->starts_at, $timezone),
                 'ends_local' => $this->localDateTime($booking->ends_at, $timezone),
                 'content_url' => $contentUrl,
+                'payable' => $payable,
+                'price_minor' => $booking->price_minor,
+                'currency' => $booking->currency,
+                'payment_deadline_local' => $payable
+                    ? $this->localDateTime($booking->hold_expires_at, $timezone)
+                    : null,
             ],
             'timezone' => $timezone,
         ]);

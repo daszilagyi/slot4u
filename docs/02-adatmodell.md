@@ -138,8 +138,10 @@ commission_invoices          id, tenant_id, period(YYYY-MM, unique a tenanton be
 > Ez a tenant **saját** ügyfél-fizetése (Barion/Stripe a tenant javára) és a tenant ügyfél-számlázása — **független** a slot4u jutalék-beszedésétől (docs/10 §4). A `feature_online_payment` / `feature_invoicing` aktiválása a tenant jutalékrátáját 1,0%-ról 1,5%-ra emeli (docs/10 §2.1).
 
 ```
-payments           id, tenant_id, booking_id, provider(barion|stripe), provider_ref,
+payments           id, tenant_id, booking_id, provider(sandbox|barion|stripe), provider_ref,
                    amount_minor, currency, status(pending|paid|failed|refunded), paid_at, payload(json)
+                   -- egy sor / checkout-kísérlet (SLO-130); unique(provider, provider_ref) = a
+                   -- webhook idempotencia-kulcsa; `sandbox` = beépített teszt-gateway (nem prod)
 refunds            id, payment_id, amount_minor, reason, status(pending|completed|failed),
                    refunded_at               -- teljes/részleges/manuális/API refund (SLO-40)
 invoices           id, tenant_id, booking_id, provider(szamlazzhu), provider_ref, number,

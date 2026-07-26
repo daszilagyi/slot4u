@@ -78,6 +78,13 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleInertiaRequests::class,
         ]);
 
+        // Payment gateway callbacks carry no session and cannot present a CSRF
+        // token — they are authenticated by the provider's own signature, which the
+        // gateway adapter verifies before anything is written (SLO-130).
+        $middleware->validateCsrfTokens(except: [
+            'payments/webhook/*',
+        ]);
+
         $middleware->alias([
             'identify.tenant' => IdentifyTenant::class,
             'ensure.tenant.active' => EnsureTenantActive::class,

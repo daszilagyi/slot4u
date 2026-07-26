@@ -74,11 +74,15 @@ class CreateBooking
         $source = BookingSource::tryFrom((string) ($data['source'] ?? '')) ?? BookingSource::Admin;
         $status = $this->initialStatus($service, $source);
 
-        // A requested (approval-pending) booking soft-holds its slot until the
-        // tenant's approval-hold window elapses (docs/04 §5, SLO-26).
-        $holdExpiresAt = $status === BookingStatus::Requested
-            ? Carbon::now()->addHours($this->approvalHoldHours($service))
-            : null;
+        // A booking that isn't confirmed yet only soft-holds its slot for a while
+        // (docs/04): until the tenant's approval-hold window elapses when it waits
+        // for a decision (§5, SLO-26), or until the payment window elapses when it
+        // waits for money (SLO-130). Both are released by their sweep command.
+        $holdExpiresAt = match ($status) {
+            BookingStatus::Requested => Carbon::now()->addHours($this->tenantSettings($service)->approvalHoldHours),
+            BookingStatus::PendingPayment => Carbon::now()->addMinutes($this->tenantSettings($service)->paymentHoldMinutes),
+            default => null,
+        };
 
         $attributes = [
             'customer_id' => $data['customer_id'] ?? null,
@@ -114,11 +118,11 @@ class CreateBooking
         };
     }
 
-    private function approvalHoldHours(Service $service): int
+    private function tenantSettings(Service $service): TenantSettings
     {
         $tenant = Tenant::withoutGlobalScopes()->find($service->tenant_id);
 
-        return TenantSettings::fromArray($tenant?->settings)->approvalHoldHours;
+        return TenantSettings::fromArray($tenant?->settings);
     }
 
     private function initialStatus(Service $service, BookingSource $source): BookingStatus
