@@ -23,6 +23,7 @@ use App\Http\Controllers\Super\ImpersonationController;
 use App\Http\Controllers\Tenant\BookingController as TenantBookingController;
 use App\Http\Controllers\Tenant\HomeController as TenantHomeController;
 use App\Http\Controllers\Tenant\MyBookingController;
+use App\Http\Controllers\Tenant\MyPaymentController;
 use App\Http\Controllers\Tenant\MyProfileController;
 use App\Http\Controllers\Tenant\MyRequestsController;
 use App\Http\Controllers\Tenant\PaymentController;
@@ -300,6 +301,11 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
         Route::get('/my/quotes', [MyRequestsController::class, 'quotes'])
             ->middleware('ensure.feature:'.Feature::QuoteRequest->value)
             ->name('tenant.my.quotes');
+        // My online payments and their refunds (SLO-132). Self-scoped through the
+        // booking's customer_id; feature-gated like the rest of the payment surface.
+        Route::get('/my/payments', [MyPaymentController::class, 'index'])
+            ->middleware('ensure.feature:'.Feature::OnlinePayment->value)
+            ->name('tenant.my.payments');
     });
 });
 

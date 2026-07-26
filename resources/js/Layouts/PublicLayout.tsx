@@ -47,6 +47,14 @@ export default function PublicLayout({ children }: PropsWithChildren) {
                             },
                         ]
                       : []),
+                  ...(feature('feature_online_payment')
+                      ? [
+                            {
+                                href: '/my/payments',
+                                label: t('tenant.nav.my_payments'),
+                            },
+                        ]
+                      : []),
                   { href: '/my/profile', label: t('tenant.nav.my_profile') },
               ]
             : auth.user
