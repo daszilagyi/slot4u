@@ -21,6 +21,8 @@ type SettingsData = {
     social: Record<string, string>;
     cancellation_deadline_hours: number;
     slot_interval_minutes: number;
+    refund_policy: string;
+    refund_percent_bps: number;
 };
 
 type BrandingData = {
@@ -36,6 +38,8 @@ type IndexProps = {
     brandingEnabled: boolean;
     slotIntervals: number[];
     socialPlatforms: string[];
+    refundPolicies: string[];
+    onlinePaymentEnabled: boolean;
 };
 
 export default function SettingsIndex({
@@ -45,6 +49,8 @@ export default function SettingsIndex({
     brandingEnabled,
     slotIntervals,
     socialPlatforms,
+    refundPolicies,
+    onlinePaymentEnabled,
 }: IndexProps) {
     const t = useTranslations();
 
@@ -63,6 +69,9 @@ export default function SettingsIndex({
         }, {}),
         cancellation_deadline_hours: settings.cancellation_deadline_hours,
         slot_interval_minutes: settings.slot_interval_minutes,
+        refund_policy: settings.refund_policy,
+        // Entered as a percentage, stored in basis points (SLO-131).
+        refund_percent: Math.round(settings.refund_percent_bps / 100),
         primary_color: branding.primary_color,
         logo: null as File | null,
         cover: null as File | null,
@@ -90,6 +99,8 @@ export default function SettingsIndex({
                 social: data.social,
                 cancellation_deadline_hours: data.cancellation_deadline_hours,
                 slot_interval_minutes: data.slot_interval_minutes,
+                refund_policy: data.refund_policy,
+                refund_percent: data.refund_percent,
             };
         });
         form.post('/settings', {
@@ -325,6 +336,58 @@ export default function SettingsIndex({
                                 ))}
                             </select>
                         </Field>
+
+                        {/* Refund policy (SLO-131) — only does anything for a
+                            tenant that can take money online. */}
+                        <Field
+                            id="set-refund-policy"
+                            label={t('admin.settings.field.refund_policy')}
+                            error={form.errors.refund_policy}
+                        >
+                            <select
+                                id="set-refund-policy"
+                                value={form.data.refund_policy}
+                                onChange={(e) =>
+                                    form.setData('refund_policy', e.target.value)
+                                }
+                                className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                            >
+                                {refundPolicies.map((policy) => (
+                                    <option key={policy} value={policy}>
+                                        {t(
+                                            `admin.settings.refund_policy.${policy}`,
+                                        )}
+                                    </option>
+                                ))}
+                            </select>
+                            <p className="text-xs text-muted-foreground">
+                                {onlinePaymentEnabled
+                                    ? t('admin.settings.refund_hint')
+                                    : t('admin.settings.refund_hint_off')}
+                            </p>
+                        </Field>
+
+                        {form.data.refund_policy === 'partial' ? (
+                            <Field
+                                id="set-refund-percent"
+                                label={t('admin.settings.field.refund_percent')}
+                                error={form.errors.refund_percent}
+                            >
+                                <Input
+                                    id="set-refund-percent"
+                                    type="number"
+                                    min={1}
+                                    max={100}
+                                    value={form.data.refund_percent}
+                                    onChange={(e) =>
+                                        form.setData(
+                                            'refund_percent',
+                                            Number(e.target.value),
+                                        )
+                                    }
+                                />
+                            </Field>
+                        ) : null}
                     </div>
                 </section>
 

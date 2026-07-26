@@ -73,6 +73,15 @@ final class SandboxGateway implements PaymentGateway
     }
 
     /**
+     * The sandbox always accepts a refund — the failure path is exercised in tests
+     * by swapping in a gateway double, not by making this one flaky.
+     */
+    public function refund(Payment $payment, int $amountMinor): string
+    {
+        return 'sbxr_'.Str::lower(Str::random(32));
+    }
+
+    /**
      * The signature a caller must present for a callback to be accepted. Public so
      * the test suite (and a manual demo) can produce an authentic callback without
      * duplicating the scheme.

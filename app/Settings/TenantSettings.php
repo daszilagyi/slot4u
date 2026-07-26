@@ -2,6 +2,8 @@
 
 namespace App\Settings;
 
+use App\Enums\RefundPolicy;
+
 /**
  * Typed view over a tenant's `settings` JSON (SLO-21): company profile fields and
  * the booking rules the M3 engine consumes (online cancellation deadline, slot
@@ -31,6 +33,16 @@ final class TenantSettings
     /** Allowed slot grid intervals in minutes (docs/02 booking rules). */
     public const SLOT_INTERVALS = [15, 30];
 
+    /**
+     * What is refunded automatically when a paid booking is cancelled (SLO-131).
+     * Defaults to `none`: handing money back is a business decision the tenant has
+     * to opt into, and an admin can always refund by hand.
+     */
+    public const DEFAULT_REFUND_POLICY = RefundPolicy::None;
+
+    /** The share refunded under the `partial` policy, in basis points (50% = 5000). */
+    public const DEFAULT_REFUND_PERCENT_BPS = 5000;
+
     /** Social platforms exposed on the profile (stable, typed keys). */
     public const SOCIAL_PLATFORMS = ['website', 'facebook', 'instagram'];
 
@@ -51,7 +63,18 @@ final class TenantSettings
         public readonly int $waitlistOfferHours = self::DEFAULT_WAITLIST_OFFER_HOURS,
         public readonly int $approvalHoldHours = self::DEFAULT_APPROVAL_HOLD_HOURS,
         public readonly int $paymentHoldMinutes = self::DEFAULT_PAYMENT_HOLD_MINUTES,
+        public readonly RefundPolicy $refundPolicy = self::DEFAULT_REFUND_POLICY,
+        public readonly int $refundPercentBps = self::DEFAULT_REFUND_PERCENT_BPS,
     ) {}
+
+    /**
+     * What this tenant refunds automatically for a settled payment of
+     * `$paidMinor` (SLO-131).
+     */
+    public function automaticRefundMinor(int $paidMinor): int
+    {
+        return $this->refundPolicy->amountFor($paidMinor, $this->refundPercentBps);
+    }
 
     /**
      * @param  array<string, mixed>|null  $data
@@ -83,6 +106,8 @@ final class TenantSettings
             waitlistOfferHours: max(1, (int) ($data['waitlist_offer_hours'] ?? self::DEFAULT_WAITLIST_OFFER_HOURS)),
             approvalHoldHours: max(1, (int) ($data['approval_hold_hours'] ?? self::DEFAULT_APPROVAL_HOLD_HOURS)),
             paymentHoldMinutes: max(1, (int) ($data['payment_hold_minutes'] ?? config('payments.hold_minutes', self::DEFAULT_PAYMENT_HOLD_MINUTES))),
+            refundPolicy: RefundPolicy::tryFrom((string) ($data['refund_policy'] ?? '')) ?? self::DEFAULT_REFUND_POLICY,
+            refundPercentBps: min(10_000, max(0, (int) ($data['refund_percent_bps'] ?? self::DEFAULT_REFUND_PERCENT_BPS))),
         );
     }
 
@@ -105,6 +130,8 @@ final class TenantSettings
             'waitlist_offer_hours' => $this->waitlistOfferHours,
             'approval_hold_hours' => $this->approvalHoldHours,
             'payment_hold_minutes' => $this->paymentHoldMinutes,
+            'refund_policy' => $this->refundPolicy->value,
+            'refund_percent_bps' => $this->refundPercentBps,
         ];
     }
 

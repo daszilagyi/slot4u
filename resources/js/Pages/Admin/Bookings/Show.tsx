@@ -1,20 +1,45 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, useForm } from '@inertiajs/react';
 import { ArrowLeftIcon } from 'lucide-react';
+import { toast } from 'sonner';
 
 import AdminLayout from '@/Layouts/AdminLayout';
 import PageHeader from '@/components/admin/PageHeader';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { formatDateTime, formatMoney } from '@/lib/format';
 import { useTranslations } from '@/lib/i18n';
-import type { BookingDetail } from '@/types';
+import type { BookingDetail, BookingPayment } from '@/types';
 
 type ShowProps = {
     booking: BookingDetail;
+    payments: BookingPayment[];
+    refundable_minor: number;
     can: { edit: boolean; cancel: boolean };
 };
 
-export default function BookingShow({ booking }: ShowProps) {
+export default function BookingShow({
+    booking,
+    payments,
+    refundable_minor: refundableMinor,
+    can,
+}: ShowProps) {
     const t = useTranslations();
+    // The amount is entered in major units (what an admin thinks in) and sent as
+    // minor units — money never travels as a float.
+    const refundForm = useForm({ amount_minor: 0, reason: '' });
+
+    const submitRefund = (event: React.FormEvent) => {
+        event.preventDefault();
+        refundForm.post(`/bookings/${booking.id}/refund`, {
+            preserveScroll: true,
+            onSuccess: () => {
+                refundForm.reset();
+                toast.success(t('admin.bookings.toast_refunded'));
+            },
+        });
+    };
 
     const rows: { label: string; value: string }[] = [
         {
@@ -118,6 +143,182 @@ export default function BookingShow({ booking }: ShowProps) {
                             </div>
                         ))}
                     </dl>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                    <h2 className="text-lg font-semibold">
+                        {t('admin.bookings.payments.title')}
+                    </h2>
+
+                    {payments.length === 0 ? (
+                        <p className="rounded-xl border border-border bg-card px-4 py-8 text-center text-sm text-muted-foreground">
+                            {t('admin.bookings.payments.empty')}
+                        </p>
+                    ) : (
+                        <ul className="flex flex-col gap-2">
+                            {payments.map((payment) => (
+                                <li
+                                    key={payment.id}
+                                    className="flex flex-col gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm"
+                                >
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <span className="font-medium">
+                                            {formatMoney(
+                                                payment.amount_minor,
+                                                payment.currency,
+                                            )}
+                                        </span>
+                                        <Badge variant="outline">
+                                            {t(
+                                                `admin.bookings.payments.status.${payment.status}`,
+                                            )}
+                                        </Badge>
+                                        <span className="ml-auto text-xs text-muted-foreground">
+                                            {payment.paid_at
+                                                ? t(
+                                                      'admin.bookings.payments.paid_at',
+                                                      {
+                                                          date: formatDateTime(
+                                                              payment.paid_at,
+                                                          ),
+                                                      },
+                                                  )
+                                                : payment.provider}
+                                        </span>
+                                    </div>
+
+                                    {payment.refunds.map((refund) => (
+                                        <div
+                                            key={refund.id}
+                                            className="flex flex-wrap items-center gap-2 border-t border-border pt-2 text-xs text-muted-foreground"
+                                        >
+                                            <span>
+                                                {t(
+                                                    'admin.bookings.payments.refunded_row',
+                                                    {
+                                                        amount: formatMoney(
+                                                            refund.amount_minor,
+                                                            refund.currency,
+                                                        ),
+                                                    },
+                                                )}
+                                            </span>
+                                            <Badge variant="outline">
+                                                {t(
+                                                    `admin.bookings.payments.status.${refund.status}`,
+                                                )}
+                                            </Badge>
+                                            {refund.reason ? (
+                                                <span>{refund.reason}</span>
+                                            ) : null}
+                                        </div>
+                                    ))}
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+
+                    {can.cancel && payments.length > 0 ? (
+                        refundableMinor > 0 ? (
+                            <form
+                                onSubmit={submitRefund}
+                                className="flex flex-col gap-3 rounded-xl border border-border bg-card px-4 py-4"
+                            >
+                                <div>
+                                    <h3 className="text-sm font-semibold">
+                                        {t(
+                                            'admin.bookings.payments.refund_title',
+                                        )}
+                                    </h3>
+                                    <p className="text-xs text-muted-foreground">
+                                        {t(
+                                            'admin.bookings.payments.refund_desc',
+                                            {
+                                                amount: formatMoney(
+                                                    refundableMinor,
+                                                    booking.currency,
+                                                ),
+                                            },
+                                        )}
+                                    </p>
+                                </div>
+
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                    <div className="flex flex-col gap-1.5">
+                                        <Label htmlFor="refund_amount">
+                                            {t(
+                                                'admin.bookings.payments.refund_amount',
+                                            )}
+                                        </Label>
+                                        <Input
+                                            id="refund_amount"
+                                            type="number"
+                                            min={1}
+                                            max={Math.floor(
+                                                refundableMinor / 100,
+                                            )}
+                                            value={
+                                                refundForm.data.amount_minor
+                                                    ? refundForm.data
+                                                          .amount_minor / 100
+                                                    : ''
+                                            }
+                                            onChange={(event) =>
+                                                refundForm.setData(
+                                                    'amount_minor',
+                                                    Math.round(
+                                                        Number(
+                                                            event.target
+                                                                .value || 0,
+                                                        ) * 100,
+                                                    ),
+                                                )
+                                            }
+                                        />
+                                        {refundForm.errors.amount_minor ? (
+                                            <p className="text-xs text-destructive">
+                                                {refundForm.errors.amount_minor}
+                                            </p>
+                                        ) : null}
+                                    </div>
+                                    <div className="flex flex-col gap-1.5">
+                                        <Label htmlFor="refund_reason">
+                                            {t(
+                                                'admin.bookings.payments.refund_reason',
+                                            )}
+                                        </Label>
+                                        <Input
+                                            id="refund_reason"
+                                            value={refundForm.data.reason}
+                                            onChange={(event) =>
+                                                refundForm.setData(
+                                                    'reason',
+                                                    event.target.value,
+                                                )
+                                            }
+                                        />
+                                    </div>
+                                </div>
+
+                                <Button
+                                    type="submit"
+                                    className="w-fit"
+                                    disabled={
+                                        refundForm.processing ||
+                                        refundForm.data.amount_minor <= 0
+                                    }
+                                >
+                                    {t('admin.bookings.payments.refund_submit')}
+                                </Button>
+                            </form>
+                        ) : (
+                            <p className="text-xs text-muted-foreground">
+                                {t(
+                                    'admin.bookings.payments.nothing_refundable',
+                                )}
+                            </p>
+                        )
+                    ) : null}
                 </div>
 
                 <div className="flex flex-col gap-3">

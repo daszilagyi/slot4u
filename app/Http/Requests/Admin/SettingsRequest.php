@@ -4,6 +4,7 @@ namespace App\Http\Requests\Admin;
 
 use App\Enums\Feature;
 use App\Enums\Permission;
+use App\Enums\RefundPolicy;
 use App\Settings\TenantSettings;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
@@ -47,6 +48,14 @@ class SettingsRequest extends FormRequest
             // Booking rules (consumed by the M3 engine).
             'cancellation_deadline_hours' => ['required', 'integer', 'min:0', 'max:336'],
             'slot_interval_minutes' => ['required', 'integer', Rule::in(TenantSettings::SLOT_INTERVALS)],
+
+            // Refund policy for a cancelled paid booking (SLO-131). The share only
+            // matters for the `partial` policy; it is entered as a percentage and
+            // stored in basis points.
+            // `sometimes`: a payload that omits them leaves the stored policy alone
+            // (the page always sends both).
+            'refund_policy' => ['sometimes', 'nullable', Rule::enum(RefundPolicy::class)],
+            'refund_percent' => ['required_if:refund_policy,'.RefundPolicy::Partial->value, 'nullable', 'integer', 'min:1', 'max:100'],
 
             // Branding — validated here, but only honoured when the feature is on
             // (see withValidator + UpdateTenantSettings).

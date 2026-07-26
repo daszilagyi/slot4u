@@ -6,6 +6,7 @@ use App\Actions\Booking\CreateBooking;
 use App\Actions\Customer\FindOrCreateCustomer;
 use App\Actions\Customer\PublicContact;
 use App\Actions\Customer\ResolvePublicContact;
+use App\Actions\Payment\StartBookingPayment;
 use App\Actions\Quote\CreateQuoteRequest;
 use App\Actions\Quote\PostQuoteMessage;
 use App\Actions\Waitlist\JoinWaitlist;
@@ -457,6 +458,9 @@ class BookingController extends Controller
                 'payable' => $payable,
                 'price_minor' => $booking->price_minor,
                 'currency' => $booking->currency,
+                // What is actually charged online now: a rental's deposit when the
+                // service asks for one, the whole price otherwise (SLO-131).
+                'due_minor' => StartBookingPayment::chargeableMinor($booking),
                 'payment_deadline_local' => $payable
                     ? $this->localDateTime($booking->hold_expires_at, $timezone)
                     : null,

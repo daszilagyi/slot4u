@@ -7,14 +7,18 @@ use App\Actions\Booking\ChangeBookingStatus;
 use App\Actions\Booking\CompleteBooking;
 use App\Actions\Booking\CreateBooking;
 use App\Actions\Booking\RescheduleBooking;
+use App\Actions\Payment\RefundBookingPayments;
 use App\Enums\BookingSource;
 use App\Enums\BookingStatus;
 use App\Enums\Permission;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\BookingRequest;
 use App\Http\Requests\Admin\CancelBookingRequest;
+use App\Http\Requests\Admin\RefundBookingRequest;
 use App\Http\Requests\Admin\RescheduleBookingRequest;
 use App\Models\Booking;
+use App\Models\Payment;
+use App\Models\Refund;
 use App\Models\Service;
 use App\Models\Staff;
 use App\Models\User;
@@ -26,6 +30,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -101,6 +106,11 @@ class BookingController extends Controller
 
         return Inertia::render('Admin/Bookings/Show', [
             'booking' => $this->detail($booking),
+            // What the customer paid online and what came back (SLO-131). Only
+            // meaningful for a tenant with the integration, but harmless (and empty)
+            // without it.
+            'payments' => $this->payments($booking),
+            'refundable_minor' => app(RefundBookingPayments::class)->refundableMinor($booking),
             'can' => [
                 'edit' => (bool) $actor->can(Permission::BookingEdit->value),
                 'cancel' => (bool) $actor->can(Permission::BookingCancel->value),
@@ -154,6 +164,36 @@ class BookingController extends Controller
         Gate::authorize('cancel', $booking);
 
         $cancelBooking($booking, $actor, $request->validated('reason'));
+
+        return back();
+    }
+
+    /**
+     * Refund a booking by hand (SLO-131) — the override on top of the tenant's
+     * automatic refund policy: a goodwill refund for a booking cancelled under a
+     * `none` policy, a top-up after a partial one, or the money back for a booking
+     * that was never cancelled at all. Gated by booking.cancel; the amount is
+     * capped at what is still refundable, and 422s when nothing is.
+     */
+    public function refund(RefundBookingRequest $request, string $tenant, Booking $booking, RefundBookingPayments $refundPayments): RedirectResponse
+    {
+        $actor = $request->user();
+        abort_unless(BookingVisibility::owns($actor, $booking), 404);
+        Gate::authorize('cancel', $booking);
+
+        $refunds = $refundPayments(
+            $booking,
+            (int) $request->validated('amount_minor'),
+            $request->validated('reason'),
+        );
+
+        // Nothing settled to refund (or already fully refunded) — tell the admin
+        // rather than silently doing nothing.
+        if ($refunds === []) {
+            throw ValidationException::withMessages([
+                'amount_minor' => __('app.admin.bookings.error.nothing_to_refund'),
+            ]);
+        }
 
         return back();
     }
@@ -261,6 +301,38 @@ class BookingController extends Controller
             'price_minor' => (int) $booking->price_minor,
             'currency' => $booking->currency,
         ];
+    }
+
+    /**
+     * The booking's online payment attempts with their refunds (SLO-131), newest
+     * first. Eager-loaded in one extra query each — no N+1 over the attempts.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function payments(Booking $booking): array
+    {
+        return Payment::query()
+            ->where('booking_id', $booking->getKey())
+            ->with(['refunds' => fn ($query) => $query->orderByDesc('id')])
+            ->orderByDesc('id')
+            ->get()
+            ->map(fn (Payment $payment): array => [
+                'id' => $payment->id,
+                'provider' => $payment->provider->value,
+                'status' => $payment->status->value,
+                'amount_minor' => $payment->amount_minor,
+                'currency' => $payment->currency,
+                'paid_at' => $payment->paid_at?->toIso8601String(),
+                'refunds' => $payment->refunds->map(fn (Refund $refund): array => [
+                    'id' => $refund->id,
+                    'status' => $refund->status->value,
+                    'amount_minor' => $refund->amount_minor,
+                    'currency' => $refund->currency,
+                    'reason' => $refund->reason,
+                    'refunded_at' => $refund->refunded_at?->toIso8601String(),
+                ])->all(),
+            ])
+            ->all();
     }
 
     /**

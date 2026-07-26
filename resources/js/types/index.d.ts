@@ -450,8 +450,31 @@ export type BookedBooking = {
     payable: boolean;
     price_minor: number;
     currency: string;
+    /** Charged online now — the deposit for a rental that asks for one (SLO-131). */
+    due_minor: number;
     /** When the unpaid booking releases its slot (tenant-local), if payable. */
     payment_deadline_local: string | null;
+};
+
+/** A refund against a customer payment (SLO-131). */
+export type BookingRefund = {
+    id: number;
+    status: 'pending' | 'completed' | 'failed';
+    amount_minor: number;
+    currency: string;
+    reason: string | null;
+    refunded_at: string | null;
+};
+
+/** One online checkout attempt on a booking, with its refunds (SLO-130/131). */
+export type BookingPayment = {
+    id: number;
+    provider: string;
+    status: 'pending' | 'paid' | 'failed' | 'refunded';
+    amount_minor: number;
+    currency: string;
+    paid_at: string | null;
+    refunds: BookingRefund[];
 };
 
 /** The sandbox gateway's checkout screen (SLO-130, non-production only). */

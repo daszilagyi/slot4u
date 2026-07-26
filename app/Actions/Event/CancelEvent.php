@@ -3,6 +3,7 @@
 namespace App\Actions\Event;
 
 use App\Actions\Booking\ChangeBookingStatus;
+use App\Actions\Payment\RefundBookingPayments;
 use App\Enums\BookingStatus;
 use App\Enums\EventStatus;
 use App\Models\Booking;
@@ -22,6 +23,7 @@ class CancelEvent
     public function __construct(
         private readonly WaitlistService $waitlist,
         private readonly ChangeBookingStatus $changeStatus,
+        private readonly RefundBookingPayments $refundPayments,
     ) {}
 
     public function __invoke(Event $event, bool $applyToFollowing): Event
@@ -55,9 +57,8 @@ class CancelEvent
             // events are already `canceled`, so the seat release + offerNext inside
             // ChangeBookingStatus can't promote a waiter onto a dead event
             // (EventStatus::Scheduled guard, SLO-25). Each cancellation fires
-            // BookingCanceled → the registrant is emailed (SLO-109). Refund
-            // signalling is gated on feature_online_payment and lands with the M6
-            // payment flow (docs/04 §3).
+            // BookingCanceled → the registrant is emailed (SLO-109), and whatever
+            // they paid online is refunded in full (docs/04 §3, SLO-131).
             $this->cancelRegistrantBookings($canceledIds, (int) $event->tenant_id);
         });
 
@@ -78,12 +79,14 @@ class CancelEvent
             ->whereIn('status', BookingStatus::cancelableValues())
             ->get();
 
+        $reason = __('app.admin.events.cancel_booking_reason');
+
         foreach ($bookings as $booking) {
-            ($this->changeStatus)(
-                $booking,
-                BookingStatus::Canceled,
-                reason: __('app.admin.events.cancel_booking_reason'),
-            );
+            $canceled = ($this->changeStatus)($booking, BookingStatus::Canceled, reason: $reason);
+
+            // The tenant called the event off, so the registrant gets everything
+            // back — the cancellation-policy share does not apply here (docs/04 §3).
+            ($this->refundPayments)($canceled, RefundBookingPayments::FULL_REFUND, $reason);
         }
     }
 }
