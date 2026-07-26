@@ -531,6 +531,26 @@ export type QuoteRequestStatusValue =
     | 'accepted'
     | 'rejected';
 
+/** One of the customer's own online payments, with its refunds (SLO-132). */
+export type MyPayment = {
+    id: number;
+    booking_code: string | null;
+    service_name: string | null;
+    booking_starts_local: string | null;
+    amount_minor: number;
+    currency: string;
+    status: 'pending' | 'paid' | 'failed' | 'refunded';
+    paid_local: string | null;
+    created_local: string | null;
+    refunds: {
+        id: number;
+        amount_minor: number;
+        currency: string;
+        status: 'pending' | 'completed';
+        refunded_local: string | null;
+    }[];
+};
+
 export type MyQuoteRequest = {
     id: number;
     service_name: string | null;
