@@ -8,6 +8,7 @@ use App\Http\Middleware\EnsureUserIsCustomer;
 use App\Http\Middleware\EnsureUserIsStaff;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\IdentifyTenant;
+use App\Http\Middleware\ResolveCustomDomain;
 use App\Http\Middleware\SetLocale;
 use Illuminate\Auth\Middleware\Authorize;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
@@ -69,6 +70,13 @@ return Application::configure(basePath: dirname(__DIR__))
             '2405:b500::/32', '2405:8100::/32', '2a06:98c0::/29',
             '2c0f:f248::/32',
         ]);
+
+        // Custom tenant domains (SLO-42). Global, because routing itself is
+        // keyed on the {tenant}.{central} domain pattern — this rewrites a
+        // verified custom host onto its tenant's canonical subdomain before the
+        // router looks. Appended, so TrustProxies has already restored the real
+        // scheme/IP by the time the URL root is pinned.
+        $middleware->append(ResolveCustomDomain::class);
 
         $middleware->web(append: [
             // SetLocale before Inertia sharing so the `locale`/`translations`

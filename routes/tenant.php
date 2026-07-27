@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\BillingController;
 use App\Http\Controllers\Admin\BookingApprovalController;
 use App\Http\Controllers\Admin\BookingController;
 use App\Http\Controllers\Admin\CustomerController;
+use App\Http\Controllers\Admin\DomainController;
 use App\Http\Controllers\Admin\EventController;
 use App\Http\Controllers\Admin\LocationController;
 use App\Http\Controllers\Admin\MessageTemplateController;
@@ -254,6 +255,18 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
         Route::middleware('can:'.Permission::SettingsEdit->value)->group(function () {
             Route::get('/settings', [SettingsController::class, 'edit'])->name('tenant.settings.edit');
             Route::post('/settings', [SettingsController::class, 'update'])->name('tenant.settings.update');
+        });
+
+        // Custom domains (SLO-42). Behind the feature flag AND settings.edit:
+        // the capability is off for most tenants (403 from ensure.feature), and
+        // configuring it is a tenant-admin job. {tenantDomain} binds through the
+        // BelongsToTenant scope, so another tenant's id 404s.
+        Route::middleware(['ensure.feature:'.Feature::CustomDomain->value, 'can:'.Permission::SettingsEdit->value])->group(function () {
+            Route::get('/settings/domains', [DomainController::class, 'index'])->name('tenant.domains.index');
+            Route::post('/settings/domains', [DomainController::class, 'store'])->name('tenant.domains.store');
+            Route::post('/settings/domains/{tenantDomain}/verify', [DomainController::class, 'verify'])->name('tenant.domains.verify');
+            Route::post('/settings/domains/{tenantDomain}/primary', [DomainController::class, 'primary'])->name('tenant.domains.primary');
+            Route::delete('/settings/domains/{tenantDomain}', [DomainController::class, 'destroy'])->name('tenant.domains.destroy');
         });
 
         // Tenant-editable email templates (SLO-112/SLO-114). Gated by

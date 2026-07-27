@@ -11,6 +11,7 @@ use App\Services\Seo\OgImageGenerator;
 use App\Settings\TenantBranding;
 use App\Settings\TenantSettings;
 use App\Tenancy\TenantManager;
+use App\Tenancy\TenantPublicUrl;
 use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -38,9 +39,16 @@ class HomeController extends Controller
         // we only compute the cheap cacheKey hash to bust crawler caches on rebrand.
         $ogImage = url('/og-image.png').'?v='.app(OgImageGenerator::class)->cacheKey($tenant);
 
+        // The page answers on both the subdomain and any verified custom domain
+        // (SLO-42), which is duplicate content unless one of them is declared
+        // canonical. Share and canonical URLs therefore point at the tenant's
+        // primary public host, not at whichever host this request arrived on.
+        $canonical = app(TenantPublicUrl::class)->to($tenant, '/');
+
         return Inertia::render('Tenant/Home', [
             'og_image' => $ogImage,
-            'og_url' => url('/'),
+            'og_url' => $canonical,
+            'canonical_url' => $canonical,
             'profile' => [
                 'name' => $tenant->name,
                 'description' => $settings->description,

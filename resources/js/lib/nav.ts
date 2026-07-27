@@ -4,6 +4,7 @@ import {
     CalendarClockIcon,
     CalendarPlusIcon,
     ContactIcon,
+    GlobeIcon,
     LayoutDashboardIcon,
     MailIcon,
     MapPinIcon,
@@ -22,6 +23,8 @@ export type NavItem = {
     icon: LucideIcon;
     /** Tenant permission code gating visibility; undefined = always visible. */
     permission?: string;
+    /** Tenant feature flag gating visibility; undefined = not feature-gated. */
+    feature?: string;
     /** Whether the destination page exists yet; not-ready items render disabled. */
     ready: boolean;
 };
@@ -109,6 +112,15 @@ export const navItems: NavItem[] = [
         href: '/settings/templates',
         icon: MailIcon,
         permission: 'template.manage',
+        ready: true,
+    },
+    {
+        key: 'domains',
+        labelKey: 'admin.nav.domains',
+        href: '/settings/domains',
+        icon: GlobeIcon,
+        permission: 'settings.edit',
+        feature: 'feature_custom_domain',
         ready: true,
     },
     {

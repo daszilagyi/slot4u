@@ -21,6 +21,7 @@ type HomeProps = {
     locations: PublicHomeLocation[];
     og_image?: string;
     og_url?: string;
+    canonical_url?: string;
 };
 
 function formatAddress(
@@ -44,6 +45,7 @@ export default function TenantHome({
     locations,
     og_image,
     og_url,
+    canonical_url,
 }: HomeProps) {
     const t = useTranslations();
 
@@ -57,6 +59,16 @@ export default function TenantHome({
     return (
         <PublicLayout>
             <Head title={profile.name}>
+                {/* The page also answers on a verified custom domain (SLO-42);
+                    the canonical link names the tenant's primary host so the
+                    two do not compete as duplicate content. */}
+                {canonical_url ? (
+                    <link
+                        head-key="canonical"
+                        rel="canonical"
+                        href={canonical_url}
+                    />
+                ) : null}
                 <meta
                     head-key="description"
                     name="description"

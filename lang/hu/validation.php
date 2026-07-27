@@ -169,6 +169,11 @@ return [
             'reserved' => 'Ez az aldomén foglalt, kérjük válassz másikat.',
             'regex' => 'Az aldomén csak kisbetűket, számokat és kötőjelet tartalmazhat.',
         ],
+        'custom_domain' => [
+            'invalid' => 'Ez nem érvényes domain név. Példa: foglalas.cegem.hu',
+            'reserved' => 'A slot4u saját domainjei nem adhatók hozzá — az aldomén enélkül is működik.',
+            'taken' => 'Ez a domain már foglalt.',
+        ],
     ],
 
     /*

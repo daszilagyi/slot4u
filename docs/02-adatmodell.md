@@ -11,7 +11,10 @@ Minden tenant-tulajdonú táblán: `tenant_id` (indexelt, FK), `created_at/updat
 ```
 tenants            id, name, slug(subdomain), status(trial|active|suspended|archived),
                    timezone, locale, branding(json: logó, színek), settings(json)
-tenant_domains     id, tenant_id, domain, is_primary, verified_at        -- egyedi domain (feature_custom_domain)
+tenant_domains     id, tenant_id, domain(UNIQUE), verification_token, verified_at,
+                   is_primary, last_checked_at, last_error               -- egyedi domain (feature_custom_domain, SLO-42)
+                   -- domain: punycode/kisbetűs, port nélkül (ahogy a Host header érkezik);
+                   -- a globális UNIQUE az, ami megakadályozza, hogy két tenant ugyanazt a hostot vigye
 plans              id, code(base), name, monthly_price_minor(=0), currency, is_active
                    -- egyetlen ingyenes base plan; a háromlépcsős basic/mid/max megszűnt (docs/10 §5.6)
 plan_limits        id, plan_id, key(max_admins|max_employees|max_customers|max_locations|...), value

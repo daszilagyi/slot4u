@@ -41,4 +41,25 @@ return [
         'www', 'admin', 'app', 'api', 'mail', 'assets', 'static', 'cdn',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Custom domains (feature_custom_domain, SLO-42)
+    |--------------------------------------------------------------------------
+    |
+    | `cname_target` is the host a tenant must point its own domain at with a
+    | CNAME. Null means "the tenant's own {slug}.{central} subdomain", which is
+    | the right answer while every tenant is served by the same origin. Set it
+    | to a dedicated edge hostname (e.g. Cloudflare for SaaS fallback origin)
+    | when custom-hostname TLS moves off the shared cPanel vhost.
+    |
+    | `resolution_ttl` caps how long a host → tenant mapping is cached. Writes
+    | forget the entry explicitly; the TTL only bounds staleness after an
+    | out-of-band change (a manual DB edit, a restore).
+    |
+    */
+
+    'cname_target' => env('APP_CUSTOM_DOMAIN_TARGET'),
+
+    'resolution_ttl' => (int) env('APP_CUSTOM_DOMAIN_TTL', 300),
+
 ];
