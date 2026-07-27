@@ -20,6 +20,10 @@ type Domain = {
     last_error: string | null;
     txt_name: string;
     txt_value: string;
+    provisioning_status: 'pending' | 'active' | 'failed' | null;
+    certificate_status: string | null;
+    provisioning_error: string | null;
+    live: boolean;
 };
 
 type IndexProps = {
@@ -27,6 +31,7 @@ type IndexProps = {
     cname_target: string;
     subdomain: string;
     public_host: string;
+    provisioning_enabled: boolean;
 };
 
 export default function DomainsIndex({
@@ -34,6 +39,7 @@ export default function DomainsIndex({
     cname_target,
     subdomain,
     public_host,
+    provisioning_enabled,
 }: IndexProps) {
     const t = useTranslations();
 
@@ -71,6 +77,7 @@ export default function DomainsIndex({
                                 key={domain.id}
                                 domain={domain}
                                 cnameTarget={cname_target}
+                                provisioningEnabled={provisioning_enabled}
                             />
                         ))
                     )}
@@ -130,9 +137,11 @@ function AddDomainForm() {
 function DomainCard({
     domain,
     cnameTarget,
+    provisioningEnabled,
 }: {
     domain: Domain;
     cnameTarget: string;
+    provisioningEnabled: boolean;
 }) {
     const t = useTranslations();
 
@@ -153,6 +162,14 @@ function DomainCard({
                 onSuccess: () =>
                     toast.success(t('admin.domains.flash.primary_set')),
             },
+        );
+    }
+
+    function retryProvisioning() {
+        router.post(
+            `/settings/domains/${domain.id}/provision`,
+            {},
+            { preserveScroll: true },
         );
     }
 
@@ -185,6 +202,23 @@ function DomainCard({
                 )}
                 {domain.is_primary ? (
                     <Badge>{t('admin.domains.status.primary')}</Badge>
+                ) : null}
+                {domain.verified && provisioningEnabled ? (
+                    <Badge
+                        variant={
+                            domain.live
+                                ? 'secondary'
+                                : domain.provisioning_status === 'failed'
+                                  ? 'destructive'
+                                  : 'outline'
+                        }
+                    >
+                        {domain.live
+                            ? t('admin.domains.status.live')
+                            : domain.provisioning_status === 'failed'
+                              ? t('admin.domains.status.cert_failed')
+                              : t('admin.domains.status.cert_pending')}
+                    </Badge>
                 ) : null}
             </div>
 
@@ -235,12 +269,38 @@ function DomainCard({
                 </div>
             ) : null}
 
+            {domain.verified && provisioningEnabled && !domain.live ? (
+                <div className="flex flex-col gap-1 rounded-lg bg-muted/50 p-3 text-sm">
+                    <p className="text-muted-foreground">
+                        {domain.provisioning_status === 'failed'
+                            ? t('admin.domains.cert_failed_hint')
+                            : t('admin.domains.cert_pending_hint')}
+                    </p>
+                    {domain.provisioning_error ? (
+                        <p className="text-xs text-destructive">
+                            {domain.provisioning_error}
+                        </p>
+                    ) : null}
+                </div>
+            ) : null}
+
+            {domain.verified && !provisioningEnabled ? (
+                <p className="text-xs text-muted-foreground">
+                    {t('admin.domains.provisioning_disabled_hint')}
+                </p>
+            ) : null}
+
             <div className="flex flex-wrap gap-2">
                 {domain.verified ? null : (
                     <Button size="sm" onClick={verify}>
                         {t('admin.domains.verify')}
                     </Button>
                 )}
+                {domain.verified && provisioningEnabled && !domain.live ? (
+                    <Button size="sm" variant="outline" onClick={retryProvisioning}>
+                        {t('admin.domains.retry_provisioning')}
+                    </Button>
+                ) : null}
                 {domain.verified && !domain.is_primary ? (
                     <Button size="sm" variant="outline" onClick={makePrimary}>
                         {t('admin.domains.make_primary')}

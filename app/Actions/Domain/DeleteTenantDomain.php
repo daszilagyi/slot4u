@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\Domain;
 
+use App\Jobs\DeprovisionCustomHostname;
 use App\Models\TenantDomain;
 use App\Tenancy\CustomDomainResolver;
 
@@ -20,9 +21,17 @@ class DeleteTenantDomain
     public function __invoke(TenantDomain $domain): void
     {
         $host = $domain->domain;
+        $providerHostnameId = $domain->provider_hostname_id;
 
         $domain->delete();
 
         $this->resolver->forget($host);
+
+        // Release it at the edge too (SLO-135), carrying the provider id since
+        // the row is now gone. Leaving it registered would keep Cloudflare
+        // serving a hostname nobody here owns any more.
+        if ($providerHostnameId !== null && $providerHostnameId !== '') {
+            DeprovisionCustomHostname::dispatch($providerHostnameId, $host);
+        }
     }
 }

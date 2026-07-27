@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Actions\Domain;
 
+use App\Jobs\ProvisionCustomHostname;
 use App\Models\TenantDomain;
 use App\Services\Domain\DnsResolver;
 use App\Tenancy\CustomDomainResolver;
@@ -52,6 +53,15 @@ class VerifyTenantDomain
         // Newly verified: the host may already have been looked up (and missed)
         // while DNS was propagating.
         $this->resolver->forget($domain->domain);
+
+        // Ownership is only half of it — Cloudflare has to be told to serve the
+        // hostname as well, or the tenant's CNAME lands on error 1014 (SLO-135).
+        // Queued: the admin gets the verification result now, not after a
+        // round trip to the provider, and a refusal never undoes the
+        // verification.
+        if ($matched) {
+            ProvisionCustomHostname::dispatch($domain->getKey());
+        }
 
         return $matched;
     }

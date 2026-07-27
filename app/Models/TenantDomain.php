@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Enums\DomainProvisioningStatus;
 use App\Models\Concerns\BelongsToTenant;
 use Database\Factories\TenantDomainFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -25,6 +26,11 @@ use Illuminate\Support\Carbon;
  * @property bool $is_primary
  * @property Carbon|null $last_checked_at
  * @property string|null $last_error
+ * @property string|null $provider_hostname_id
+ * @property DomainProvisioningStatus|null $provisioning_status
+ * @property string|null $certificate_status
+ * @property string|null $provisioning_error
+ * @property Carbon|null $provisioned_at
  */
 class TenantDomain extends Model
 {
@@ -49,12 +55,25 @@ class TenantDomain extends Model
             'verified_at' => 'datetime',
             'is_primary' => 'boolean',
             'last_checked_at' => 'datetime',
+            'provisioning_status' => DomainProvisioningStatus::class,
+            'provisioned_at' => 'datetime',
         ];
     }
 
     public function isVerified(): bool
     {
         return $this->verified_at !== null;
+    }
+
+    /**
+     * Whether the domain actually loads: owned by the tenant AND registered at
+     * the edge with a live certificate (SLO-135). A verified-but-unprovisioned
+     * domain still resolves to the tenant in-app — the app is not what stops it
+     * working — so this is a reporting question, not an authorisation one.
+     */
+    public function isLive(): bool
+    {
+        return $this->isVerified() && $this->provisioning_status === DomainProvisioningStatus::Active;
     }
 
     /**

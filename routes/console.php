@@ -41,3 +41,10 @@ Schedule::command('billing:close-periods')->hourly()->withoutOverlapping();
 // grace window (SLO-69). Daily is enough — due dates and the grace window are
 // day-grained. withoutOverlapping keeps a slow run from racing itself.
 Schedule::command('billing:dunning-sweep')->daily()->withoutOverlapping();
+
+// Custom domain certificates (SLO-135). Cloudflare issues them asynchronously
+// while the tenant's DNS propagates and never calls back, so the state has to be
+// polled — every ten minutes, because a tenant who just added a domain is
+// watching the screen and an hourly sweep would make a working domain look
+// broken for most of an hour. No-op wherever no provider is configured.
+Schedule::command('domains:refresh-certificates')->everyTenMinutes()->withoutOverlapping();
