@@ -26,10 +26,17 @@ final readonly class CommissionStatistics
         public bool $configured,
         public ?int $freeThresholdMinor,
         public ?int $monthlyCapMinor,
-        // Revenue — the month's accrued commission is slot4u's MRR proxy, split by
-        // where each period sits in the billing lifecycle.
+        // Revenue — the month's billable net commission is slot4u's MRR proxy,
+        // split by where each period sits in the billing lifecycle. The accrual is
+        // the gross figure before the credits a closed period's later change
+        // produced (§8.2); the correction total is those credits (<= 0), and the
+        // net is what the invoices actually charge. Net != accrued + correction
+        // when a period was voided or credited below zero (the remainder carries
+        // over to the next month instead of showing as negative revenue).
         public int $turnoverTotalMinor,
         public int $commissionAccruedMinor,
+        public int $correctionTotalMinor,
+        public int $commissionNetMinor,
         public int $commissionOpenMinor,
         public int $commissionInvoicedMinor,
         public int $commissionPaidMinor,
