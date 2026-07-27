@@ -87,3 +87,7 @@ M1 infra+tenant alap → M2 törzsadatok → M3 foglalási motor → M4 publikus
 
 gstack
 use the /browse skill from gstack for all web browsing, never use mcp__claude-in-chrome__* tools, and lists the available skills: /office-hours, /plan-ceo-review, /plan-eng-review, /plan-design-review, /design-consultation, /design-shotgun, /design-html, /review, /ship, /land-and-deploy, /canary, /benchmark, /browse, /connect-chrome, /qa, /qa-only, /design-review, /setup-browser-cookies, /setup-deploy, /setup-gbrain, /retro, /investigate, /document-release, /document-generate, /codex, /cso, /autoplan, /plan-devex-review, /devex-review, /careful, /freeze, /guard, /unfreeze, /gstack-upgrade, /learn. Then ask the user if they also want to add gstack to the current project so teammates get it.
+
+## DEPLOY HOZZÁFÉRÉSEK
+
+A prod SSH/DB/Redis hozzáférések a `docs/14-ssh-claude-code-hozzaferes.md` fájlban vannak. Ez a fájl — a `docs/11`, `docs/12`, `docs/13` hosting-jegyzetekkel együtt — **gitignore-olt, csak lokálisan létezik**, mert nyílt szövegű prod jelszavakat tartalmaz. Ne commitold, ne másold repo-ba kerülő fájlba, és ne írd ki a tartalmát olyan helyre, ami PR-be vagy Linear-kommentbe kerül.
