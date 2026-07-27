@@ -999,6 +999,18 @@ return [
         'bookings' => [
             'title' => 'Foglalások',
             'subtitle' => 'A cég foglalásainak listája, szűrése és gyors kezelése.',
+            'price' => [
+                'title' => 'Ár módosítása',
+                'hint' => 'A foglalás listaára a jutalékalap is egyben — a módosítás azonnal átvezetődik a jutalék-elszámolásba.',
+                'label' => 'Új ár',
+                'save' => 'Ár mentése',
+                'cancel' => 'Mégsem',
+                'edit' => 'Ár módosítása',
+                'saved' => 'A foglalás ára módosítva.',
+                'blocked_by_payment' => 'Folyamatban lévő fizetés mellett nem módosítható az ár — az ügyfél a régi összeget látja a fizetőoldalon. Várd meg, amíg a fizetés lezárul vagy lejár.',
+                'blocked_by_invoice' => 'Kiállított számla után nem módosítható az ár — a számlán a régi összeg szerepel. Ehhez helyesbítő számla kellene, ami még nem támogatott.',
+                'closed_period_note' => 'Ez a foglalás egy már kiszámlázott hónaphoz tartozik: az árcsökkenés jóváírásként jelenik meg az aktuális elszámolási időszakon.',
+            ],
             'empty' => 'Még nincs foglalás.',
             'empty_filtered' => 'Nincs a szűrőknek megfelelő foglalás.',
             'all_statuses' => 'Minden állapot',
@@ -1412,6 +1424,10 @@ return [
             'trial_extended' => 'Trial meghosszabbítva',
             'feature_toggled' => 'Funkció átállítva',
             'updated' => 'Tenant adatok módosítva',
+        ],
+        // Nested for the same dot-path reason as the tenant block above.
+        'booking' => [
+            'price_changed' => 'Foglalás ára módosítva',
         ],
         // Nested so the frontend t('audit_action.impersonation.started') dot-path
         // resolves (see SLO-80).

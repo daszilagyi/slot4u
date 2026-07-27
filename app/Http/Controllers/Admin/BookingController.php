@@ -7,6 +7,7 @@ use App\Actions\Booking\ChangeBookingStatus;
 use App\Actions\Booking\CompleteBooking;
 use App\Actions\Booking\CreateBooking;
 use App\Actions\Booking\RescheduleBooking;
+use App\Actions\Booking\UpdateBookingPrice;
 use App\Actions\Payment\RefundBookingPayments;
 use App\Enums\BookingSource;
 use App\Enums\BookingStatus;
@@ -16,6 +17,7 @@ use App\Http\Requests\Admin\BookingRequest;
 use App\Http\Requests\Admin\CancelBookingRequest;
 use App\Http\Requests\Admin\RefundBookingRequest;
 use App\Http\Requests\Admin\RescheduleBookingRequest;
+use App\Http\Requests\Admin\UpdateBookingPriceRequest;
 use App\Jobs\IssueInvoice;
 use App\Models\Booking;
 use App\Models\Invoice;
@@ -218,6 +220,25 @@ class BookingController extends Controller
         $changeStatus($booking, BookingStatus::NoShow, $actor);
 
         return back();
+    }
+
+    /**
+     * Edit a booking's list price (docs/10 §3.3, SLO-126).
+     *
+     * The price is the commission base, so the ledger follows the edit
+     * synchronously — and where the booking's period was already invoiced, the
+     * difference lands as a credit on the current open period (§8.2). Refused
+     * with a 422 while a payment is in flight or after an invoice was issued.
+     */
+    public function updatePrice(UpdateBookingPriceRequest $request, string $tenant, Booking $booking, UpdateBookingPrice $updatePrice): RedirectResponse
+    {
+        $actor = $request->user();
+        abort_unless(BookingVisibility::owns($actor, $booking), 404);
+        Gate::authorize('update', $booking);
+
+        $updatePrice($booking, (int) $request->validated()['price_minor'], $actor);
+
+        return back()->with('status', __('app.admin.bookings.price.saved'));
     }
 
     /**

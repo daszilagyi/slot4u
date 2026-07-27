@@ -157,7 +157,8 @@ A forgalom egy foglalás állapotváltozásakor frissül (§6, event-vezérelt):
 - `confirmed` / `completed` / `no_show` → a foglalás **bekerül** a period ledgerébe (vagy ott marad).
 - 24 órán **túli** lemondás → a foglalás **kikerül** a ledgerből (`removed`), forgalom csökken, period újraszámol.
 - 24 órán **belüli** lemondás → **bennmarad** (késői lemondás díjazható).
-- Ár utólagos módosítása admin által (ha engedélyezett) → a ledger-tétel `amount_minor` frissül, period újraszámol; **lezárt period-ot már nem** módosítunk (§8.2).
+- Ár utólagos módosítása admin által → a ledger-tétel `amount_minor` frissül, period újraszámol; **lezárt period-ot már nem** módosítunk (§8.2), ott jóváírás keletkezik. **Megvalósítva: SLO-126** — a foglalás adatlapján `booking.edit` joggal, `BookingPriceChanged` event → `RecordBookingCommission` listener, a foglalás tranzakcióján belül. Az ár-módosítás **auditált** (`booking.price_changed`, régi/új összeggel).
+  - **Két eset tiltott (422):** (a) folyamatban lévő (`pending`) fizetés mellett — az ügyfél a régi összeget látja a fizetőoldalon; (b) **kiállított számla után** — a dokumentumon a régi összeg szerepel, ehhez helyesbítő számla kellene (a számlázási gerinc ezt szándékosan nem támogatja, SLO-133). Kiegyenlített fizetés önmagában NEM tiltja (§8.3: a listaár módosítása a tenant döntése).
 
 ---
 
