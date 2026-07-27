@@ -15,6 +15,8 @@ type TopTenant = {
     tenant_status: string;
     turnover_minor: number;
     commission_minor: number;
+    correction_minor: number;
+    net_minor: number;
     cap_reached: boolean;
 };
 
@@ -39,6 +41,8 @@ type Statistics = {
     monthly_cap_minor: number | null;
     turnover_total_minor: number;
     commission_accrued_minor: number;
+    correction_total_minor: number;
+    commission_net_minor: number;
     commission_open_minor: number;
     commission_invoiced_minor: number;
     commission_paid_minor: number;
@@ -138,14 +142,45 @@ export default function SuperDashboard({ statistics, filters }: DashboardProps) 
                     <div className="grid gap-4 sm:grid-cols-2">
                         <div className="rounded-xl border border-border bg-card p-5">
                             <div className="text-xs text-muted-foreground">
-                                {t('super.dashboard.revenue_accrued')}
+                                {t('super.dashboard.revenue_net')}
                             </div>
                             <div className="mt-1 text-3xl font-semibold tabular-nums">
-                                {formatMoney(statistics.commission_accrued_minor, currency)}
+                                {formatMoney(statistics.commission_net_minor, currency)}
                             </div>
                             <p className="mt-2 text-xs text-muted-foreground">
-                                {t('super.dashboard.revenue_accrued_hint')}
+                                {t('super.dashboard.revenue_net_hint')}
                             </p>
+
+                            {/* Gross accrual and the credits that netted it down (§8.2) —
+                                shown only when a credit actually moved the number. */}
+                            {statistics.correction_total_minor !== 0 ? (
+                                <>
+                                    <div className="mt-4 flex flex-wrap gap-x-6 gap-y-1 text-xs">
+                                        <span>
+                                            {t('super.dashboard.revenue_accrued')}:{' '}
+                                            <span className="tabular-nums">
+                                                {formatMoney(
+                                                    statistics.commission_accrued_minor,
+                                                    currency,
+                                                )}
+                                            </span>
+                                        </span>
+                                        <span className="text-amber-400">
+                                            {t('super.dashboard.revenue_correction')}:{' '}
+                                            <span className="tabular-nums">
+                                                {formatMoney(
+                                                    statistics.correction_total_minor,
+                                                    currency,
+                                                )}
+                                            </span>
+                                        </span>
+                                    </div>
+                                    <p className="mt-2 text-xs text-muted-foreground">
+                                        {t('super.dashboard.revenue_correction_hint')}
+                                    </p>
+                                </>
+                            ) : null}
+
                             <div className="mt-4 flex flex-wrap gap-x-6 gap-y-1 text-xs">
                                 <span className="text-muted-foreground">
                                     {t('super.dashboard.revenue_of_which')}
@@ -206,6 +241,7 @@ export default function SuperDashboard({ statistics, filters }: DashboardProps) 
                             label={t('super.dashboard.funnel_paying')}
                             value={statistics.paying_tenants}
                             accent="text-green-400"
+                            hint={t('super.dashboard.funnel_paying_hint')}
                         />
                         <FunnelTile
                             label={t('super.dashboard.funnel_stuck')}
@@ -280,7 +316,18 @@ export default function SuperDashboard({ statistics, filters }: DashboardProps) 
                                                 {formatMoney(tenant.turnover_minor, currency)}
                                             </td>
                                             <td className="px-4 py-3 text-right tabular-nums">
-                                                {formatMoney(tenant.commission_minor, currency)}
+                                                {formatMoney(tenant.net_minor, currency)}
+                                                {/* A credited period bills less than it accrued (§8.2). */}
+                                                {tenant.correction_minor !== 0 ? (
+                                                    <div className="text-xs text-amber-400">
+                                                        {t('super.dashboard.top_correction', {
+                                                            amount: formatMoney(
+                                                                tenant.correction_minor,
+                                                                currency,
+                                                            ),
+                                                        })}
+                                                    </div>
+                                                ) : null}
                                             </td>
                                         </tr>
                                     ))

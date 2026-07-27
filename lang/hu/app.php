@@ -329,8 +329,13 @@ return [
             'not_configured' => 'Nincs hatályos jutalék-beállítás erre a hónapra, ezért a rendszer egyetlen foglalás után sem számol jutalékot. Az összegek addig nullák maradnak.',
             // Revenue block
             'revenue_heading' => 'Havi jutalékbevétel',
-            'revenue_accrued' => 'Elhatárolt jutalék (MRR-proxy)',
-            'revenue_accrued_hint' => 'A hónap teljes, nettó jutaléka — ez a platform havi bevételének közelítése.',
+            'revenue_net' => 'Kiszámlázható jutalék (MRR-proxy)',
+            'revenue_net_hint' => 'A hónap jóváírásokkal csökkentett, ténylegesen kiszámlázható jutaléka — ez a platform havi bevételének közelítése. A sztornózott (void) időszakok nem szerepelnek benne.',
+            // A korábbi 'revenue_accrued_hint' megszűnt: a bruttó már nem a kártya
+            // főszáma, csak a jóváírás melletti kontextus (SLO-127).
+            'revenue_accrued' => 'Bruttó elhatárolás',
+            'revenue_correction' => 'Jóváírás',
+            'revenue_correction_hint' => 'Egy már kiszámlázott hónap utólagos változásából származó jóváírás (§8.2). A hónap saját jutalékát meghaladó részt a következő hónapra visszük át, ezért a nettó nem lehet negatív.',
             'revenue_turnover' => 'Jutalékköteles forgalom',
             'revenue_of_which' => 'Ebből:',
             'revenue_open' => 'Nyitott',
@@ -343,8 +348,9 @@ return [
             'funnel_active_hint' => 'Trial vagy aktív állapotú tenantok.',
             'funnel_with_turnover' => 'Forgalmat termelt',
             'funnel_paying' => 'Jutalékköteles (fizető)',
+            'funnel_paying_hint' => 'Marad fizetendő jutaléka a jóváírások levonása után is.',
             'funnel_stuck' => 'Küszöb alatt „ragadt”',
-            'funnel_stuck_hint' => 'Van forgalma, de még nem érte el az ingyenes keretet — :ratio a forgalmazók közül.',
+            'funnel_stuck_hint' => 'Van forgalma, de nem maradt fizetendő jutaléka — jellemzően az ingyenes keret alatt, vagy teljesen jóváírva. :ratio a forgalmazók közül.',
             'funnel_cap_reached' => 'Plafont elért',
             'funnel_tenants_unit' => ':count tenant',
             // Top tenants
@@ -353,7 +359,8 @@ return [
             'top_col_tenant' => 'Tenant',
             'top_col_status' => 'Állapot',
             'top_col_turnover' => 'Forgalom',
-            'top_col_commission' => 'Jutalék',
+            'top_col_commission' => 'Jutalék (nettó)',
+            'top_correction' => ':amount jóváírás',
             'top_cap_badge' => 'Plafon elérve',
             // Suspension risk
             'risk_heading' => 'Lejárt számlák / felfüggesztés-kockázat',

@@ -26,6 +26,10 @@ use Illuminate\Support\Carbon;
  * (§5.4), never the ledger. The revenue split by lifecycle uses conditional
  * sums so the whole month collapses into a single aggregate query, backed by the
  * `period` index added in SLO-123.
+ *
+ * Revenue is reported net of the credits a closed period's later change produced
+ * (§8.2, SLO-127): the accrual is the gross figure, the billable net is what the
+ * invoice would actually charge.
  */
 final class BuildCommissionStatistics
 {
@@ -33,6 +37,22 @@ final class BuildCommissionStatistics
 
     /** How many tenants to surface in the "top by turnover" table. */
     private const TOP_LIMIT = 10;
+
+    /**
+     * What one period would actually be invoiced for: its own commission less the
+     * credits carried into it (§8.2), floored at zero. The floor is not a rounding
+     * convenience — a credit bigger than the month's commission is not negative
+     * revenue: closing such a period voids it and moves the remainder to the next
+     * one (§6.5), where this same sum counts it again. Without the floor the
+     * platform would book the credit twice. `CASE WHEN` rather than GREATEST/MAX
+     * keeps it portable across MariaDB and the SQLite the suite runs on.
+     */
+    private const NET_EXPRESSION = <<<'SQL'
+        CASE WHEN commission_minor + correction_minor > 0
+            THEN commission_minor + correction_minor
+            ELSE 0
+        END
+        SQL;
 
     public function __construct(
         private readonly BillingPeriodClock $clock,
@@ -63,6 +83,8 @@ final class BuildCommissionStatistics
             monthlyCapMinor: $setting?->monthly_cap_minor,
             turnoverTotalMinor: (int) $aggregate->turnover_total,
             commissionAccruedMinor: (int) $aggregate->commission_accrued,
+            correctionTotalMinor: (int) $aggregate->correction_total,
+            commissionNetMinor: (int) $aggregate->commission_net,
             commissionOpenMinor: (int) $aggregate->commission_open,
             commissionInvoicedMinor: (int) $aggregate->commission_invoiced,
             commissionPaidMinor: (int) $aggregate->commission_paid,
@@ -102,23 +124,36 @@ final class BuildCommissionStatistics
      * revenue split by billing-period lifecycle (open/invoiced/paid/overdue) and
      * the funnel tallies. Conditional sums keep it a single query (no N+1, no
      * per-status round trips).
+     *
+     * The net and the lifecycle sums report the *net* figure (commission less
+     * credits), which is what the month is actually billed for. A voided period
+     * falls into no bucket, so a stornoed invoice or a fully credited month adds
+     * nothing to the revenue — while the gross accrual keeps counting it. The net
+     * is summed on its own rather than by adding the four buckets up, so a future
+     * sixth lifecycle status cannot silently drop out of the revenue total.
      */
     private function periodAggregate(string $period): object
     {
+        $net = self::NET_EXPRESSION;
+
         $row = TenantBillingPeriod::query()
             ->withoutGlobalScopes()
             ->where('period', $period)
-            ->selectRaw(<<<'SQL'
+            ->selectRaw(<<<SQL
                 COALESCE(SUM(turnover_minor), 0) as turnover_total,
                 COALESCE(SUM(commission_minor), 0) as commission_accrued,
+                COALESCE(SUM(correction_minor), 0) as correction_total,
                 COALESCE(SUM(CASE WHEN turnover_minor > 0 THEN 1 ELSE 0 END), 0) as with_turnover,
-                COALESCE(SUM(CASE WHEN commission_minor > 0 THEN 1 ELSE 0 END), 0) as paying,
+                COALESCE(SUM(CASE WHEN status <> ? AND commission_minor + correction_minor > 0 THEN 1 ELSE 0 END), 0) as paying,
                 COALESCE(SUM(CASE WHEN cap_reached = 1 THEN 1 ELSE 0 END), 0) as cap_reached,
-                COALESCE(SUM(CASE WHEN status = ? THEN commission_minor ELSE 0 END), 0) as commission_open,
-                COALESCE(SUM(CASE WHEN status = ? THEN commission_minor ELSE 0 END), 0) as commission_invoiced,
-                COALESCE(SUM(CASE WHEN status = ? THEN commission_minor ELSE 0 END), 0) as commission_paid,
-                COALESCE(SUM(CASE WHEN status = ? THEN commission_minor ELSE 0 END), 0) as commission_overdue
+                COALESCE(SUM(CASE WHEN status <> ? THEN {$net} ELSE 0 END), 0) as commission_net,
+                COALESCE(SUM(CASE WHEN status = ? THEN {$net} ELSE 0 END), 0) as commission_open,
+                COALESCE(SUM(CASE WHEN status = ? THEN {$net} ELSE 0 END), 0) as commission_invoiced,
+                COALESCE(SUM(CASE WHEN status = ? THEN {$net} ELSE 0 END), 0) as commission_paid,
+                COALESCE(SUM(CASE WHEN status = ? THEN {$net} ELSE 0 END), 0) as commission_overdue
                 SQL, [
+                BillingPeriodStatus::Void->value,  // paying
+                BillingPeriodStatus::Void->value,  // commission_net
                 BillingPeriodStatus::Open->value,
                 BillingPeriodStatus::Invoiced->value,
                 BillingPeriodStatus::Paid->value,
@@ -131,9 +166,11 @@ final class BuildCommissionStatistics
         return $row ?? (object) [
             'turnover_total' => 0,
             'commission_accrued' => 0,
+            'correction_total' => 0,
             'with_turnover' => 0,
             'paying' => 0,
             'cap_reached' => 0,
+            'commission_net' => 0,
             'commission_open' => 0,
             'commission_invoiced' => 0,
             'commission_paid' => 0,
@@ -163,10 +200,26 @@ final class BuildCommissionStatistics
                 tenantStatus: $row->tenant->status->value,
                 turnoverMinor: $row->turnover_minor,
                 commissionMinor: $row->commission_minor,
+                correctionMinor: $row->correction_minor,
+                netMinor: $this->billableNet($row),
                 capReached: $row->cap_reached,
             ))
             ->values()
             ->all();
+    }
+
+    /**
+     * The PHP twin of {@see self::NET_EXPRESSION} for a single row: what the
+     * period is actually billed for. A voided period is billed for nothing — it
+     * either had no invoice to begin with or the invoice was stornoed (§6.5).
+     */
+    private function billableNet(TenantBillingPeriod $row): int
+    {
+        if ($row->status === BillingPeriodStatus::Void) {
+            return 0;
+        }
+
+        return max(0, $row->commission_minor + $row->correction_minor);
     }
 
     /**
