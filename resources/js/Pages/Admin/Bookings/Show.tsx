@@ -1,5 +1,6 @@
 import { Head, Link, router, useForm } from '@inertiajs/react';
-import { ArrowLeftIcon } from 'lucide-react';
+import { ArrowLeftIcon, PencilIcon } from 'lucide-react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 
 import AdminLayout from '@/Layouts/AdminLayout';
@@ -145,6 +146,14 @@ export default function BookingShow({
                             </div>
                         ))}
                     </dl>
+
+                    {can.edit ? (
+                        <PriceEditor
+                            booking={booking}
+                            payments={payments}
+                            invoice={invoice}
+                        />
+                    ) : null}
                 </div>
 
                 <div className="flex flex-col gap-3">
@@ -447,5 +456,114 @@ export default function BookingShow({
                 </div>
             </div>
         </AdminLayout>
+    );
+}
+
+/**
+ * Inline list-price editor (SLO-126). The price is the commission base, so the
+ * copy says so — an admin lowering a price should know it moves what they owe.
+ *
+ * The two blocking cases are decided server-side; mirroring them here only
+ * turns a 422 into an explanation the admin can read before typing.
+ */
+function PriceEditor({
+    booking,
+    payments,
+    invoice,
+}: {
+    booking: BookingDetail;
+    payments: BookingPayment[];
+    invoice: BookingInvoice | null;
+}) {
+    const t = useTranslations();
+    const [open, setOpen] = useState(false);
+
+    const pendingPayment = payments.some(
+        (payment) => payment.status === 'pending',
+    );
+    const issuedInvoice = invoice?.status === 'issued';
+    const blocked = pendingPayment
+        ? t('admin.bookings.price.blocked_by_payment')
+        : issuedInvoice
+          ? t('admin.bookings.price.blocked_by_invoice')
+          : null;
+
+    // Entered in major units (what an admin thinks in), sent as minor — money
+    // never travels as a float.
+    const form = useForm({ price_minor: booking.price_minor });
+
+    const submit = (event: React.FormEvent) => {
+        event.preventDefault();
+        form.post(`/bookings/${booking.id}/price`, {
+            preserveScroll: true,
+            onSuccess: () => {
+                setOpen(false);
+                toast.success(t('admin.bookings.price.saved'));
+            },
+        });
+    };
+
+    if (blocked !== null) {
+        return (
+            <p className="text-xs text-muted-foreground">{blocked}</p>
+        );
+    }
+
+    if (!open) {
+        return (
+            <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="w-fit gap-1.5"
+                onClick={() => setOpen(true)}
+            >
+                <PencilIcon className="size-3.5" aria-hidden />
+                {t('admin.bookings.price.edit')}
+            </Button>
+        );
+    }
+
+    return (
+        <form
+            onSubmit={submit}
+            className="flex flex-col gap-2 rounded-xl border border-border bg-card p-4"
+        >
+            <Label htmlFor="price">{t('admin.bookings.price.label')}</Label>
+            <div className="flex flex-col gap-2 sm:flex-row">
+                <Input
+                    id="price"
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={form.data.price_minor / 100}
+                    onChange={(event) =>
+                        form.setData(
+                            'price_minor',
+                            Math.round(Number(event.target.value) * 100),
+                        )
+                    }
+                />
+                <Button type="submit" size="sm" disabled={form.processing}>
+                    {t('admin.bookings.price.save')}
+                </Button>
+                <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setOpen(false)}
+                >
+                    {t('admin.bookings.price.cancel')}
+                </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">
+                {t('admin.bookings.price.hint')}
+            </p>
+            {form.errors.price_minor ? (
+                <p className="text-xs text-destructive">
+                    {form.errors.price_minor}
+                </p>
+            ) : null}
+        </form>
     );
 }

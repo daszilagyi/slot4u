@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Events\BookingCanceled;
 use App\Events\BookingCreated;
+use App\Events\BookingPriceChanged;
 use App\Events\BookingStatusChanged;
 use App\Events\CommissionInvoiceIssued;
 use App\Events\QuoteRequestStatusChanged;
@@ -107,6 +108,9 @@ class AppServiceProvider extends ServiceProvider
         // recomputes the tenant's monthly aggregate, synchronously with the change.
         Event::listen(BookingCreated::class, RecordBookingCommission::class);
         Event::listen(BookingStatusChanged::class, RecordBookingCommission::class);
+        // An admin editing the list price moves the commission base too
+        // (docs/10 §3.3, SLO-126) — open period syncs, closed period credits.
+        Event::listen(BookingPriceChanged::class, RecordBookingCommission::class);
 
         // Commission invoicing (SLO-69 / docs/10 §6.5): a freshly issued monthly
         // invoice is emailed to the tenant's admins.

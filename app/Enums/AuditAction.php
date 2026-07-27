@@ -32,4 +32,9 @@ enum AuditAction: string
     case CommissionInvoicePaid = 'commission.invoice_paid';
     case CommissionInvoiceVoided = 'commission.invoice_voided';
     case CommissionInvoiceResent = 'commission.invoice_resent';
+
+    // Booking list price edited by an admin (SLO-126, docs/10 §3.3). The price
+    // is the commission base, so changing it moves what the tenant owes —
+    // recorded with the old and new amount.
+    case BookingPriceChanged = 'booking.price_changed';
 }

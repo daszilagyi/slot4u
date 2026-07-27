@@ -195,6 +195,10 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
             Route::post('/bookings/{booking}/complete', [BookingController::class, 'complete'])->name('tenant.bookings.complete');
             Route::post('/bookings/{booking}/no-show', [BookingController::class, 'noShow'])->name('tenant.bookings.no_show');
             Route::post('/bookings/{booking}/reschedule', [BookingController::class, 'reschedule'])->name('tenant.bookings.reschedule');
+            // Edit the list price (SLO-126, docs/10 §3.3) — booking upkeep like
+            // the other quick actions, but it moves the commission base, so the
+            // ledger follows and a settled invoice blocks it (422).
+            Route::post('/bookings/{booking}/price', [BookingController::class, 'updatePrice'])->name('tenant.bookings.price');
             // Re-issue an invoice the provider refused (SLO-133) — booking upkeep,
             // like the other quick actions.
             Route::post('/bookings/{booking}/invoices/{invoice}/retry', [BookingController::class, 'retryInvoice'])->name('tenant.bookings.invoice_retry');
