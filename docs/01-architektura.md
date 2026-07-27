@@ -48,7 +48,18 @@ A tenant a **saját domainjén** (`foglalas.cegem.hu`) is kiszolgálhatja a publ
 - **Sitemap/robots:** szándékosan a *kérés* hostján maradnak (`url()`), nem az elsődlegesen — a sitemap akkor hiteles, ha ugyanazon a hoston van, mint a benne listázott URL-ek. A duplikációt a canonical tag rendezi, nem a sitemap.
 - **Elsődleges domain:** tenantonként legfeljebb egy, és csak verifikált lehet az. A `TenantPublicUrl` ezt adja vissza minden **általunk generált** linkhez (emailek, canonical tag, megosztási URL); enélkül az aldomént. Emiatt a publikus oldal `<link rel="canonical">`-ja az elsődleges hostra mutat, hogy a két host ne versenyezzen duplikált tartalomként. **301 átirányítás nincs**: ha a tenant DNS-e vagy TLS-e elromlik, a publikus felület az aldoménen továbbra is elérhető marad.
 
-> **Nyitott üzemeltetési kérdés (nem app-szintű):** a custom hostname **TLS**-e. A jelenlegi Tárhely.Eu osztott cPanel + Cloudflare felállásban vagy (a) minden egyedi domaint alias-domainként kézzel fel kell venni cPanelben AutoSSL-lel, vagy (b) **Cloudflare for SaaS** (Custom Hostnames) kell, ami az edge-en intézi a tanúsítványt (100 hostname ingyenes, felette hostname-enkénti díj). Az app-oldal mindkettőre kész — a `tenancy.cname_target` config mondja meg, mire kell CNAME-elni; `null` esetén a tenant saját aldoménje a cél.
+### Custom hostname TLS — DÖNTÉS: Cloudflare for SaaS (2026-07-27)
+
+Az egyedi domainek tanúsítványát a **Cloudflare for SaaS (Custom Hostnames)** intézi az edge-en, nem a cPanel AutoSSL. Indok: az alternatíva (minden ügyfél-domaint kézzel alias-domainként felvenni cPanelben) tenantonként manuális onboarding-lépés, ami pont azt a self-service folyamatot töri el, amit az SLO-42 épített. A Cloudflare-változat **Free/Pro/Business csomagon 100 custom hostname-ig ingyenes**, felette 0,10 USD/hostname/hó, pay-as-you-go maximum 50 000 hostname — a bevezetési fázisban tehát költségmentes.
+
+Amit ez a felállás megkövetel:
+
+1. **Fallback origin:** egy hostname a `slot4u.hu` zónában (pl. `customers.slot4u.hu`), ami a Tárhely.Eu originra mutat. A Cloudflare minden custom hostname forgalmát ide irányítja.
+2. **`APP_CUSTOM_DOMAIN_TARGET=customers.slot4u.hu`** — ezt kapja a tenant CNAME-célként az admin UI-ban (`tenancy.cname_target`).
+3. **Hostname-regisztráció a Cloudflare API-n** (`POST /zones/{zone}/custom_hostnames`) minden verifikált tenant-domainre, és törlés a domain elengedésekor. **Enélkül a CNAME-elt domain 1014-es hibát ad** („CNAME cross-user banned") — a Cloudflare csak a nála regisztrált custom hostname-eket szolgálja ki. Ez még nincs megvalósítva → **SLO-135**.
+4. **Cert-validáció:** mivel a domain már a Cloudflare-re CNAME-el, a HTTP-validáció automatikus; a tanúsítvány állapotát (`pending_validation` → `active`) az API adja vissza, ezt a `tenant_domains` soron érdemes megjeleníteni.
+
+> A slot4u saját TXT-alapú tulajdonjog-igazolása (`_slot4u-verify.*`) **ettől független és megmarad**: az azt dönti el, hogy a nevet ide szabad-e irányítani, a Cloudflare-regisztráció pedig azt, hogy ki is tudjuk szolgálni. A kettő sorrendje: TXT-verifikáció → Cloudflare custom hostname létrehozása.
 
 ## Middleware lánc (tenant route-okon)
 
@@ -172,7 +183,7 @@ Két külön profil fut: a **dev/CI referencia-stack** (Docker Compose) és az *
 - **Queue:** `QUEUE_CONNECTION=database` + percenkénti cron worker `flock`-kal az átfedés ellen (`queue:work --stop-when-empty --max-time=55`). Nincs Horizon. Következmény: az utómunkák (email, webhook-utókezelés) worst-case ~1 perc késleltetésűek; a Barion-webhook **fogadása** szinkron HTTP, azt nem érinti.
 - **Cache / session:** `CACHE_STORE=database`, `SESSION_DRIVER=database` (nincs Redis-szerver, csak kliens; a `phpredis` az `ea-php84`-en nincs). Redis-t a host később adhat → visszaállítható, nem blokkoló.
 - **Mail:** `MAIL_MAILER=smtp` (`no-reply@slot4u.hu`, `smtps` séma a 465-ös porton — Laravel 11/12 `MAIL_SCHEME=smtps`, nem `MAIL_ENCRYPTION`); DKIM a cPanel Email Deliverability alatt.
-- **TLS / aldomének:** DNS Cloudflare mögött, Universal SSL fedi a `*.slot4u.hu`-t az edge-en; origin felé cPanel cert. cPanel `*` wildcard aldomain → docroot az app `public/`-ja. Az egyedi tenant-domain (`feature_custom_domain`) app-oldala kész (SLO-42), de a custom hostname **TLS-e még nyitott üzemeltetési döntés** — l. az „Egyedi tenant-domain" szakaszt.
+- **TLS / aldomének:** DNS Cloudflare mögött, Universal SSL fedi a `*.slot4u.hu`-t az edge-en; origin felé cPanel cert. cPanel `*` wildcard aldomain → docroot az app `public/`-ja. Az egyedi tenant-domain (`feature_custom_domain`) app-oldala kész (SLO-42); a custom hostname TLS-ét **Cloudflare for SaaS** adja (100 hostname-ig ingyenes), a hostname-provisioning az SLO-135 — l. az „Egyedi tenant-domain" szakaszt.
 - **Cloudflare mögötti IP/séma:** az Apache már visszaállítja a valódi klienst (mod_cloudflare), a Laravel `trustProxies` a CF-tartományokra ennek framework-szintű biztosítéka (rate limit + audit valódi kliens-IP-t, `X-Forwarded-Proto` HTTPS-sémát lát) — l. `bootstrap/app.php`.
 - **SSR:** kikapcsolva indulunk (`INERTIA_SSR_ENABLED=false`, nincs Node daemon) — a SEO-hatás vállalt; külön spike, ha Passengerrel megoldható.
 - **Deploy-sajátosságok:** `storage:link` helyett shell `ln -s` (a PHP `symlink()` tiltott); Vite build lokálisan/CI-ban, csak a build-output megy fel; scheduler cron `schedule:run` percenként.
