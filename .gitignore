@@ -1,8 +1,9 @@
 *.log
 .DS_Store
 .env
-.env.backup
-.env.production
+.env.*
+!.env.example
+!.env.docker.example
 .phpactor.json
 .phpunit.result.cache
 /.fleet
@@ -26,3 +27,21 @@ Thumbs.db
 
 # gstack tooling (own repo, not project source)
 /gstack
+
+# SSH / deploy credentials — never commit
+*.pem
+*.ppk
+id_rsa*
+id_ed25519*
+/.ssh
+/secrets
+
+# Deploy- és hosting-jegyzetek: prod hozzáféréseket tartalmaznak, csak lokálisan élnek
+/docs/11-hosting-tarhelyeu-ellenorzes.md
+/docs/12-tarhelyeu-uzembehelyezesi-checklist.md
+/docs/13-deploy-leiras-tarhelyeu.md
+/docs/14-ssh-claude-code-hozzaferes.md
+
+# Munkamenet-átadó jegyzetek (lokális állapot, nem repo-tartalom)
+/RESUME-STATUS.md
+/DEPLOY-FOLYTATAS.md
