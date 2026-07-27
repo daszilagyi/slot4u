@@ -1,6 +1,7 @@
 import { Link, usePage } from '@inertiajs/react';
 
 import { Badge } from '@/components/ui/badge';
+import { useFeatures } from '@/lib/features';
 import { useTranslations } from '@/lib/i18n';
 import { navItems } from '@/lib/nav';
 import { usePermissions } from '@/lib/permissions';
@@ -14,11 +15,18 @@ import { cn } from '@/lib/utils';
 export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
     const t = useTranslations();
     const can = usePermissions();
+    const feature = useFeatures();
     const { props, url } = usePage();
     const tenant = props.tenant;
 
+    // Both gates, because they answer different questions (docs/03): the
+    // permission asks whether this USER may manage the section, the feature flag
+    // whether the TENANT has it at all. A feature-gated route 403s, so showing
+    // its link to a tenant without the feature would be a dead end.
     const items = navItems.filter(
-        (item) => !item.permission || can(item.permission),
+        (item) =>
+            (!item.permission || can(item.permission)) &&
+            (!item.feature || feature(item.feature)),
     );
 
     return (

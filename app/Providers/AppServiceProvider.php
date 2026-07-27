@@ -19,8 +19,12 @@ use App\Listeners\SendWaitlistOffer;
 use App\Models\Room;
 use App\Models\Staff;
 use App\Models\User;
+use App\Services\Domain\DnsResolver;
+use App\Services\Domain\SystemDnsResolver;
 use App\Services\Feature\FeatureResolver;
+use App\Tenancy\CustomDomainResolver;
 use App\Tenancy\TenantManager;
+use App\Tenancy\TenantPublicUrl;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Notifications\Events\NotificationFailed;
 use Illuminate\Notifications\Events\NotificationSent;
@@ -43,6 +47,13 @@ class AppServiceProvider extends ServiceProvider
         // Scoped so the base-plan default lookup is memoised once per request/job
         // and shared across the Pennant feature definitions and the Inertia share.
         $this->app->scoped(FeatureResolver::class);
+
+        // Custom domains (SLO-42): the host → tenant lookup runs on every
+        // request, so it is scoped to memoise within one. Verification talks to
+        // public DNS through a swappable resolver.
+        $this->app->scoped(CustomDomainResolver::class);
+        $this->app->scoped(TenantPublicUrl::class);
+        $this->app->bind(DnsResolver::class, SystemDnsResolver::class);
     }
 
     /**

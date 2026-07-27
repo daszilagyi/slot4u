@@ -8,6 +8,7 @@ use App\Models\Tenant;
 use App\Notifications\Concerns\RecordsDelivery;
 use App\Notifications\Concerns\TracksDelivery;
 use App\Services\Notification\MessageTemplateRenderer;
+use App\Tenancy\TenantPublicUrl;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -118,16 +119,14 @@ abstract class TenantMailNotification extends Notification implements RecordsDel
     }
 
     /**
-     * An absolute URL on the tenant's public subdomain (`{slug}.{central_domain}`).
-     * The mail is sent from queue jobs with no bound request, so the host is built
-     * from the tenant rather than taken from the current URL.
+     * An absolute URL on the tenant's public host — its verified primary custom
+     * domain when it has one, the `{slug}.{central_domain}` subdomain otherwise
+     * (SLO-42). The mail is sent from queue jobs with no bound request, so the
+     * host is built from the tenant rather than taken from the current URL.
      */
     protected function tenantUrl(string $path): string
     {
-        $scheme = parse_url((string) config('app.url'), PHP_URL_SCHEME) ?: 'https';
-        $host = $this->tenant->slug.'.'.config('tenancy.central_domain');
-
-        return sprintf('%s://%s%s', $scheme, $host, $path);
+        return app(TenantPublicUrl::class)->to($this->tenant, $path);
     }
 
     /**

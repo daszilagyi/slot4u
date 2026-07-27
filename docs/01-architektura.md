@@ -27,11 +27,28 @@ Tenant-scoped, gépi (nem lokalizált UI) SEO végpontok a publikus felülethez,
 **Döntés: shared database + `tenant_id` + global scope.** (Alternatíva — tenantonkénti DB — elvetve: üzemeltetési teher, migrációk N-szer, cross-tenant statisztika nehéz. A superadmin statisztikákhoz és a központi számlázáshoz a shared modell egyszerűbb.)
 
 - Tenant-azonosítás: subdomain (`functionalfit.slot4u.hu`). Központi marketing/regisztrációs oldal: `slot4u.hu`, superadmin: `admin.slot4u.hu`.
-- Egyedi domain CNAME-mel (`booking.functionalfit.hu`) — `tenant_domains` tábla, `feature_custom_domain` feature flag.
+- Egyedi domain CNAME-mel (`booking.functionalfit.hu`) — `tenant_domains` tábla, `feature_custom_domain` feature flag. **Megvalósítva: SLO-42**, l. az „Egyedi tenant-domain" szakaszt lent.
 - `IdentifyTenant` middleware: subdomain → tenant betöltés → container singleton + global scope aktiválás.
 - Minden tenant-tulajdonú modell: `BelongsToTenant` trait (creating eventnél tenant_id kitöltés, global scope szűrés).
 - Tenant státuszok: `trial`, `active`, `suspended` (lejárt fizetés — csak olvasás/figyelmeztető oldal), `archived` (soft delete, 90 nap megőrzés GDPR szerint).
 - Storage: tenantonként prefixelt mappa (`storage/tenants/{id}/...`), publikus asset-ek (logó) külön diskre.
+
+## Egyedi tenant-domain (SLO-42)
+
+A tenant a **saját domainjén** (`foglalas.cegem.hu`) is kiszolgálhatja a publikus foglalófelületét, a `feature_custom_domain` mögött. A kanonikus `{slug}.{central}` aldomén **soha nem szűnik meg** — mindkét host ugyanazt szolgálja ki.
+
+**Miért host-átírás, és nem második route-csoport?** A route-tábla a `{tenant}.{central}` domain-mintára van kulcsolva. A `routes/tenant.php` második regisztrálása egy catch-all domain alatt minden route-nevet duplikálna (a névfeloldás az utoljára regisztráltra állna), így két, egymástól elcsúszó kódútvonal keletkezne. Helyette egy **globális** (routing előtti) middleware, a `ResolveCustomDomain` a bejövő hostot a tenant kanonikus aldoménjére írja át — kizárólag a route-illesztés kedvéért. Minden ezután következő réteg (`IdentifyTenant`, a teljes middleware-lánc, a policy-k) változatlanul fut.
+
+- **Feloldás:** `CustomDomainResolver` — egy indexelt egyenlőség-lekérdezés a `tenant_domains.domain`-re, kérésen belül memoizálva, kérések között cache-elve (`tenancy.resolution_ttl`, default 300s). **Csak a találatot cache-eljük**: a nem-találat cache-elése tetszőleges Host headerrel korlátlan cache-kulcsot engedne létrehozni (prodban DB cache store). Minden domain-írás (hozzáadás, verifikáció, elsődlegessé tétel, törlés) explicit `forget()`-et hív.
+- **Látszat:** az átírás előtt `URL::forceRootUrl($request->getSchemeAndHttpHost())` — az `url()`-lel generált abszolút linkek (OG, sitemap, redirect) a látogató által használt hoston maradnak. A frontend relatív útvonalakat használ (nincs Ziggy), így az onnan induló navigáció eleve a helyén marad.
+- **Nem szolgál ki semmit** az a host, amelyik ismeretlen, **nincs verifikálva**, vagy a tenantjától elvették a feature-t: ilyenkor a middleware nem nyúl a hosthoz, az egyetlen route-csoporthoz sem illeszkedik, és **404** lesz belőle. Az aldomén ettől függetlenül él.
+- **Tulajdonjog igazolása:** DNS TXT rekord a `_slot4u-verify.{domain}` néven, értéke a soronkénti `verification_token`. Azért TXT és nem „ránk mutat-e a DNS": aki a zónába rekordot tud tenni, az jogosult a nevet ide irányítani. A `DnsResolver` interface a külvilág felé az egyetlen varrat (tesztben fake).
+- **Session cookie:** a `SESSION_DOMAIN` `.{central}` (hogy egy session átfogja a tenant-aldoméneket), ami az egyedi domainen **kívül esik** — a böngésző el sem küldené a sütit, tehát nem lenne session, nem lenne CSRF token, és minden POST 419-cel bukna. A `ResolveCustomDomain` ezért egyedi hoston `session.domain`-t `null`-ra állítja (a StartSession előtt fut), így a süti pontosan arra a hostra kötődik. Következmény: az aldomén és az egyedi domain **külön session** — ez a helyes viselkedés, két különböző origin.
+- **A teljes tenant-felület elérhető** az egyedi domainen, nem csak a publikus rész (admin panel, members area is) — a host-átírás után ugyanaz a route-tábla fut. Külön korlátozás nincs: a jogosultsági lánc változatlanul véd, a session pedig hostonként külön.
+- **Sitemap/robots:** szándékosan a *kérés* hostján maradnak (`url()`), nem az elsődlegesen — a sitemap akkor hiteles, ha ugyanazon a hoston van, mint a benne listázott URL-ek. A duplikációt a canonical tag rendezi, nem a sitemap.
+- **Elsődleges domain:** tenantonként legfeljebb egy, és csak verifikált lehet az. A `TenantPublicUrl` ezt adja vissza minden **általunk generált** linkhez (emailek, canonical tag, megosztási URL); enélkül az aldomént. Emiatt a publikus oldal `<link rel="canonical">`-ja az elsődleges hostra mutat, hogy a két host ne versenyezzen duplikált tartalomként. **301 átirányítás nincs**: ha a tenant DNS-e vagy TLS-e elromlik, a publikus felület az aldoménen továbbra is elérhető marad.
+
+> **Nyitott üzemeltetési kérdés (nem app-szintű):** a custom hostname **TLS**-e. A jelenlegi Tárhely.Eu osztott cPanel + Cloudflare felállásban vagy (a) minden egyedi domaint alias-domainként kézzel fel kell venni cPanelben AutoSSL-lel, vagy (b) **Cloudflare for SaaS** (Custom Hostnames) kell, ami az edge-en intézi a tanúsítványt (100 hostname ingyenes, felette hostname-enkénti díj). Az app-oldal mindkettőre kész — a `tenancy.cname_target` config mondja meg, mire kell CNAME-elni; `null` esetén a tenant saját aldoménje a cél.
 
 ## Middleware lánc (tenant route-okon)
 
@@ -155,7 +172,7 @@ Két külön profil fut: a **dev/CI referencia-stack** (Docker Compose) és az *
 - **Queue:** `QUEUE_CONNECTION=database` + percenkénti cron worker `flock`-kal az átfedés ellen (`queue:work --stop-when-empty --max-time=55`). Nincs Horizon. Következmény: az utómunkák (email, webhook-utókezelés) worst-case ~1 perc késleltetésűek; a Barion-webhook **fogadása** szinkron HTTP, azt nem érinti.
 - **Cache / session:** `CACHE_STORE=database`, `SESSION_DRIVER=database` (nincs Redis-szerver, csak kliens; a `phpredis` az `ea-php84`-en nincs). Redis-t a host később adhat → visszaállítható, nem blokkoló.
 - **Mail:** `MAIL_MAILER=smtp` (`no-reply@slot4u.hu`, `smtps` séma a 465-ös porton — Laravel 11/12 `MAIL_SCHEME=smtps`, nem `MAIL_ENCRYPTION`); DKIM a cPanel Email Deliverability alatt.
-- **TLS / aldomének:** DNS Cloudflare mögött, Universal SSL fedi a `*.slot4u.hu`-t az edge-en; origin felé cPanel cert. cPanel `*` wildcard aldomain → docroot az app `public/`-ja. Az egyedi tenant-domain (`feature_custom_domain`) külön onboarding (SLO-42).
+- **TLS / aldomének:** DNS Cloudflare mögött, Universal SSL fedi a `*.slot4u.hu`-t az edge-en; origin felé cPanel cert. cPanel `*` wildcard aldomain → docroot az app `public/`-ja. Az egyedi tenant-domain (`feature_custom_domain`) app-oldala kész (SLO-42), de a custom hostname **TLS-e még nyitott üzemeltetési döntés** — l. az „Egyedi tenant-domain" szakaszt.
 - **Cloudflare mögötti IP/séma:** az Apache már visszaállítja a valódi klienst (mod_cloudflare), a Laravel `trustProxies` a CF-tartományokra ennek framework-szintű biztosítéka (rate limit + audit valódi kliens-IP-t, `X-Forwarded-Proto` HTTPS-sémát lát) — l. `bootstrap/app.php`.
 - **SSR:** kikapcsolva indulunk (`INERTIA_SSR_ENABLED=false`, nincs Node daemon) — a SEO-hatás vállalt; külön spike, ha Passengerrel megoldható.
 - **Deploy-sajátosságok:** `storage:link` helyett shell `ln -s` (a PHP `symlink()` tiltott); Vite build lokálisan/CI-ban, csak a build-output megy fel; scheduler cron `schedule:run` percenként.
