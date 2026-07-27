@@ -23,6 +23,7 @@ use App\Http\Controllers\Super\ImpersonationController;
 use App\Http\Controllers\Tenant\BookingController as TenantBookingController;
 use App\Http\Controllers\Tenant\HomeController as TenantHomeController;
 use App\Http\Controllers\Tenant\MyBookingController;
+use App\Http\Controllers\Tenant\MyInvoiceController;
 use App\Http\Controllers\Tenant\MyPaymentController;
 use App\Http\Controllers\Tenant\MyProfileController;
 use App\Http\Controllers\Tenant\MyRequestsController;
@@ -179,6 +180,13 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
             Route::post('/bookings/waitlist', [WaitlistController::class, 'store'])->name('tenant.bookings.waitlist');
         });
 
+        // Customer invoice PDF for a booking (SLO-133). Auth + booking.view + the
+        // employee visibility scope; the document is on a PRIVATE disk and is only
+        // ever streamed through here, never a public URL.
+        Route::middleware('can:'.Permission::BookingView->value)->group(function () {
+            Route::get('/bookings/{booking}/invoices/{invoice}/pdf', [BookingController::class, 'invoicePdf'])->name('tenant.bookings.invoice_pdf');
+        });
+
         // Booking quick actions (SLO-85). Gated by booking.edit: fulfil a
         // no_time_slot booking (docs/04 §1, SLO-27), mark no-show, reschedule a
         // time-slot booking. Ownership 404 + state-machine 422 in the controller.
@@ -186,6 +194,9 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
             Route::post('/bookings/{booking}/complete', [BookingController::class, 'complete'])->name('tenant.bookings.complete');
             Route::post('/bookings/{booking}/no-show', [BookingController::class, 'noShow'])->name('tenant.bookings.no_show');
             Route::post('/bookings/{booking}/reschedule', [BookingController::class, 'reschedule'])->name('tenant.bookings.reschedule');
+            // Re-issue an invoice the provider refused (SLO-133) — booking upkeep,
+            // like the other quick actions.
+            Route::post('/bookings/{booking}/invoices/{invoice}/retry', [BookingController::class, 'retryInvoice'])->name('tenant.bookings.invoice_retry');
         });
 
         // Cancel a booking (SLO-85). Gated by booking.cancel (a distinct permission
@@ -306,6 +317,12 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
         Route::get('/my/payments', [MyPaymentController::class, 'index'])
             ->middleware('ensure.feature:'.Feature::OnlinePayment->value)
             ->name('tenant.my.payments');
+        // My invoices (SLO-133). Self-scoped through the booking; the PDF is
+        // streamed from the private disk behind this same scope.
+        Route::middleware('ensure.feature:'.Feature::Invoicing->value)->group(function () {
+            Route::get('/my/invoices', [MyInvoiceController::class, 'index'])->name('tenant.my.invoices');
+            Route::get('/my/invoices/{invoice}/pdf', [MyInvoiceController::class, 'download'])->name('tenant.my.invoices.pdf');
+        });
     });
 });
 

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Actions\Payment;
 
 use App\Actions\Booking\ChangeBookingStatus;
+use App\Actions\Invoice\RecordInvoiceForPayment;
 use App\Enums\BookingStatus;
 use App\Enums\PaymentStatus;
 use App\Models\Booking;
@@ -28,6 +29,7 @@ final class SettleBookingPayment
     public function __construct(
         private readonly ChangeBookingStatus $changeStatus,
         private readonly RefundBookingPayments $refundPayments,
+        private readonly RecordInvoiceForPayment $recordInvoice,
     ) {}
 
     /**
@@ -61,6 +63,11 @@ final class SettleBookingPayment
                     ->whereKeyNot($locked->getKey())
                     ->where('status', PaymentStatus::Pending->value)
                     ->update(['status' => PaymentStatus::Failed->value]);
+
+                // Money in, invoice out (SLO-133) — only for a booking that stands;
+                // the refunded-away case below has nothing to invoice. No-op unless
+                // the tenant has the invoicing integration on.
+                ($this->recordInvoice)($locked);
             } elseif ($booking instanceof Booking && $booking->status === BookingStatus::Canceled) {
                 // Money for a booking that no longer exists: the hold expired and the
                 // slot was released just before the callback landed. The customer gets

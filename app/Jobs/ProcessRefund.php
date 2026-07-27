@@ -6,6 +6,7 @@ namespace App\Jobs;
 
 use App\Enums\PaymentStatus;
 use App\Enums\RefundStatus;
+use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\Refund;
 use App\Services\Payment\PaymentGatewayManager;
@@ -89,6 +90,17 @@ class ProcessRefund implements ShouldQueue
             if ($returned >= $payment->amount_minor && $payment->status === PaymentStatus::Paid) {
                 $payment->status = PaymentStatus::Refunded;
                 $payment->saveQuietly();
+
+                // Fully refunded money needs its invoice voided (SLO-133). Only on
+                // a FULL refund: a partial one would need a corrective invoice,
+                // which no provider adapter does yet.
+                $invoice = Invoice::withoutGlobalScopes()
+                    ->where('payment_id', $payment->getKey())
+                    ->first();
+
+                if ($invoice instanceof Invoice && $invoice->status->isLive()) {
+                    StornoInvoice::dispatch($invoice->getKey());
+                }
             }
         });
     }

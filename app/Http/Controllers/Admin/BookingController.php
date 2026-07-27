@@ -16,7 +16,9 @@ use App\Http\Requests\Admin\BookingRequest;
 use App\Http\Requests\Admin\CancelBookingRequest;
 use App\Http\Requests\Admin\RefundBookingRequest;
 use App\Http\Requests\Admin\RescheduleBookingRequest;
+use App\Jobs\IssueInvoice;
 use App\Models\Booking;
+use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\Refund;
 use App\Models\Service;
@@ -30,9 +32,11 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Admin booking management (SLO-24 create, SLO-85 list + quick actions). Lives
@@ -111,6 +115,9 @@ class BookingController extends Controller
             // without it.
             'payments' => $this->payments($booking),
             'refundable_minor' => app(RefundBookingPayments::class)->refundableMinor($booking),
+            // The customer invoice for this booking, when the tenant invoices
+            // online (SLO-133); null otherwise.
+            'invoice' => $this->invoice($booking),
             'can' => [
                 'edit' => (bool) $actor->can(Permission::BookingEdit->value),
                 'cancel' => (bool) $actor->can(Permission::BookingCancel->value),
@@ -300,6 +307,79 @@ class BookingController extends Controller
             'ends_at' => $booking->ends_at?->toIso8601String(),
             'price_minor' => (int) $booking->price_minor,
             'currency' => $booking->currency,
+        ];
+    }
+
+    /**
+     * Re-issue an invoice the provider refused (SLO-133). The queued issuer is
+     * idempotent, so this is safe to press twice; an already issued invoice is a
+     * 422 rather than a silent second document.
+     */
+    public function retryInvoice(Request $request, string $tenant, Booking $booking, Invoice $invoice): RedirectResponse
+    {
+        $actor = $request->user();
+        abort_unless(BookingVisibility::owns($actor, $booking), 404);
+        Gate::authorize('update', $booking);
+        // Route-bound and tenant-scoped, but the pair must match: an invoice of
+        // another booking is not this page's to retry.
+        abort_unless((int) $invoice->booking_id === (int) $booking->getKey(), 404);
+
+        if (! $invoice->status->isRetryable()) {
+            throw ValidationException::withMessages([
+                'invoice' => __('app.admin.bookings.error.invoice_not_retryable'),
+            ]);
+        }
+
+        IssueInvoice::dispatch($invoice->getKey());
+
+        return back();
+    }
+
+    /**
+     * Stream an invoice PDF to the tenant's staff (SLO-133). Behind auth + the
+     * booking visibility scope; never a public URL.
+     */
+    public function invoicePdf(Request $request, string $tenant, Booking $booking, Invoice $invoice): StreamedResponse
+    {
+        $actor = $request->user();
+        abort_unless(BookingVisibility::owns($actor, $booking), 404);
+        Gate::authorize('view', $booking);
+        abort_unless((int) $invoice->booking_id === (int) $booking->getKey(), 404);
+
+        $path = $invoice->downloadablePath();
+        abort_if($path === null, 404);
+
+        $disk = Storage::disk((string) config('invoicing.disk'));
+        abort_unless($disk->exists($path), 404);
+
+        $number = $invoice->storno_number ?? $invoice->number ?? (string) $invoice->id;
+
+        return $disk->download($path, 'szamla-'.str_replace('/', '-', $number).'.pdf');
+    }
+
+    /**
+     * The booking's invoice, if the tenant invoices online at all (SLO-133).
+     *
+     * @return array<string, mixed>|null
+     */
+    private function invoice(Booking $booking): ?array
+    {
+        $invoice = Invoice::query()->where('booking_id', $booking->getKey())->latest('id')->first();
+
+        if (! $invoice instanceof Invoice) {
+            return null;
+        }
+
+        return [
+            'id' => $invoice->id,
+            'number' => $invoice->storno_number ?? $invoice->number,
+            'status' => $invoice->status->value,
+            'amount_minor' => $invoice->amount_minor,
+            'currency' => $invoice->currency,
+            'issued_at' => $invoice->issued_at?->toIso8601String(),
+            'error' => $invoice->error,
+            'can_retry' => $invoice->status->isRetryable(),
+            'has_pdf' => $invoice->downloadablePath() !== null,
         ];
     }
 
