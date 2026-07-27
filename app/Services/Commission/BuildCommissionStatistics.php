@@ -73,11 +73,6 @@ final class BuildCommissionStatistics
         $withTurnover = (int) $aggregate->with_turnover;
         $paying = (int) $aggregate->paying;
 
-        $open = (int) $aggregate->commission_open;
-        $invoiced = (int) $aggregate->commission_invoiced;
-        $paid = (int) $aggregate->commission_paid;
-        $overdueRevenue = (int) $aggregate->commission_overdue;
-
         $overdue = $this->overdueInvoices();
 
         return new CommissionStatistics(
@@ -89,14 +84,11 @@ final class BuildCommissionStatistics
             turnoverTotalMinor: (int) $aggregate->turnover_total,
             commissionAccruedMinor: (int) $aggregate->commission_accrued,
             correctionTotalMinor: (int) $aggregate->correction_total,
-            // The lifecycle buckets already hold the netted, floored figures and
-            // exclude voided periods, so their sum IS the billable net — the split
-            // and the headline reconcile by construction.
-            commissionNetMinor: $open + $invoiced + $paid + $overdueRevenue,
-            commissionOpenMinor: $open,
-            commissionInvoicedMinor: $invoiced,
-            commissionPaidMinor: $paid,
-            commissionOverdueMinor: $overdueRevenue,
+            commissionNetMinor: (int) $aggregate->commission_net,
+            commissionOpenMinor: (int) $aggregate->commission_open,
+            commissionInvoicedMinor: (int) $aggregate->commission_invoiced,
+            commissionPaidMinor: (int) $aggregate->commission_paid,
+            commissionOverdueMinor: (int) $aggregate->commission_overdue,
             activeTenants: $this->operationalTenantCount(),
             tenantsWithTurnover: $withTurnover,
             payingTenants: $paying,
@@ -133,10 +125,12 @@ final class BuildCommissionStatistics
      * the funnel tallies. Conditional sums keep it a single query (no N+1, no
      * per-status round trips).
      *
-     * The lifecycle sums report the *net* figure (commission less credits), which
-     * is what the month is actually billed for. A voided period falls into no
-     * bucket, so a stornoed invoice or a fully credited month adds nothing to the
-     * revenue — while the gross accrual keeps counting it.
+     * The net and the lifecycle sums report the *net* figure (commission less
+     * credits), which is what the month is actually billed for. A voided period
+     * falls into no bucket, so a stornoed invoice or a fully credited month adds
+     * nothing to the revenue — while the gross accrual keeps counting it. The net
+     * is summed on its own rather than by adding the four buckets up, so a future
+     * sixth lifecycle status cannot silently drop out of the revenue total.
      */
     private function periodAggregate(string $period): object
     {
@@ -152,12 +146,14 @@ final class BuildCommissionStatistics
                 COALESCE(SUM(CASE WHEN turnover_minor > 0 THEN 1 ELSE 0 END), 0) as with_turnover,
                 COALESCE(SUM(CASE WHEN status <> ? AND commission_minor + correction_minor > 0 THEN 1 ELSE 0 END), 0) as paying,
                 COALESCE(SUM(CASE WHEN cap_reached = 1 THEN 1 ELSE 0 END), 0) as cap_reached,
+                COALESCE(SUM(CASE WHEN status <> ? THEN {$net} ELSE 0 END), 0) as commission_net,
                 COALESCE(SUM(CASE WHEN status = ? THEN {$net} ELSE 0 END), 0) as commission_open,
                 COALESCE(SUM(CASE WHEN status = ? THEN {$net} ELSE 0 END), 0) as commission_invoiced,
                 COALESCE(SUM(CASE WHEN status = ? THEN {$net} ELSE 0 END), 0) as commission_paid,
                 COALESCE(SUM(CASE WHEN status = ? THEN {$net} ELSE 0 END), 0) as commission_overdue
                 SQL, [
-                BillingPeriodStatus::Void->value,
+                BillingPeriodStatus::Void->value,  // paying
+                BillingPeriodStatus::Void->value,  // commission_net
                 BillingPeriodStatus::Open->value,
                 BillingPeriodStatus::Invoiced->value,
                 BillingPeriodStatus::Paid->value,
@@ -174,6 +170,7 @@ final class BuildCommissionStatistics
             'with_turnover' => 0,
             'paying' => 0,
             'cap_reached' => 0,
+            'commission_net' => 0,
             'commission_open' => 0,
             'commission_invoiced' => 0,
             'commission_paid' => 0,

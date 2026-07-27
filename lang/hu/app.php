@@ -359,7 +359,7 @@ return [
             'top_col_tenant' => 'Tenant',
             'top_col_status' => 'Állapot',
             'top_col_turnover' => 'Forgalom',
-            'top_col_commission' => 'Jutalék',
+            'top_col_commission' => 'Jutalék (nettó)',
             'top_correction' => ':amount jóváírás',
             'top_cap_badge' => 'Plafon elérve',
             // Suspension risk

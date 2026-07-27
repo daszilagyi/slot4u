@@ -154,23 +154,31 @@ export default function SuperDashboard({ statistics, filters }: DashboardProps) 
                             {/* Gross accrual and the credits that netted it down (§8.2) —
                                 shown only when a credit actually moved the number. */}
                             {statistics.correction_total_minor !== 0 ? (
-                                <div className="mt-4 flex flex-wrap gap-x-6 gap-y-1 text-xs">
-                                    <span>
-                                        {t('super.dashboard.revenue_accrued')}:{' '}
-                                        <span className="tabular-nums">
-                                            {formatMoney(statistics.commission_accrued_minor, currency)}
+                                <>
+                                    <div className="mt-4 flex flex-wrap gap-x-6 gap-y-1 text-xs">
+                                        <span>
+                                            {t('super.dashboard.revenue_accrued')}:{' '}
+                                            <span className="tabular-nums">
+                                                {formatMoney(
+                                                    statistics.commission_accrued_minor,
+                                                    currency,
+                                                )}
+                                            </span>
                                         </span>
-                                    </span>
-                                    <span
-                                        title={t('super.dashboard.revenue_correction_hint')}
-                                        className="text-amber-400"
-                                    >
-                                        {t('super.dashboard.revenue_correction')}:{' '}
-                                        <span className="tabular-nums">
-                                            {formatMoney(statistics.correction_total_minor, currency)}
+                                        <span className="text-amber-400">
+                                            {t('super.dashboard.revenue_correction')}:{' '}
+                                            <span className="tabular-nums">
+                                                {formatMoney(
+                                                    statistics.correction_total_minor,
+                                                    currency,
+                                                )}
+                                            </span>
                                         </span>
-                                    </span>
-                                </div>
+                                    </div>
+                                    <p className="mt-2 text-xs text-muted-foreground">
+                                        {t('super.dashboard.revenue_correction_hint')}
+                                    </p>
+                                </>
                             ) : null}
 
                             <div className="mt-4 flex flex-wrap gap-x-6 gap-y-1 text-xs">
