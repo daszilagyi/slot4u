@@ -12,7 +12,11 @@ Minden tenant-tulajdonú táblán: `tenant_id` (indexelt, FK), `created_at/updat
 tenants            id, name, slug(subdomain), status(trial|active|suspended|archived),
                    timezone, locale, branding(json: logó, színek), settings(json)
 tenant_domains     id, tenant_id, domain(UNIQUE), verification_token, verified_at,
-                   is_primary, last_checked_at, last_error               -- egyedi domain (feature_custom_domain, SLO-42)
+                   is_primary, last_checked_at, last_error,              -- egyedi domain (feature_custom_domain, SLO-42)
+                   provider_hostname_id, provisioning_status(pending|active|failed),
+                   certificate_status, provisioning_error, provisioned_at -- edge provisioning (SLO-135)
+                   -- tulajdonjog (verified_at) és kiszolgálhatóság (provisioning_status) KÜLÖN:
+                   -- provider-hiba sosem vonja vissza a verifikációt; NULL status = nem volt kísérlet
                    -- domain: punycode/kisbetűs, port nélkül (ahogy a Host header érkezik);
                    -- a globális UNIQUE az, ami megakadályozza, hogy két tenant ugyanazt a hostot vigye
 plans              id, code(base), name, monthly_price_minor(=0), currency, is_active

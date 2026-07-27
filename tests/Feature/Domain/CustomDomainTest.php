@@ -186,6 +186,59 @@ it('leaves the shared session cookie domain alone on the subdomain', function ()
     expect($session?->getDomain())->toBe($expected);
 });
 
+// ------------------------------------ Cloudflare-forwarded host (SLO-135)
+
+it('resolves the tenant from the forwarded host header behind Cloudflare', function () {
+    $tenant = domTenant();
+    domVerified($tenant, 'foglalas.acme.hu');
+
+    // What Cloudflare for SaaS actually delivers once the Origin Rule has
+    // rewritten Host to the fallback origin: the visitor's real hostname
+    // arrives in the private header instead.
+    $response = $this->call('GET', 'http://customers.'.config('tenancy.central_domain').'/', server: [
+        'REMOTE_ADDR' => '173.245.48.1', // a Cloudflare edge range
+        'HTTP_X_FORWARDED_PROTO' => 'https',
+        'HTTP_X_SLOT4U_ORIGINAL_HOST' => 'foglalas.acme.hu',
+    ]);
+
+    $response->assertOk();
+    $response->assertInertia(fn ($page) => $page
+        ->component('Tenant/Home')
+        ->where('profile.name', $tenant->name));
+});
+
+it('ignores a forwarded host header from an untrusted peer', function () {
+    $tenant = domTenant();
+    domVerified($tenant, 'foglalas.acme.hu');
+
+    // Believing this would let anyone serve any tenant's domain by setting a
+    // header. The fallback-origin host itself is reserved, so it 404s.
+    $this->call('GET', 'http://customers.'.config('tenancy.central_domain').'/', server: [
+        'REMOTE_ADDR' => '203.0.113.99', // not Cloudflare
+        'HTTP_X_SLOT4U_ORIGINAL_HOST' => 'foglalas.acme.hu',
+    ])->assertNotFound();
+});
+
+it('generates links on the forwarded host, not the fallback origin', function () {
+    $tenant = domTenant();
+    domVerified($tenant, 'foglalas.acme.hu', primary: true);
+
+    $response = $this->call('GET', 'http://customers.'.config('tenancy.central_domain').'/', server: [
+        'REMOTE_ADDR' => '173.245.48.1',
+        'HTTP_X_SLOT4U_ORIGINAL_HOST' => 'foglalas.acme.hu',
+    ]);
+
+    $response->assertInertia(fn ($page) => $page
+        ->where('og_image', fn (string $url): bool => str_contains($url, 'foglalas.acme.hu')));
+});
+
+it('never lets a tenant claim the fallback origin slug', function () {
+    // `customers` is reserved (config/tenancy.php): every custom-hostname
+    // request lands on that host, so a tenant owning the slug would swallow
+    // all of them.
+    expect(config('tenancy.reserved_subdomains'))->toContain('customers');
+});
+
 // ------------------------------------------------------------------ link URLs
 
 it('keeps generated absolute urls on the host the visitor used', function () {

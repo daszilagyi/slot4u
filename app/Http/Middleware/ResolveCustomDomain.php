@@ -45,7 +45,9 @@ class ResolveCustomDomain
 
     public function handle(Request $request, Closure $next): Response
     {
-        $domain = $this->resolver->resolve($request->getHost());
+        $visitorHost = $this->visitorHost($request);
+
+        $domain = $this->resolver->resolve($visitorHost);
 
         if ($domain === null) {
             return $next($request);
@@ -58,8 +60,9 @@ class ResolveCustomDomain
         }
 
         // Absolute URLs (canonical tag, OG, sitemap, redirects) must stay on the
-        // host the visitor typed — pin the root before the Host header changes.
-        URL::forceRootUrl($request->getSchemeAndHttpHost());
+        // host the VISITOR used — which is not necessarily the Host header, see
+        // visitorHost() — so pin the root before anything is rewritten.
+        URL::forceRootUrl($request->getScheme().'://'.$visitorHost);
 
         // SESSION_DOMAIN is `.{central}` so one session spans the tenant
         // subdomains. A custom domain is outside that scope, so the browser
@@ -79,5 +82,31 @@ class ResolveCustomDomain
         $request->server->set('HTTP_HOST', $canonical);
 
         return $next($request);
+    }
+
+    /**
+     * The hostname the visitor actually typed.
+     *
+     * Normally the Host header. But Cloudflare for SaaS forwards the visitor's
+     * own hostname as Host, and the shared-hosting vhost only answers for
+     * `*.{central}` — so an Origin Rule rewrites Host to the fallback origin
+     * and a Transform Rule carries the real name in a private header instead
+     * (SLO-135, docs/01). Where that is in play, the header is the truth.
+     *
+     * Only trusted where the request came through a trusted proxy: the header
+     * is otherwise trivially forgeable, and believing it would let anyone claim
+     * any tenant's domain by setting it by hand.
+     */
+    private function visitorHost(Request $request): string
+    {
+        $header = (string) config('tenancy.original_host_header');
+
+        if ($header === '' || ! $request->isFromTrustedProxy()) {
+            return $request->getHost();
+        }
+
+        $forwarded = $request->headers->get($header);
+
+        return is_string($forwarded) && $forwarded !== '' ? $forwarded : $request->getHost();
     }
 }

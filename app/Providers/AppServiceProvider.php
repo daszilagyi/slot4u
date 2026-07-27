@@ -19,7 +19,10 @@ use App\Listeners\SendWaitlistOffer;
 use App\Models\Room;
 use App\Models\Staff;
 use App\Models\User;
+use App\Services\Domain\CloudflareCustomHostnameProvisioner;
+use App\Services\Domain\CustomHostnameProvisioner;
 use App\Services\Domain\DnsResolver;
+use App\Services\Domain\NullCustomHostnameProvisioner;
 use App\Services\Domain\SystemDnsResolver;
 use App\Services\Feature\FeatureResolver;
 use App\Tenancy\CustomDomainResolver;
@@ -54,6 +57,19 @@ class AppServiceProvider extends ServiceProvider
         $this->app->scoped(CustomDomainResolver::class);
         $this->app->scoped(TenantPublicUrl::class);
         $this->app->bind(DnsResolver::class, SystemDnsResolver::class);
+
+        // Custom hostname TLS (SLO-135). Falls back to the null provisioner
+        // wherever Cloudflare is not configured — dev, CI, a fresh install —
+        // so those environments make no outbound calls at all.
+        $this->app->bind(CustomHostnameProvisioner::class, function (): CustomHostnameProvisioner {
+            $cloudflare = new CloudflareCustomHostnameProvisioner(
+                token: config('tenancy.cloudflare.token'),
+                zoneId: config('tenancy.cloudflare.zone_id'),
+                timeout: (int) config('tenancy.cloudflare.timeout', 15),
+            );
+
+            return $cloudflare->isConfigured() ? $cloudflare : new NullCustomHostnameProvisioner;
+        });
     }
 
     /**

@@ -56,8 +56,24 @@ Amit ez a felállás megkövetel:
 
 1. **Fallback origin:** egy hostname a `slot4u.hu` zónában (pl. `customers.slot4u.hu`), ami a Tárhely.Eu originra mutat. A Cloudflare minden custom hostname forgalmát ide irányítja.
 2. **`APP_CUSTOM_DOMAIN_TARGET=customers.slot4u.hu`** — ezt kapja a tenant CNAME-célként az admin UI-ban (`tenancy.cname_target`).
-3. **Hostname-regisztráció a Cloudflare API-n** (`POST /zones/{zone}/custom_hostnames`) minden verifikált tenant-domainre, és törlés a domain elengedésekor. **Enélkül a CNAME-elt domain 1014-es hibát ad** („CNAME cross-user banned") — a Cloudflare csak a nála regisztrált custom hostname-eket szolgálja ki. Ez még nincs megvalósítva → **SLO-135**.
-4. **Cert-validáció:** mivel a domain már a Cloudflare-re CNAME-el, a HTTP-validáció automatikus; a tanúsítvány állapotát (`pending_validation` → `active`) az API adja vissza, ezt a `tenant_domains` soron érdemes megjeleníteni.
+3. **Hostname-regisztráció a Cloudflare API-n** (`POST /zones/{zone}/custom_hostnames`) minden verifikált tenant-domainre, és törlés a domain elengedésekor. **Enélkül a CNAME-elt domain 1014-es hibát ad** („CNAME cross-user banned") — a Cloudflare csak a nála regisztrált custom hostname-eket szolgálja ki. Megvalósítva: **SLO-135**, l. lent.
+4. **Cert-validáció:** mivel a domain már a Cloudflare-re CNAME-el, a HTTP-validáció automatikus; a tanúsítvány állapotát (`pending_validation` → `active`) az API adja vissza, ez a `tenant_domains.certificate_status`-ba kerül.
+5. ⚠️ **Host header:** a Cloudflare **a látogató saját hostnevét** küldi tovább Host headerként (`foglalas.cegem.hu`), amire az osztott tárhely `*.slot4u.hu` vhostja **nem illeszkedik** — a kérés a szerver default vhostjára esne, és a Full (strict) TLS is bukna, mert az origin certje nem fedi az ügyfél nevét. Ezt két Cloudflare-szabály oldja meg, l. lent.
+
+### Hostname-provisioning (SLO-135)
+
+**Tulajdonjog ≠ kiszolgálhatóság.** A TXT-verifikáció (SLO-42) azt dönti el, hogy a nevet ide szabad-e irányítani; a Cloudflare-regisztráció azt, hogy ki is tudjuk-e szolgálni. A kettő külön oszlopokban él (`provisioning_status`, `certificate_status`, `provider_hostname_id`), és **egy provider-hiba SOSEM vonja vissza a `verified_at`-et** — a tenant bizonyította, hogy övé a domain, ez akkor is igaz, ha a Cloudflare épp nem válaszol. A hiba a soron marad, látszik az adminban, és újrapróbálható (az SLO-133 számla-kiállítás mintája).
+
+- **`CustomHostnameProvisioner`** interface + `CloudflareCustomHostnameProvisioner` + **`NullCustomHostnameProvisioner`**. Konfiguráció (`CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ZONE_ID`) híján a null implementáció megy, és **egyetlen kimenő hívás sem történik** — dev és CI így soha nem hív ki. Ilyenkor a domain `verified`, de `provisioning_status = null` („nem volt kísérlet"), nem `failed`.
+- **Idempotencia:** a provisioning előbb *keres* (`GET ?hostname=`), és csak akkor hoz létre, ha a Cloudflare még nem ismeri — egy elszállt create utáni retry nem regisztrál kétszer. A hostname-szűrő egyes csomagokon prefix-illeszkedik, ezért a találat nevét ellenőrizzük is.
+- **Tanúsítvány-figyelés:** a Cloudflare aszinkron állítja ki a certet és **nem hív vissza**, ezért a `domains:refresh-certificates` cron 10 percenként lekérdezi a `pending`/`failed` sorokat. Óránkénti futás mellett egy már működő domain fél órán át „még várakozik"-ot mutatna a tenantnak.
+- **Elengedés:** a domain törlésekor a `DeprovisionCustomHostname` job **a provider id-t stringként** viszi, mert a `tenant_domains` sor ekkor már szándékosan nincs meg (a unique indexnek fel kell szabadítania a hostnevet a következő igénylőnek).
+
+> **A két Cloudflare-szabály (dashboardon, nem API-ból):**
+> 1. **Transform Rule** (Modify Request Header): `X-Slot4u-Original-Host` = `http.host` — a valódi látogatói hostot átviszi egy privát fejlécbe.
+> 2. **Origin Rule** (Host Header): `customers.slot4u.hu` — a Host headert (és ezzel az SNI-t) a fallback originre írja át, így a `*.slot4u.hu` vhost illeszkedik és az origin cert is érvényes.
+>
+> Az app a `ResolveCustomDomain`-ben ebből a fejlécből olvassa a látogatói hostot — **kizárólag megbízható proxy mögül** (`isFromTrustedProxy()`, a Cloudflare-tartományok a `bootstrap/app.php`-ban). Enélkül bárki bármelyik tenant domainjét megszemélyesíthetné egy kézzel beállított fejléccel. A fallback origin slugja (`customers`) ezért **reserved subdomain** is: minden custom hostname kérés arra a hostra érkezik, egy tenant nem viheti el.
 
 > A slot4u saját TXT-alapú tulajdonjog-igazolása (`_slot4u-verify.*`) **ettől független és megmarad**: az azt dönti el, hogy a nevet ide szabad-e irányítani, a Cloudflare-regisztráció pedig azt, hogy ki is tudjuk szolgálni. A kettő sorrendje: TXT-verifikáció → Cloudflare custom hostname létrehozása.
 

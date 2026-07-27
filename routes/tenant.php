@@ -266,6 +266,7 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
             Route::post('/settings/domains', [DomainController::class, 'store'])->name('tenant.domains.store');
             Route::post('/settings/domains/{tenantDomain}/verify', [DomainController::class, 'verify'])->name('tenant.domains.verify');
             Route::post('/settings/domains/{tenantDomain}/primary', [DomainController::class, 'primary'])->name('tenant.domains.primary');
+            Route::post('/settings/domains/{tenantDomain}/provision', [DomainController::class, 'provision'])->name('tenant.domains.provision');
             Route::delete('/settings/domains/{tenantDomain}', [DomainController::class, 'destroy'])->name('tenant.domains.destroy');
         });
 
