@@ -5,6 +5,7 @@ use App\Enums\Permission;
 use App\Http\Controllers\Admin\BillingController;
 use App\Http\Controllers\Admin\BookingApprovalController;
 use App\Http\Controllers\Admin\BookingController;
+use App\Http\Controllers\Admin\CalendarController;
 use App\Http\Controllers\Admin\CustomerController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\DomainController;
@@ -190,6 +191,10 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
         // ever streamed through here, never a public URL.
         Route::middleware('can:'.Permission::BookingView->value)->group(function () {
             Route::get('/bookings/{booking}/invoices/{invoice}/pdf', [BookingController::class, 'invoicePdf'])->name('tenant.bookings.invoice_pdf');
+
+            // Day/week time grid of the same bookings (SLO-44), scoped by the same
+            // BookingVisibility rule as the list.
+            Route::get('/calendar', [CalendarController::class, 'index'])->name('tenant.calendar.index');
         });
 
         // Booking quick actions (SLO-85). Gated by booking.edit: fulfil a
