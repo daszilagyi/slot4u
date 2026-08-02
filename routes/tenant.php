@@ -6,6 +6,7 @@ use App\Http\Controllers\Admin\BillingController;
 use App\Http\Controllers\Admin\BookingApprovalController;
 use App\Http\Controllers\Admin\BookingController;
 use App\Http\Controllers\Admin\CustomerController;
+use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\DomainController;
 use App\Http\Controllers\Admin\EventController;
 use App\Http\Controllers\Admin\LocationController;
@@ -98,7 +99,10 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
     // area (SLO-33) is a separate group — since several routes here carry no
     // `can:` gate. Extendable with ensure.feature + can:.
     Route::middleware(['auth', 'ensure.user.tenant', 'ensure.staff'])->group(function () {
-        Route::get('/dashboard', fn () => Inertia::render('Admin/Dashboard'))->name('tenant.dashboard');
+        // Bento dashboard (SLO-43): today's numbers + agenda + month calendar,
+        // each block scoped to what the actor may see (no `can:` gate — a role
+        // without booking.view simply gets fewer tiles).
+        Route::get('/dashboard', [DashboardController::class, 'index'])->name('tenant.dashboard');
 
         // Sample CRUD assembled from the shared admin building blocks (SLO-15).
         // Real törzsadat pages (SLO-16+) follow this scaffold.

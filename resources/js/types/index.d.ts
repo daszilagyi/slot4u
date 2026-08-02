@@ -291,6 +291,46 @@ export type BookingSummary = {
     currency: string;
 };
 
+/** A booking row on the dashboard's agenda / latest panels (SLO-43). */
+export type DashboardBooking = {
+    id: number;
+    code: string;
+    customer: string | null;
+    /** Booked without an account (SLO-128) — `customer` is the guest's own name. */
+    is_guest: boolean;
+    service: string | null;
+    staff: string | null;
+    status: BookingStatusValue;
+    starts_at: string | null;
+    created_at: string | null;
+    price_minor: number;
+    currency: string;
+};
+
+/**
+ * The tenant bento dashboard's read model (SLO-43). A `null` block means the
+ * actor has no permission for it, which is why the numbers are nullable too —
+ * the page drops the tile rather than showing a zero it may not know.
+ */
+export type TenantDashboard = {
+    /** Tenant-local "today" (YYYY-MM-DD) every day figure covers. */
+    date: string;
+    /** Tenant-local month (YYYY-MM) the calendar covers. */
+    calendar_month: string;
+    timezone: string;
+    currency: string;
+    bookings_today: number | null;
+    confirmed_today: number | null;
+    revenue_today_minor: number | null;
+    pending_approval: number | null;
+    pending_payment: number | null;
+    customers_total: number | null;
+    customers_new_this_month: number | null;
+    agenda: DashboardBooking[] | null;
+    recent: DashboardBooking[] | null;
+    calendar: { date: string; count: number }[] | null;
+};
+
 export type BookingHistoryEntry = {
     id: number;
     from_status: BookingStatusValue | null;

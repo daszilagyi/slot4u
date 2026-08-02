@@ -22,15 +22,24 @@ export type LiveBooking = {
  * channel authorized in TenantBookingChannel (staff-only), and leaves it on
  * unmount / tenant change. A no-op when there is no tenant or Echo is unavailable
  * (SSR, unconfigured), so it is safe to call unconditionally.
+ *
+ * `onBooking` lets a page react beyond the toast — the dashboard (SLO-43) uses it
+ * to re-pull its own numbers, so the tiles stay live. Like the translator it is
+ * held in a ref, so passing a fresh closure every render never re-opens the socket.
  */
-export function useLiveBookings(tenantId: number | undefined): void {
+export function useLiveBookings(
+    tenantId: number | undefined,
+    onBooking?: (booking: LiveBooking) => void,
+): void {
     const t = useTranslations();
     // Keep the latest translator without making it a subscription dependency —
     // otherwise every render (t is re-created) would tear down and re-open the
     // WebSocket channel.
     const tRef = useRef(t);
+    const onBookingRef = useRef(onBooking);
     useEffect(() => {
         tRef.current = t;
+        onBookingRef.current = onBooking;
     });
 
     useEffect(() => {
@@ -54,6 +63,7 @@ export function useLiveBookings(tenantId: number | undefined): void {
                 }),
             });
             playChime();
+            onBookingRef.current?.(booking);
         });
 
         return () => {

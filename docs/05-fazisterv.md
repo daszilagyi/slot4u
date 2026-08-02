@@ -44,6 +44,8 @@ Fő scope (docs/10, SLO-63 epic): **forgalom-alapú jutalék-motor** (Commission
 Bento grid dashboard (mai bevétel élőben, legutóbbi foglalások, mini naptár), admin naptárnézet (nap/hét/dolgozó/helyiség szűrés, drag-and-drop módosítás), statisztika modul (ügyfélköltés, dolgozói aktivitás, kihasználtság), superadmin statisztikák (MRR, aktív tenantok).
 **Demó:** a "startupper játszótere" kész.
 
+> **A dashboard „mai bevétel" definíciója (SLO-43):** a `confirmed` + `completed` + `no_show` státuszú mai foglalások `price_minor` összege — szándékosan **ugyanaz az alap, amire a jutalék számol** (docs/10 §3.1), hogy a vezérlőpult soha ne mondjon mást, mint a tenant `/billing` oldala. A „mai nap" határa a **tenant fali órája** (docs/01 §7), nem az UTC nap. Az `no_time_slot` módú, kezdőidő nélküli foglalás a létrehozása napjára esik. A **kihasználtság nem itt van**, hanem a statisztika modulban (SLO-45) — ahhoz munkarend-alapú kapacitás kell.
+
 ## M8 — Hardening, üzemeltetés, launch
 
 Biztonsági átvilágítás (tenant-izoláció tesztek!), GDPR (adatexport, törlés, anonimizálás), rate limiting, backup+restore teszt, monitoring/alerting, teljesítmény (N+1, indexek), staging→prod deploy pipeline, marketing landing (slot4u.hu, lajhár branding), dokumentáció.
