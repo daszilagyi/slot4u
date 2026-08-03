@@ -170,6 +170,12 @@ class BuildBookingCalendar
             'start_minute' => $startMinute,
             // A zero-length booking would collapse to an invisible sliver.
             'end_minute' => max($endMinute, $startMinute + 15),
+            // Whether this card may be dragged to another slot (SLO-44). The same rule
+            // RescheduleBooking enforces (docs/04 §2): only a time-slot mode can be
+            // moved, and a terminal booking (completed / no-show) is history — the
+            // state machine would refuse the cancel half anyway. Sent per event so the
+            // grid can't offer a drag the server is going to reject.
+            'movable' => $booking->booking_mode->usesTimeSlot() && ! $booking->status->isTerminal(),
         ];
     }
 
@@ -202,8 +208,12 @@ class BuildBookingCalendar
      * column — but only when something actually lands in it, so tenants that always
      * assign never carry a permanently empty column.
      *
+     * `resource_id` is what a drop on this column reassigns the booking to (SLO-44);
+     * the "unassigned" column has none, which is also what makes it an invalid drop
+     * target — clearing a booking's resource is not a scheduling move.
+     *
      * @param  list<array<string, mixed>>  $events
-     * @return list<array{key: string, label: string, sublabel: string|null, date: string|null}>
+     * @return list<array{key: string, label: string, sublabel: string|null, date: string|null, resource_id: int|null}>
      */
     private function resourceColumns(User $actor, string $group, array $events): array
     {
@@ -216,6 +226,7 @@ class BuildBookingCalendar
             'label' => (string) $resource->name,
             'sublabel' => null,
             'date' => null,
+            'resource_id' => (int) $resource->id,
         ])->all();
 
         $unassignedKey = $group.'-none';
@@ -227,6 +238,7 @@ class BuildBookingCalendar
                 'label' => __('app.admin.calendar.unassigned'),
                 'sublabel' => null,
                 'date' => null,
+                'resource_id' => null,
             ];
         }
 
@@ -255,7 +267,7 @@ class BuildBookingCalendar
      * Week-view columns: the seven days of the range. Iterating day by day (rather
      * than adding 24h) keeps the DST-shifted day a day.
      *
-     * @return list<array{key: string, label: string, sublabel: string|null, date: string|null}>
+     * @return list<array{key: string, label: string, sublabel: string|null, date: string|null, resource_id: int|null}>
      */
     private function dayColumns(Carbon $rangeStart, Carbon $rangeEnd): array
     {
@@ -268,6 +280,8 @@ class BuildBookingCalendar
                 'label' => (string) $day->isoWeekday(),
                 'sublabel' => $date,
                 'date' => $date,
+                // A week column moves the day, never the resource.
+                'resource_id' => null,
             ];
         }
 

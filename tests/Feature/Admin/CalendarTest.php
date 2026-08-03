@@ -1,6 +1,8 @@
 <?php
 
+use App\Enums\BookingMode;
 use App\Enums\BookingStatus;
+use App\Enums\Permission;
 use App\Enums\Role;
 use App\Models\Booking;
 use App\Models\Location;
@@ -13,6 +15,7 @@ use App\Tenancy\TenantManager;
 use Database\Seeders\BasePlanSeeder;
 use Database\Seeders\PermissionSeeder;
 use Illuminate\Support\Facades\DB;
+use Spatie\Permission\Models\Role as RoleModel;
 use Spatie\Permission\PermissionRegistrar;
 
 beforeEach(function () {
@@ -418,4 +421,109 @@ it('loads a full week without an N+1', function () {
     // without the eager load these climb into the twenties.
     expect($queries->filter(fn (string $q) => str_contains($q, 'from "services"'))->count())->toBeLessThanOrEqual(2)
         ->and($queries->filter(fn (string $q) => str_contains($q, 'from "staff"'))->count())->toBeLessThanOrEqual(2);
+});
+
+// --- Drag-and-drop affordances (SLO-44) ---
+
+it('marks only the movable bookings as draggable', function () {
+    $tenant = calTenant(['slug' => 'acme', 'timezone' => 'Europe/Budapest']);
+    $admin = calUser($tenant, Role::TenantAdmin);
+
+    $movable = calBooking($tenant, [
+        'status' => BookingStatus::Confirmed,
+        'starts_at' => '2026-08-05 06:00:00',
+        'ends_at' => '2026-08-05 07:00:00',
+    ]);
+    // Terminal: the state machine would refuse the cancel half of a reschedule.
+    $done = calBooking($tenant, [
+        'status' => BookingStatus::Completed,
+        'starts_at' => '2026-08-05 08:00:00',
+        'ends_at' => '2026-08-05 09:00:00',
+    ]);
+    // Not a time-slot mode: docs/04 §2 has nothing to move.
+    $eventService = Service::factory()->forTenant($tenant)->mode(BookingMode::EventBased)->create();
+    $eventBooking = Booking::factory()->forTenant($tenant)->create([
+        'service_id' => $eventService->id,
+        'booking_mode' => BookingMode::EventBased,
+        'status' => BookingStatus::Confirmed,
+        'starts_at' => '2026-08-05 10:00:00',
+        'ends_at' => '2026-08-05 11:00:00',
+    ]);
+    app(TenantManager::class)->forget();
+
+    $this->actingAs($admin)
+        ->get(tenantHost('acme', '/calendar?view=day&date=2026-08-05'))
+        ->assertOk()
+        ->assertInertia(function ($page) use ($movable, $done, $eventBooking) {
+            $byId = collect($page->toArray()['props']['calendar']['events'])->keyBy('id');
+
+            expect($byId[$movable->id]['movable'])->toBeTrue()
+                ->and($byId[$done->id]['movable'])->toBeFalse()
+                ->and($byId[$eventBooking->id]['movable'])->toBeFalse();
+        });
+});
+
+it('gives each resource column the id a drop reassigns to', function () {
+    $tenant = calTenant(['slug' => 'acme']);
+    $admin = calUser($tenant, Role::TenantAdmin);
+    $staff = Staff::factory()->forTenant($tenant)->create(['name' => 'Anna']);
+    // Unassigned, so the "no resource" column is drawn too.
+    calBooking($tenant, [
+        'status' => BookingStatus::Confirmed,
+        'starts_at' => '2026-08-05 06:00:00',
+        'ends_at' => '2026-08-05 07:00:00',
+    ]);
+    app(TenantManager::class)->forget();
+
+    $this->actingAs($admin)
+        ->get(tenantHost('acme', '/calendar?view=day&group=staff&date=2026-08-05'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('calendar.columns.0.key', 'staff-'.$staff->id)
+            ->where('calendar.columns.0.resource_id', $staff->id)
+            // The unassigned column has no resource behind it, which is what makes
+            // it an invalid drop target on the client.
+            ->where('calendar.columns.1.key', 'staff-none')
+            ->where('calendar.columns.1.resource_id', null));
+});
+
+it('leaves week columns without a resource id — a drop there moves the day only', function () {
+    $tenant = calTenant(['slug' => 'acme']);
+    $admin = calUser($tenant, Role::TenantAdmin);
+    app(TenantManager::class)->forget();
+
+    $this->actingAs($admin)
+        ->get(tenantHost('acme', '/calendar?view=week&date=2026-08-05'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('calendar.columns.0.date', '2026-08-03')
+            ->where('calendar.columns.0.resource_id', null));
+});
+
+it('offers the drag only to an actor who may edit bookings', function () {
+    $tenant = calTenant(['slug' => 'acme']);
+    $admin = calUser($tenant, Role::TenantAdmin);
+
+    // A tenant admin may customise the Employee role (docs/03) — take booking.edit
+    // away and the employee still reads the calendar, but may not move anything.
+    $viewer = calUser($tenant, Role::Employee);
+    Staff::factory()->forTenant($tenant)->create(['user_id' => $viewer->id]);
+    app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getKey());
+    RoleModel::findByName(Role::Employee->value, 'web')
+        ->revokePermissionTo(Permission::BookingEdit->value);
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+    app(TenantManager::class)->forget();
+
+    $this->actingAs($admin)
+        ->get(tenantHost('acme', '/calendar'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('can.edit', true));
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getKey());
+    app(TenantManager::class)->forget();
+
+    $this->actingAs($viewer)
+        ->get(tenantHost('acme', '/calendar'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('can.edit', false));
 });

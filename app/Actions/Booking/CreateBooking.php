@@ -57,10 +57,15 @@ class CreateBooking
      *                                         the replacement chain stays auditable (SLO-109).
      *                                         Passed as a model (never a request key) — the
      *                                         column is guarded against mass assignment.
+     * @param  bool  $notifyCustomer  false suppresses the mail this creation would send
+     *                                (docs/04 §2, SLO-44). Only the reschedule path ever
+     *                                passes false, and a reschedule is time-slot-only, so
+     *                                the other modes keep the default and never have to
+     *                                reason about a silent creation.
      *
      * @throws SlotUnavailableException
      */
-    public function __invoke(Service $service, array $data, ?User $actor = null, ?Booking $rescheduledFrom = null): Booking
+    public function __invoke(Service $service, array $data, ?User $actor = null, ?Booking $rescheduledFrom = null, bool $notifyCustomer = true): Booking
     {
         // The replacement chain must never cross a tenant boundary: both entry points
         // pass a route-bound (tenant-scoped) booking today, but the Action layer is
@@ -109,7 +114,7 @@ class CreateBooking
         // RescheduleBooking) — the other modes never receive a predecessor.
         return match ($service->booking_mode) {
             BookingMode::EventBased => $this->createEventBooking($attributes, $status, (int) $service->tenant_id, $holdExpiresAt),
-            BookingMode::DurationBased, BookingMode::ResourceRental => $this->createTimeSlotBooking($attributes, $status, $service, $holdExpiresAt, $rescheduledFrom),
+            BookingMode::DurationBased, BookingMode::ResourceRental => $this->createTimeSlotBooking($attributes, $status, $service, $holdExpiresAt, $rescheduledFrom, $notifyCustomer),
             BookingMode::NoTimeSlot => $this->createNoTimeSlotBooking($attributes, $status, $service, $holdExpiresAt),
             // A quote_request booking is generated only when an accepted quote is
             // turned into an engagement (docs/04 §6, SLO-27) — never time-slotted,
@@ -147,9 +152,9 @@ class CreateBooking
     /**
      * @param  array<string, mixed>  $attributes
      */
-    private function createTimeSlotBooking(array $attributes, BookingStatus $status, Service $service, ?Carbon $holdExpiresAt, ?Booking $rescheduledFrom = null): Booking
+    private function createTimeSlotBooking(array $attributes, BookingStatus $status, Service $service, ?Carbon $holdExpiresAt, ?Booking $rescheduledFrom = null, bool $notifyCustomer = true): Booking
     {
-        return DB::transaction(function () use ($attributes, $status, $service, $holdExpiresAt, $rescheduledFrom): Booking {
+        return DB::transaction(function () use ($attributes, $status, $service, $holdExpiresAt, $rescheduledFrom, $notifyCustomer): Booking {
             // Lock the resource row(s) so concurrent bookings for the same staff/
             // room serialise even when no conflicting booking exists yet.
             if ($attributes['staff_id'] !== null) {
@@ -163,7 +168,7 @@ class CreateBooking
                 throw SlotUnavailableException::slotTaken();
             }
 
-            return $this->persist($attributes, $status, $holdExpiresAt, $rescheduledFrom);
+            return $this->persist($attributes, $status, $holdExpiresAt, $rescheduledFrom, $notifyCustomer);
         });
     }
 
@@ -289,7 +294,7 @@ class CreateBooking
     /**
      * @param  array<string, mixed>  $attributes
      */
-    private function persist(array $attributes, BookingStatus $status, ?Carbon $holdExpiresAt = null, ?Booking $rescheduledFrom = null): Booking
+    private function persist(array $attributes, BookingStatus $status, ?Carbon $holdExpiresAt = null, ?Booking $rescheduledFrom = null, bool $notifyCustomer = true): Booking
     {
         $booking = new Booking;
         $booking->fill($attributes);
@@ -301,6 +306,9 @@ class CreateBooking
         // BookingCreated, and the notification listener reads the predecessor off
         // the booking to pick the "moved" mail over the confirmation (SLO-109).
         $booking->rescheduled_from_id = $rescheduledFrom?->getKey();
+        // Transient, same reason — the created hook carries it into the event so the
+        // confirmation listener can stay silent for a deliberately quiet move (SLO-44).
+        $booking->notifyCustomer = $notifyCustomer;
         $booking->save();
 
         return $booking;

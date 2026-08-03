@@ -34,11 +34,17 @@ class RescheduleBooking
     /**
      * @param  array<string, mixed>  $data  the new booking's attributes
      * @param  bool  $online  enforce the cancellation deadline (customer reschedule)
+     * @param  bool  $notifyCustomer  send the "your booking was moved" mail (docs/04 §2).
+     *                                An admin dragging a card on the calendar may turn it
+     *                                off — a slot corrected two minutes after it was
+     *                                entered is not news to the customer (SLO-44). The
+     *                                online path never passes false: the customer moved
+     *                                their own booking and is owed the record of it.
      *
      * @throws ValidationException when the mode cannot be rescheduled, or (online) the
      *                             cancellation deadline has passed
      */
-    public function __invoke(Booking $original, Service $service, array $data, ?User $actor = null, bool $online = false): Booking
+    public function __invoke(Booking $original, Service $service, array $data, ?User $actor = null, bool $online = false, bool $notifyCustomer = true): Booking
     {
         // Guard the mode here (not just in the UI) so a direct API call can't move a
         // no_time_slot/event/quote booking into an invalid state (docs/04 §2).
@@ -48,7 +54,7 @@ class RescheduleBooking
             ]);
         }
 
-        return DB::transaction(function () use ($original, $service, $data, $actor, $online): Booking {
+        return DB::transaction(function () use ($original, $service, $data, $actor, $online, $notifyCustomer): Booking {
             // online: true enforces the cancellation deadline in CancelBooking; a
             // within-deadline attempt throws (on the `cancel` key) and rolls the whole
             // transaction back, so the original booking survives untouched (SLO-97).
@@ -58,7 +64,7 @@ class RescheduleBooking
             // sends a single "your booking was moved" mail instead (SLO-109).
             ($this->cancelBooking)($original, $actor, __('app.booking.rescheduled'), $online, rescheduled: true);
 
-            return ($this->createBooking)($service, $data, $actor, rescheduledFrom: $original);
+            return ($this->createBooking)($service, $data, $actor, rescheduledFrom: $original, notifyCustomer: $notifyCustomer);
         });
     }
 }

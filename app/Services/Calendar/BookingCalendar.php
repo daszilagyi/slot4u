@@ -17,7 +17,7 @@ final readonly class BookingCalendar
      * @param  string  $rangeEnd  Last day shown (tenant-local Y-m-d).
      * @param  int  $windowStartMinute  Top of the grid, minutes from midnight.
      * @param  int  $windowEndMinute  Bottom of the grid, minutes from midnight.
-     * @param  list<array{key: string, label: string, sublabel: string|null, date: string|null}>  $columns
+     * @param  list<array{key: string, label: string, sublabel: string|null, date: string|null, resource_id: int|null}>  $columns
      * @param  list<array<string, mixed>>  $events  Placed bookings.
      * @param  list<array<string, mixed>>  $unscheduled  In-range bookings with no start time.
      */

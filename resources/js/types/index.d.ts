@@ -317,6 +317,12 @@ export type CalendarEvent = CalendarBooking & {
     /** Wall-clock minutes from tenant-local midnight — NOT elapsed minutes (DST). */
     start_minute: number;
     end_minute: number;
+    /**
+     * Whether this card may be dragged to another slot (SLO-44): a time-slot mode
+     * that is not terminal. The same rule RescheduleBooking enforces, so the grid
+     * never offers a move the server would reject.
+     */
+    movable: boolean;
 };
 
 export type CalendarColumn = {
@@ -325,6 +331,12 @@ export type CalendarColumn = {
     label: string;
     sublabel: string | null;
     date: string | null;
+    /**
+     * What a drop on this column reassigns the booking to — the staff or room in the
+     * grouped day view. `null` in week view (the day moves, not the resource) and on
+     * the "unassigned" column, which is therefore not a drop target.
+     */
+    resource_id: number | null;
 };
 
 export type BookingCalendar = {
@@ -357,6 +369,12 @@ export type CalendarOptions = {
     staff: { id: number; name: string }[];
     rooms: { id: number; name: string }[];
     services: { id: number; name: string }[];
+};
+
+/** What the actor may do on the calendar (SLO-44). */
+export type CalendarAbilities = {
+    /** `booking.edit` — required to drag a card to a new slot. */
+    edit: boolean;
 };
 
 /** A booking row on the dashboard's agenda / latest panels (SLO-43). */

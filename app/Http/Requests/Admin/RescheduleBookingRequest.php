@@ -10,12 +10,18 @@ use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 
 /**
- * Validation for rescheduling a time-slot booking from the admin list (SLO-85).
- * The service is kept from the original booking; only the new slot (and optional
- * resource) is submitted. datetime-local inputs are tenant-local and converted to
- * UTC before validation/storage (docs/01 §7). The actual availability/conflict
- * re-check happens in {@see RescheduleBooking} → CreateBooking
- * (a taken slot rolls back and surfaces as a 422).
+ * Validation for rescheduling a time-slot booking from the admin list (SLO-85) or by
+ * dragging its card on the calendar (SLO-44). The service is kept from the original
+ * booking; only the new slot (and optional resource) is submitted. datetime-local
+ * inputs are tenant-local and converted to UTC before validation/storage
+ * (docs/01 §7). The actual availability/conflict re-check happens in
+ * {@see RescheduleBooking} → CreateBooking (a taken slot rolls back and surfaces as
+ * a 422).
+ *
+ * `ends_at` is optional: a drag only picks a start, and the booking keeps the length
+ * it already had. The controller derives it, so the duration survives a move across
+ * a DST boundary — adding the wall-clock minutes on the client would have silently
+ * shortened (or stretched) the appointment by an hour on the changeover day.
  */
 class RescheduleBookingRequest extends FormRequest
 {
@@ -46,9 +52,12 @@ class RescheduleBookingRequest extends FormRequest
 
         return [
             'starts_at' => ['required', 'date'],
-            'ends_at' => ['required', 'date', 'after:starts_at'],
+            'ends_at' => ['nullable', 'date', 'after:starts_at'],
             'staff_id' => ['nullable', Rule::exists('staff', 'id')->where('tenant_id', $tenantId)],
             'room_id' => ['nullable', Rule::exists('rooms', 'id')->where('tenant_id', $tenantId)],
+            // Opt out of the "your booking was moved" mail (docs/04 §2, SLO-44).
+            // Absent = notify, so an older client keeps today's behaviour.
+            'notify' => ['nullable', 'boolean'],
         ];
     }
 }
