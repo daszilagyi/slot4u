@@ -291,6 +291,74 @@ export type BookingSummary = {
     currency: string;
 };
 
+/** A booking as the admin calendar carries it (SLO-44). */
+export type CalendarBooking = {
+    id: number;
+    code: string;
+    customer: string | null;
+    /** Booked without an account (SLO-128) — `customer` is the guest's own name. */
+    is_guest: boolean;
+    service: string | null;
+    staff: string | null;
+    room: string | null;
+    status: BookingStatusValue;
+    booking_mode: BookingModeValue;
+    starts_at: string | null;
+    ends_at: string | null;
+    party_size: number;
+};
+
+/** A booking placed on the calendar grid. */
+export type CalendarEvent = CalendarBooking & {
+    /** Tenant-local day (YYYY-MM-DD) the event is drawn on. */
+    date: string;
+    /** Which column it belongs to: the date in week view, `staff-3` / `room-none` in day view. */
+    column_key: string;
+    /** Wall-clock minutes from tenant-local midnight — NOT elapsed minutes (DST). */
+    start_minute: number;
+    end_minute: number;
+};
+
+export type CalendarColumn = {
+    key: string;
+    /** Day view: the resource name. Week view: the ISO weekday number to localize. */
+    label: string;
+    sublabel: string | null;
+    date: string | null;
+};
+
+export type BookingCalendar = {
+    view: 'day' | 'week';
+    date: string;
+    range_start: string;
+    range_end: string;
+    prev_date: string;
+    next_date: string;
+    today: string;
+    timezone: string;
+    window_start_minute: number;
+    window_end_minute: number;
+    columns: CalendarColumn[];
+    events: CalendarEvent[];
+    /** In range but unplaceable — no start time (the `no_time_slot` mode). */
+    unscheduled: CalendarBooking[];
+};
+
+export type CalendarFilters = {
+    view: 'day' | 'week';
+    group: 'staff' | 'room';
+    date: string | null;
+    staff_id: number | null;
+    room_id: number | null;
+    service_id: number | null;
+};
+
+export type CalendarOptions = {
+    staff: { id: number; name: string }[];
+    rooms: { id: number; name: string }[];
+    services: { id: number; name: string }[];
+};
+
 /** A booking row on the dashboard's agenda / latest panels (SLO-43). */
 export type DashboardBooking = {
     id: number;

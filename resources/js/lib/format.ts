@@ -58,6 +58,26 @@ export function billingStatusBadgeClass(status: string): string {
     return map[status] ?? 'bg-muted text-muted-foreground';
 }
 
+/**
+ * Tailwind classes for a booking status (SLO-44). Grouped by what the status means
+ * for the day rather than by lifecycle order: green = the slot is settled, amber =
+ * it needs someone to act, grey = it is over.
+ */
+export function bookingStatusClass(status: string): string {
+    const map: Record<string, string> = {
+        requested: 'bg-amber-500/15 text-amber-300 border-amber-500/40',
+        approved: 'bg-blue-500/15 text-blue-300 border-blue-500/40',
+        pending_payment: 'bg-amber-500/15 text-amber-300 border-amber-500/40',
+        confirmed: 'bg-primary/15 text-primary border-primary/40',
+        completed: 'bg-green-500/15 text-green-300 border-green-500/40',
+        no_show: 'bg-red-500/15 text-red-300 border-red-500/40',
+        canceled: 'bg-muted text-muted-foreground border-border',
+        rejected: 'bg-muted text-muted-foreground border-border',
+    };
+
+    return map[status] ?? 'bg-muted text-muted-foreground border-border';
+}
+
 /** Tailwind classes for a tenant status badge. */
 export function statusBadgeClass(status: string): string {
     const map: Record<string, string> = {
