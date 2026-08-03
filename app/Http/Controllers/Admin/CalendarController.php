@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Enums\Permission;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\CalendarFilterRequest;
 use App\Models\Booking;
@@ -54,6 +55,12 @@ class CalendarController extends Controller
                 'staff' => $this->staffOptions($actor),
                 'rooms' => Room::query()->orderBy('name')->get(['id', 'name']),
                 'services' => Service::query()->orderBy('name')->get(['id', 'name']),
+            ],
+            // Drag-and-drop rescheduling posts to the booking.edit endpoint, so a
+            // view-only actor must not be offered the drag at all (SLO-44). The
+            // endpoint enforces it regardless — this only keeps the UI honest.
+            'can' => [
+                'edit' => (bool) $actor->can(Permission::BookingEdit->value),
             ],
         ]);
     }

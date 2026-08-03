@@ -478,3 +478,184 @@ it('404s when opening another tenant\'s booking (cross-tenant)', function () {
         ->get(tenantHost('acme', "/bookings/{$foreign->id}"))
         ->assertNotFound();
 });
+
+// --- Reschedule from the calendar's drag-and-drop (SLO-44) ---
+
+it('keeps the booking length when the reschedule only submits a new start', function () {
+    $tenant = bkTenant(['slug' => 'acme', 'timezone' => 'Europe/Budapest']);
+    $admin = bkUser($tenant, Role::TenantAdmin);
+    $staff = Staff::factory()->forTenant($tenant)->create();
+    $booking = bkBooking($tenant, [
+        'status' => BookingStatus::Confirmed,
+        'starts_at' => '2026-09-01 06:00:00', // 08:00–09:30 local, 90 minutes
+        'ends_at' => '2026-09-01 07:30:00',
+    ], $staff);
+    app(TenantManager::class)->forget();
+
+    // A drag picks a start, never an end.
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', "/bookings/{$booking->id}/reschedule"), [
+            'starts_at' => '2026-09-02T10:00',
+        ])
+        ->assertRedirect()->assertSessionHasNoErrors();
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getKey());
+    app(TenantManager::class)->set($tenant);
+
+    $moved = Booking::where('status', BookingStatus::Confirmed)->sole();
+
+    // 10:00 local on 2026-09-02 is 08:00 UTC (CEST), and the 90 minutes survive.
+    expect($moved->starts_at->toDateTimeString())->toBe('2026-09-02 08:00:00')
+        ->and($moved->ends_at->toDateTimeString())->toBe('2026-09-02 09:30:00')
+        ->and($moved->rescheduled_from_id)->toBe($booking->id);
+});
+
+it('preserves the real duration when a move crosses the spring-forward hour', function () {
+    // Europe/Budapest springs forward 2026-03-29 02:00 → 03:00. A 60-minute booking
+    // dragged onto 02:30 local must stay 60 real minutes: adding wall-clock minutes
+    // would have produced an end that never existed on the clock.
+    $tenant = bkTenant(['slug' => 'acme', 'timezone' => 'Europe/Budapest']);
+    $admin = bkUser($tenant, Role::TenantAdmin);
+    $staff = Staff::factory()->forTenant($tenant)->create();
+    $booking = bkBooking($tenant, [
+        'status' => BookingStatus::Confirmed,
+        'starts_at' => '2026-03-20 09:00:00',
+        'ends_at' => '2026-03-20 10:00:00',
+    ], $staff);
+    app(TenantManager::class)->forget();
+
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', "/bookings/{$booking->id}/reschedule"), [
+            'starts_at' => '2026-03-29T01:30',
+        ])
+        ->assertRedirect()->assertSessionHasNoErrors();
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getKey());
+    app(TenantManager::class)->set($tenant);
+
+    $moved = Booking::where('status', BookingStatus::Confirmed)->sole();
+
+    // 01:30 CET = 00:30 UTC; one real hour later is 01:30 UTC (= 03:30 CEST local).
+    expect($moved->starts_at->toDateTimeString())->toBe('2026-03-29 00:30:00')
+        ->and($moved->ends_at->toDateTimeString())->toBe('2026-03-29 01:30:00')
+        ->and($moved->starts_at->diffInMinutes($moved->ends_at))->toBe(60.0);
+});
+
+it('carries a guest booking contact over to the replacement', function () {
+    $tenant = bkTenant(['slug' => 'acme']);
+    $admin = bkUser($tenant, Role::TenantAdmin);
+    $staff = Staff::factory()->forTenant($tenant)->create();
+    // A guest booking (SLO-128) has no account holding the contact details.
+    $booking = bkBooking($tenant, [
+        'status' => BookingStatus::Confirmed,
+        'customer_id' => null,
+        'guest_name' => 'Kovács Béla',
+        'guest_email' => 'bela@example.test',
+        'guest_phone' => '+36301234567',
+        'starts_at' => '2026-09-01 08:00:00',
+        'ends_at' => '2026-09-01 09:00:00',
+    ], $staff);
+    app(TenantManager::class)->forget();
+
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', "/bookings/{$booking->id}/reschedule"), [
+            'starts_at' => '2026-09-02T10:00',
+        ])
+        ->assertRedirect()->assertSessionHasNoErrors();
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getKey());
+    app(TenantManager::class)->set($tenant);
+
+    $moved = Booking::where('status', BookingStatus::Confirmed)->sole();
+
+    expect($moved->guest_email)->toBe('bela@example.test')
+        ->and($moved->guest_name)->toBe('Kovács Béla')
+        ->and($moved->guest_phone)->toBe('+36301234567')
+        ->and($moved->customer_id)->toBeNull();
+});
+
+it('reassigns the staff when the card is dropped on another resource column', function () {
+    $tenant = bkTenant(['slug' => 'acme']);
+    $admin = bkUser($tenant, Role::TenantAdmin);
+    $from = Staff::factory()->forTenant($tenant)->create();
+    $to = Staff::factory()->forTenant($tenant)->create();
+    $booking = bkBooking($tenant, [
+        'status' => BookingStatus::Confirmed,
+        'starts_at' => '2026-09-01 08:00:00',
+        'ends_at' => '2026-09-01 09:00:00',
+    ], $from);
+    app(TenantManager::class)->forget();
+
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', "/bookings/{$booking->id}/reschedule"), [
+            'starts_at' => '2026-09-01T10:00',
+            'staff_id' => $to->id,
+        ])
+        ->assertRedirect()->assertSessionHasNoErrors();
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getKey());
+    app(TenantManager::class)->set($tenant);
+
+    expect(Booking::where('status', BookingStatus::Confirmed)->sole()->staff_id)->toBe($to->id);
+});
+
+it('leaves the booking where it was when the target slot is taken', function () {
+    $tenant = bkTenant(['slug' => 'acme']);
+    $admin = bkUser($tenant, Role::TenantAdmin);
+    $staff = Staff::factory()->forTenant($tenant)->create();
+    $service = Service::factory()->forTenant($tenant)->create();
+
+    $booking = Booking::factory()->forTenant($tenant)->create([
+        'service_id' => $service->id,
+        'staff_id' => $staff->id,
+        'status' => BookingStatus::Confirmed,
+        'starts_at' => '2026-09-01 08:00:00',
+        'ends_at' => '2026-09-01 09:00:00',
+    ]);
+    // Someone else already holds the slot the card was dropped on.
+    Booking::factory()->forTenant($tenant)->create([
+        'service_id' => $service->id,
+        'staff_id' => $staff->id,
+        'status' => BookingStatus::Confirmed,
+        'starts_at' => '2026-09-01 12:00:00',
+        'ends_at' => '2026-09-01 13:00:00',
+    ]);
+    app(TenantManager::class)->forget();
+
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', "/bookings/{$booking->id}/reschedule"), [
+            'starts_at' => '2026-09-01T14:00', // 12:00 UTC — straight onto the rival
+            'staff_id' => $staff->id,
+        ])
+        ->assertSessionHasErrors('booking');
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getKey());
+    app(TenantManager::class)->set($tenant);
+
+    // The whole transaction rolled back, so the card snaps back to a booking that
+    // never moved — there is nothing for the UI to undo.
+    $fresh = $booking->fresh();
+    expect($fresh->status)->toBe(BookingStatus::Confirmed)
+        ->and($fresh->starts_at->toDateTimeString())->toBe('2026-09-01 08:00:00');
+});
+
+it('rejects an end that is not after the start', function () {
+    $tenant = bkTenant(['slug' => 'acme']);
+    $admin = bkUser($tenant, Role::TenantAdmin);
+    $booking = bkBooking($tenant, [
+        'status' => BookingStatus::Confirmed,
+        'starts_at' => '2026-09-01 08:00:00',
+        'ends_at' => '2026-09-01 09:00:00',
+    ]);
+    app(TenantManager::class)->forget();
+
+    // ends_at became optional for the drag, but a submitted one is still validated.
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', "/bookings/{$booking->id}/reschedule"), [
+            'starts_at' => '2026-09-02T10:00',
+            'ends_at' => '2026-09-02T09:00',
+        ])
+        ->assertSessionHasErrors('ends_at');
+
+    expect($booking->fresh()->status)->toBe(BookingStatus::Confirmed);
+});

@@ -57,6 +57,15 @@ class Booking extends Model
     use BelongsToTenant, HasFactory, HasGuestContact;
 
     /**
+     * Transient (never persisted, never an attribute — it is a declared property, so
+     * Eloquent's magic setter never sees it): whether the customer should be mailed
+     * about this booking. The CreateBooking action sets it before the insert so the
+     * `created` hook can carry it into {@see BookingCreated}, the same way
+     * `rescheduled_from_id` has to be set before the insert (SLO-44, docs/04 §2).
+     */
+    public bool $notifyCustomer = true;
+
+    /**
      * status, code, canceled_at, the approved_* fields, hold_expires_at,
      * reject_reason and rescheduled_from_id are managed by the Action layer
      * (ChangeBookingStatus / CreateBooking), never mass-assigned from request
@@ -131,7 +140,7 @@ class Booking extends Model
                 'actor_id' => Auth::id(),
             ]);
 
-            BookingCreated::dispatch($booking);
+            BookingCreated::dispatch($booking, $booking->notifyCustomer);
         });
     }
 

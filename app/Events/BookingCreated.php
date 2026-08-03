@@ -19,7 +19,18 @@ class BookingCreated implements ShouldBroadcast
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    public function __construct(public readonly Booking $booking) {}
+    /**
+     * @param  bool  $notifyCustomer  whether the customer should be mailed about this
+     *                                booking (docs/04 §2, SLO-44). Only an admin who
+     *                                explicitly opted out of the notification while
+     *                                moving a booking passes false — the broadcast to
+     *                                the tenant's own staff is unaffected either way,
+     *                                because the admin panel must still see the move.
+     */
+    public function __construct(
+        public readonly Booking $booking,
+        public readonly bool $notifyCustomer = true,
+    ) {}
 
     /**
      * Private, per-tenant channel — only that tenant's staff may subscribe

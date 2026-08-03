@@ -29,6 +29,15 @@ class SendBookingConfirmation
     {
         $booking = $event->booking;
 
+        // An admin who moved the booking without notifying the customer (SLO-44,
+        // docs/04 §2) suppresses exactly this mail — the one the move itself would
+        // send. A booking that lands in `requested` and is confirmed by hand later
+        // re-enters the normal path through BookingStatusChanged, because by then
+        // the confirmation is a separate decision.
+        if ($event instanceof BookingCreated && ! $event->notifyCustomer) {
+            return;
+        }
+
         // For a status change, only react to transitions INTO confirmed; for a
         // fresh booking, only when it was created already confirmed.
         $reachedConfirmed = $event instanceof BookingStatusChanged

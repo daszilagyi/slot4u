@@ -473,3 +473,60 @@ it('refuses to chain a replacement onto another tenant’s booking', function ()
         $foreignBooking,
     ))->toThrow(RuntimeException::class);
 });
+
+it('sends nothing when the admin moves a booking with the notification switched off', function () {
+    $tenant = lifecycleTenant();
+    $customer = lifecycleCustomer($tenant);
+    $service = lifecycleService($tenant);
+    $original = lifecycleBooking($tenant, $customer, $service);
+
+    Notification::fake();
+
+    $new = app(RescheduleBooking::class)($original, $service, [
+        'customer_id' => $customer->id,
+        'starts_at' => '2026-09-02 08:00:00',
+        'ends_at' => '2026-09-02 09:00:00',
+        'source' => 'admin',
+    ], null, false, notifyCustomer: false);
+
+    // The move itself happened — only the mail was suppressed (docs/04 §2, SLO-44).
+    Notification::assertNothingSent();
+
+    expect($new->rescheduled_from_id)->toBe($original->id)
+        ->and($new->status)->toBe(BookingStatus::Confirmed)
+        ->and($original->fresh()->status)->toBe(BookingStatus::Canceled)
+        // No claim row either: a suppressed mail must not consume the dedup key and
+        // block a genuine send later on.
+        ->and(lifecycleLogs(NotificationType::BookingModified, 'booking:'.$new->id))->toBe(0);
+});
+
+it('keeps notifying every other booking after one silent move', function () {
+    $tenant = lifecycleTenant();
+    $customer = lifecycleCustomer($tenant);
+    $service = lifecycleService($tenant);
+    $silent = lifecycleBooking($tenant, $customer, $service);
+    $loud = lifecycleBooking($tenant, $customer, $service, [
+        'starts_at' => '2026-09-05 08:00:00',
+        'ends_at' => '2026-09-05 09:00:00',
+    ]);
+
+    Notification::fake();
+
+    app(RescheduleBooking::class)($silent, $service, [
+        'customer_id' => $customer->id,
+        'starts_at' => '2026-09-02 08:00:00',
+        'ends_at' => '2026-09-02 09:00:00',
+        'source' => 'admin',
+    ], null, false, notifyCustomer: false);
+
+    // The flag is per call, not sticky on the action (which is container-resolved
+    // and may be reused within the request).
+    app(RescheduleBooking::class)($loud, $service, [
+        'customer_id' => $customer->id,
+        'starts_at' => '2026-09-06 08:00:00',
+        'ends_at' => '2026-09-06 09:00:00',
+        'source' => 'admin',
+    ]);
+
+    Notification::assertSentTimes(BookingRescheduledNotification::class, 1);
+});

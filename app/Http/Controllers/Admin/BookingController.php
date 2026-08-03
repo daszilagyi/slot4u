@@ -245,6 +245,11 @@ class BookingController extends Controller
      * Reschedule a time-slot booking (docs/04 §2, SLO-85): cancel the old + create
      * the new in one transaction, keeping the original service. An unavailable new
      * slot rolls the whole thing back (the original survives) and surfaces as a 422.
+     *
+     * Also the drop handler of the calendar's drag-and-drop (SLO-44): a drag submits
+     * only the new start (and, in the resource-grouped day view, the column's staff
+     * or room), so `ends_at` is derived here from the length the booking already had,
+     * and `notify` may switch the customer mail off.
      */
     public function reschedule(RescheduleBookingRequest $request, string $tenant, Booking $booking, RescheduleBooking $reschedule): RedirectResponse
     {
@@ -258,15 +263,39 @@ class BookingController extends Controller
         $reschedule($booking, $service, [
             'service_id' => $service->id,
             'customer_id' => $booking->customer_id,
+            // A guest booking (SLO-128) has no account holding the contact details,
+            // so they have to travel to the replacement — otherwise the move would
+            // leave a booking nobody can be notified about.
+            'guest_name' => $booking->guest_name,
+            'guest_email' => $booking->guest_email,
+            'guest_phone' => $booking->guest_phone,
             'staff_id' => $data['staff_id'] ?? $booking->staff_id,
             'room_id' => $data['room_id'] ?? $booking->room_id,
             'starts_at' => $data['starts_at'],
-            'ends_at' => $data['ends_at'],
+            'ends_at' => $data['ends_at'] ?? $this->keepDuration($booking, (string) $data['starts_at']),
             'party_size' => $booking->party_size,
             'source' => BookingSource::Admin->value,
-        ], $actor);
+        ], $actor, notifyCustomer: (bool) ($data['notify'] ?? true));
 
         return back();
+    }
+
+    /**
+     * The new end for a move that only picked a start: the original's length, added
+     * in real elapsed time. Deliberately not wall-clock arithmetic — a 60-minute
+     * appointment dragged across the spring-forward hour stays 60 minutes.
+     *
+     * A time-slot booking always has both ends (docs/04 §2 rejects the other modes
+     * before this is reached), but the columns are nullable, so fall back to the
+     * service duration rather than trusting them.
+     */
+    private function keepDuration(Booking $booking, string $startsAtUtc): string
+    {
+        $seconds = $booking->starts_at !== null && $booking->ends_at !== null
+            ? $booking->starts_at->diffInSeconds($booking->ends_at)
+            : ($booking->service->duration_minutes ?? 60) * 60;
+
+        return Carbon::parse($startsAtUtc)->addSeconds((int) $seconds)->toDateTimeString();
     }
 
     /**
