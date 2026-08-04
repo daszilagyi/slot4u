@@ -75,13 +75,33 @@ return [
     | Cloudflare Origin Rule therefore rewrites Host to the fallback origin and
     | a Transform Rule carries the real hostname in this header instead.
     |
-    | Only honoured on requests from a TRUSTED PROXY (bootstrap/app.php lists
-    | Cloudflare's ranges) — otherwise anyone could claim any tenant's host by
-    | setting a header. Empty disables the mechanism entirely.
+    | The header is only honoured when the edge that set it can be trusted —
+    | otherwise anyone could claim any tenant's host by setting a header by
+    | hand. Empty disables the mechanism entirely.
+    |
+    | Two ways to establish that trust, in this order (SLO-140):
+    |
+    | 1. A SHARED SECRET, if `original_host_secret` is set. The edge presents it
+    |    in `original_host_secret_header` and the app compares it timing-safely.
+    | 2. Otherwise the peer address: the request must come from a TRUSTED PROXY
+    |    (bootstrap/app.php lists Cloudflare's ranges).
+    |
+    | The secret exists because the peer address is not always available to
+    | judge. On the production shared host, Apache's mod_remoteip rewrites
+    | REMOTE_ADDR to the real visitor before PHP ever sees it, so the request
+    | never *looks* like it came from Cloudflare and option 2 can never succeed
+    | there. Widening the trusted proxies to `*` would "fix" it by also
+    | believing X-Forwarded-For from anyone — client-IP spoofing in the audit
+    | log and the rate limiter — so trust is proven by a secret instead, which
+    | does not care how the host treats REMOTE_ADDR.
     |
     */
 
     'original_host_header' => env('APP_ORIGINAL_HOST_HEADER', 'X-Slot4u-Original-Host'),
+
+    'original_host_secret_header' => env('APP_ORIGINAL_HOST_SECRET_HEADER', 'X-Slot4u-Origin-Secret'),
+
+    'original_host_secret' => env('APP_ORIGINAL_HOST_SECRET'),
 
     /*
     |--------------------------------------------------------------------------

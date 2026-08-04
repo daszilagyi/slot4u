@@ -239,6 +239,64 @@ it('never lets a tenant claim the fallback origin slug', function () {
     expect(config('tenancy.reserved_subdomains'))->toContain('customers');
 });
 
+// ------------------------------------- Shared-secret edge trust (SLO-140)
+
+/*
+ * Production runs behind a host whose Apache rewrites REMOTE_ADDR to the real
+ * visitor before PHP sees it, so no request ever looks like it came from
+ * Cloudflare and every custom domain 404ed. Where a secret is configured, that
+ * — not the peer address — is what the forwarded host hangs on.
+ */
+
+it('believes the forwarded host on a secret, even from an untrusted peer', function () {
+    config(['tenancy.original_host_secret' => 'sh4red-s3cret']);
+
+    $tenant = domTenant();
+    domVerified($tenant, 'foglalas.acme.hu');
+
+    $response = $this->call('GET', 'http://customers.'.config('tenancy.central_domain').'/', server: [
+        // Exactly what production sees: the visitor's own address, because the
+        // host's mod_remoteip already substituted it.
+        'REMOTE_ADDR' => '203.0.113.99',
+        'HTTP_X_FORWARDED_PROTO' => 'https',
+        'HTTP_X_SLOT4U_ORIGINAL_HOST' => 'foglalas.acme.hu',
+        'HTTP_X_SLOT4U_ORIGIN_SECRET' => 'sh4red-s3cret',
+    ]);
+
+    $response->assertOk();
+    $response->assertInertia(fn ($page) => $page
+        ->component('Tenant/Home')
+        ->where('profile.name', $tenant->name));
+});
+
+it('ignores the forwarded host on a wrong secret, even from a Cloudflare address', function () {
+    config(['tenancy.original_host_secret' => 'sh4red-s3cret']);
+
+    $tenant = domTenant();
+    domVerified($tenant, 'foglalas.acme.hu');
+
+    // Once a secret is configured it is the ONLY test — coming from a real
+    // Cloudflare range must not smuggle a forged host past it, or an attacker
+    // who can route through Cloudflare would be back where we started.
+    $this->call('GET', 'http://customers.'.config('tenancy.central_domain').'/', server: [
+        'REMOTE_ADDR' => '173.245.48.1',
+        'HTTP_X_SLOT4U_ORIGINAL_HOST' => 'foglalas.acme.hu',
+        'HTTP_X_SLOT4U_ORIGIN_SECRET' => 'not-the-secret',
+    ])->assertNotFound();
+});
+
+it('ignores the forwarded host when the secret is missing altogether', function () {
+    config(['tenancy.original_host_secret' => 'sh4red-s3cret']);
+
+    $tenant = domTenant();
+    domVerified($tenant, 'foglalas.acme.hu');
+
+    $this->call('GET', 'http://customers.'.config('tenancy.central_domain').'/', server: [
+        'REMOTE_ADDR' => '173.245.48.1',
+        'HTTP_X_SLOT4U_ORIGINAL_HOST' => 'foglalas.acme.hu',
+    ])->assertNotFound();
+});
+
 // ------------------------------------------------------------------ link URLs
 
 it('keeps generated absolute urls on the host the visitor used', function () {

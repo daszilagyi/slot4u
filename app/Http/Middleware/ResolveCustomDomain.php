@@ -93,20 +93,49 @@ class ResolveCustomDomain
      * and a Transform Rule carries the real name in a private header instead
      * (SLO-135, docs/01). Where that is in play, the header is the truth.
      *
-     * Only trusted where the request came through a trusted proxy: the header
-     * is otherwise trivially forgeable, and believing it would let anyone claim
-     * any tenant's domain by setting it by hand.
+     * Only where the edge that set it can be trusted ({@see edgeIsTrusted}):
+     * the header is otherwise trivially forgeable, and believing it would let
+     * anyone claim any tenant's domain by setting it by hand.
      */
     private function visitorHost(Request $request): string
     {
         $header = (string) config('tenancy.original_host_header');
 
-        if ($header === '' || ! $request->isFromTrustedProxy()) {
+        if ($header === '' || ! $this->edgeIsTrusted($request)) {
             return $request->getHost();
         }
 
         $forwarded = $request->headers->get($header);
 
         return is_string($forwarded) && $forwarded !== '' ? $forwarded : $request->getHost();
+    }
+
+    /**
+     * Whether the forwarded host may be believed (SLO-140).
+     *
+     * A configured shared secret wins over the peer address, because the peer
+     * address is not always there to judge: on the production shared host,
+     * Apache rewrites REMOTE_ADDR to the real visitor before PHP sees it, so no
+     * request ever looks like it came from Cloudflare and custom domains 404ed.
+     * The fix is not to trust every proxy — that would also mean believing
+     * X-Forwarded-For from anyone, i.e. client-IP spoofing in the audit log and
+     * the rate limiter — but to make trust something the edge can *prove*.
+     *
+     * Where no secret is configured (dev, CI, a host that does expose the
+     * proxy) the peer address remains the test, so nothing changes for them.
+     */
+    private function edgeIsTrusted(Request $request): bool
+    {
+        $secret = config('tenancy.original_host_secret');
+
+        if (! is_string($secret) || $secret === '') {
+            return $request->isFromTrustedProxy();
+        }
+
+        $presented = $request->headers->get((string) config('tenancy.original_host_secret_header'));
+
+        // hash_equals, not ===: the comparison runs on every request to the
+        // fallback origin, and a length-varying one leaks the secret over time.
+        return is_string($presented) && hash_equals($secret, $presented);
     }
 }
