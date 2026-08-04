@@ -73,7 +73,13 @@ Amit ez a felállás megkövetel:
 > 1. **Transform Rule** (Modify Request Header): `X-Slot4u-Original-Host` = `http.host` — a valódi látogatói hostot átviszi egy privát fejlécbe.
 > 2. **Origin Rule** (Host Header): `customers.slot4u.hu` — a Host headert (és ezzel az SNI-t) a fallback originre írja át, így a `*.slot4u.hu` vhost illeszkedik és az origin cert is érvényes.
 >
-> Az app a `ResolveCustomDomain`-ben ebből a fejlécből olvassa a látogatói hostot — **kizárólag megbízható proxy mögül** (`isFromTrustedProxy()`, a Cloudflare-tartományok a `bootstrap/app.php`-ban). Enélkül bárki bármelyik tenant domainjét megszemélyesíthetné egy kézzel beállított fejléccel. A fallback origin slugja (`customers`) ezért **reserved subdomain** is: minden custom hostname kérés arra a hostra érkezik, egy tenant nem viheti el.
+> *(A két szabály helyettesíthető egyetlen Workerrel, ami ugyanezt a két dolgot teszi — a lényeg, hogy az eredeti hoszt átkerüljön a privát fejlécbe, MIELŐTT a Host felülíródik.)*
+>
+> Az app a `ResolveCustomDomain`-ben ebből a fejlécből olvassa a látogatói hostot — de **csak akkor, ha az edge megbízható**. Enélkül bárki bármelyik tenant domainjét megszemélyesíthetné egy kézzel beállított fejléccel. A fallback origin slugja (`customers`) ezért **reserved subdomain** is: minden custom hostname kérés arra a hostra érkezik, egy tenant nem viheti el.
+
+> **A bizalom bizonyítéka: megosztott titok, nem hálózati pozíció (SLO-140).** Ha az `APP_ORIGINAL_HOST_SECRET` ki van töltve, az edge-nek be kell mutatnia ugyanazt a titkot az `X-Slot4u-Origin-Secret` fejlécben (`hash_equals`, timing-safe), és **ez az egyetlen teszt** — a `REMOTE_ADDR` ilyenkor nem számít. Ha nincs titok konfigurálva, marad a régi viselkedés: `isFromTrustedProxy()` (a Cloudflare-tartományok a `bootstrap/app.php`-ban).
+>
+> ⚠️ **Miért nem elég a proxy-alapú bizalom:** az éles osztott tárhelyen az Apache `mod_remoteip`/`mod_cloudflare` **már a valódi látogatói IP-re írja át a `REMOTE_ADDR`-t**, mielőtt a PHP látná. Így egyetlen kérés sem *tűnik* Cloudflare mögülinek, `isFromTrustedProxy()` mindig hamis, és minden custom domain 404-et adott (SLO-140, proden mérve). A kézenfekvő „javítás", a `trustProxies('*')`, **rosszabb lenne a hibánál**: azzal az `X-Forwarded-For`-t is elhinnénk bárkitől, azaz kliens-IP-hamisítás lenne az audit logban és a rate limitben. A titok viszont független attól, hogyan bánik a tárhely a `REMOTE_ADDR`-rel.
 
 > A slot4u saját TXT-alapú tulajdonjog-igazolása (`_slot4u-verify.*`) **ettől független és megmarad**: az azt dönti el, hogy a nevet ide szabad-e irányítani, a Cloudflare-regisztráció pedig azt, hogy ki is tudjuk szolgálni. A kettő sorrendje: TXT-verifikáció → Cloudflare custom hostname létrehozása.
 
