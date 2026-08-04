@@ -4,6 +4,7 @@ import {
     CalendarClockIcon,
     CalendarPlusIcon,
     CalendarRangeIcon,
+    ChartColumnIcon,
     ContactIcon,
     GlobeIcon,
     LayoutDashboardIcon,
@@ -97,6 +98,15 @@ export const navItems: NavItem[] = [
         href: '/calendar',
         icon: CalendarRangeIcon,
         permission: 'booking.view',
+        ready: true,
+    },
+    {
+        key: 'reports',
+        labelKey: 'admin.nav.reports',
+        href: '/reports',
+        icon: ChartColumnIcon,
+        permission: 'report.view',
+        feature: 'feature_reports',
         ready: true,
     },
     {

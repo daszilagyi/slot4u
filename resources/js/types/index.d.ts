@@ -417,6 +417,65 @@ export type TenantDashboard = {
     calendar: { date: string; count: number }[] | null;
 };
 
+/**
+ * Headline figures of one reporting period (SLO-137). Rates are basis points and
+ * money is minor units, like everywhere else. A `null` rate means the denominator
+ * was zero — "no data", which is not the same answer as 0%.
+ */
+export type ReportTotals = {
+    bookings: number;
+    /** confirmed + completed + no_show — the commission base (docs/10 §3.1). */
+    realized: number;
+    canceled: number;
+    no_show: number;
+    revenue_minor: number;
+    customers: number;
+    average_value_minor: number | null;
+    no_show_rate_bps: number | null;
+    cancel_rate_bps: number | null;
+};
+
+/** One row of the per-resource activity panels (staff, rooms). */
+export type ReportResourceRow = {
+    id: number;
+    name: string;
+    bookings: number;
+    revenue_minor: number;
+    booked_minutes: number;
+    scheduled_minutes: number;
+    /** null when the resource has no open hours at all — the ratio is undefined. */
+    utilization_bps: number | null;
+};
+
+/** The tenant statistics module's read model (SLO-137, docs/05 M7). */
+export type TenantReport = {
+    preset: string;
+    /** Inclusive tenant-local date bounds (YYYY-MM-DD). */
+    from: string;
+    to: string;
+    previous_from: string;
+    previous_to: string;
+    timezone: string;
+    currency: string;
+    totals: ReportTotals;
+    previous_totals: ReportTotals;
+    series: { date: string; revenue_minor: number; bookings: number }[];
+    by_service: {
+        id: number;
+        name: string | null;
+        bookings: number;
+        revenue_minor: number;
+    }[];
+    by_staff: ReportResourceRow[];
+    by_room: ReportResourceRow[];
+    top_customers: {
+        name: string;
+        is_guest: boolean;
+        bookings: number;
+        spend_minor: number;
+    }[];
+};
+
 export type BookingHistoryEntry = {
     id: number;
     from_status: BookingStatusValue | null;

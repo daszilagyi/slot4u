@@ -174,6 +174,9 @@ return [
             'reserved' => 'A slot4u saját domainjei nem adhatók hozzá — az aldomén enélkül is működik.',
             'taken' => 'Ez a domain már foglalt.',
         ],
+        'report_range' => [
+            'max_days' => 'A riport időszaka legfeljebb :days nap lehet.',
+        ],
     ],
 
     /*
