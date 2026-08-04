@@ -199,7 +199,11 @@ audit_logs         id, tenant_id(nullable), user_id(nullable), action, auditable
 
 ## Statisztika
 
-MVP: lekérdezés-alapú riportok indexelt oszlopokon (bookings.starts_at, status, staff_id, service_id) + napi aggregáló job egy `daily_stats` táblába (tenant_id, date, bookings_count, revenue_minor, new_customers). Külön BI nem kell.
+MVP: lekérdezés-alapú riportok indexelt oszlopokon (bookings.starts_at, status, staff_id, service_id). Külön BI nem kell.
+
+**Állapot (SLO-137):** a statisztika modul (`/reports`, `BuildTenantReport`) **élő lekérdezésekből** dolgozik, `daily_stats` aggregátum nélkül. Ez tudatos: az aggregátum bevezetése előtt tudni kell, mely dimenziók kellenek valójában, és egy visszamenőleg feltöltendő aggregátum-tábla önmagában is új hibaforrás (elcsúszás a forrásadattól). Amíg nincs, a **riport időszaka legfeljebb 366 nap** (`ReportRange::MAX_DAYS`, FormRequest-ben kényszerítve), hogy egy kérés ne tudja végigolvasni a tenant teljes történetét. A `daily_stats` tábla akkor jön, amikor ez a korlát valós tenant-adaton szűknek bizonyul.
+
+**Kihasználtság:** a nevező (nyitvatartási perc) nem a riport saját számítása, hanem a foglalási motor nyitvatartás-szabálya (`App\Services\Schedule\WorkingWindows` — `schedules` sávok + `schedule_exceptions`), hogy a riport ne mondhasson mást arról, mikor van nyitva egy erőforrás, mint a foglalható idősávok.
 
 ## Phase 2 modulok (NEM MVP)
 

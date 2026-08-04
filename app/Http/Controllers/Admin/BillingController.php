@@ -14,6 +14,7 @@ use App\Models\TenantBillingPeriod;
 use App\Services\Commission\BillingPeriodClock;
 use App\Services\Commission\BuildTenantBillingOverview;
 use App\Services\Commission\TenantBillingOverview;
+use App\Support\Hundredths;
 use App\Tenancy\TenantManager;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Storage;
@@ -309,24 +310,11 @@ class BillingController extends Controller
     /** Minor units as a plain decimal — spreadsheet-friendly, never a float. */
     private function minorToDecimal(int $minor): string
     {
-        return $this->hundredths($minor);
+        return Hundredths::format($minor);
     }
 
     private function bpsToPercent(int $bps): string
     {
-        return $this->hundredths($bps).'%';
-    }
-
-    /**
-     * Render a hundredths-scaled integer (minor units, basis points) with a comma
-     * decimal separator. Integer arithmetic throughout — dividing money by 100 in
-     * floating point is exactly what docs/01 §6 forbids.
-     */
-    private function hundredths(int $value): string
-    {
-        $sign = $value < 0 ? '-' : '';
-        $abs = abs($value);
-
-        return $sign.intdiv($abs, 100).','.str_pad((string) ($abs % 100), 2, '0', STR_PAD_LEFT);
+        return Hundredths::percent($bps);
     }
 }

@@ -4,11 +4,11 @@ namespace App\Services\Booking;
 
 use App\Enums\BookingMode;
 use App\Enums\BookingStatus;
-use App\Enums\ScheduleExceptionType;
 use App\Models\Booking;
 use App\Models\Schedule;
 use App\Models\ScheduleException;
 use App\Models\Service;
+use App\Services\Schedule\WorkingWindows;
 use App\Settings\TenantSettings;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -261,13 +261,9 @@ class AvailabilityService
     }
 
     /**
-     * Free local-time windows for one resource on the date: schedule bands for the
-     * weekday within their validity, minus whole/partial "off" exceptions, plus
-     * "extra" opening exceptions.
-     *
-     * When a location is requested, only bands scoped to it (or to no location)
-     * count — a multi-location staff's other-location bands drop out (docs/02 §54,
-     * SLO-51).
+     * Free local-time windows for one resource on the date. The rule itself lives in
+     * {@see WorkingWindows} because the utilisation report needs the same capacity
+     * definition (SLO-137); this stays as the engine's own name for it.
      *
      * @param  Collection<int, Schedule>  $schedules  all loaded bands, keyed by nothing
      * @param  Collection<int, ScheduleException>  $exceptions
@@ -275,69 +271,7 @@ class AvailabilityService
      */
     private function freeWindows(string $type, int $resourceId, Carbon $day, string $timezone, Collection $schedules, Collection $exceptions, ?int $locationId = null): array
     {
-        $isoDay = $day->isoWeekday();
-        $dateString = $day->toDateString();
-
-        $windows = $schedules
-            ->where('schedulable_type', $type)
-            ->where('schedulable_id', $resourceId)
-            ->where('day_of_week', $isoDay)
-            ->filter(fn (Schedule $s) => $this->validOn($s, $dateString) && $this->matchesLocation($s, $locationId))
-            ->map(fn (Schedule $s) => [
-                $this->at($day, $s->start_time, $timezone),
-                $this->at($day, $s->end_time, $timezone),
-            ])
-            ->values()
-            ->all();
-
-        $dayExceptions = $exceptions
-            ->where('schedulable_type', $type)
-            ->where('schedulable_id', $resourceId)
-            ->filter(fn (ScheduleException $e) => $e->date->toDateString() === $dateString);
-
-        // Extra openings add windows.
-        foreach ($dayExceptions->where('type', ScheduleExceptionType::Extra) as $extra) {
-            if ($extra->start_time !== null && $extra->end_time !== null) {
-                $windows[] = [$this->at($day, $extra->start_time, $timezone), $this->at($day, $extra->end_time, $timezone)];
-            }
-        }
-
-        // Off exceptions cut windows (whole day when timeless).
-        foreach ($dayExceptions->where('type', ScheduleExceptionType::Off) as $off) {
-            $offStart = $off->start_time !== null ? $this->at($day, $off->start_time, $timezone) : $day->copy();
-            $offEnd = $off->end_time !== null ? $this->at($day, $off->end_time, $timezone) : $day->copy()->addDay();
-            $windows = $this->subtractInterval($windows, $offStart, $offEnd);
-        }
-
-        return $windows;
-    }
-
-    /**
-     * A band applies to the requested location when it is location-agnostic (null)
-     * or scoped to exactly that location. No requested location = all bands.
-     */
-    private function matchesLocation(Schedule $schedule, ?int $locationId): bool
-    {
-        return $locationId === null
-            || $schedule->location_id === null
-            || $schedule->location_id === $locationId;
-    }
-
-    private function validOn(Schedule $schedule, string $dateString): bool
-    {
-        $from = $schedule->valid_from?->toDateString();
-        $until = $schedule->valid_until?->toDateString();
-
-        return ($from === null || $dateString >= $from)
-            && ($until === null || $dateString <= $until);
-    }
-
-    /**
-     * A local Carbon at the given H:i(:s) wall-clock time on the date.
-     */
-    private function at(Carbon $day, string $time, string $timezone): Carbon
-    {
-        return Carbon::parse($day->toDateString().' '.substr($time, 0, 5), $timezone);
+        return WorkingWindows::forDay($type, $resourceId, $day, $timezone, $schedules, $exceptions, $locationId);
     }
 
     /**
@@ -404,36 +338,6 @@ class AvailabilityService
         }
 
         return false;
-    }
-
-    /**
-     * Cut [cutStart, cutEnd] out of each window, splitting where it lands inside.
-     *
-     * @param  list<array{0: Carbon, 1: Carbon}>  $windows
-     * @return list<array{0: Carbon, 1: Carbon}>
-     */
-    private function subtractInterval(array $windows, Carbon $cutStart, Carbon $cutEnd): array
-    {
-        $result = [];
-
-        foreach ($windows as [$windowStart, $windowEnd]) {
-            // No overlap: keep as is.
-            if ($cutEnd->lte($windowStart) || $cutStart->gte($windowEnd)) {
-                $result[] = [$windowStart, $windowEnd];
-
-                continue;
-            }
-            // Left remainder.
-            if ($cutStart->gt($windowStart)) {
-                $result[] = [$windowStart, $cutStart->copy()];
-            }
-            // Right remainder.
-            if ($cutEnd->lt($windowEnd)) {
-                $result[] = [$cutEnd->copy(), $windowEnd];
-            }
-        }
-
-        return $result;
     }
 
     /**

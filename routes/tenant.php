@@ -13,6 +13,7 @@ use App\Http\Controllers\Admin\EventController;
 use App\Http\Controllers\Admin\LocationController;
 use App\Http\Controllers\Admin\MessageTemplateController;
 use App\Http\Controllers\Admin\QuoteRequestController;
+use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\RoomController;
 use App\Http\Controllers\Admin\ScheduleController;
 use App\Http\Controllers\Admin\ScheduleExceptionController;
@@ -195,6 +196,15 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
             // Day/week time grid of the same bookings (SLO-44), scoped by the same
             // BookingVisibility rule as the list.
             Route::get('/calendar', [CalendarController::class, 'index'])->name('tenant.calendar.index');
+        });
+
+        // Statistics module (SLO-137 / SLO-45). Two gates, two questions (docs/01
+        // middleware chain): the feature asks whether the TENANT has the module,
+        // report.view whether this USER may read it — tenant-admin and manager only
+        // per the docs/03 matrix.
+        Route::middleware(['ensure.feature:'.Feature::Reports->value, 'can:'.Permission::ReportView->value])->group(function () {
+            Route::get('/reports', [ReportController::class, 'index'])->name('tenant.reports.index');
+            Route::get('/reports/export', [ReportController::class, 'export'])->name('tenant.reports.export');
         });
 
         // Booking quick actions (SLO-85). Gated by booking.edit: fulfil a
