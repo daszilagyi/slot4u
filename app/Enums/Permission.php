@@ -39,4 +39,60 @@ enum Permission: string
     {
         return array_map(fn (self $permission) => $permission->value, self::cases());
     }
+
+    /**
+     * Where this code sits in the tenant's role editor (SLO-141).
+     */
+    public function group(): PermissionGroup
+    {
+        return match ($this) {
+            self::BookingView, self::BookingCreate, self::BookingEdit,
+            self::BookingCancel, self::BookingApprove => PermissionGroup::Bookings,
+            self::CustomerView, self::CustomerEdit => PermissionGroup::Customers,
+            self::ServiceManage, self::StaffManage, self::LocationManage => PermissionGroup::Catalog,
+            self::ScheduleManage => PermissionGroup::Schedule,
+            self::ReportView => PermissionGroup::Insights,
+            self::MessageSend, self::TemplateManage => PermissionGroup::Communication,
+            self::BillingView, self::BillingEdit,
+            self::SettingsEdit, self::RoleManage => PermissionGroup::Administration,
+        };
+    }
+
+    /**
+     * The tenant feature this code is meaningless without — granting it while the
+     * feature is off would hand out a permission whose every route answers 403
+     * anyway (the middleware chain is feature-gate *then* `can:`, docs/03).
+     *
+     * Only the codes whose whole surface sits behind one flag are listed:
+     * `booking.create`/`booking.edit` also gate quote-request routes, but they
+     * gate plain bookings too, so they are never feature-dependent as a whole.
+     * Null = always offerable.
+     */
+    public function requiredFeature(): ?Feature
+    {
+        return match ($this) {
+            self::ReportView => Feature::Reports,
+            self::BookingApprove => Feature::ApprovalFlow,
+            self::MessageSend => Feature::Messages,
+            default => null,
+        };
+    }
+
+    /**
+     * Codes the tenant admin keeps to itself — never grantable to another role or
+     * user, whatever the editor asks for (SLO-141).
+     *
+     * `billing.*` because the commission invoices are the tenant admin's own
+     * financial standing with slot4u (docs/03 matrix, and the issue's explicit
+     * guardrail). `role.manage` because a role that may edit roles can grant
+     * itself everything in one request — leaving it grantable would make every
+     * other guardrail here a formality.
+     */
+    public function isAdminReserved(): bool
+    {
+        return match ($this) {
+            self::BillingView, self::BillingEdit, self::RoleManage => true,
+            default => false,
+        };
+    }
 }

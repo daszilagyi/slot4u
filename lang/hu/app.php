@@ -652,10 +652,40 @@ return [
             'customers' => 'Ügyfelek',
             'billing' => 'Számlázás',
             'templates' => 'Email sablonok',
+            'roles' => 'Jogosultságok',
             'domains' => 'Egyedi domain',
             'settings' => 'Beállítások',
             'showcase' => 'UI építőelemek',
             'soon' => 'hamarosan',
+        ],
+        // Role permission-szerkesztő (SLO-141). A permission-címkék a
+        // `permission.*` blokkból jönnek (nincs duplikátum), a role-nevek a
+        // globális `role.*`-ból.
+        'roles' => [
+            'title' => 'Jogosultságok',
+            'subtitle' => 'Melyik szerepkör mit érhet el a rendszeren belül. A módosítás azonnal érvénybe lép az adott szerepkör minden felhasználójánál.',
+            'updated' => 'A szerepkör jogosultságai frissítve.',
+            'reset_done' => 'A szerepkör visszaállítva az alapértelmezett jogosultságokra.',
+            'save' => 'Mentés',
+            'reset' => 'Vissza az alapértelmezettre',
+            'reset_confirm' => 'Biztosan visszaállítod a(z) :role szerepkört az alapértelmezett jogosultságokra? A testreszabás elvész.',
+            'customized_badge' => 'Testreszabva',
+            'default_badge' => 'Alapértelmezett',
+            'permission_count' => ':count jogosultság',
+            'locked_own' => 'Ez a te saját szerepköröd — a saját jogaidat nem veheted el. Egy másik, jogosultságkezelő kollégád tudja szerkeszteni.',
+            'locked_tenant_admin' => 'A tenant-admin szerepkör teljes jogú, ez a definíciója — nem szerkeszthető.',
+            'locked_customer' => 'Az ügyfél szerepkör szándékosan nem kap admin-panel jogosultságot: az ügyfél a saját foglalásait a fiókjában (members area) éri el, tulajdonjog alapján.',
+            'locked_feature' => 'Ehhez a(z) :feature funkció bekapcsolása kell — ezt a slot4u üzemeltetője tudja engedélyezni.',
+            'admin_only_note' => 'A számlázási (billing.*) és a jogosultságkezelő (role.manage) jogok kizárólag a tenant-admin szerepköré maradnak, ezért nem szerepelnek a listában.',
+            'group' => [
+                'bookings' => 'Foglalások',
+                'customers' => 'Ügyfelek',
+                'schedule' => 'Munkarend',
+                'catalog' => 'Törzsadatok',
+                'communication' => 'Kommunikáció',
+                'insights' => 'Kimutatások',
+                'administration' => 'Adminisztráció',
+            ],
         ],
         'topbar' => [
             'open_menu' => 'Menü megnyitása',
@@ -1676,6 +1706,53 @@ return [
             'invoice_voided' => 'Jutalékszámla stornózva',
             'invoice_resent' => 'Jutalékszámla újraküldve',
         ],
+        // Nested for the same dot-path reason (SLO-141).
+        'role' => [
+            'permissions_updated' => 'Szerepkör jogosultságai módosítva',
+            'permissions_reset' => 'Szerepkör jogosultságai alapértelmezettre állítva',
+        ],
+    ],
+    // Szerepkör- és jogosultság-címkék a role-szerkesztőhöz (SLO-141).
+    // ⚠️ ÁGYAZOTT szerkezet: a permission kódok pontot tartalmaznak
+    // (`booking.view`), a frontend `t()` pedig pontok mentén bont — flat kulccsal
+    // sosem oldódna fel.
+    'role_name' => [
+        'tenant-admin' => 'Tenant admin',
+        'manager' => 'Menedzser',
+        'employee' => 'Dolgozó',
+        'customer' => 'Ügyfél',
+    ],
+    'role_description' => [
+        'tenant-admin' => 'Teljes jog a tenanton belül, beleértve a számlázást és a jogosultságkezelést.',
+        'manager' => 'Operatív vezetés: foglalások, ügyfelek, munkarend, kimutatások.',
+        'employee' => 'Napi munka: a saját naptára, foglalásai és ügyfelei.',
+        'customer' => 'Az ügyfél a saját fiókjában (members area) éri el a foglalásait — nem az admin panelen.',
+    ],
+    'permission' => [
+        'booking' => [
+            'view' => 'Foglalások megtekintése',
+            'create' => 'Foglalás rögzítése',
+            'edit' => 'Foglalás módosítása (idő, ár, adatok)',
+            'cancel' => 'Foglalás lemondása és visszatérítés',
+            'approve' => 'Foglalási kérelem jóváhagyása vagy elutasítása',
+        ],
+        'customer' => [
+            'view' => 'Ügyfelek megtekintése',
+            'edit' => 'Ügyfél létrehozása és szerkesztése',
+        ],
+        'service' => ['manage' => 'Szolgáltatások kezelése'],
+        'staff' => ['manage' => 'Dolgozók kezelése és meghívása'],
+        'location' => ['manage' => 'Helyszínek és helyiségek kezelése'],
+        'schedule' => ['manage' => 'Munkarend, kivételek és események kezelése'],
+        'report' => ['view' => 'Kimutatások megtekintése'],
+        'message' => ['send' => 'Üzenetküldés ügyfeleknek'],
+        'template' => ['manage' => 'Email sablonok szerkesztése'],
+        'billing' => [
+            'view' => 'Jutalékszámlák megtekintése',
+            'edit' => 'Számlázási adatok szerkesztése',
+        ],
+        'settings' => ['edit' => 'Cégprofil és foglalási szabályok szerkesztése'],
+        'role' => ['manage' => 'Szerepkörök és jogosultságok kezelése'],
     ],
     'features' => [
         'feature_online_payment' => 'Online fizetés',

@@ -20,6 +20,7 @@ use App\Listeners\SendWaitlistOffer;
 use App\Models\Room;
 use App\Models\Staff;
 use App\Models\User;
+use App\Policies\RolePolicy;
 use App\Services\Domain\CloudflareCustomHostnameProvisioner;
 use App\Services\Domain\CustomHostnameProvisioner;
 use App\Services\Domain\DnsResolver;
@@ -35,6 +36,7 @@ use Illuminate\Notifications\Events\NotificationSent;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
+use Spatie\Permission\Models\Role as RoleModel;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -89,6 +91,11 @@ class AppServiceProvider extends ServiceProvider
 
         // Platform super-admins bypass all tenant permission checks.
         Gate::before(fn ($user) => $user instanceof User && $user->isSuperAdmin() ? true : null);
+
+        // The role editor (SLO-141) authorizes against spatie's Role model, which
+        // policy auto-discovery cannot map by naming convention (different
+        // namespace), so the binding is explicit.
+        Gate::policy(RoleModel::class, RolePolicy::class);
 
         // Notification wiring (SLO-35/SLO-108/SLO-109): the booking lifecycle mails
         // the customer — confirmed (or moved, on a reschedule), canceled, rejected —
