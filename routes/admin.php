@@ -5,6 +5,7 @@ use App\Http\Controllers\Super\CommissionController;
 use App\Http\Controllers\Super\CommissionInvoiceController;
 use App\Http\Controllers\Super\DashboardController;
 use App\Http\Controllers\Super\ImpersonationController;
+use App\Http\Controllers\Super\StatisticsController;
 use App\Http\Controllers\Super\TenantController;
 use Illuminate\Support\Facades\Route;
 
@@ -30,6 +31,11 @@ Route::middleware(['auth', 'ensure.superadmin'])->group(function () {
     // impersonated. The matching stop route lives on the tenant domain
     // (routes/tenant.php) so the exit button is same-origin.
     Route::post('/tenants/{tenant}/impersonate', [ImpersonationController::class, 'store'])->name('super.tenants.impersonate');
+
+    // Platform statistics (SLO-138): tenant lifecycle, growth/churn series and
+    // turnover distribution — the business the commission is levied on, next to
+    // the dashboard's view of what the commission earns.
+    Route::get('/statistics', [StatisticsController::class, 'index'])->name('super.statistics.index');
 
     // Audit log viewer (SLO-78).
     Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('super.audit-logs.index');
