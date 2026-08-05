@@ -23,6 +23,9 @@ use Illuminate\Support\Carbon;
  * @property array<string, mixed>|null $branding
  * @property array<string, mixed>|null $settings
  * @property array<string, mixed>|null $invoicing seller details + provider API key (encrypted at rest)
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ * @property Carbon|null $deleted_at the archive instant — the platform's only churn timestamp (SLO-138)
  */
 #[ObservedBy([TenantObserver::class])]
 class Tenant extends Model

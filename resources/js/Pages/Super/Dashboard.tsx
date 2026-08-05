@@ -433,6 +433,9 @@ export default function SuperDashboard({ statistics, filters }: DashboardProps) 
                             <Link href="/tenants">{t('super.dashboard.tenants_link')}</Link>
                         </Button>
                         <Button asChild variant="outline">
+                            <Link href="/statistics">{t('super.dashboard.statistics_link')}</Link>
+                        </Button>
+                        <Button asChild variant="outline">
                             <Link href="/commission">{t('super.dashboard.commission_link')}</Link>
                         </Button>
                         <Button asChild variant="outline">
