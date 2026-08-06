@@ -2,24 +2,33 @@
 
 namespace App\Support;
 
-use App\Enums\Role;
+use App\Enums\Permission;
 use App\Models\Staff;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
- * Who may see which customers (docs/03 matrix, SLO-84). Tenant-admin and manager
- * see every customer of the tenant; an employee sees only "saját ügyfelei" — the
- * customers who have a booking with a staff record the employee is linked to
- * (staff.user_id === actor). Single source of truth for both the list query
- * ({@see apply}) and per-record checks ({@see owns}), so the two never drift.
+ * Who may see which customers (docs/03 matrix, SLO-84). A holder of
+ * `customer.view_all` sees every customer of the tenant; anyone else with
+ * `customer.view` sees only "saját ügyfelei" — the customers who have a booking
+ * with a staff record the actor is linked to (staff.user_id === actor). Single
+ * source of truth for both the list query ({@see apply}) and per-record checks
+ * ({@see owns}), so the two never drift.
  */
 final class CustomerVisibility
 {
-    /** Roles that see the whole customer roster (no ownership restriction). */
+    /**
+     * Whether the actor sees the whole customer roster (no ownership restriction).
+     *
+     * Until SLO-142 this asked for the tenant-admin or manager role by NAME.
+     * That could not survive custom roles: a tenant-defined "senior receptionist"
+     * would have been silently own-scoped with no way to widen it. The seeded
+     * grant is unchanged — tenant-admin and manager carry `customer.view_all`,
+     * employee does not — but the distinction is now a code the tenant can move.
+     */
     public static function unrestricted(User $actor): bool
     {
-        return $actor->hasAnyRole([Role::TenantAdmin->value, Role::Manager->value]);
+        return $actor->can(Permission::CustomerViewAll->value);
     }
 
     /**

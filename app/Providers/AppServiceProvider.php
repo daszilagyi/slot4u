@@ -21,6 +21,7 @@ use App\Models\Room;
 use App\Models\Staff;
 use App\Models\User;
 use App\Policies\RolePolicy;
+use App\Policies\TenantUserPolicy;
 use App\Services\Domain\CloudflareCustomHostnameProvisioner;
 use App\Services\Domain\CustomHostnameProvisioner;
 use App\Services\Domain\DnsResolver;
@@ -96,6 +97,12 @@ class AppServiceProvider extends ServiceProvider
         // policy auto-discovery cannot map by naming convention (different
         // namespace), so the binding is explicit.
         Gate::policy(RoleModel::class, RolePolicy::class);
+
+        // The per-user overrides (SLO-142) authorize against User, which has no
+        // auto-discoverable policy of its own. Customer extends User but keeps
+        // CustomerPolicy: Laravel guesses a policy by naming convention before it
+        // falls back to a parent class's registration.
+        Gate::policy(User::class, TenantUserPolicy::class);
 
         // Notification wiring (SLO-35/SLO-108/SLO-109): the booking lifecycle mails
         // the customer — confirmed (or moved, on a reschedule), canceled, rejected —

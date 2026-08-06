@@ -44,4 +44,13 @@ enum AuditAction: string
     // and new permission list.
     case RolePermissionsUpdated = 'role.permissions_updated';
     case RolePermissionsReset = 'role.permissions_reset';
+
+    // Custom tenant roles and per-user overrides (SLO-142, docs/03). Same
+    // reasoning as above: creating, renaming or deleting a role and moving a
+    // single user's grant all redraw the security boundary, so each lands in the
+    // trail with what it replaced.
+    case RoleCreated = 'role.created';
+    case RoleRenamed = 'role.renamed';
+    case RoleDeleted = 'role.deleted';
+    case UserRbacUpdated = 'user.rbac_updated';
 }
