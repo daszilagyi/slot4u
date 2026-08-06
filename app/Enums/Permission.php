@@ -2,6 +2,8 @@
 
 namespace App\Enums;
 
+use App\Support\CustomerVisibility;
+
 /**
  * Tenant-scoped permission codes (docs/03 permission matrix). These are the
  * global spatie permission names (guard `web`); role→permission assignment per
@@ -19,6 +21,14 @@ enum Permission: string
     case BookingCancel = 'booking.cancel';
     case BookingApprove = 'booking.approve';
     case CustomerView = 'customer.view';
+    /**
+     * Widens `customer.view` from "saját ügyfelei" to the whole roster
+     * ({@see CustomerVisibility}). Before SLO-142 this distinction
+     * was hardcoded to the tenant-admin and manager role NAMES, which a custom
+     * role could never satisfy — a code makes it configurable like everything
+     * else in the matrix. Without `customer.view` it grants nothing.
+     */
+    case CustomerViewAll = 'customer.view_all';
     case CustomerEdit = 'customer.edit';
     case ServiceManage = 'service.manage';
     case StaffManage = 'staff.manage';
@@ -48,7 +58,7 @@ enum Permission: string
         return match ($this) {
             self::BookingView, self::BookingCreate, self::BookingEdit,
             self::BookingCancel, self::BookingApprove => PermissionGroup::Bookings,
-            self::CustomerView, self::CustomerEdit => PermissionGroup::Customers,
+            self::CustomerView, self::CustomerViewAll, self::CustomerEdit => PermissionGroup::Customers,
             self::ServiceManage, self::StaffManage, self::LocationManage => PermissionGroup::Catalog,
             self::ScheduleManage => PermissionGroup::Schedule,
             self::ReportView => PermissionGroup::Insights,

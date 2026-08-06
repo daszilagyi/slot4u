@@ -31,10 +31,33 @@ enum Role: string
     }
 
     /**
+     * The role names slot4u itself defines. A tenant may add its own roles
+     * (SLO-142) but may never create, rename or delete one of these: the code
+     * checks them by name (seeding, the members-area wall, the role editor's
+     * guardrails), so a tenant-supplied row wearing a built-in name would be
+     * indistinguishable from the real thing.
+     *
+     * @return list<string>
+     */
+    public static function builtInNames(): array
+    {
+        return array_map(fn (self $role) => $role->value, self::cases());
+    }
+
+    public static function isBuiltIn(string $name): bool
+    {
+        return self::tryFrom($name) !== null;
+    }
+
+    /**
      * Staff roles: the tenant members who operate the admin panel (docs/03).
-     * The customer role is deliberately excluded — customers live in the
-     * members area (SLO-33), not the admin panel; the EnsureUserIsStaff
-     * middleware gates the panel on exactly these roles.
+     *
+     * ⚠️ This is the SEEDED default set, not the definition of "staff". Since
+     * SLO-142 a tenant may add its own roles, and a user holding only a custom
+     * role would fail a name-based membership test and be locked out of the
+     * panel with a 403. Staff is therefore defined by exclusion — any tenant
+     * role except `customer` ({@see isStaffRoleName()}) — and this list is only
+     * used where the four seeded roles are genuinely meant.
      *
      * @return list<self>
      */
@@ -51,6 +74,21 @@ enum Role: string
     public static function staffRoleNames(): array
     {
         return array_map(fn (self $role) => $role->value, self::staffRoles());
+    }
+
+    /**
+     * Whether holding this role name makes a user staff, i.e. an operator of the
+     * admin panel rather than a members-area customer (SLO-86, SLO-142).
+     *
+     * Everything except `customer` counts, custom tenant roles included: a role
+     * a tenant creates in the admin panel's own role editor exists precisely to
+     * be used in the admin panel. `customer` is the one role that means the
+     * opposite, and `super-admin` never reaches here (super-admins hold no
+     * tenant role and short-circuit earlier).
+     */
+    public static function isStaffRoleName(string $name): bool
+    {
+        return $name !== self::Customer->value;
     }
 
     /**
@@ -72,6 +110,7 @@ enum Role: string
                 Permission::BookingCancel,
                 Permission::BookingApprove,
                 Permission::CustomerView,
+                Permission::CustomerViewAll,
                 Permission::CustomerEdit,
                 Permission::ScheduleManage,
                 Permission::ReportView,

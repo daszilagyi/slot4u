@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Actions\Rbac\DeleteTenantRole;
 use App\Enums\Permission;
 use App\Enums\Role as RoleEnum;
 use App\Models\User;
@@ -50,5 +51,43 @@ class RolePolicy
         }
 
         return ! $user->hasRole($role->name);
+    }
+
+    /** Adding a role of the tenant's own (SLO-142). */
+    public function create(User $user): bool
+    {
+        return $user->can(Permission::RoleManage->value);
+    }
+
+    /**
+     * Renaming a role. Custom roles only: the seeded names are load-bearing —
+     * seeding, the members-area wall and the reset button all identify a role by
+     * name — so a renamed `manager` would be a role the code no longer knows.
+     */
+    public function rename(User $user, RoleModel $role): bool
+    {
+        return ! RoleEnum::isBuiltIn($role->name) && $this->update($user, $role);
+    }
+
+    /**
+     * Deleting a role. Custom only, for the same reason as {@see rename()}, and
+     * never the actor's own (inherited from {@see update()}) — deleting the role
+     * you hold is the fastest possible way to lock yourself out. Whether the role
+     * still has holders is not an authorization question and is answered by
+     * {@see DeleteTenantRole}.
+     */
+    public function delete(User $user, RoleModel $role): bool
+    {
+        return ! RoleEnum::isBuiltIn($role->name) && $this->update($user, $role);
+    }
+
+    /**
+     * Restoring the seeded default. Built-in roles only — a custom role has no
+     * documented default to restore, so the button does not exist for it and a
+     * direct POST is refused rather than guessed at.
+     */
+    public function reset(User $user, RoleModel $role): bool
+    {
+        return RoleEnum::isBuiltIn($role->name) && $this->update($user, $role);
     }
 }

@@ -6,6 +6,7 @@ use App\Enums\Role;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -50,6 +51,11 @@ class User extends Authenticatable implements MustVerifyEmail
      * staff. The role check is scoped to the user's OWN tenant team and restored
      * afterwards, so it is correct even off the tenant host (login/register run
      * before IdentifyTenant sets the spatie team).
+     *
+     * Membership is decided by exclusion ({@see Role::isStaffRoleName()}), not by
+     * a list of names: since SLO-142 a tenant can define its own roles, and a
+     * user holding only a custom role is staff — testing against the three
+     * seeded staff names would have locked exactly those users out of the panel.
      */
     public function isStaff(): bool
     {
@@ -66,7 +72,13 @@ class User extends Authenticatable implements MustVerifyEmail
         $registrar->setPermissionsTeamId($this->tenant_id);
 
         try {
-            return $this->hasAnyRole(Role::staffRoleNames());
+            // Reading the relation (rather than querying) keeps spatie's
+            // per-model memoization, so repeated calls in one request are free.
+            $this->loadMissing('roles');
+
+            return $this->roles->contains(
+                fn (Model $role): bool => Role::isStaffRoleName((string) $role->getAttribute('name')),
+            );
         } finally {
             $registrar->setPermissionsTeamId($previousTeamId);
         }

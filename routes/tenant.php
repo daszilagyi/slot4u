@@ -22,6 +22,7 @@ use App\Http\Controllers\Admin\ServiceCategoryController;
 use App\Http\Controllers\Admin\ServiceController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\StaffController;
+use App\Http\Controllers\Admin\UserRbacController;
 use App\Http\Controllers\Admin\WaitlistController;
 use App\Http\Controllers\StaffProfileController;
 use App\Http\Controllers\Super\ImpersonationController;
@@ -294,15 +295,26 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
             Route::delete('/settings/domains/{tenantDomain}', [DomainController::class, 'destroy'])->name('tenant.domains.destroy');
         });
 
-        // Tenant role editor (SLO-141). Gated by role.manage (tenant-admin only
-        // per docs/03). {role} is a role NAME, not an id: roles are per-tenant
-        // spatie rows, so the controller resolves it inside the tenant team —
-        // an unknown name 404s, a locked one (tenant-admin, customer, the
-        // actor's own) 403s from the RolePolicy.
+        // Tenant role editor (SLO-141, SLO-142). Gated by role.manage
+        // (tenant-admin only per docs/03). {role} is a role NAME, not an id:
+        // roles are per-tenant spatie rows, so the controller resolves it inside
+        // the tenant team — an unknown name 404s, a locked one (tenant-admin,
+        // customer, the actor's own, a built-in on rename/delete) 403s from the
+        // RolePolicy.
+        //
+        // The per-user overrides live under /settings/users rather than under
+        // /settings/roles/... on purpose: {role} matches any string, so a
+        // sibling path segment there would be ambiguous with a role literally
+        // named "users".
         Route::middleware('can:'.Permission::RoleManage->value)->group(function () {
             Route::get('/settings/roles', [RoleController::class, 'index'])->name('tenant.roles.index');
+            Route::post('/settings/roles', [RoleController::class, 'store'])->name('tenant.roles.store');
             Route::put('/settings/roles/{role}', [RoleController::class, 'update'])->name('tenant.roles.update');
+            Route::patch('/settings/roles/{role}/name', [RoleController::class, 'rename'])->name('tenant.roles.rename');
+            Route::delete('/settings/roles/{role}', [RoleController::class, 'destroy'])->name('tenant.roles.destroy');
             Route::post('/settings/roles/{role}/reset', [RoleController::class, 'reset'])->name('tenant.roles.reset');
+
+            Route::put('/settings/users/{user}/rbac', [UserRbacController::class, 'update'])->name('tenant.users.rbac.update');
         });
 
         // Tenant-editable email templates (SLO-112/SLO-114). Gated by

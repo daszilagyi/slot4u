@@ -11,8 +11,8 @@ use App\Models\Tenant;
 use App\Policies\RolePolicy;
 use App\Services\Audit\AuditLogger;
 use App\Services\Rbac\PermissionCatalog;
+use App\Services\Rbac\TenantTeam;
 use Spatie\Permission\Models\Role as RoleModel;
-use Spatie\Permission\PermissionRegistrar;
 
 /**
  * Writes a tenant role's permission grant (SLO-141): both the custom set the
@@ -43,7 +43,7 @@ final class SyncRolePermissions
     public function __construct(
         private readonly AuditLogger $audit,
         private readonly PermissionCatalog $catalog,
-        private readonly PermissionRegistrar $registrar,
+        private readonly TenantTeam $team,
     ) {}
 
     /**
@@ -82,10 +82,7 @@ final class SyncRolePermissions
      */
     private function apply(Tenant $tenant, RoleModel $role, array $permissions, AuditAction $action): void
     {
-        $previousTeamId = $this->registrar->getPermissionsTeamId();
-        $this->registrar->setPermissionsTeamId($tenant->getKey());
-
-        try {
+        $this->team->run($tenant, function () use ($tenant, $role, $permissions, $action): void {
             $before = $this->currentCodes($role);
 
             // Codes the editor could not offer keep their current state (see the
@@ -107,14 +104,9 @@ final class SyncRolePermissions
                 newValues: ['role' => $role->name, 'permissions' => $final],
                 tenantId: $tenant->getKey(),
             );
-        } finally {
-            $this->registrar->setPermissionsTeamId($previousTeamId);
-        }
+        });
 
-        // Spatie memoizes the permission map per process and caches it in the
-        // store; without this flush the next request could still authorize
-        // against the old grant.
-        $this->registrar->forgetCachedPermissions();
+        $this->team->flush();
     }
 
     /**
