@@ -12,6 +12,7 @@ import {
     MapPinIcon,
     ReceiptTextIcon,
     SettingsIcon,
+    ShieldCheckIcon,
     SparklesIcon,
     UsersIcon,
     type LucideIcon,
@@ -131,6 +132,14 @@ export const navItems: NavItem[] = [
         href: '/settings/templates',
         icon: MailIcon,
         permission: 'template.manage',
+        ready: true,
+    },
+    {
+        key: 'roles',
+        labelKey: 'admin.nav.roles',
+        href: '/settings/roles',
+        icon: ShieldCheckIcon,
+        permission: 'role.manage',
         ready: true,
     },
     {

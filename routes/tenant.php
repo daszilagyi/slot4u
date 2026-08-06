@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\LocationController;
 use App\Http\Controllers\Admin\MessageTemplateController;
 use App\Http\Controllers\Admin\QuoteRequestController;
 use App\Http\Controllers\Admin\ReportController;
+use App\Http\Controllers\Admin\RoleController;
 use App\Http\Controllers\Admin\RoomController;
 use App\Http\Controllers\Admin\ScheduleController;
 use App\Http\Controllers\Admin\ScheduleExceptionController;
@@ -291,6 +292,17 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
             Route::post('/settings/domains/{tenantDomain}/primary', [DomainController::class, 'primary'])->name('tenant.domains.primary');
             Route::post('/settings/domains/{tenantDomain}/provision', [DomainController::class, 'provision'])->name('tenant.domains.provision');
             Route::delete('/settings/domains/{tenantDomain}', [DomainController::class, 'destroy'])->name('tenant.domains.destroy');
+        });
+
+        // Tenant role editor (SLO-141). Gated by role.manage (tenant-admin only
+        // per docs/03). {role} is a role NAME, not an id: roles are per-tenant
+        // spatie rows, so the controller resolves it inside the tenant team —
+        // an unknown name 404s, a locked one (tenant-admin, customer, the
+        // actor's own) 403s from the RolePolicy.
+        Route::middleware('can:'.Permission::RoleManage->value)->group(function () {
+            Route::get('/settings/roles', [RoleController::class, 'index'])->name('tenant.roles.index');
+            Route::put('/settings/roles/{role}', [RoleController::class, 'update'])->name('tenant.roles.update');
+            Route::post('/settings/roles/{role}/reset', [RoleController::class, 'reset'])->name('tenant.roles.reset');
         });
 
         // Tenant-editable email templates (SLO-112/SLO-114). Gated by

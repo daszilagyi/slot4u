@@ -37,4 +37,11 @@ enum AuditAction: string
     // is the commission base, so changing it moves what the tenant owes —
     // recorded with the old and new amount.
     case BookingPriceChanged = 'booking.price_changed';
+
+    // Tenant role customization (SLO-141, docs/03). Who may do what inside a
+    // tenant is a security boundary, so every change to a role's grant — and
+    // every reset back to the seeded default — lands in the trail with the old
+    // and new permission list.
+    case RolePermissionsUpdated = 'role.permissions_updated';
+    case RolePermissionsReset = 'role.permissions_reset';
 }
