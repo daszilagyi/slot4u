@@ -37,6 +37,7 @@ use Illuminate\Notifications\Events\NotificationSent;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Validation\Rules\Password;
 use Spatie\Permission\Models\Role as RoleModel;
 
 class AppServiceProvider extends ServiceProvider
@@ -92,6 +93,15 @@ class AppServiceProvider extends ServiceProvider
 
         // Platform super-admins bypass all tenant permission checks.
         Gate::before(fn ($user) => $user instanceof User && $user->isSuperAdmin() ? true : null);
+
+        // Password policy (SLO-145). Until this, `Password::default()` was used
+        // without ever defining the defaults, so the whole rule was Laravel's
+        // bare minimum of eight characters — for accounts that hold a tenant's
+        // whole customer base. Twelve characters plus a breach check; the check
+        // is a k-anonymity lookup against haveibeenpwned, and a lookup that
+        // cannot be made must never lock a legitimate user out, so the verifier
+        // fails open (that is Laravel's own behaviour on a network error).
+        Password::defaults(fn () => Password::min(12)->uncompromised());
 
         // The role editor (SLO-141) authorizes against spatie's Role model, which
         // policy auto-discovery cannot map by naming convention (different
