@@ -163,6 +163,37 @@ A `SESSION_DOMAIN=.slot4u.test` (vezető pont) megosztja a session cookie-t a su
 `suspended-demo` (suspended → 503 státuszoldal). Tenant-admin loginok: `admin@acme.test` /
 `admin@suspended-demo.test`, jelszó `password`.
 
+## Tenant-izolációs söprés és a kód-címezhető felület (SLO-146)
+
+**A `TenantIsolationSweepTest` a ROUTE-TÁBLÁT járja be**, nem egy kézzel karbantartott listát: minden
+`{tenant}` domainű route-ra, aminek van rekordot címző paramétere, behelyettesíti egy MÁSIK tenant
+rekordjának azonosítóját, és **404**-et vár. A route-model binding a controller és a Form Request
+**előtt** fut, ezért ehhez semmilyen payload nem kell.
+
+⚠️ **A söprés hibázik, ha egy route-paraméter nincs se leképezve, se dokumentáltan nem-modellként
+felsorolva.** Ez szándékos: új végpontnál a lefedettség az alapértelmezett, a kihagyást ki kell
+mondani. A nem-modell paraméterek indoklással: `{tenant}` (maga az aldomén), `{provider}` (fizetési
+szolgáltató neve, a webhook aláírással hitelesít), `{key}` (NotificationType, minden tenant közös
+szótára), `{role}` (role NÉV, a tenant spatie-teamjén belül feloldva) — az utóbbi kettőre külön,
+célzott teszt van, mert ott nem az id, hanem a név a támadási felület.
+
+⚠️ **Amit a söprés első futása kihozott:** a `PUT /settings/users/{user}/rbac` **nem 404-gyel**
+válaszolt idegen id-re, hanem azzal, amit a validáció mondott — mert a `User`-nek (jó okkal) nincs
+tenant global scope-ja, így a tagsági ellenőrzés a controllerben, tehát a Form Request UTÁN futott.
+Adatszivárgás nem volt (üres payloaddal a saját és az idegen id ugyanazt adta), de a szabály nem tartott.
+Javítás: **`App\Models\TenantUser`** (ugyanaz a minta, mint a `Customer`) — a binding csak az aktuális
+tenant staff-tagjára old fel, minden más 404 **még a validáció előtt**.
+
+**Kód-címezhető publikus végpontok** (`/booked/{code}`, `/booked/{code}/ics`, `/pay/{code}`,
+`/payments/sandbox/{provider_ref}`): itt **a kód maga a hitelesítő**, mint egy kitalálhatatlan link a
+visszaigazoló emailben. Ez két feltételen áll, és **mindkettőt teszt rögzíti**: (1) a foglalási kód
+**8 karakter egy 31 elemű ábécéből ≈ 2^39,6 lehetőség**, `random_int` CSPRNG-vel; (2) minden ilyen
+route **throttle alatt van** (60/perc, a fizetési ág 20/perc) — a `PublicCodeAccessTest` fel is sorolja
+a route-táblából, hogy nincs köztük throttle nélküli. A kettő együtt teszi a kimerítő keresést
+értelmetlenné; a kód rövidítése vagy a throttle tágítása elrontaná az aritmetikát, ezért mindkettő
+teszttel van kikötve. **Ismeretlen kód és idegen tenant kódja ugyanazt a 404-et adja** — különben a
+visszaigazoló oldal orákulum lenne arra, mely kódok léteznek.
+
 ## Biztonsági válasz-headerek (SLO-145)
 
 A `SecurityHeaders` middleware **globálisan** (nem csak a `web` láncban) fut, és a lánc **elejére**
