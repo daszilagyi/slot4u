@@ -260,9 +260,12 @@ A `style-src` **tudatos kivétel** (`unsafe-inline`): a Radix és a toast-könyv
 A policy-t a `App\Support\ContentSecurityPolicy` építi — külön osztály, hogy a **dev és a prod ág is
 tesztelhető** legyen Vite dev szerver nélkül. A dev ág (`'unsafe-eval'` + a dev szerver origin, a
 React Refresh miatt) **a `hot` állapotra van kötve, nem környezet-névre**, tehát buildelt bundle
-mellett strukturálisan nem tud érvényre jutni. A Reverb websocket origin (`connect-src`) a
-`broadcasting.connections.reverb.options`-ból jön, különben az élő foglalás-feed minden oldalon
-elakadna.
+mellett strukturálisan nem tud érvényre jutni. A websocket origin (`connect-src`) az **AKTÍV** broadcast connectionből jön
+(`broadcasting.default`), különben az élő foglalás-feed minden oldalon elakadna. ⚠️ **Ezt driver-névre
+kötni hiba (SLO-150):** dev alatt Reverb fut, **prodban hosted Pusher** — a beégetett `reverb` név
+prodban üres `connect-src`-t adott volna, tehát pont ott blokkolta volna a realtime-ot, ahol számít.
+⚠️ **Pushernél a configolt `host` az `api-{cluster}.pusher.com`, az a SZERVER-oldali REST végpont** — a
+böngésző a `ws-{cluster}`-re csatlakozik, tehát a kliens hosztját le kell vezetni, nem átmásolni.
 
 **Jelszó-szabály:** `Password::defaults()` = **min. 12 karakter + breach-ellenőrzés** (haveibeenpwned
 k-anonimitás). Korábban a kód `Password::default()`-ot használt anélkül, hogy a defaultok valaha
