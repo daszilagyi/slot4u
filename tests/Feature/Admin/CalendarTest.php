@@ -1,15 +1,19 @@
 <?php
 
+use App\Actions\Customer\CreateCustomer;
 use App\Enums\BookingMode;
 use App\Enums\BookingStatus;
+use App\Enums\Feature;
 use App\Enums\Permission;
 use App\Enums\Role;
+use App\Http\Middleware\HandleInertiaRequests;
 use App\Models\Booking;
 use App\Models\Location;
 use App\Models\Room;
 use App\Models\Service;
 use App\Models\Staff;
 use App\Models\Tenant;
+use App\Models\TenantFeature;
 use App\Models\User;
 use App\Tenancy\TenantManager;
 use Database\Seeders\BasePlanSeeder;
@@ -46,6 +50,23 @@ function calUser(Tenant $tenant, Role $role): User
     app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getKey());
 
     return $user;
+}
+
+/**
+ * Headers of an Inertia partial reload — how the quick-booking dialog asks for the
+ * `customers` prop without re-rendering the whole page. The asset version has to
+ * match or the middleware answers 409 (a stale-assets refresh), not the props.
+ *
+ * @return array<string, string>
+ */
+function calPartial(string $props): array
+{
+    return [
+        'X-Inertia' => 'true',
+        'X-Inertia-Version' => (string) app(HandleInertiaRequests::class)->version(request()),
+        'X-Inertia-Partial-Component' => 'Admin/Calendar/Index',
+        'X-Inertia-Partial-Data' => $props,
+    ];
 }
 
 function calBooking(Tenant $tenant, array $overrides = [], ?Staff $staff = null): Booking
@@ -498,6 +519,162 @@ it('leaves week columns without a resource id — a drop there moves the day onl
         ->assertInertia(fn ($page) => $page
             ->where('calendar.columns.0.date', '2026-08-03')
             ->where('calendar.columns.0.resource_id', null));
+});
+
+// --- Card quick actions + quick booking (SLO-136) ---
+
+it('reports the cancel, create and approve abilities the card menu needs', function () {
+    $tenant = calTenant(['slug' => 'acme']);
+    $admin = calUser($tenant, Role::TenantAdmin);
+    app(TenantManager::class)->forget();
+
+    $this->actingAs($admin)
+        ->get(tenantHost('acme', '/calendar'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('can.edit', true)
+            ->where('can.cancel', true)
+            ->where('can.create', true)
+            // feature_approval_flow is on by default on the base plan.
+            ->where('can.approve', true));
+});
+
+it('hides the approve action when feature_approval_flow is off, permission or not', function () {
+    $tenant = calTenant(['slug' => 'acme']);
+    TenantFeature::factory()->create(['feature_code' => Feature::ApprovalFlow, 'enabled' => false]);
+    $admin = calUser($tenant, Role::TenantAdmin);
+    app(TenantManager::class)->forget();
+
+    // The approval endpoint sits behind the same feature gate, so offering the
+    // action here would only produce a 403 on press (docs/03).
+    $this->actingAs($admin)
+        ->get(tenantHost('acme', '/calendar'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('can.approve', false));
+});
+
+it('withholds cancel and create from an actor whose role lost them', function () {
+    $tenant = calTenant(['slug' => 'acme']);
+    $viewer = calUser($tenant, Role::Employee);
+    Staff::factory()->forTenant($tenant)->create(['user_id' => $viewer->id]);
+    app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getKey());
+    RoleModel::findByName(Role::Employee->value, 'web')
+        ->revokePermissionTo([Permission::BookingCancel->value, Permission::BookingCreate->value]);
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+    app(TenantManager::class)->forget();
+
+    $this->actingAs($viewer)
+        ->get(tenantHost('acme', '/calendar'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('can.cancel', false)
+            ->where('can.create', false));
+});
+
+it('marks only the time-slot services as quick-bookable', function () {
+    $tenant = calTenant(['slug' => 'acme']);
+    $admin = calUser($tenant, Role::TenantAdmin);
+    Service::factory()->forTenant($tenant)->create([
+        'name' => 'Hajvágás',
+        'booking_mode' => BookingMode::DurationBased,
+        'duration_minutes' => 45,
+    ]);
+    // An event needs its event, so a click on an empty slot cannot create one.
+    Service::factory()->forTenant($tenant)->mode(BookingMode::EventBased)->create(['name' => 'Workshop']);
+    app(TenantManager::class)->forget();
+
+    $this->actingAs($admin)
+        ->get(tenantHost('acme', '/calendar'))
+        ->assertOk()
+        ->assertInertia(function ($page) {
+            $services = collect($page->toArray()['props']['options']['services'])->keyBy('name');
+
+            expect($services['Hajvágás']['bookable'])->toBeTrue()
+                ->and($services['Hajvágás']['duration_minutes'])->toBe(45)
+                ->and($services['Workshop']['bookable'])->toBeFalse();
+        });
+});
+
+it('does not ship the customer roster until the booking dialog asks for it', function () {
+    $tenant = calTenant(['slug' => 'acme']);
+    $admin = calUser($tenant, Role::TenantAdmin);
+    app(CreateCustomer::class)(['name' => 'Kovács Anna', 'email' => 'anna@example.test', 'phone' => null]);
+    app(TenantManager::class)->forget();
+
+    $this->actingAs($admin)
+        ->get(tenantHost('acme', '/calendar'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->missing('customers'));
+
+    // The dialog requests it by name (Inertia partial reload).
+    $this->actingAs($admin)
+        ->get(tenantHost('acme', '/calendar'), calPartial('customers'))
+        ->assertOk()
+        ->assertJsonCount(1, 'props.customers')
+        ->assertJsonPath('props.customers.0.name', 'Kovács Anna');
+});
+
+it('narrows the customer picker by the typed search', function () {
+    $tenant = calTenant(['slug' => 'acme']);
+    $admin = calUser($tenant, Role::TenantAdmin);
+    app(CreateCustomer::class)(['name' => 'Kovács Anna', 'email' => 'anna@example.test', 'phone' => null]);
+    app(CreateCustomer::class)(['name' => 'Nagy Béla', 'email' => 'bela@example.test', 'phone' => null]);
+    app(TenantManager::class)->forget();
+
+    $this->actingAs($admin)
+        ->get(tenantHost('acme', '/calendar?customer_search=Kov'), calPartial('customers'))
+        ->assertOk()
+        ->assertJsonCount(1, 'props.customers')
+        ->assertJsonPath('props.customers.0.name', 'Kovács Anna');
+});
+
+it('keeps the customer picker inside the actor\'s own customer scope', function () {
+    $tenant = calTenant(['slug' => 'acme']);
+    $employee = calUser($tenant, Role::Employee);
+    $own = Staff::factory()->forTenant($tenant)->create(['user_id' => $employee->id]);
+
+    $mine = app(CreateCustomer::class)(['name' => 'Saját Ügyfél', 'email' => 'mine@example.test', 'phone' => null]);
+    app(CreateCustomer::class)(['name' => 'Kollégáé', 'email' => 'other@example.test', 'phone' => null]);
+    calBooking($tenant, [
+        'customer_id' => $mine->id,
+        'starts_at' => '2026-08-05 08:00:00',
+        'ends_at' => '2026-08-05 09:00:00',
+    ], $own);
+    app(TenantManager::class)->forget();
+
+    // An employee books for their own customers only — the same scope the customer
+    // page uses, so the dialog can't become a roster leak.
+    $this->actingAs($employee)
+        ->get(tenantHost('acme', '/calendar'), calPartial('customers'))
+        ->assertOk()
+        ->assertJsonCount(1, 'props.customers')
+        ->assertJsonPath('props.customers.0.name', 'Saját Ügyfél');
+});
+
+it('offers no customer picker at all without customer.view', function () {
+    $tenant = calTenant(['slug' => 'acme']);
+    $viewer = calUser($tenant, Role::Employee);
+    Staff::factory()->forTenant($tenant)->create(['user_id' => $viewer->id]);
+    app(CreateCustomer::class)(['name' => 'Kovács Anna', 'email' => 'anna@example.test', 'phone' => null]);
+    app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getKey());
+    RoleModel::findByName(Role::Employee->value, 'web')->revokePermissionTo(Permission::CustomerView->value);
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+    app(TenantManager::class)->forget();
+
+    $this->actingAs($viewer)
+        ->get(tenantHost('acme', '/calendar'), calPartial('customers'))
+        ->assertOk()
+        ->assertJsonCount(0, 'props.customers');
+});
+
+it('rejects a customer search longer than the picker allows', function () {
+    $tenant = calTenant(['slug' => 'acme']);
+    $admin = calUser($tenant, Role::TenantAdmin);
+    app(TenantManager::class)->forget();
+
+    $this->actingAs($admin)
+        ->get(tenantHost('acme', '/calendar?customer_search='.str_repeat('a', 256)))
+        ->assertSessionHasErrors('customer_search');
 });
 
 it('offers the drag only to an actor who may edit bookings', function () {

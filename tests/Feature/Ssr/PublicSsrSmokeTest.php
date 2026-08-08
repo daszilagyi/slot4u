@@ -115,3 +115,24 @@ it('server-renders an authenticated admin page without breaking (global SSR)', f
         ->assertOk()
         ->assertInertia(fn ($page) => $page->component('Admin/Dashboard'));
 });
+
+it('server-renders the admin calendar, grid and all', function () {
+    // The calendar is the most interactive admin page (drag-and-drop, card action
+    // menus, the quick-booking sheet — SLO-44, SLO-136), so it is where a
+    // browser-API-in-render slip is most likely; with throw_on_error on, that fails
+    // here instead of blanking the page in production.
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme', 'name' => 'Acme']);
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getKey());
+    $user = User::factory()->create(['tenant_id' => $tenant->id]);
+    $user->assignRole(Role::TenantAdmin->value);
+
+    $response = $this->actingAs($user)
+        ->get(tenantHost('acme', '/calendar'))
+        ->assertOk();
+
+    $response->assertInertia(fn ($page) => $page->component('Admin/Calendar/Index'));
+
+    // Real server-rendered markup, not just the serialized props.
+    expect(renderedMarkupOnly($response->getContent()))->toContain('Naptár');
+});

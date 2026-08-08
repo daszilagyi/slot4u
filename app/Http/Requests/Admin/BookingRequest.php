@@ -91,8 +91,14 @@ class BookingRequest extends FormRequest
 
     private function requireSlot(Validator $validator, Service $service): void
     {
-        if ($this->input('starts_at') === null || $this->input('ends_at') === null) {
+        if ($this->input('starts_at') === null) {
             $validator->errors()->add('starts_at', __('app.admin.bookings.error.slot_required'));
+        } elseif ($this->input('ends_at') === null && $service->duration_minutes === null) {
+            // The end may be left to the controller, which derives it from the
+            // service duration in real elapsed time (SLO-136) — but a service with
+            // no fixed duration (a variable-length rental, docs/04 §4) has nothing
+            // to derive it from, so there the end has to be given.
+            $validator->errors()->add('ends_at', __('app.admin.bookings.error.end_required'));
         }
 
         // resource_rental books a room; a staff-based service books a staff.

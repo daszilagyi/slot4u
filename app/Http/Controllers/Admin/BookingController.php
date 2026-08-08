@@ -11,6 +11,7 @@ use App\Actions\Booking\UpdateBookingPrice;
 use App\Actions\Payment\RefundBookingPayments;
 use App\Enums\BookingSource;
 use App\Enums\BookingStatus;
+use App\Enums\Feature;
 use App\Enums\Permission;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\BookingRequest;
@@ -38,6 +39,7 @@ use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
+use Laravel\Pennant\Feature as Pennant;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
@@ -99,6 +101,10 @@ class BookingController extends Controller
             'can' => [
                 'edit' => (bool) $actor->can(Permission::BookingEdit->value),
                 'cancel' => (bool) $actor->can(Permission::BookingCancel->value),
+                // Approving is behind the feature flag as well as the permission
+                // (docs/03), the same pair the approval routes sit behind.
+                'approve' => (bool) $actor->can(Permission::BookingApprove->value)
+                    && Pennant::active(Feature::ApprovalFlow->value),
             ],
         ]);
     }
@@ -136,6 +142,17 @@ class BookingController extends Controller
         // The route-bound {service} would be cleaner, but the service id is part of
         // the booking payload; resolve it tenant-scoped (BelongsToTenant → 404).
         $service = Service::query()->findOrFail($data['service_id']);
+
+        // The calendar's quick-booking only picks a start (SLO-136): the end is the
+        // service's own duration, added in real elapsed time. Deliberately not
+        // wall-clock arithmetic on the client — a 60-minute service booked into the
+        // spring-forward hour must stay 60 minutes (docs/01 §7), same rule as
+        // {@see self::keepDuration()} on the reschedule path.
+        if (($data['ends_at'] ?? null) === null && ($data['starts_at'] ?? null) !== null && $service->duration_minutes !== null) {
+            $data['ends_at'] = Carbon::parse((string) $data['starts_at'])
+                ->addMinutes($service->duration_minutes)
+                ->toDateTimeString();
+        }
 
         // Admin origin: source=admin relaxes the approval/payment gates.
         $data['source'] = BookingSource::Admin->value;

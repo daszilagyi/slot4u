@@ -2,11 +2,13 @@
 
 use App\Enums\BookingMode;
 use App\Enums\BookingStatus;
+use App\Enums\Feature;
 use App\Enums\Role;
 use App\Models\Booking;
 use App\Models\Service;
 use App\Models\Staff;
 use App\Models\Tenant;
+use App\Models\TenantFeature;
 use App\Models\User;
 use App\Tenancy\TenantManager;
 use Database\Seeders\BasePlanSeeder;
@@ -75,6 +77,42 @@ it('lists bookings for a tenant admin', function () {
             ->has('bookings.data', 2)
             ->has('options.statuses')
             ->has('options.services'));
+});
+
+it('reports the approve ability the quick-action menu needs', function () {
+    // The approve action shares the list's quick-action code path (SLO-136), so the
+    // list has to say whether the actor may use it — permission AND feature (docs/03).
+    $tenant = bkTenant(['slug' => 'acme']);
+    $admin = bkUser($tenant, Role::TenantAdmin);
+    $employee = bkUser($tenant, Role::Employee);
+    Staff::factory()->forTenant($tenant)->create(['user_id' => $employee->id]);
+    app(TenantManager::class)->forget();
+
+    $this->actingAs($admin)
+        ->get(tenantHost('acme', '/bookings'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('can.approve', true));
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getKey());
+    app(TenantManager::class)->forget();
+
+    // An employee holds no booking.approve (docs/03 matrix).
+    $this->actingAs($employee)
+        ->get(tenantHost('acme', '/bookings'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('can.approve', false));
+});
+
+it('withholds the approve ability when feature_approval_flow is off', function () {
+    $tenant = bkTenant(['slug' => 'acme']);
+    TenantFeature::factory()->create(['feature_code' => Feature::ApprovalFlow, 'enabled' => false]);
+    $admin = bkUser($tenant, Role::TenantAdmin);
+    app(TenantManager::class)->forget();
+
+    $this->actingAs($admin)
+        ->get(tenantHost('acme', '/bookings'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page->where('can.approve', false));
 });
 
 it('filters bookings by status', function () {

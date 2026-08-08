@@ -34,6 +34,10 @@ class CalendarFilterRequest extends FormRequest
             'staff_id' => ['nullable', 'integer', Rule::exists('staff', 'id')->where('tenant_id', $tenantId)],
             'room_id' => ['nullable', 'integer', Rule::exists('rooms', 'id')->where('tenant_id', $tenantId)],
             'service_id' => ['nullable', 'integer', Rule::exists('services', 'id')->where('tenant_id', $tenantId)],
+            // Typed into the quick-booking dialog's customer picker (SLO-136). Not a
+            // grid filter: it only narrows the `customers` partial-reload prop, which
+            // is why it never reaches the calendar builder.
+            'customer_search' => ['nullable', 'string', 'max:255'],
         ];
     }
 }
