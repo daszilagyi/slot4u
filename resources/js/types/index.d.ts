@@ -547,6 +547,8 @@ export type BookingFilterOptions = {
     statuses: BookingStatusValue[];
     staff: { id: number; name: string }[];
     services: { id: number; name: string }[];
+    /** Not a filter: the "offer another time" form may move the room (SLO-144). */
+    rooms: { id: number; name: string }[];
 };
 
 export type BookingFilters = {

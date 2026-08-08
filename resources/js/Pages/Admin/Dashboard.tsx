@@ -95,6 +95,9 @@ export default function AdminDashboard({ dashboard }: DashboardProps) {
                                 { count: String(dashboard.pending_payment ?? 0) },
                             )}
                             icon={HourglassIcon}
+                            // The tile counts `requested` bookings, so it leads to
+                            // exactly that slice of the list (SLO-144).
+                            href="/bookings?status=requested"
                         />
                     ) : null}
                     {dashboard.customers_total !== null ? (

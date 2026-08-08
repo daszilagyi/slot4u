@@ -1,3 +1,4 @@
+import { Link } from '@inertiajs/react';
 import type { LucideIcon } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
@@ -8,6 +9,8 @@ type StatCardProps = {
     hint?: string;
     icon: LucideIcon;
     className?: string;
+    /** Makes the whole tile a link — for a number that has a list behind it. */
+    href?: string;
 };
 
 /** Bento dashboard stat tile: label, big value, hint, accent icon. */
@@ -17,9 +20,15 @@ export default function StatCard({
     hint,
     icon: Icon,
     className,
+    href,
 }: StatCardProps) {
+    // A tile with a destination is a link, not a div with a click handler: it keeps
+    // the keyboard focus, the middle-click and the status-bar URL for free.
+    const Wrapper = href === undefined ? 'div' : Link;
+
     return (
-        <div
+        <Wrapper
+            {...(href === undefined ? {} : { href })}
             className={cn(
                 'flex flex-col gap-3 rounded-2xl border border-border bg-card p-5 shadow-sm transition-colors hover:border-primary/40',
                 className,
@@ -43,6 +52,6 @@ export default function StatCard({
                     </span>
                 ) : null}
             </div>
-        </div>
+        </Wrapper>
     );
 }

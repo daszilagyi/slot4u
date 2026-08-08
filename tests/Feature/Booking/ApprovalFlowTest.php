@@ -7,6 +7,7 @@ use App\Actions\Booking\RejectBooking;
 use App\Enums\BookingMode;
 use App\Enums\BookingStatus;
 use App\Enums\Feature;
+use App\Enums\Permission;
 use App\Enums\Role;
 use App\Exceptions\InvalidBookingTransitionException;
 use App\Exceptions\SlotUnavailableException;
@@ -402,6 +403,90 @@ it('forbids approval without booking.approve (403)', function () {
     $this->actingAs($user)
         ->post(tenantHost('acme', "/bookings/{$booking->id}/approve"))
         ->assertForbidden();
+});
+
+// --- Proposal keeps what the original knew (SLO-144) ---
+
+it('keeps the original resource when the proposal does not name one', function () {
+    // The form only has to name a staff/room when the offer actually moves it; a
+    // missing field must not strip the booking's resource off the proposal.
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme', 'timezone' => 'UTC']);
+    app(TenantManager::class)->set($tenant);
+    $service = apService($tenant);
+    $staff = Staff::factory()->forTenant($tenant)->create();
+    $booking = app(CreateBooking::class)($service, apSlot($staff));
+    $admin = apAdmin($tenant);
+    app(TenantManager::class)->forget();
+
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', "/bookings/{$booking->id}/propose"), [
+            'starts_at' => '2026-09-07T14:00',
+            'ends_at' => '2026-09-07T15:00',
+        ])
+        ->assertRedirect()->assertSessionHasNoErrors();
+
+    $proposed = Booking::query()->where('tenant_id', $tenant->id)
+        ->where('status', BookingStatus::Requested->value)->latest('id')->firstOrFail();
+
+    expect($proposed->staff_id)->toBe($staff->id)
+        ->and($booking->fresh()->status)->toBe(BookingStatus::Rejected);
+});
+
+it('carries a guest booking contact over to the proposed slot', function () {
+    // A guest booking (SLO-128) has no account holding the contact details, so
+    // without this the offer would land on a booking nobody can be notified about.
+    $tenant = apTenant();
+    $service = apService($tenant);
+    $staff = Staff::factory()->forTenant($tenant)->create();
+    $booking = app(CreateBooking::class)($service, apSlot($staff, [
+        'guest_name' => 'Vendég Viktor',
+        'guest_email' => 'vendeg@example.test',
+        'guest_phone' => '+36301234567',
+    ]));
+
+    $proposed = app(ProposeAlternativeTime::class)($booking, [
+        'staff_id' => $staff->id,
+        'starts_at' => '2026-09-07 14:00:00',
+        'ends_at' => '2026-09-07 15:00:00',
+    ], apAdmin($tenant));
+
+    expect($proposed->guest_name)->toBe('Vendég Viktor')
+        ->and($proposed->guest_email)->toBe('vendeg@example.test')
+        ->and($proposed->guest_phone)->toBe('+36301234567')
+        ->and($proposed->isGuest())->toBeTrue();
+});
+
+it('404s when an employee decides on a booking outside their scope', function () {
+    // Hidden existence, like a cross-tenant id: a 403 here would confirm that a
+    // colleague's booking exists. The policy would have refused it anyway.
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme', 'timezone' => 'UTC']);
+    app(TenantManager::class)->set($tenant);
+    $service = apService($tenant);
+    $colleague = Staff::factory()->forTenant($tenant)->create();
+    $booking = app(CreateBooking::class)($service, apSlot($colleague));
+
+    app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getKey());
+    $employee = User::factory()->create(['tenant_id' => $tenant->id]);
+    $employee->assignRole(Role::Employee->value);
+    // Employees hold no booking.approve by default (docs/03), so grant it directly:
+    // the point of this test is the ownership 404, not the permission.
+    $employee->givePermissionTo(Permission::BookingApprove->value);
+    Staff::factory()->forTenant($tenant)->create(['user_id' => $employee->id]);
+    app(PermissionRegistrar::class)->forgetCachedPermissions();
+    app(PermissionRegistrar::class)->setPermissionsTeamId(null);
+    app(TenantManager::class)->forget();
+
+    $actor = User::query()->findOrFail($employee->getKey());
+
+    $this->actingAs($actor)
+        ->post(tenantHost('acme', "/bookings/{$booking->id}/approve"))
+        ->assertNotFound();
+
+    $this->actingAs($actor)
+        ->post(tenantHost('acme', "/bookings/{$booking->id}/reject"), ['reason' => 'Nem.'])
+        ->assertNotFound();
+
+    expect($booking->fresh()->status)->toBe(BookingStatus::Requested);
 });
 
 it('404s when approving another tenant\'s booking (cross-tenant)', function () {

@@ -58,6 +58,13 @@ class ProposeAlternativeTime
             // the approval gate so it starts requested + soft-held (CreateBooking).
             $data = array_merge($slot, [
                 'customer_id' => $booking->customer_id,
+                // A guest booking (SLO-128) has no account holding the contact
+                // details, so they have to travel to the proposal — otherwise the
+                // offer would land on a booking nobody can be notified about. Same
+                // rule the reschedule path follows.
+                'guest_name' => $booking->guest_name,
+                'guest_email' => $booking->guest_email,
+                'guest_phone' => $booking->guest_phone,
                 'party_size' => $booking->party_size,
                 'notes' => $booking->notes,
                 'source' => BookingSource::Online->value,

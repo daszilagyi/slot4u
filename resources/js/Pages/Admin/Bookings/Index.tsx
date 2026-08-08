@@ -2,8 +2,10 @@ import { Head, Link, router, useForm } from '@inertiajs/react';
 import {
     CalendarCheckIcon,
     CalendarClockIcon,
+    CalendarPlusIcon,
     CheckCircle2Icon,
     ShieldCheckIcon,
+    ThumbsDownIcon,
     UserXIcon,
     XCircleIcon,
     type LucideIcon,
@@ -12,6 +14,11 @@ import { type FormEvent, useState } from 'react';
 import { toast } from 'sonner';
 
 import AdminLayout from '@/Layouts/AdminLayout';
+import {
+    ProposeBookingSheet,
+    RejectBookingSheet,
+    type ApprovalTarget,
+} from '@/components/admin/BookingApprovalSheets';
 import ConfirmDialog from '@/components/admin/ConfirmDialog';
 import EmptyState from '@/components/admin/EmptyState';
 import FormSheet from '@/components/admin/FormSheet';
@@ -24,6 +31,8 @@ import {
     bookingActionKeys,
     bookingActionUrl,
     bookingQuickActions,
+    canProposeBooking,
+    canRejectBooking,
     canRescheduleBooking,
     type BookingActionKey,
 } from '@/lib/bookingActions';
@@ -83,6 +92,11 @@ export default function BookingsIndex({
         null,
     );
     const rescheduleForm = useForm({ starts_at: '', ends_at: '' });
+
+    // The two approval decisions that need a form (SLO-144); the one-click ones go
+    // through the quick-action buttons above.
+    const [rejecting, setRejecting] = useState<ApprovalTarget | null>(null);
+    const [proposing, setProposing] = useState<ApprovalTarget | null>(null);
 
     function submitFilters(event: FormEvent) {
         event.preventDefault();
@@ -319,6 +333,14 @@ export default function BookingsIndex({
                                         booking,
                                         can,
                                     );
+                                    const canReject = canRejectBooking(
+                                        booking,
+                                        can,
+                                    );
+                                    const canPropose = canProposeBooking(
+                                        booking,
+                                        can,
+                                    );
 
                                     return (
                                         <tr
@@ -389,6 +411,44 @@ export default function BookingsIndex({
                                                             )}
                                                         >
                                                             <CalendarClockIcon className="size-4" />
+                                                        </Button>
+                                                    ) : null}
+                                                    {canPropose ? (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            onClick={() =>
+                                                                setProposing(
+                                                                    booking,
+                                                                )
+                                                            }
+                                                            aria-label={t(
+                                                                'admin.approvals.propose.action',
+                                                            )}
+                                                            title={t(
+                                                                'admin.approvals.propose.action',
+                                                            )}
+                                                        >
+                                                            <CalendarPlusIcon className="size-4" />
+                                                        </Button>
+                                                    ) : null}
+                                                    {canReject ? (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            onClick={() =>
+                                                                setRejecting(
+                                                                    booking,
+                                                                )
+                                                            }
+                                                            aria-label={t(
+                                                                'admin.approvals.reject.action',
+                                                            )}
+                                                            title={t(
+                                                                'admin.approvals.reject.action',
+                                                            )}
+                                                        >
+                                                            <ThumbsDownIcon className="size-4 text-destructive" />
                                                         </Button>
                                                     ) : null}
                                                     {actions.map((action) => {
@@ -549,6 +609,18 @@ export default function BookingsIndex({
                     ) : null}
                 </div>
             </FormSheet>
+
+            <RejectBookingSheet
+                booking={rejecting}
+                onClose={() => setRejecting(null)}
+            />
+
+            <ProposeBookingSheet
+                booking={proposing}
+                staff={options.staff}
+                rooms={options.rooms}
+                onClose={() => setProposing(null)}
+            />
         </AdminLayout>
     );
 }

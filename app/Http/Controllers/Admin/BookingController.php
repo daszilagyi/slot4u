@@ -24,6 +24,7 @@ use App\Models\Booking;
 use App\Models\Invoice;
 use App\Models\Payment;
 use App\Models\Refund;
+use App\Models\Room;
 use App\Models\Service;
 use App\Models\Staff;
 use App\Models\User;
@@ -97,6 +98,9 @@ class BookingController extends Controller
                 'statuses' => BookingStatus::values(),
                 'staff' => $this->staffOptions($actor),
                 'services' => Service::query()->orderBy('name')->get(['id', 'name']),
+                // Not a list filter: the "offer another time" form (SLO-144) may move
+                // the booking to a different room.
+                'rooms' => Room::query()->orderBy('name')->get(['id', 'name']),
             ],
             'can' => [
                 'edit' => (bool) $actor->can(Permission::BookingEdit->value),
