@@ -54,6 +54,32 @@ export function canRescheduleBooking(
 }
 
 /**
+ * Rejecting an approval-pending booking (docs/04 §5, SLO-144). Not a quick action:
+ * the reason is required, so it always opens a form.
+ */
+export function canRejectBooking(
+    booking: ActionableBooking,
+    can: BookingAbilities,
+): boolean {
+    return can.approve && booking.status === 'requested';
+}
+
+/**
+ * Offering the customer a different time instead (docs/04 §5, SLO-144). Only a
+ * time-slotted mode has a time to move — the action refuses the rest with a 422, so
+ * the surface must not offer it there.
+ */
+export function canProposeBooking(
+    booking: ActionableBooking,
+    can: BookingAbilities,
+): boolean {
+    return (
+        canRejectBooking(booking, can) &&
+        RESCHEDULABLE_BOOKING_MODES.includes(booking.booking_mode)
+    );
+}
+
+/**
  * The quick actions available on this booking, in the order they should be shown.
  *
  * - `approve`: only an approval-pending booking, and only with the feature on

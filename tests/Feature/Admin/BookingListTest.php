@@ -5,6 +5,7 @@ use App\Enums\BookingStatus;
 use App\Enums\Feature;
 use App\Enums\Role;
 use App\Models\Booking;
+use App\Models\Room;
 use App\Models\Service;
 use App\Models\Staff;
 use App\Models\Tenant;
@@ -101,6 +102,22 @@ it('reports the approve ability the quick-action menu needs', function () {
         ->get(tenantHost('acme', '/bookings'))
         ->assertOk()
         ->assertInertia(fn ($page) => $page->where('can.approve', false));
+});
+
+it('ships the rooms the "offer another time" form needs', function () {
+    // Not a list filter: the proposal (SLO-144) may move the booking to another room,
+    // so the picker has to have them.
+    $tenant = bkTenant(['slug' => 'acme']);
+    $admin = bkUser($tenant, Role::TenantAdmin);
+    Room::factory()->forTenant($tenant)->create(['name' => 'Nagyterem']);
+    app(TenantManager::class)->forget();
+
+    $this->actingAs($admin)
+        ->get(tenantHost('acme', '/bookings'))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->has('options.rooms', 1)
+            ->where('options.rooms.0.name', 'Nagyterem'));
 });
 
 it('withholds the approve ability when feature_approval_flow is off', function () {

@@ -34,6 +34,11 @@ import {
 import { toast } from 'sonner';
 
 import AdminLayout from '@/Layouts/AdminLayout';
+import {
+    ProposeBookingSheet,
+    RejectBookingSheet,
+    type ApprovalTarget,
+} from '@/components/admin/BookingApprovalSheets';
 import ConfirmDialog from '@/components/admin/ConfirmDialog';
 import EmptyState from '@/components/admin/EmptyState';
 import FormSheet from '@/components/admin/FormSheet';
@@ -60,6 +65,8 @@ import {
     bookingActionKeys,
     bookingActionUrl,
     bookingQuickActions,
+    canProposeBooking,
+    canRejectBooking,
     type BookingActionKey,
 } from '@/lib/bookingActions';
 import { bookingStatusClass } from '@/lib/format';
@@ -153,6 +160,9 @@ export default function CalendarIndex({
     const [saving, setSaving] = useState(false);
     const [action, setAction] = useState<PendingAction | null>(null);
     const [creating, setCreating] = useState<QuickCreateTarget | null>(null);
+    // The approval decisions that need a form (SLO-144), shared with the list page.
+    const [rejecting, setRejecting] = useState<ApprovalTarget | null>(null);
+    const [proposing, setProposing] = useState<ApprovalTarget | null>(null);
 
     // A booking created or moved elsewhere (another admin, a public booking) should
     // appear here without a manual refresh. Re-pull only the calendar prop from the
@@ -697,6 +707,8 @@ export default function CalendarIndex({
                                             dragging={dragging}
                                             can={can}
                                             onAction={askAction}
+                                            onReject={setRejecting}
+                                            onPropose={setProposing}
                                             onQuickCreate={openQuickCreate}
                                         />
                                     ))}
@@ -796,6 +808,18 @@ export default function CalendarIndex({
                 destructive
             />
 
+            <RejectBookingSheet
+                booking={rejecting}
+                onClose={() => setRejecting(null)}
+            />
+
+            <ProposeBookingSheet
+                booking={proposing}
+                staff={options.staff}
+                rooms={options.rooms}
+                onClose={() => setProposing(null)}
+            />
+
             {creating !== null ? (
                 <QuickCreateSheet
                     key={`${creating.date}T${creating.startMinute}-${creating.staffId}-${creating.roomId}`}
@@ -874,6 +898,8 @@ function ColumnDropZone({
     dragging,
     can,
     onAction,
+    onReject,
+    onPropose,
     onQuickCreate,
 }: {
     column: CalendarColumn;
@@ -886,6 +912,8 @@ function ColumnDropZone({
     dragging: CalendarEvent | null;
     can: CalendarAbilities;
     onAction: (event: CalendarEvent, action: BookingActionKey) => void;
+    onReject: (booking: ApprovalTarget) => void;
+    onPropose: (booking: ApprovalTarget) => void;
     onQuickCreate: (
         date: string,
         startMinute: number,
@@ -990,6 +1018,8 @@ function ColumnDropZone({
                     draggable={draggable}
                     can={can}
                     onAction={onAction}
+                    onReject={onReject}
+                    onPropose={onPropose}
                 />
             ))}
         </div>
@@ -1052,18 +1082,27 @@ function EventCard({
     draggable,
     can,
     onAction,
+    onReject,
+    onPropose,
 }: {
     event: PlacedEvent;
     windowStart: number;
     draggable: boolean;
     can: CalendarAbilities;
     onAction: (event: CalendarEvent, action: BookingActionKey) => void;
+    onReject: (booking: ApprovalTarget) => void;
+    onPropose: (booking: ApprovalTarget) => void;
 }) {
     const t = useTranslations();
     const movable = draggable && event.movable;
     // Exactly the actions the booking list offers for this state (SLO-136), so a
     // card never suggests a transition the list would not.
     const actions = bookingQuickActions(event, can);
+    // The form-backed approval decisions (SLO-144) sit in the same menu but open a
+    // sheet instead of a confirmation.
+    const showReject = canRejectBooking(event, can);
+    const showPropose = canProposeBooking(event, can);
+    const hasMenu = actions.length > 0 || showReject;
 
     const {
         attributes,
@@ -1104,7 +1143,7 @@ function EventCard({
                     className={cn(
                         'truncate font-medium',
                         movable && 'pr-4',
-                        actions.length > 0 && (movable ? 'pr-8' : 'pr-4'),
+                        hasMenu && (movable ? 'pr-8' : 'pr-4'),
                     )}
                 >
                     {formatMinute(event.start_minute)} ·{' '}
@@ -1121,7 +1160,7 @@ function EventCard({
                     ref={setActivatorNodeRef}
                     className={cn(
                         'absolute top-0 flex h-5 w-4 cursor-grab touch-none items-center justify-center opacity-60 hover:opacity-100 focus-visible:opacity-100',
-                        actions.length > 0 ? 'right-4' : 'right-0',
+                        hasMenu ? 'right-4' : 'right-0',
                     )}
                     aria-label={t('admin.calendar.drag.handle', {
                         service: event.service ?? event.code,
@@ -1136,7 +1175,7 @@ function EventCard({
 
             {/* A card can be a quarter of an hour tall, so the actions live behind
                 one trigger rather than as a row of buttons (SLO-136). */}
-            {actions.length > 0 ? (
+            {hasMenu ? (
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                         <button
@@ -1166,6 +1205,21 @@ function EventCard({
                                 {t(bookingActionKeys(key).label)}
                             </DropdownMenuItem>
                         ))}
+                        {showPropose ? (
+                            <DropdownMenuItem
+                                onSelect={() => onPropose(event)}
+                            >
+                                {t('admin.approvals.propose.action')}
+                            </DropdownMenuItem>
+                        ) : null}
+                        {showReject ? (
+                            <DropdownMenuItem
+                                variant="destructive"
+                                onSelect={() => onReject(event)}
+                            >
+                                {t('admin.approvals.reject.action')}
+                            </DropdownMenuItem>
+                        ) : null}
                     </DropdownMenuContent>
                 </DropdownMenu>
             ) : null}

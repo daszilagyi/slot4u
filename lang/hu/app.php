@@ -1446,6 +1446,27 @@ return [
             'rejected' => 'Foglalás elutasítva.',
             'proposed' => 'Alternatív időpontot ajánlottunk az ügyfélnek.',
             'alternative_offered' => 'Az eredeti időpont helyett alternatívát ajánlottunk.',
+            // Jóváhagyási felület (SLO-144). A jóváhagyás egykattintásos gyors-művelet
+            // (`admin.bookings.action.approve`), ez a kettő űrlapot igényel.
+            'subject' => ':customer foglalása · :code',
+            'reject' => [
+                'action' => 'Elutasítás',
+                'title' => 'Foglalás elutasítása',
+                'description' => 'Az ügyfél emailben megkapja az elutasítás indoklását, az időpont pedig felszabadul.',
+                'reason' => 'Indoklás',
+                'reason_hint' => 'Kötelező — ez a szöveg megy ki az ügyfélnek.',
+                'submit' => 'Elutasítás',
+            ],
+            'propose' => [
+                'action' => 'Alternatív időpont',
+                'title' => 'Alternatív időpont ajánlása',
+                'description' => 'Az eredeti kérés elutasításra kerül, és az új időpontra jön létre egy jóváhagyásra váró foglalás. Ha az új idősáv foglalt, semmi nem történik — az eredeti kérés megmarad.',
+                'starts_at' => 'Ajánlott kezdés',
+                'ends_at' => 'Ajánlott befejezés',
+                'resource_keep' => 'Marad a jelenlegi',
+                'reason' => 'Üzenet az ügyfélnek (opcionális)',
+                'submit' => 'Ajánlat küldése',
+            ],
             'error' => [
                 'slot_mode_only' => 'Alternatív időpont csak idősávos foglaláshoz ajánlható (időpont-alapú vagy erőforrás-bérlés).',
             ],
