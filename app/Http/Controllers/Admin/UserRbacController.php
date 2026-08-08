@@ -3,14 +3,11 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Actions\Rbac\SyncUserRbac;
-use App\Enums\Role as RoleEnum;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\UpdateUserRbacRequest;
 use App\Models\Tenant;
-use App\Models\User;
-use App\Services\Rbac\TenantTeam;
+use App\Models\TenantUser;
 use App\Tenancy\TenantManager;
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
 
@@ -20,15 +17,14 @@ use Illuminate\Support\Facades\Gate;
  * which grant is a `role.manage` decision, and a `staff.manage` holder must not
  * be able to promote themselves by editing a colleague through the back door.
  *
- * {@see User} carries no tenant global scope (a scope would break the superadmin
- * panel and the login lookup, see the model), so tenant membership is checked
- * here explicitly and answered with 404 — a cross-tenant probe must not confirm
- * that the row exists (docs/01).
+ * The target binds as {@see TenantUser}, which resolves only staff of the current
+ * tenant — anything else 404s during route-model binding, before this method and
+ * before the Form Request. Until SLO-146 the membership check lived here, which
+ * meant a foreign id was answered by whatever validation said rather than by the
+ * flat 404 the rest of the surface gives (docs/01).
  */
 class UserRbacController extends Controller
 {
-    public function __construct(private readonly TenantTeam $team) {}
-
     /**
      * `$tenant` is the {tenant} subdomain route parameter: non-class controller
      * arguments are filled positionally from the route, so the domain parameter
@@ -37,13 +33,11 @@ class UserRbacController extends Controller
     public function update(
         UpdateUserRbacRequest $request,
         string $tenant,
-        User $user,
+        TenantUser $user,
         TenantManager $tenants,
         SyncUserRbac $sync,
     ): RedirectResponse {
         $current = $this->tenant($tenants);
-
-        abort_unless($this->isTenantStaff($current, $user), 404);
 
         Gate::authorize('update', $user);
 
@@ -64,21 +58,5 @@ class UserRbacController extends Controller
         abort_if($tenant === null, 404);
 
         return $tenant;
-    }
-
-    /**
-     * Whether the target is a staff user of this tenant. A customer of the same
-     * tenant is deliberately not editable here either: this editor shapes admin
-     * panel access, and the customer roster is the customer module's (SLO-84).
-     */
-    private function isTenantStaff(Tenant $tenant, User $user): bool
-    {
-        if ((int) $user->tenant_id !== $tenant->getKey()) {
-            return false;
-        }
-
-        return $this->team->run($tenant, fn (): bool => $user->roles->contains(
-            fn (Model $role): bool => RoleEnum::isStaffRoleName((string) $role->getAttribute('name')),
-        ));
     }
 }
