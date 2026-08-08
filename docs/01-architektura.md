@@ -163,6 +163,37 @@ A `SESSION_DOMAIN=.slot4u.test` (vezető pont) megosztja a session cookie-t a su
 `suspended-demo` (suspended → 503 státuszoldal). Tenant-admin loginok: `admin@acme.test` /
 `admin@suspended-demo.test`, jelszó `password`.
 
+## Biztonsági válasz-headerek (SLO-145)
+
+A `SecurityHeaders` middleware **globálisan** (nem csak a `web` láncban) fut, és a lánc **elejére**
+van fűzve: a CSP nonce-nak már azelőtt léteznie kell, hogy bármi script-taget renderelne. Minden
+válasz visz `X-Content-Type-Options: nosniff`-et (egy JSON- vagy PDF-választ is meg kell védeni a
+tartalom-szimatolástól), `X-Frame-Options`-t, `Referrer-Policy`-t és `Permissions-Policy`-t; a
+konkrét értékek a `config/security.php`-ban vannak, mert egy beágyazható foglaló-widget később
+jogosan tágíthatja őket.
+
+**HSTS csak HTTPS-en megy ki.** Egy sima http-s dev hostról kiküldött `max-age` egy évre elérhetetlenné
+tenné azt a hostot — ez önokozta üzemzavar, nem védelem.
+
+**A CSP nonce-alapú, `unsafe-inline` nélkül.** A gyökér Blade egyetlen inline scriptet tartalmaz (a
+villanásmentes téma-váltó), és a Laravel Vite helper ugyanazt a nonce-ot bélyegzi a saját tagjeire —
+így a `script-src` szigorú maradhat. ⚠️ Az Inertia a propokat `<script type="application/json">`
+**adatblokkba** teszi, ami nem futtatható, ezért a `script-src` rá nem vonatkozik (nonce sem kell neki).
+A `style-src` **tudatos kivétel** (`unsafe-inline`): a Radix és a toast-könyvtár futásidőben szúr be
+`<style>` elemeket, és egy stílus-injekció nagyságrendekkel kisebb nyeremény, mint a script-futtatás.
+A policy-t a `App\Support\ContentSecurityPolicy` építi — külön osztály, hogy a **dev és a prod ág is
+tesztelhető** legyen Vite dev szerver nélkül. A dev ág (`'unsafe-eval'` + a dev szerver origin, a
+React Refresh miatt) **a `hot` állapotra van kötve, nem környezet-névre**, tehát buildelt bundle
+mellett strukturálisan nem tud érvényre jutni. A Reverb websocket origin (`connect-src`) a
+`broadcasting.connections.reverb.options`-ból jön, különben az élő foglalás-feed minden oldalon
+elakadna.
+
+**Jelszó-szabály:** `Password::defaults()` = **min. 12 karakter + breach-ellenőrzés** (haveibeenpwned
+k-anonimitás). Korábban a kód `Password::default()`-ot használt anélkül, hogy a defaultok valaha
+definiálva lettek volna — vagyis a szabály a Laravel csupasz 8 karaktere volt, olyan fiókokra, amik
+egy tenant teljes ügyfélkörét kezelik. A breach-ellenőrzés hálózati hívás, ezért a teszt-suite egy
+fake verifiert köt be (`Tests\Fixtures\FakeUncompromisedVerifier`) — a suite sosem függ a hálózattól.
+
 ## Mappastruktúra (lényegi részek)
 
 ```

@@ -9,6 +9,7 @@ use App\Http\Middleware\EnsureUserIsStaff;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\IdentifyTenant;
 use App\Http\Middleware\ResolveCustomDomain;
+use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\SetLocale;
 use Illuminate\Auth\Middleware\Authorize;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
@@ -77,6 +78,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // router looks. Appended, so TrustProxies has already restored the real
         // scheme/IP by the time the URL root is pinned.
         $middleware->append(ResolveCustomDomain::class);
+
+        // Security response headers (SLO-145). Global rather than web-only: a
+        // download or a webhook response should also say "do not sniff me".
+        // Prepended so the CSP nonce exists before anything renders a script tag.
+        $middleware->prepend(SecurityHeaders::class);
 
         $middleware->web(append: [
             // SetLocale before Inertia sharing so the `locale`/`translations`

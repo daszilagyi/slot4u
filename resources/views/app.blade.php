@@ -4,8 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title inertia>{{ config('app.name', 'slot4u') }}</title>
-    {{-- Apply the saved theme before first paint (dark default) to avoid a flash. --}}
-    <script>
+    {{-- Apply the saved theme before first paint (dark default) to avoid a flash.
+         Nonce-carrying: the CSP (SLO-145) allows no inline script without one. --}}
+    <script nonce="{{ Illuminate\Support\Facades\Vite::cspNonce() }}">
         (function () {
             try {
                 var t = localStorage.getItem('theme') || 'dark';
