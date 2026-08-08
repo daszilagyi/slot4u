@@ -261,6 +261,85 @@ it('lets an admin create a booking via the endpoint', function () {
     ]);
 });
 
+// The calendar's quick booking only picks a start (SLO-136); the end is the
+// service's own duration, added by the controller.
+
+it('derives the end from the service duration when only a start is posted', function () {
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme', 'timezone' => 'UTC']);
+    $service = durationService($tenant, ['duration_minutes' => 45]);
+    $staff = Staff::factory()->forTenant($tenant)->create();
+    $admin = bookingUser($tenant, Role::TenantAdmin);
+    app(TenantManager::class)->forget();
+
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', '/bookings'), [
+            'service_id' => $service->id,
+            'staff_id' => $staff->id,
+            'starts_at' => '2026-09-07T10:00',
+            'party_size' => 1,
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    $this->assertDatabaseHas('bookings', [
+        'service_id' => $service->id,
+        'starts_at' => '2026-09-07 10:00:00',
+        'ends_at' => '2026-09-07 10:45:00',
+    ]);
+});
+
+it('keeps the real length when the derived end crosses the spring-forward hour', function () {
+    // 2026-03-29 in Budapest: 02:00 local jumps to 03:00. A 60-minute booking
+    // starting 01:45 local ends at 03:45 local — wall-clock arithmetic on the client
+    // would have produced 02:45, an instant that does not exist that day.
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme', 'timezone' => 'Europe/Budapest']);
+    $service = durationService($tenant, ['duration_minutes' => 60]);
+    $staff = Staff::factory()->forTenant($tenant)->create();
+    $admin = bookingUser($tenant, Role::TenantAdmin);
+    app(TenantManager::class)->forget();
+
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', '/bookings'), [
+            'service_id' => $service->id,
+            'staff_id' => $staff->id,
+            'starts_at' => '2026-03-29T01:45',
+            'party_size' => 1,
+        ])
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    // Stored in UTC: 00:45 → 01:45, exactly 60 real minutes (docs/01 §7).
+    $this->assertDatabaseHas('bookings', [
+        'service_id' => $service->id,
+        'starts_at' => '2026-03-29 00:45:00',
+        'ends_at' => '2026-03-29 01:45:00',
+    ]);
+});
+
+it('still demands an end for a service with no fixed duration', function () {
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme', 'timezone' => 'UTC']);
+    withTenant($tenant);
+    // A variable-length rental (docs/04 §4): nothing to derive the end from.
+    $service = Service::factory()->forTenant($tenant)->create([
+        'booking_mode' => BookingMode::ResourceRental,
+        'duration_minutes' => null,
+        'requires_staff' => false,
+        'requires_room' => true,
+    ]);
+    $room = Room::factory()->forTenant($tenant)->create();
+    $admin = bookingUser($tenant, Role::TenantAdmin);
+    app(TenantManager::class)->forget();
+
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', '/bookings'), [
+            'service_id' => $service->id,
+            'room_id' => $room->id,
+            'starts_at' => '2026-09-07T10:00',
+            'party_size' => 1,
+        ])
+        ->assertSessionHasErrors('ends_at');
+});
+
 it('returns a 422 when the admin books an already-taken slot', function () {
     $tenant = Tenant::factory()->active()->create(['slug' => 'acme', 'timezone' => 'UTC']);
     $service = durationService($tenant);

@@ -13,18 +13,30 @@ import {
     type DragStartEvent,
     type KeyboardCoordinateGetter,
 } from '@dnd-kit/core';
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import {
     CalendarRangeIcon,
     ChevronLeftIcon,
     ChevronRightIcon,
     GripVerticalIcon,
+    MoreVerticalIcon,
+    PlusIcon,
 } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import {
+    useCallback,
+    useEffect,
+    useMemo,
+    useState,
+    type FormEvent,
+    type MouseEvent as ReactMouseEvent,
+    type ReactNode,
+} from 'react';
 import { toast } from 'sonner';
 
 import AdminLayout from '@/Layouts/AdminLayout';
+import ConfirmDialog from '@/components/admin/ConfirmDialog';
 import EmptyState from '@/components/admin/EmptyState';
+import FormSheet from '@/components/admin/FormSheet';
 import PageHeader from '@/components/admin/PageHeader';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -36,7 +48,20 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    bookingActionKeys,
+    bookingActionUrl,
+    bookingQuickActions,
+    type BookingActionKey,
+} from '@/lib/bookingActions';
 import { bookingStatusClass } from '@/lib/format';
 import { useTranslations } from '@/lib/i18n';
 import { useLiveBookings } from '@/lib/useLiveBookings';
@@ -45,6 +70,7 @@ import type {
     BookingCalendar,
     CalendarAbilities,
     CalendarColumn,
+    CalendarCustomerOption,
     CalendarEvent,
     CalendarFilters,
     CalendarOptions,
@@ -55,6 +81,8 @@ type CalendarProps = {
     filters: CalendarFilters;
     options: CalendarOptions;
     can: CalendarAbilities;
+    /** Optional prop: only present after the quick-booking dialog asks for it. */
+    customers?: CalendarCustomerOption[];
 };
 
 /** Pixels per hour of grid. Drives the whole vertical scale. */
@@ -73,6 +101,24 @@ type PendingMove = {
     date: string;
     /** Wall-clock minutes from that day's midnight. */
     startMinute: number;
+};
+
+/** A quick action pressed on a card, awaiting confirmation (SLO-136). */
+type PendingAction = {
+    url: string;
+    title: string;
+    message: string;
+    toast: string;
+};
+
+/** The empty slot the admin clicked, prefilling the quick-booking form (SLO-136). */
+type QuickCreateTarget = {
+    /** Tenant-local day (YYYY-MM-DD). */
+    date: string;
+    /** Wall-clock minutes from that day's midnight. */
+    startMinute: number;
+    staffId: number | null;
+    roomId: number | null;
 };
 
 /**
@@ -95,6 +141,7 @@ export default function CalendarIndex({
     filters,
     options,
     can,
+    customers,
 }: CalendarProps) {
     const t = useTranslations();
     const { tenant } = usePage().props;
@@ -104,6 +151,8 @@ export default function CalendarIndex({
     const [pending, setPending] = useState<PendingMove | null>(null);
     const [notify, setNotify] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [action, setAction] = useState<PendingAction | null>(null);
+    const [creating, setCreating] = useState<QuickCreateTarget | null>(null);
 
     // A booking created or moved elsewhere (another admin, a public booking) should
     // appear here without a manual refresh. Re-pull only the calendar prop from the
@@ -299,6 +348,68 @@ export default function CalendarIndex({
         });
     }
 
+    /**
+     * A quick action pressed on a card (SLO-136). It posts to the very endpoint the
+     * booking list uses — same permission, same state machine, same 422 — so there is
+     * no second code path for "confirm this booking" to drift on. The grid refreshes
+     * from the redirect the endpoint already returns.
+     */
+    function askAction(event: CalendarEvent, key: BookingActionKey) {
+        const keys = bookingActionKeys(key);
+
+        setAction({
+            url: bookingActionUrl(key, event.id),
+            title: t(keys.label),
+            message: t(keys.confirm),
+            toast: t(keys.toast),
+        });
+    }
+
+    function runAction() {
+        if (action === null) {
+            return;
+        }
+
+        const message = action.toast;
+        router.post(
+            action.url,
+            {},
+            {
+                preserveScroll: true,
+                onSuccess: () => toast.success(message),
+                onError: (errors) =>
+                    toast.error(
+                        Object.values(errors)[0] ??
+                            t('admin.calendar.drag.failed'),
+                    ),
+            },
+        );
+    }
+
+    /**
+     * Open the quick-booking form for an empty slot. The resource comes from the
+     * column in the grouped day view; in week view the columns are days, so the only
+     * honest prefill is whatever the grid is already filtered to.
+     */
+    const openQuickCreate = useCallback(
+        (date: string, startMinute: number, columnResourceId: number | null) => {
+            const fromColumn = calendar.view === 'day' ? columnResourceId : null;
+            const groupedByRoom = filters.group === 'room';
+
+            setCreating({
+                date,
+                startMinute,
+                staffId: groupedByRoom
+                    ? filters.staff_id
+                    : (fromColumn ?? filters.staff_id),
+                roomId: groupedByRoom
+                    ? (fromColumn ?? filters.room_id)
+                    : filters.room_id,
+            });
+        },
+        [calendar.view, filters.group, filters.staff_id, filters.room_id],
+    );
+
     function navigate(changes: Partial<CalendarFilters>) {
         const next = { ...filters, ...changes };
         router.get(
@@ -331,22 +442,44 @@ export default function CalendarIndex({
                     title={t('admin.calendar.title')}
                     description={t('admin.calendar.subtitle')}
                     actions={
-                        <div className="flex items-center gap-1 rounded-lg border border-border p-1">
-                            {(['day', 'week'] as const).map((view) => (
+                        <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1 rounded-lg border border-border p-1">
+                                {(['day', 'week'] as const).map((view) => (
+                                    <Button
+                                        key={view}
+                                        type="button"
+                                        size="sm"
+                                        variant={
+                                            calendar.view === view
+                                                ? 'default'
+                                                : 'ghost'
+                                        }
+                                        onClick={() => navigate({ view })}
+                                    >
+                                        {t(`admin.calendar.view_${view}`)}
+                                    </Button>
+                                ))}
+                            </div>
+                            {can.create ? (
+                                // The grid click is the fast path; this is the one
+                                // that works without a pointer.
                                 <Button
-                                    key={view}
                                     type="button"
                                     size="sm"
-                                    variant={
-                                        calendar.view === view
-                                            ? 'default'
-                                            : 'ghost'
+                                    onClick={() =>
+                                        openQuickCreate(
+                                            calendar.view === 'day'
+                                                ? calendar.date
+                                                : calendar.range_start,
+                                            calendar.window_start_minute,
+                                            null,
+                                        )
                                     }
-                                    onClick={() => navigate({ view })}
                                 >
-                                    {t(`admin.calendar.view_${view}`)}
+                                    <PlusIcon className="size-4" />
+                                    {t('admin.calendar.create.new')}
                                 </Button>
-                            ))}
+                            ) : null}
                         </div>
                     }
                 />
@@ -562,6 +695,9 @@ export default function CalendarIndex({
                                             preview={preview}
                                             draggable={draggable}
                                             dragging={dragging}
+                                            can={can}
+                                            onAction={askAction}
+                                            onQuickCreate={openQuickCreate}
                                         />
                                     ))}
                                 </div>
@@ -589,10 +725,13 @@ export default function CalendarIndex({
                     </DndContext>
                 )}
 
-                {draggable && calendar.columns.length > 0 ? (
-                    <p className="text-xs text-muted-foreground">
-                        {t('admin.calendar.drag.hint')}
-                    </p>
+                {calendar.columns.length > 0 ? (
+                    <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+                        {draggable ? <p>{t('admin.calendar.drag.hint')}</p> : null}
+                        {can.create ? (
+                            <p>{t('admin.calendar.create.hint')}</p>
+                        ) : null}
+                    </div>
                 ) : null}
 
                 {calendar.unscheduled.length > 0 ? (
@@ -645,6 +784,27 @@ export default function CalendarIndex({
                 onConfirm={submitMove}
                 showResource={calendar.view === 'day'}
             />
+
+            <ConfirmDialog
+                open={action !== null}
+                onOpenChange={(open) => !open && setAction(null)}
+                title={action?.title ?? ''}
+                description={action?.message}
+                confirmLabel={t('admin.common.save')}
+                cancelLabel={t('admin.common.cancel')}
+                onConfirm={runAction}
+                destructive
+            />
+
+            {creating !== null ? (
+                <QuickCreateSheet
+                    key={`${creating.date}T${creating.startMinute}-${creating.staffId}-${creating.roomId}`}
+                    target={creating}
+                    options={options}
+                    customers={customers}
+                    onClose={() => setCreating(null)}
+                />
+            ) : null}
         </AdminLayout>
     );
 }
@@ -712,6 +872,9 @@ function ColumnDropZone({
     preview,
     draggable,
     dragging,
+    can,
+    onAction,
+    onQuickCreate,
 }: {
     column: CalendarColumn;
     calendar: BookingCalendar;
@@ -721,7 +884,16 @@ function ColumnDropZone({
     preview: PendingMove | null;
     draggable: boolean;
     dragging: CalendarEvent | null;
+    can: CalendarAbilities;
+    onAction: (event: CalendarEvent, action: BookingActionKey) => void;
+    onQuickCreate: (
+        date: string,
+        startMinute: number,
+        columnResourceId: number | null,
+    ) => void;
 }) {
+    const t = useTranslations();
+
     // An "unassigned" column in the resource-grouped day view has no resource to
     // move a booking to, so it never accepts a drop.
     const accepts =
@@ -734,6 +906,30 @@ function ColumnDropZone({
     const showGhost =
         preview !== null && preview.column.key === column.key && accepts;
 
+    /**
+     * Turn a click on the empty grid into a start minute. The layer is its own
+     * element under the cards, so a click that lands on a booking never reaches it —
+     * no need to guess from the event target which one was meant.
+     */
+    function handleEmptyClick(event: ReactMouseEvent<HTMLDivElement>) {
+        const top = event.currentTarget.getBoundingClientRect().top;
+        const minute =
+            calendar.window_start_minute +
+            ((event.clientY - top) / HOUR_HEIGHT) * 60;
+
+        onQuickCreate(
+            column.date ?? calendar.date,
+            Math.min(
+                Math.max(
+                    Math.floor(minute / SNAP_MINUTES) * SNAP_MINUTES,
+                    calendar.window_start_minute,
+                ),
+                MINUTES_PER_DAY - SNAP_MINUTES,
+            ),
+            column.resource_id,
+        );
+    }
+
     return (
         <div
             ref={setNodeRef}
@@ -744,10 +940,20 @@ function ColumnDropZone({
             )}
             style={{ height }}
         >
+            {can.create ? (
+                <div
+                    role="button"
+                    tabIndex={-1}
+                    aria-label={t('admin.calendar.create.new')}
+                    onClick={handleEmptyClick}
+                    className="absolute inset-0 cursor-copy"
+                />
+            ) : null}
+
             {hours.slice(1).map((minute) => (
                 <div
                     key={minute}
-                    className="absolute inset-x-0 border-t border-border/50"
+                    className="pointer-events-none absolute inset-x-0 border-t border-border/50"
                     style={{
                         top:
                             ((minute - calendar.window_start_minute) / 60) *
@@ -782,6 +988,8 @@ function ColumnDropZone({
                     event={event}
                     windowStart={calendar.window_start_minute}
                     draggable={draggable}
+                    can={can}
+                    onAction={onAction}
                 />
             ))}
         </div>
@@ -842,13 +1050,20 @@ function EventCard({
     event,
     windowStart,
     draggable,
+    can,
+    onAction,
 }: {
     event: PlacedEvent;
     windowStart: number;
     draggable: boolean;
+    can: CalendarAbilities;
+    onAction: (event: CalendarEvent, action: BookingActionKey) => void;
 }) {
     const t = useTranslations();
     const movable = draggable && event.movable;
+    // Exactly the actions the booking list offers for this state (SLO-136), so a
+    // card never suggests a transition the list would not.
+    const actions = bookingQuickActions(event, can);
 
     const {
         attributes,
@@ -885,7 +1100,13 @@ function EventCard({
                 title={`${formatMinute(event.start_minute)}–${formatMinute(event.end_minute)} · ${event.service ?? event.code}`}
                 className="block h-full px-2 py-1 transition-opacity hover:opacity-80"
             >
-                <div className={cn('truncate font-medium', movable && 'pr-4')}>
+                <div
+                    className={cn(
+                        'truncate font-medium',
+                        movable && 'pr-4',
+                        actions.length > 0 && (movable ? 'pr-8' : 'pr-4'),
+                    )}
+                >
                     {formatMinute(event.start_minute)} ·{' '}
                     {event.service ?? event.code}
                 </div>
@@ -898,7 +1119,10 @@ function EventCard({
                 <button
                     type="button"
                     ref={setActivatorNodeRef}
-                    className="absolute right-0 top-0 flex h-5 w-4 cursor-grab touch-none items-center justify-center opacity-60 hover:opacity-100 focus-visible:opacity-100"
+                    className={cn(
+                        'absolute top-0 flex h-5 w-4 cursor-grab touch-none items-center justify-center opacity-60 hover:opacity-100 focus-visible:opacity-100',
+                        actions.length > 0 ? 'right-4' : 'right-0',
+                    )}
                     aria-label={t('admin.calendar.drag.handle', {
                         service: event.service ?? event.code,
                         time: formatMinute(event.start_minute),
@@ -908,6 +1132,42 @@ function EventCard({
                 >
                     <GripVerticalIcon className="size-3" />
                 </button>
+            ) : null}
+
+            {/* A card can be a quarter of an hour tall, so the actions live behind
+                one trigger rather than as a row of buttons (SLO-136). */}
+            {actions.length > 0 ? (
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <button
+                            type="button"
+                            className="absolute right-0 top-0 flex h-5 w-4 items-center justify-center opacity-60 hover:opacity-100 focus-visible:opacity-100"
+                            aria-label={t('admin.calendar.actions.menu', {
+                                service: event.service ?? event.code,
+                            })}
+                        >
+                            <MoreVerticalIcon className="size-3" />
+                        </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuItem asChild>
+                            <Link href={`/bookings/${event.id}`}>
+                                {t('admin.calendar.actions.open')}
+                            </Link>
+                        </DropdownMenuItem>
+                        {actions.map((key) => (
+                            <DropdownMenuItem
+                                key={key}
+                                onSelect={() => onAction(event, key)}
+                                variant={
+                                    key === 'cancel' ? 'destructive' : undefined
+                                }
+                            >
+                                {t(bookingActionKeys(key).label)}
+                            </DropdownMenuItem>
+                        ))}
+                    </DropdownMenuContent>
+                </DropdownMenu>
             ) : null}
         </div>
     );
@@ -1019,6 +1279,321 @@ function MoveDialog({
                 </DialogFooter>
             </DialogContent>
         </Dialog>
+    );
+}
+
+/**
+ * Quick booking for an empty slot (SLO-136). Posts to `POST /bookings`, the very
+ * endpoint the admin-created booking has always used (SLO-24) — the conflict check,
+ * the per-mode rules and the permission all stay on the server, so a taken slot
+ * comes back as a validation error rather than being prevented here.
+ *
+ * The end is deliberately left to the server: it adds the service's duration in real
+ * elapsed time, which wall-clock arithmetic on this side would get wrong for a
+ * booking that starts inside the spring-forward hour (docs/01 §7).
+ */
+function QuickCreateSheet({
+    target,
+    options,
+    customers,
+    onClose,
+}: {
+    target: QuickCreateTarget;
+    options: CalendarOptions;
+    customers?: CalendarCustomerOption[];
+    onClose: () => void;
+}) {
+    const t = useTranslations();
+    const [search, setSearch] = useState('');
+
+    const bookable = useMemo(
+        () => options.services.filter((service) => service.bookable),
+        [options.services],
+    );
+
+    // Mounted per clicked slot (the parent keys it on the target), so the prefill is
+    // simply the initial state — no effect syncing a form to a prop.
+    const form = useForm({
+        service_id: '',
+        customer_id: '',
+        staff_id: target.staffId === null ? '' : String(target.staffId),
+        room_id: target.roomId === null ? '' : String(target.roomId),
+        starts_at: `${target.date}T${formatMinute(target.startMinute)}`,
+        ends_at: '',
+        party_size: '1',
+        notes: '',
+    });
+    const { setData } = form;
+
+    const loadCustomers = useCallback(() => {
+        router.reload({
+            only: ['customers'],
+            data: { customer_search: search },
+        });
+    }, [search]);
+
+    // The roster is an optional prop: it arrives only once this sheet asks for it by
+    // name, and never on a plain calendar load. Debounced, so typing a name does not
+    // fire a request per keystroke.
+    useEffect(() => {
+        const timer = window.setTimeout(loadCustomers, 250);
+
+        return () => window.clearTimeout(timer);
+    }, [loadCustomers]);
+
+    const selected = bookable.find(
+        (service) => String(service.id) === form.data.service_id,
+    );
+
+    function submit(event: FormEvent) {
+        event.preventDefault();
+        form.post('/bookings', {
+            preserveScroll: true,
+            onSuccess: () => {
+                toast.success(t('admin.calendar.create.created'));
+                onClose();
+            },
+            onError: (errors) => {
+                toast.error(
+                    errors.booking ?? t('admin.calendar.create.failed'),
+                );
+                // A rejected submit re-renders the page from the redirect, and an
+                // optional prop is absent from that response — so ask for the roster
+                // again rather than leaving the picker empty next to the error.
+                loadCustomers();
+            },
+        });
+    }
+
+    return (
+        <FormSheet
+            open
+            onOpenChange={(open) => !open && onClose()}
+            title={t('admin.calendar.create.title')}
+            description={t('admin.calendar.create.description')}
+            submitLabel={t('admin.calendar.create.submit')}
+            cancelLabel={t('admin.common.cancel')}
+            onSubmit={submit}
+            submitting={form.processing}
+        >
+            {bookable.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                    {t('admin.calendar.create.no_bookable_service')}
+                </p>
+            ) : null}
+
+            <Field
+                id="quick-service"
+                label={t('admin.calendar.create.service')}
+                error={form.errors.service_id}
+            >
+                <select
+                    id="quick-service"
+                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                    value={form.data.service_id}
+                    onChange={(event) =>
+                        setData('service_id', event.target.value)
+                    }
+                >
+                    <option value="">
+                        {t('admin.calendar.create.service_placeholder')}
+                    </option>
+                    {bookable.map((service) => (
+                        <option key={service.id} value={service.id}>
+                            {service.name}
+                        </option>
+                    ))}
+                </select>
+            </Field>
+
+            <Field
+                id="quick-starts"
+                label={t('admin.calendar.create.starts_at')}
+                error={form.errors.starts_at}
+            >
+                <Input
+                    id="quick-starts"
+                    type="datetime-local"
+                    value={form.data.starts_at}
+                    onChange={(event) =>
+                        setData('starts_at', event.target.value)
+                    }
+                />
+            </Field>
+
+            <Field
+                id="quick-ends"
+                label={t('admin.calendar.create.ends_at')}
+                error={form.errors.ends_at}
+                hint={
+                    selected === undefined ||
+                    selected.duration_minutes === null
+                        ? t('admin.calendar.create.ends_at_required')
+                        : t('admin.calendar.create.ends_at_auto', {
+                              minutes: String(selected.duration_minutes),
+                          })
+                }
+            >
+                <Input
+                    id="quick-ends"
+                    type="datetime-local"
+                    value={form.data.ends_at}
+                    onChange={(event) => setData('ends_at', event.target.value)}
+                />
+            </Field>
+
+            <Field
+                id="quick-customer-search"
+                label={t('admin.calendar.create.customer')}
+                error={form.errors.customer_id}
+                hint={t('admin.calendar.create.customer_hint')}
+            >
+                <Input
+                    id="quick-customer-search"
+                    type="search"
+                    placeholder={t('admin.calendar.create.customer_search')}
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                />
+                <select
+                    aria-label={t('admin.calendar.create.customer')}
+                    className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                    value={form.data.customer_id}
+                    onChange={(event) =>
+                        setData('customer_id', event.target.value)
+                    }
+                >
+                    <option value="">
+                        {t('admin.calendar.create.customer_none')}
+                    </option>
+                    {(customers ?? []).map((customer) => (
+                        <option key={customer.id} value={customer.id}>
+                            {customer.email === null
+                                ? customer.name
+                                : `${customer.name} · ${customer.email}`}
+                        </option>
+                    ))}
+                </select>
+                {customers === undefined ? (
+                    <p className="text-xs text-muted-foreground">
+                        {t('admin.calendar.create.customer_loading')}
+                    </p>
+                ) : null}
+                {customers !== undefined && customers.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                        {t('admin.calendar.create.customer_empty')}
+                    </p>
+                ) : null}
+            </Field>
+
+            {options.staff.length > 0 ? (
+                <Field
+                    id="quick-staff"
+                    label={t('admin.bookings.field.staff')}
+                    error={form.errors.staff_id}
+                >
+                    <select
+                        id="quick-staff"
+                        className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                        value={form.data.staff_id}
+                        onChange={(event) =>
+                            setData('staff_id', event.target.value)
+                        }
+                    >
+                        <option value="">
+                            {t('admin.calendar.create.resource_none')}
+                        </option>
+                        {options.staff.map((staff) => (
+                            <option key={staff.id} value={staff.id}>
+                                {staff.name}
+                            </option>
+                        ))}
+                    </select>
+                </Field>
+            ) : null}
+
+            {options.rooms.length > 0 ? (
+                <Field
+                    id="quick-room"
+                    label={t('admin.bookings.field.room')}
+                    error={form.errors.room_id}
+                >
+                    <select
+                        id="quick-room"
+                        className="h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+                        value={form.data.room_id}
+                        onChange={(event) =>
+                            setData('room_id', event.target.value)
+                        }
+                    >
+                        <option value="">
+                            {t('admin.calendar.create.resource_none')}
+                        </option>
+                        {options.rooms.map((room) => (
+                            <option key={room.id} value={room.id}>
+                                {room.name}
+                            </option>
+                        ))}
+                    </select>
+                </Field>
+            ) : null}
+
+            <Field
+                id="quick-party"
+                label={t('admin.calendar.create.party_size')}
+                error={form.errors.party_size}
+            >
+                <Input
+                    id="quick-party"
+                    type="number"
+                    min={1}
+                    value={form.data.party_size}
+                    onChange={(event) =>
+                        setData('party_size', event.target.value)
+                    }
+                />
+            </Field>
+
+            <Field
+                id="quick-notes"
+                label={t('admin.calendar.create.notes')}
+                error={form.errors.notes}
+            >
+                <textarea
+                    id="quick-notes"
+                    rows={3}
+                    className="rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+                    value={form.data.notes}
+                    onChange={(event) => setData('notes', event.target.value)}
+                />
+            </Field>
+        </FormSheet>
+    );
+}
+
+/** Label + control + error/hint, the shape every field in the sheet takes. */
+function Field({
+    id,
+    label,
+    error,
+    hint,
+    children,
+}: {
+    id: string;
+    label: string;
+    error?: string;
+    hint?: string;
+    children: ReactNode;
+}) {
+    return (
+        <div className="flex flex-col gap-1.5">
+            <Label htmlFor={id}>{label}</Label>
+            {children}
+            {error ? <p className="text-sm text-destructive">{error}</p> : null}
+            {error === undefined && hint !== undefined ? (
+                <p className="text-xs text-muted-foreground">{hint}</p>
+            ) : null}
+        </div>
     );
 }
 

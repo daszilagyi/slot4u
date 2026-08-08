@@ -275,6 +275,20 @@ export type CustomerCard = {
     recent_bookings: CustomerBooking[];
 };
 
+/**
+ * The booking abilities that decide which quick actions a booking row or calendar
+ * card offers (SLO-85, SLO-136). Shared so the list and the calendar can never
+ * drift into two different answers — see `lib/bookingActions`.
+ */
+export type BookingAbilities = {
+    /** `booking.edit` — complete, mark no-show, reschedule. */
+    edit: boolean;
+    /** `booking.cancel` — a distinct permission from edit (docs/03). */
+    cancel: boolean;
+    /** `booking.approve` AND `feature_approval_flow` (docs/03, docs/04 §5). */
+    approve: boolean;
+};
+
 export type BookingSummary = {
     id: number;
     code: string;
@@ -365,16 +379,38 @@ export type CalendarFilters = {
     service_id: number | null;
 };
 
+/** A service in the calendar's dropdowns (SLO-44 filter, SLO-136 quick booking). */
+export type CalendarServiceOption = {
+    id: number;
+    name: string;
+    booking_mode: BookingModeValue;
+    /** Fixed length in minutes; `null` for a variable-duration rental (docs/04 §4). */
+    duration_minutes: number | null;
+    /** Whether an empty-slot quick booking may use it — the time-slot modes only. */
+    bookable: boolean;
+};
+
+/** A customer in the quick-booking picker (SLO-136), loaded on demand. */
+export type CalendarCustomerOption = {
+    id: number;
+    name: string;
+    email: string | null;
+};
+
 export type CalendarOptions = {
     staff: { id: number; name: string }[];
     rooms: { id: number; name: string }[];
-    services: { id: number; name: string }[];
+    services: CalendarServiceOption[];
 };
 
-/** What the actor may do on the calendar (SLO-44). */
-export type CalendarAbilities = {
-    /** `booking.edit` — required to drag a card to a new slot. */
-    edit: boolean;
+/**
+ * What the actor may do on the calendar (SLO-44, SLO-136). The endpoints enforce
+ * every one of these themselves; the flags only stop the grid from offering a
+ * button the server would refuse.
+ */
+export type CalendarAbilities = BookingAbilities & {
+    /** `booking.create` — required for the quick booking on an empty slot. */
+    create: boolean;
 };
 
 /** A booking row on the dashboard's agenda / latest panels (SLO-43). */

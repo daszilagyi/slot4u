@@ -3,8 +3,10 @@ import {
     CalendarCheckIcon,
     CalendarClockIcon,
     CheckCircle2Icon,
+    ShieldCheckIcon,
     UserXIcon,
     XCircleIcon,
+    type LucideIcon,
 } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 import { toast } from 'sonner';
@@ -18,13 +20,19 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+    bookingActionKeys,
+    bookingActionUrl,
+    bookingQuickActions,
+    canRescheduleBooking,
+    type BookingActionKey,
+} from '@/lib/bookingActions';
 import { formatDateTime, formatMoney } from '@/lib/format';
 import { useTranslations } from '@/lib/i18n';
 import type {
+    BookingAbilities,
     BookingFilterOptions,
     BookingFilters,
-    BookingModeValue,
-    BookingStatusValue,
     BookingSummary,
     Paginator,
 } from '@/types';
@@ -33,19 +41,16 @@ type IndexProps = {
     bookings: Paginator<BookingSummary>;
     filters: BookingFilters;
     options: BookingFilterOptions;
-    can: { edit: boolean; cancel: boolean };
+    can: BookingAbilities;
 };
 
-const RESCHEDULABLE_MODES: BookingModeValue[] = [
-    'duration_based',
-    'resource_rental',
-];
-const TERMINAL_STATUSES: BookingStatusValue[] = [
-    'completed',
-    'canceled',
-    'rejected',
-    'no_show',
-];
+/** Same order as `bookingQuickActions` returns them. */
+const ACTION_ICON: Record<BookingActionKey, LucideIcon> = {
+    approve: ShieldCheckIcon,
+    complete: CheckCircle2Icon,
+    no_show: UserXIcon,
+    cancel: XCircleIcon,
+};
 
 type PendingConfirm = {
     url: string;
@@ -306,24 +311,14 @@ export default function BookingsIndex({
                             </thead>
                             <tbody>
                                 {bookings.data.map((booking) => {
-                                    const isTerminal =
-                                        TERMINAL_STATUSES.includes(
-                                            booking.status,
-                                        );
-                                    const canCancel = can.cancel && !isTerminal;
-                                    const canNoShow =
-                                        can.edit &&
-                                        booking.status === 'confirmed';
-                                    const canComplete =
-                                        can.edit &&
-                                        booking.status === 'confirmed' &&
-                                        booking.booking_mode === 'no_time_slot';
-                                    const canReschedule =
-                                        can.edit &&
-                                        booking.status === 'confirmed' &&
-                                        RESCHEDULABLE_MODES.includes(
-                                            booking.booking_mode,
-                                        );
+                                    const actions = bookingQuickActions(
+                                        booking,
+                                        can,
+                                    );
+                                    const canReschedule = canRescheduleBooking(
+                                        booking,
+                                        can,
+                                    );
 
                                     return (
                                         <tr
@@ -396,99 +391,57 @@ export default function BookingsIndex({
                                                             <CalendarClockIcon className="size-4" />
                                                         </Button>
                                                     ) : null}
-                                                    {canComplete ? (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            onClick={() =>
-                                                                askConfirm(
-                                                                    {
-                                                                        url: `/bookings/${booking.id}/complete`,
-                                                                        title: t(
-                                                                            'admin.bookings.action.complete',
-                                                                        ),
-                                                                        message:
-                                                                            t(
-                                                                                'admin.bookings.confirm.complete',
+                                                    {actions.map((action) => {
+                                                        const keys =
+                                                            bookingActionKeys(
+                                                                action,
+                                                            );
+                                                        const Icon =
+                                                            ACTION_ICON[action];
+
+                                                        return (
+                                                            <Button
+                                                                key={action}
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() =>
+                                                                    askConfirm(
+                                                                        {
+                                                                            url: bookingActionUrl(
+                                                                                action,
+                                                                                booking.id,
                                                                             ),
-                                                                    },
-                                                                    t(
-                                                                        'admin.bookings.toast.completed',
-                                                                    ),
-                                                                )
-                                                            }
-                                                            aria-label={t(
-                                                                'admin.bookings.action.complete',
-                                                            )}
-                                                            title={t(
-                                                                'admin.bookings.action.complete',
-                                                            )}
-                                                        >
-                                                            <CheckCircle2Icon className="size-4" />
-                                                        </Button>
-                                                    ) : null}
-                                                    {canNoShow ? (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            onClick={() =>
-                                                                askConfirm(
-                                                                    {
-                                                                        url: `/bookings/${booking.id}/no-show`,
-                                                                        title: t(
-                                                                            'admin.bookings.action.no_show',
-                                                                        ),
-                                                                        message:
-                                                                            t(
-                                                                                'admin.bookings.confirm.no_show',
+                                                                            title: t(
+                                                                                keys.label,
                                                                             ),
-                                                                    },
-                                                                    t(
-                                                                        'admin.bookings.toast.no_show',
-                                                                    ),
-                                                                )
-                                                            }
-                                                            aria-label={t(
-                                                                'admin.bookings.action.no_show',
-                                                            )}
-                                                            title={t(
-                                                                'admin.bookings.action.no_show',
-                                                            )}
-                                                        >
-                                                            <UserXIcon className="size-4" />
-                                                        </Button>
-                                                    ) : null}
-                                                    {canCancel ? (
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="icon"
-                                                            onClick={() =>
-                                                                askConfirm(
-                                                                    {
-                                                                        url: `/bookings/${booking.id}/cancel`,
-                                                                        title: t(
-                                                                            'admin.bookings.action.cancel',
+                                                                            message:
+                                                                                t(
+                                                                                    keys.confirm,
+                                                                                ),
+                                                                        },
+                                                                        t(
+                                                                            keys.toast,
                                                                         ),
-                                                                        message:
-                                                                            t(
-                                                                                'admin.bookings.confirm.cancel',
-                                                                            ),
-                                                                    },
-                                                                    t(
-                                                                        'admin.bookings.toast.canceled',
-                                                                    ),
-                                                                )
-                                                            }
-                                                            aria-label={t(
-                                                                'admin.bookings.action.cancel',
-                                                            )}
-                                                            title={t(
-                                                                'admin.bookings.action.cancel',
-                                                            )}
-                                                        >
-                                                            <XCircleIcon className="size-4 text-destructive" />
-                                                        </Button>
-                                                    ) : null}
+                                                                    )
+                                                                }
+                                                                aria-label={t(
+                                                                    keys.label,
+                                                                )}
+                                                                title={t(
+                                                                    keys.label,
+                                                                )}
+                                                            >
+                                                                <Icon
+                                                                    className={
+                                                                        action ===
+                                                                        'cancel'
+                                                                            ? 'size-4 text-destructive'
+                                                                            : 'size-4'
+                                                                    }
+                                                                />
+                                                            </Button>
+                                                        );
+                                                    })}
                                                     <Button size="sm" asChild>
                                                         <Link
                                                             href={`/bookings/${booking.id}`}
