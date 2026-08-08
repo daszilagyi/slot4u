@@ -163,6 +163,51 @@ A `SESSION_DOMAIN=.slot4u.test` (vezető pont) megosztja a session cookie-t a su
 `suspended-demo` (suspended → 503 státuszoldal). Tenant-admin loginok: `admin@acme.test` /
 `admin@suspended-demo.test`, jelszó `password`.
 
+## Rate limiting (SLO-147)
+
+A publikus (hitelesítetlen) tenant-felület **névvel hivatkozott limitereken** megy
+(`AppServiceProvider::definePublicRateLimiters`), nem `throttle:60,1`-szerű beégetett számokon:
+
+| Limiter | Keret | Hol |
+|---|---|---|
+| `public` | 60/perc | landing, `/book`, `/order`, esemény-jelentkezés, várólista, ajánlatkérés, `/booked/{code}` |
+| `checkout` | 20/perc | `/pay/{code}`, sandbox fizetőoldal — minden kísérlet fizetés-sort nyit |
+| `seo` | 60/perc | `sitemap.xml`, `og-image.png` (GD-render cache-miss-nél), `robots.txt` |
+| `webhook` | 120/perc | `payments/webhook/{provider}` |
+
+⚠️ **A kulcs a tenant HOSTJA + a hívó**, nem csak a hívó. Egy csupasz `throttle:60,1` a hívóra kulcsol,
+így multi-tenant appban **egy tenant látogatói egy vödröt osztanak minden más tenantéval**: egy
+foglalóoldal elleni burst kizárná egy független tenant ügyfeleit, akik ugyanazon NAT mögül jönnek.
+A hoston kulcsolás azért is helyes, mert **nem függ a middleware-sorrendtől**: a verifikált egyedi
+domaint a `ResolveCustomDomain` (globális middleware) már a kanonikus aldoménre írta át.
+
+⚠️ **Szándékosan NINCS tenant-szintű plafon** a per-hívó limit fölött. Azzal egy támadó elköltené a
+tenant teljes keretét, és a tenant **valódi ügyfeleit** zárná ki — egy méltányossági problémát
+cserélnénk rendelkezésre-állásira.
+
+⚠️ **A webhook nagyvonalúan van limitálva, nem szorosan.** Egy visszautasított kézbesítés azt
+jelentheti, hogy az app soha nem tud a beérkezett pénzről, és a szolgáltatók eltérően kezelik a 429-et
+(nem mind próbálja újra). A limit itt **amplifikáció-védelem, nem hozzáférés-vezérlés** — a hívót az
+aláírás hitelesíti (SLO-130).
+
+Teszt rögzíti, hogy **minden hitelesítetlen tenant-route mögött van névvel hivatkozott limiter**
+(kivétel nélkül), tehát új publikus végpont nem tud véletlenül limit nélkül bemenni.
+
+## OWASP Top 10 (2021) — állapot (SLO-47 AC)
+
+| # | Kategória | Állapot |
+|---|---|---|
+| **A01** Broken Access Control | ✅ | `BelongsToTenant` global scope minden tenant-modellen, Policy minden modellre, Form Requestben tenant-hoz kötött `exists` szabályok, saját-scope (`BookingVisibility`/`CustomerVisibility`), **idegen id → 404 nem 403**, és a route-tábla-vezérelt izolációs söprés (SLO-146). |
+| **A02** Cryptographic Failures | ✅ | Jelszó bcrypt; tenant számlázó API-kulcs `encrypted:array` casttal (sosem megy Inertia propba); HSTS + `secure`/`httpOnly`/`SameSite` süti; foglalási kód CSPRNG-ből; pénz integer fillérben. ⚠️ **Prod env-függő:** a `SESSION_SECURE_COOKIE` élesen legyen `true` — az induló checklist az SLO-49-é. |
+| **A03** Injection | ✅ | Minden lekérdezés Eloquent/query builder kötött paraméterekkel. A `selectRaw`/`orderByRaw` helyek **nem tartalmaznak felhasználói bemenetet** (oszlopnevek literál ternáryból, a két `DB::raw` összefűzés `(int)`-re kényszerített `party_size`). React escape-el; a `dangerouslySetInnerHTML` egyetlen használata a Laravel **paginátor saját** címkéje (`&laquo; Previous`), nem felhasználói tartalom. |
+| **A04** Insecure Design | ✅ | Az ütközésvizsgálat DB-szinten is védve (lock / atomi kapacitás-update), soft hold, idempotens webhook (`unique(provider, provider_ref)`), jutalék-ledger invariánsok. A docs/04 edge case-listája tételesen tesztelt. |
+| **A05** Security Misconfiguration | 🟡 | Biztonsági headerek + CSP (SLO-145), a sandbox fizetési gateway prodban tiltott, `APP_DEBUG` env-ből. ⚠️ **Prod env-checklist és monitoring hiányzik → SLO-49.** |
+| **A06** Vulnerable/Outdated Components | ❌ | **A CI nem futtat `composer audit` / `npm audit`-ot → SLO-148.** |
+| **A07** Identification & Authentication | 🟡 | Fortify; login (5/perc) és regisztráció (5/perc) limitálva; session-regeneráció belépéskor (tesztelve); jelszó min. 12 + breach-ellenőrzés; email-verifikáció. ⚠️ **Nincs 2FA → SLO-149.** |
+| **A08** Software & Data Integrity | ✅ | Webhook HMAC aláírás-ellenőrzés írás előtt; számla-PDF **privát** diszken, sosem publikus URL; audit log minden érzékeny műveletre. Külső script nincs betöltve (a CSP `script-src 'self'` + nonce ezt ki is kényszeríti). |
+| **A09** Logging & Monitoring | 🟡 | `audit_logs`, `notifications_log`, integrációs naplózás megvan. ⚠️ **Riasztás/monitoring nincs → SLO-49.** |
+| **A10** SSRF | ✅ | A kimenő hívások mind **fix, konfigurált** végpontokra mennek (Cloudflare API, HIBP, számlázó, fizetési gateway). Az egyetlen felhasználói bemenetet érintő kimenő művelet a domain-verifikáció **DNS TXT lekérdezése** (`DnsResolver`) — nem HTTP-fetch, tehát nem használható belső szolgáltatás elérésére. ⚠️ Ha később bármi **felhasználó által megadott URL-t tölt le** (webhook-kimenet, avatar-import), ezt a sort újra kell nyitni. |
+
 ## Tenant-izolációs söprés és a kód-címezhető felület (SLO-146)
 
 **A `TenantIsolationSweepTest` a ROUTE-TÁBLÁT járja be**, nem egy kézzel karbantartott listát: minden

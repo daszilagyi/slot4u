@@ -43,7 +43,11 @@ use Inertia\Inertia;
 Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function () {
     // Public surface (no auth): the tenant landing page — profile, locations,
     // service catalogue (SLO-29).
-    Route::get('/', [TenantHomeController::class, 'index'])->name('tenant.home');
+    // Throttled like the rest of the public surface (SLO-147): it renders the
+    // service catalogue from the database, so it is not a free page to hammer.
+    Route::get('/', [TenantHomeController::class, 'index'])
+        ->middleware('throttle:public')
+        ->name('tenant.home');
 
     // Per-tenant SEO machine assets (SLO-89). Not Inertia. The branded OG PNG is
     // lazily rendered with GD and cached to the public disk; a light throttle caps
@@ -51,17 +55,20 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
     // inside ensure.tenant.active, so a suspended tenant gets the 503 status page
     // rather than XML/PNG — intentional (crawlers back off, and robots.txt below,
     // which lives outside that gate, already tells them Disallow: /).
-    Route::middleware('throttle:60,1')->group(function () {
+    Route::middleware('throttle:seo')->group(function () {
         Route::get('/sitemap.xml', [SeoController::class, 'sitemap'])->name('tenant.sitemap');
         Route::get('/og-image.png', [SeoController::class, 'ogImage'])->name('tenant.og_image');
     });
 
     // Public slot-picker (SLO-30) + booking submission (SLO-31). Unauthenticated
-    // and availability/write heavy, so both are throttled. The guest becomes a
-    // customer in CreateBooking; a taken slot self-renders back with errors.
+    // and availability/write heavy, so both are throttled. The `public` limiter
+    // (AppServiceProvider) keys on tenant host + caller, so a burst against one
+    // tenant cannot spend another tenant's visitors' allowance (SLO-147).
+    // The guest becomes a customer in CreateBooking; a taken slot self-renders
+    // back with errors.
     // Route-bound {booking:code} on the confirmation/ICS routes is tenant-scoped
     // (BelongsToTenant → cross-tenant 404).
-    Route::middleware('throttle:60,1')->group(function () {
+    Route::middleware('throttle:public')->group(function () {
         Route::get('/book', [TenantBookingController::class, 'index'])->name('tenant.book');
         Route::post('/book', [TenantBookingController::class, 'store'])->name('tenant.book.store');
         // Public no_time_slot order (SLO-101): no slot, no resource — the mode is
@@ -88,9 +95,10 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
     // route-bound models are tenant-scoped (cross-tenant → 404). Behind
     // feature_online_payment — a tenant without the integration has nothing to pay
     // with, and its pending_payment bookings simply lapse.
-    // Tighter throttle than the booking pages: every checkout opens a payment row,
-    // so this caps how many attempts one visitor can pile onto a booking.
-    Route::middleware(['throttle:20,1', 'ensure.feature:'.Feature::OnlinePayment->value])->group(function () {
+    // Tighter throttle than the booking pages (`checkout`, 20/min): every attempt
+    // opens a payment row, so this caps how many one visitor can pile onto a
+    // booking. Tenant-keyed like the rest of the public surface (SLO-147).
+    Route::middleware(['throttle:checkout', 'ensure.feature:'.Feature::OnlinePayment->value])->group(function () {
         Route::get('/pay/{booking:code}', [PaymentController::class, 'checkout'])->name('tenant.pay');
         // The built-in sandbox gateway's checkout screen (disabled in production).
         Route::get('/payments/sandbox/{payment:provider_ref}', [PaymentController::class, 'sandbox'])->name('tenant.payments.sandbox');
@@ -409,13 +417,17 @@ Route::middleware(['identify.tenant', 'auth', 'ensure.user.tenant', 'ensure.staf
 // Authenticated by the gateway's own signature, not by session/CSRF (exempted in
 // bootstrap/app.php); the payment is looked up tenant-scoped, so a reference from
 // another tenant's gateway account 404s.
-Route::middleware(['identify.tenant', 'throttle:120,1'])->group(function () {
+// Generously throttled (`webhook`), not tightly: a refused delivery can mean a
+// payment the app never learns about, and gateways differ on whether they retry a
+// 429. The limit is an amplification guard, not an access control — the signature
+// check is what authenticates (SLO-147).
+Route::middleware(['identify.tenant', 'throttle:webhook'])->group(function () {
     Route::post('/payments/webhook/{provider}', [PaymentController::class, 'webhook'])->name('tenant.payments.webhook');
 });
 
 // robots.txt must answer for a suspended tenant too (Disallow: /), so it sits
 // outside ensure.tenant.active — only the tenant needs resolving (SLO-89).
-Route::middleware(['identify.tenant'])->group(function () {
+Route::middleware(['identify.tenant', 'throttle:seo'])->group(function () {
     Route::get('/robots.txt', [SeoController::class, 'robots'])->name('tenant.robots');
 });
 

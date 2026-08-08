@@ -31,11 +31,14 @@ use App\Services\Feature\FeatureResolver;
 use App\Tenancy\CustomDomainResolver;
 use App\Tenancy\TenantManager;
 use App\Tenancy\TenantPublicUrl;
+use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Http\Request;
 use Illuminate\Notifications\Events\NotificationFailed;
 use Illuminate\Notifications\Events\NotificationSent;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 use Spatie\Permission\Models\Role as RoleModel;
@@ -103,6 +106,8 @@ class AppServiceProvider extends ServiceProvider
         // fails open (that is Laravel's own behaviour on a network error).
         Password::defaults(fn () => Password::min(12)->uncompromised());
 
+        $this->definePublicRateLimiters();
+
         // The role editor (SLO-141) authorizes against spatie's Role model, which
         // policy auto-discovery cannot map by naming convention (different
         // namespace), so the binding is explicit.
@@ -139,5 +144,51 @@ class AppServiceProvider extends ServiceProvider
         // Commission invoicing (SLO-69 / docs/10 §6.5): a freshly issued monthly
         // invoice is emailed to the tenant's admins.
         Event::listen(CommissionInvoiceIssued::class, SendCommissionInvoiceIssued::class);
+    }
+
+    /**
+     * Rate limiters for the unauthenticated tenant surface (SLO-147).
+     *
+     * These replace bare `throttle:60,1` limits, which key on the caller alone.
+     * On a multi-tenant app that means one tenant's visitors share a bucket with
+     * every other tenant's: a burst aimed at one booking page would lock out the
+     * customers of an unrelated tenant sitting behind the same NAT. Keying on the
+     * host as well as the caller gives each tenant its own bucket.
+     *
+     * The host is the right key precisely because it needs no middleware to have
+     * run first: a verified custom domain has already been rewritten to the
+     * tenant's canonical subdomain by ResolveCustomDomain (a global middleware),
+     * so throttling cannot depend on where in the chain it happens to sit.
+     *
+     * Deliberately NOT added: a per-tenant ceiling on top. It would let an
+     * attacker spend a tenant's whole quota and deny that tenant's real
+     * customers — trading a fairness problem for an availability one.
+     */
+    private function definePublicRateLimiters(): void
+    {
+        // Booking pages and public writes: availability lookups and inserts.
+        RateLimiter::for('public', fn (Request $request) => Limit::perMinute(60)
+            ->by($this->publicRateLimitKey($request)));
+
+        // Checkout is tighter: every attempt opens a payment row.
+        RateLimiter::for('checkout', fn (Request $request) => Limit::perMinute(20)
+            ->by($this->publicRateLimitKey($request)));
+
+        // Crawler-facing assets: the OG image is a GD render on a cache miss.
+        RateLimiter::for('seo', fn (Request $request) => Limit::perMinute(60)
+            ->by($this->publicRateLimitKey($request)));
+
+        // Gateway callbacks. Generous on purpose: a refused delivery can mean a
+        // payment the app never learns about, and gateways differ on whether they
+        // retry a 429. This is an amplification guard, not an access control —
+        // the signature check is what authenticates the caller (SLO-130).
+        RateLimiter::for('webhook', fn (Request $request) => Limit::perMinute(120)
+            ->by($this->publicRateLimitKey($request)));
+    }
+
+    /** One bucket per (tenant host, caller) pair. */
+    private function publicRateLimitKey(Request $request): string
+    {
+        return $request->getHost().'|'.($request->user()?->getAuthIdentifier() ?? $request->ip());
     }
 }
