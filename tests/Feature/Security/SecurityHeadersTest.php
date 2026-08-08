@@ -143,11 +143,65 @@ it('widens the policy only while the dev server is hot', function () {
 });
 
 it('lets the realtime connection through', function () {
-    // Without this the Reverb socket (SLO-117) is blocked by connect-src on
-    // every page that listens for live bookings.
+    // Without this the websocket (SLO-117) is blocked by connect-src on every
+    // page that listens for live bookings.
     $policy = (new ContentSecurityPolicy(websocket: 'wss://rt.slot4u.hu:443'))->build();
 
     expect($policy)->toContain("connect-src 'self' wss://rt.slot4u.hu:443");
+});
+
+it('names the Reverb socket when Reverb is the active driver', function () {
+    config()->set('broadcasting.default', 'reverb');
+    config()->set('broadcasting.connections.reverb.options', [
+        'host' => 'rt.slot4u.test', 'port' => 8080, 'scheme' => 'http',
+    ]);
+    Tenant::factory()->active()->create(['slug' => 'acme']);
+    app(TenantManager::class)->forget();
+
+    $response = $this->get(tenantHost('acme', '/login'))->assertOk();
+
+    expect($response->headers->get('Content-Security-Policy'))
+        ->toContain('ws://rt.slot4u.test:8080');
+});
+
+it('names the Pusher CLIENT socket when Pusher is the active driver', function () {
+    // Production runs hosted Pusher while dev runs Reverb, so the policy has to
+    // follow the active connection — naming a driver in code shipped a CSP that
+    // would have blocked the live feed in prod (SLO-150).
+    config()->set('broadcasting.default', 'pusher');
+    config()->set('broadcasting.connections.pusher.options', [
+        'cluster' => 'eu',
+        // The configured host is the REST endpoint; the browser must not be
+        // pointed at it.
+        'host' => 'api-eu.pusher.com',
+        'port' => 443,
+        'scheme' => 'https',
+    ]);
+    Tenant::factory()->active()->create(['slug' => 'acme']);
+    app(TenantManager::class)->forget();
+
+    $response = $this->get(tenantHost('acme', '/login'))->assertOk();
+
+    expect($response->headers->get('Content-Security-Policy'))
+        ->toContain('wss://ws-eu.pusher.com')
+        ->not->toContain('api-eu.pusher.com');
+});
+
+it('adds no socket origin when broadcasting is off', function () {
+    config()->set('broadcasting.default', 'null');
+    config()->set('broadcasting.connections.reverb.options.host', 'rt.slot4u.test');
+    config()->set('broadcasting.connections.pusher.options.cluster', 'eu');
+    Tenant::factory()->active()->create(['slug' => 'acme']);
+    app(TenantManager::class)->forget();
+
+    $response = $this->get(tenantHost('acme', '/login'))->assertOk();
+
+    // Neither configured driver leaks in when neither is the active one. Asserted
+    // as absence rather than an exact string: the dev server widens connect-src
+    // when Vite is hot, and this must hold either way.
+    expect($response->headers->get('Content-Security-Policy'))
+        ->not->toContain('pusher.com')
+        ->not->toContain('rt.slot4u.test');
 });
 
 it('accepts extra origins from configuration', function () {

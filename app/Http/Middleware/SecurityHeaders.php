@@ -86,13 +86,37 @@ class SecurityHeaders
     }
 
     /**
-     * The realtime origin the browser opens (Reverb, SLO-117). Without it the
-     * live booking feed would be blocked by connect-src on every page.
+     * The realtime origin the *browser* opens (SLO-117). Without it the live
+     * booking feed is blocked by connect-src on every page that listens.
+     *
+     * Read off the **active** broadcast connection, not a hardcoded one: dev runs
+     * Reverb while production runs hosted Pusher, so naming a driver here would
+     * silently produce a policy that blocks the socket in the other environment
+     * (SLO-150 — this shipped that way and was caught before it reached prod).
+     *
+     * ⚠️ Pusher's configured `host` is `api-{cluster}.pusher.com`, which is the
+     * server-side REST endpoint. The browser connects to `ws-{cluster}` instead,
+     * so the client host has to be derived, not copied.
      */
     private function websocketOrigin(): ?string
     {
+        $connection = (string) config('broadcasting.default');
         /** @var array<string, mixed> $options */
-        $options = (array) config('broadcasting.connections.reverb.options', []);
+        $options = (array) config('broadcasting.connections.'.$connection.'.options', []);
+
+        return match ((string) config('broadcasting.connections.'.$connection.'.driver')) {
+            'reverb' => $this->originFrom($options),
+            'pusher' => $this->pusherClientOrigin($options),
+            // log / null / anything else opens no socket.
+            default => null,
+        };
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     */
+    private function originFrom(array $options): ?string
+    {
         $host = $options['host'] ?? null;
 
         if (! is_string($host) || $host === '') {
@@ -103,5 +127,19 @@ class SecurityHeaders
         $port = $options['port'] ?? null;
 
         return $scheme.'://'.$host.($port !== null && $port !== '' ? ':'.$port : '');
+    }
+
+    /**
+     * @param  array<string, mixed>  $options
+     */
+    private function pusherClientOrigin(array $options): ?string
+    {
+        $cluster = $options['cluster'] ?? null;
+
+        if (! is_string($cluster) || $cluster === '') {
+            return null;
+        }
+
+        return 'wss://ws-'.$cluster.'.pusher.com';
     }
 }
