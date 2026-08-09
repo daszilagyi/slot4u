@@ -299,6 +299,9 @@ export default function Book(props: BookProps) {
                     </Label>
                     <Input
                         id={`${prefix}-phone`}
+                        type="tel"
+                        inputMode="tel"
+                        autoComplete="tel"
                         value={form.data.phone}
                         onChange={(e) => form.setData('phone', e.target.value)}
                     />
@@ -943,6 +946,9 @@ export default function Book(props: BookProps) {
                                                 </Label>
                                                 <Input
                                                     id="event-phone"
+                                                    type="tel"
+                                                    inputMode="tel"
+                                                    autoComplete="tel"
                                                     value={eventForm.data.phone}
                                                     onChange={(e) =>
                                                         eventForm.setData(

@@ -39,6 +39,8 @@ users              id, tenant_id(nullable — superadminnál NULL), name, email,
 --                role_has_permissions, model_has_permissions(egyedi user-felülírás)
 ```
 
+**Telefonszám-formátum (SLO-151).** Minden telefon-oszlop — `users.phone`, `locations.phone`, `bookings.guest_phone`, `quote_requests.guest_phone`, `tenants.settings.phone` — **E.164-ben** tárol (`+36301234567`). A konverzió a Form Requestben történik, a validáció **előtt** (`NormalizesPhone` trait), és a validáció maga (`App\Rules\Phone`) pontosan azt kérdezi, hogy a beírt szöveg E.164-re hozható-e — így a kettő nem tud elcsúszni. A parse-olást a Google libphonenumber végzi (`giggsey/libphonenumber-for-php-lite`); a **hívóhely nélkül beírt szám** (`06 30 …`) alapértelmezett országa a **tenant időzónájából** jön (`Europe/Budapest` → HU, l. `App\Support\PhoneNumber::regionForTimezone`), országhívóval bármely külföldi szám elfogadott. A mező mindenhol **opcionális**; üresen hagyva `null` kerül tárolásra, nem üres string.
+
 Alap szerepkörök (tenant létrehozáskor seedelve): `tenant-admin`, `manager`, `employee`, `customer`. Superadmin: globális `super-admin` role, tenant_id nélkül. Permission kódok: `booking.view|create|edit|delete`, `customer.*`, `service.*`, `employee.*`, `billing.*`, `report.view`, `settings.edit`, `message.send` — teljes mátrix: `03-jogosultsagok.md`.
 
 ## Törzsadatok

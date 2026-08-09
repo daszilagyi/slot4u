@@ -231,7 +231,7 @@ it('lets an admin create a customer via the endpoint', function () {
     app(TenantManager::class)->forget();
 
     $this->actingAs($admin)
-        ->post(tenantHost('acme', '/customers'), ['name' => 'Új Ügyfél', 'email' => 'brand@example.test', 'phone' => '+3612'])
+        ->post(tenantHost('acme', '/customers'), ['name' => 'Új Ügyfél', 'email' => 'brand@example.test', 'phone' => '+3612345678'])
         ->assertRedirect()->assertSessionHasNoErrors();
 
     app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getKey());
@@ -257,11 +257,11 @@ it('lets an admin update a customer via the endpoint', function () {
     app(TenantManager::class)->forget();
 
     $this->actingAs($admin)
-        ->put(tenantHost('acme', "/customers/{$customer->id}"), ['name' => 'Új Név', 'email' => 'upd@example.test', 'phone' => '+3699'])
+        ->put(tenantHost('acme', "/customers/{$customer->id}"), ['name' => 'Új Név', 'email' => 'upd@example.test', 'phone' => '+36209999999'])
         ->assertRedirect()->assertSessionHasNoErrors();
 
     expect($customer->fresh()->name)->toBe('Új Név')
-        ->and($customer->fresh()->phone)->toBe('+3699');
+        ->and($customer->fresh()->phone)->toBe('+36209999999');
 });
 
 // --- Authorization ---

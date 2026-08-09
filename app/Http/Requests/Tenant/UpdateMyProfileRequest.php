@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Tenant;
 
+use App\Http\Requests\Concerns\NormalizesPhone;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -12,6 +13,13 @@ use Illuminate\Foundation\Http\FormRequest;
  */
 class UpdateMyProfileRequest extends FormRequest
 {
+    use NormalizesPhone;
+
+    protected function prepareForValidation(): void
+    {
+        $this->normalizePhone();
+    }
+
     public function authorize(): bool
     {
         return true;
@@ -24,7 +32,7 @@ class UpdateMyProfileRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:50'],
+            'phone' => $this->phoneRules(),
         ];
     }
 }

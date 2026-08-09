@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Admin;
 
 use App\Enums\Permission;
+use App\Http\Requests\Concerns\NormalizesPhone;
 use App\Models\Customer;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -14,6 +15,13 @@ use Illuminate\Validation\Rule;
  */
 class CustomerRequest extends FormRequest
 {
+    use NormalizesPhone;
+
+    protected function prepareForValidation(): void
+    {
+        $this->normalizePhone();
+    }
+
     public function authorize(): bool
     {
         return (bool) $this->user()?->can(Permission::CustomerEdit->value);
@@ -30,7 +38,7 @@ class CustomerRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users', 'email')->ignore($ignoreId)],
-            'phone' => ['nullable', 'string', 'max:50'],
+            'phone' => $this->phoneRules(),
         ];
     }
 }

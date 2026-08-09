@@ -87,6 +87,7 @@ export default function RegisterCustomer() {
                     <Input
                         id="phone"
                         type="tel"
+                        inputMode="tel"
                         name="phone"
                         value={form.data.phone}
                         autoComplete="tel"

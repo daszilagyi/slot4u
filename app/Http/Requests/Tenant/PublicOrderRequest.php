@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Tenant;
 
+use App\Http\Requests\Concerns\NormalizesPhone;
 use App\Tenancy\TenantManager;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -16,6 +17,13 @@ use Illuminate\Validation\Rule;
  */
 class PublicOrderRequest extends FormRequest
 {
+    use NormalizesPhone;
+
+    protected function prepareForValidation(): void
+    {
+        $this->normalizePhone();
+    }
+
     public function authorize(): bool
     {
         return true;
@@ -32,7 +40,7 @@ class PublicOrderRequest extends FormRequest
             'service_id' => ['required', Rule::exists('services', 'id')->where('tenant_id', $tenantId)->where('active', true)],
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:50'],
+            'phone' => $this->phoneRules(),
             'notes' => ['nullable', 'string', 'max:2000'],
         ];
     }

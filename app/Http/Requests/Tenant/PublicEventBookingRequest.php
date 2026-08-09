@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Tenant;
 
+use App\Http\Requests\Concerns\NormalizesPhone;
 use App\Models\Event;
 use Illuminate\Foundation\Http\FormRequest;
 
@@ -13,6 +14,13 @@ use Illuminate\Foundation\Http\FormRequest;
  */
 class PublicEventBookingRequest extends FormRequest
 {
+    use NormalizesPhone;
+
+    protected function prepareForValidation(): void
+    {
+        $this->normalizePhone();
+    }
+
     public function authorize(): bool
     {
         return true;
@@ -32,7 +40,7 @@ class PublicEventBookingRequest extends FormRequest
             'party_size' => ['required', 'integer', 'min:1', 'max:'.$maxParty],
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:50'],
+            'phone' => $this->phoneRules(),
             'notes' => ['nullable', 'string', 'max:2000'],
         ];
     }

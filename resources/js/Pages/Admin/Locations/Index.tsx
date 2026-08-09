@@ -531,6 +531,8 @@ export default function LocationsIndex({
                     </Label>
                     <Input
                         id="loc-phone"
+                        type="tel"
+                        inputMode="tel"
                         value={locationForm.data.phone}
                         onChange={(event) =>
                             locationForm.setData('phone', event.target.value)

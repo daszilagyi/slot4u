@@ -5,6 +5,7 @@ namespace App\Http\Requests\Admin;
 use App\Enums\Feature;
 use App\Enums\Permission;
 use App\Enums\RefundPolicy;
+use App\Http\Requests\Concerns\NormalizesPhone;
 use App\Settings\TenantSettings;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
@@ -19,6 +20,13 @@ use Laravel\Pennant\Feature as Pennant;
  */
 class SettingsRequest extends FormRequest
 {
+    use NormalizesPhone;
+
+    protected function prepareForValidation(): void
+    {
+        $this->normalizePhone();
+    }
+
     public function authorize(): bool
     {
         return (bool) $this->user()?->can(Permission::SettingsEdit->value);
@@ -35,7 +43,7 @@ class SettingsRequest extends FormRequest
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:2000'],
             'email' => ['nullable', 'email', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:50'],
+            'phone' => $this->phoneRules(),
             'address_line' => ['nullable', 'string', 'max:255'],
             'address_city' => ['nullable', 'string', 'max:120'],
             'address_postal' => ['nullable', 'string', 'max:20'],

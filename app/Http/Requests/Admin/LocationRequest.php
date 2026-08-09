@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Admin;
 
 use App\Enums\Permission;
+use App\Http\Requests\Concerns\NormalizesPhone;
 use Illuminate\Foundation\Http\FormRequest;
 
 /**
@@ -12,6 +13,13 @@ use Illuminate\Foundation\Http\FormRequest;
  */
 class LocationRequest extends FormRequest
 {
+    use NormalizesPhone;
+
+    protected function prepareForValidation(): void
+    {
+        $this->normalizePhone();
+    }
+
     public function authorize(): bool
     {
         return (bool) $this->user()?->can(Permission::LocationManage->value);
@@ -28,7 +36,7 @@ class LocationRequest extends FormRequest
             'address.line' => ['nullable', 'string', 'max:255'],
             'address.city' => ['nullable', 'string', 'max:255'],
             'address.postal_code' => ['nullable', 'string', 'max:32'],
-            'phone' => ['nullable', 'string', 'max:32'],
+            'phone' => $this->phoneRules(32),
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:65535'],
             'active' => ['boolean'],
         ];
