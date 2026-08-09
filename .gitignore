@@ -19,6 +19,9 @@
 /public/hot
 # A deploy script írja a kiadott tag nevét (SLO-152) — szerver-állapot, nem forrás
 /.release
+# Host-tulajdonú Apache direktívák (cPanel PHP handler), amiket a deploy a
+# public/.htaccess-hez fűz (SLO-157). Hosting-fiókra jellemző, a repo publikus.
+/.htaccess.host
 /public/storage
 /storage/*.key
 /storage/pail
