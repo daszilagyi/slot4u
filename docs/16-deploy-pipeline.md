@@ -44,6 +44,7 @@ git tag v0.8.0-M8 && git push origin v0.8.0-M8
 | **Az `--delete` NINCS az rsync-en** | Az egy másodperce betöltött oldal még az előző build hash-elt fájljait kéri, és a rollbacknek is kellenek. Helyette 30 napnál régebbi fájlok takarítása a deploy VÉGÉN. |
 | **Release-enkénti manifest-pillanatkép** | A `manifest.json` egyetlen fájl, amit a következő release felülír. Nélküle a rollback régi PHP-t futtatna az új bundle-lel — pont azt az állapotot, ami elől menekül. |
 | **Hiba esetén az oldal karbantartási módban MARAD** | A félig migrált, kérést kiszolgáló app rosszabb, mint egy 503. A script kiírja a pontos visszaút-parancsot. |
+| **A refet tag → `origin/<ref>` → sha sorrendben oldjuk fel, és a workflow átadja a buildelt commitot** | A szerver **lokális** branchei sosem mozdulnak (a `fetch` az `origin/main`-t frissíti, a `main`-t nem) — enélkül a `ref=main` deploy a klónozáskori commitot tolta ki, és **sikert jelentett** (SLO-158). Eltérő commitnál a script most **elutasítja** a deployt. |
 
 ## 3. Egyszeri beállítás
 
@@ -166,6 +167,7 @@ bizonyíték:
 |---|---|
 | `GET /up` → 200 (újrapróbálkozva) | az app fel sem áll |
 | `GET /_deploy/health` → `release` | **nem a várt verzió szolgál ki** (rosszul sikerült checkout, régi opcache) |
+| … → `commit` | **ugyanaz a NÉV, más commit** — branch-refnél a név semmit nem bizonyít (SLO-158) |
 | … → `environment=production` | rossz `.env`-vel indult a konténer/host |
 | … → `config_cached=true` | a deploy nem jutott el a cache-lépésig |
 | … → `pending_migrations=0` | lefuttatatlan migráció, vagy elérhetetlen DB (`null` → bukás) |
@@ -174,6 +176,10 @@ bizonyíték:
 
 A `/_deploy/health` **token mögött van, és token nélkül 404** (nem 403): a futó verzió
 neve támadónak hasznos, látogatónak nem — a végpont létezését sem erősítjük meg.
+
+> ⚠️ **Hibakereséskor tudd:** ez a 404 **két különböző okot takar** — nincs kint a route
+> (a deploy régebbi commitot tolt ki, mint hiszed), vagy nem stimmel a token. A füstteszt
+> ezért mindkettőt kiírja; a `deploy-target-sha` a deploy logban dönti el, melyikről van szó.
 A token a `DEPLOY_HEALTH_TOKEN` env-ből jön; ha nincs beállítva, **senki** nem kapja meg
 (üres konfig ≠ üres token). A verziót a `deploy.sh` írja a gitignore-olt `.release`
 fájlba, a `config:cache` ELŐTT — így a cache-elt configba ég, és kérésenként nem kerül

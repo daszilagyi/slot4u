@@ -32,6 +32,9 @@ class DeployHealthController extends Controller
         return response()
             ->json([
                 'release' => config('deploy.release'),
+                // The commit is the verifiable half of "which release is this":
+                // a ref name matches even when an older commit is serving.
+                'commit' => config('deploy.commit'),
                 'environment' => app()->environment(),
                 'config_cached' => app()->configurationIsCached(),
                 'pending_migrations' => $this->pendingMigrations(),

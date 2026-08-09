@@ -96,7 +96,29 @@ fi
 
 git fetch --tags --prune --force origin
 
-TARGET="$(git rev-parse --verify "${REF}^{commit}")"
+# Resolving the ref is where a deploy can go quietly wrong, so the order is
+# explicit (SLO-158). The server's LOCAL branches are never checked out and
+# never updated — `git fetch` moves `origin/main`, not `main` — so a bare
+# `git rev-parse main` here means "main as it stood when this server was
+# cloned". That is how a deploy of `main` shipped a months-old commit and
+# reported success.
+resolve_ref() {
+    local ref="$1"
+
+    # A tag: the normal case, and unambiguous after the fetch above.
+    git rev-parse --verify --quiet "refs/tags/${ref}^{commit}" && return 0
+
+    # A branch name can only sensibly mean the remote branch.
+    git rev-parse --verify --quiet "refs/remotes/origin/${ref}^{commit}" && return 0
+
+    # A raw sha, or anything else git understands.
+    git rev-parse --verify --quiet "${ref}^{commit}"
+}
+
+if ! TARGET="$(resolve_ref "${REF}")"; then
+    echo "Cannot resolve '${REF}' to a commit — not a tag, not a branch on origin, not a sha." >&2
+    exit 1
+fi
 PREVIOUS_SHA="$(git rev-parse --verify HEAD)"
 PREVIOUS_REF="$(git describe --tags --exact-match HEAD 2>/dev/null || echo "${PREVIOUS_SHA}")"
 
@@ -105,6 +127,19 @@ echo "deploy-previous-ref=${PREVIOUS_REF}"
 echo "deploy-previous-sha=${PREVIOUS_SHA}"
 echo "deploy-target-ref=${REF}"
 echo "deploy-target-sha=${TARGET}"
+
+# The pipeline built the assets from a specific commit and tells us which. If
+# this server resolves the same ref to something else, the two halves of the
+# deploy disagree — new assets over old code — and the honest move is to stop.
+# Without this the mismatch is invisible: every step "succeeds".
+if [[ -n "${DEPLOY_EXPECT_SHA:-}" && "${TARGET}" != "${DEPLOY_EXPECT_SHA}" ]]; then
+    cat >&2 <<EOF
+Refusing to deploy: '${REF}' resolves to ${TARGET} on this server,
+but the pipeline built ${DEPLOY_EXPECT_SHA}.
+The fetch did not bring the ref up to date, or the ref moved mid-run.
+EOF
+    exit 1
+fi
 
 if [[ "${TARGET}" == "${PREVIOUS_SHA}" ]]; then
     log "Already at ${REF} (${TARGET:0:7}) — re-running the release steps"
@@ -178,9 +213,14 @@ if [[ -f "${MANIFEST_SNAPSHOT}" ]]; then
     cp "${MANIFEST_SNAPSHOT}" public/build/manifest.json
 fi
 
-# What the app reports at /_deploy/health. Written before config:cache so the
+# What the app reports at /_deploy/health, written before config:cache so the
 # value is baked into the cached config.
-printf '%s\n' "${REF}" > .release
+#
+# Two lines, and the second one is the point: a ref name is not evidence. `main`
+# means whatever main meant at some moment, so a smoke test comparing ref names
+# would happily pass against code from last month (SLO-158). The commit is what
+# the deploy can actually be held to.
+printf '%s\n%s\n' "${REF}" "${TARGET}" > .release
 
 if [[ "${SKIP_MIGRATIONS}" == "1" ]]; then
     # Rollback path. Migrations are forward-only by project rule, so going back
