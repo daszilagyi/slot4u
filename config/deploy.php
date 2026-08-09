@@ -22,6 +22,11 @@ return [
 
     'release' => env('APP_RELEASE') ?: Release::current(),
 
+    // The commit that release resolved to. This is what the post-deploy smoke
+    // test actually verifies: a ref name would match even when the server
+    // shipped an older commit under the same name (SLO-158).
+    'commit' => env('APP_RELEASE_COMMIT') ?: Release::commit(),
+
     /*
     |--------------------------------------------------------------------------
     | Deploy health token

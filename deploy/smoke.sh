@@ -7,14 +7,19 @@
 # commands ran; this proves the site answers, that the code answering is the
 # release we meant to ship, and that its migrations are in.
 #
-# Usage: smoke.sh <base-url> <expected-release>
+# Usage: smoke.sh <base-url> <expected-release> [expected-commit]
 #   env: DEPLOY_HEALTH_TOKEN (required)  — shared secret for /_deploy/health
 #        SMOKE_RETRIES (default 10), SMOKE_DELAY seconds (default 6)
+#
+# The commit argument is the one that proves anything. A release name is a label
+# that moves: a deploy of `main` that shipped a months-old commit still called
+# itself "main" and would have passed a name comparison (SLO-158).
 #
 set -Eeuo pipefail
 
 BASE_URL="${1:-}"
 EXPECTED_RELEASE="${2:-}"
+EXPECTED_COMMIT="${3:-}"
 TOKEN="${DEPLOY_HEALTH_TOKEN:-}"
 RETRIES="${SMOKE_RETRIES:-10}"
 DELAY="${SMOKE_DELAY:-6}"
@@ -50,7 +55,22 @@ done
 
 # --- 2. The running code is the release we shipped -------------------------
 echo "==> Release (${BASE_URL}/_deploy/health)"
-health="$(curl -sS --max-time 20 -H "X-Deploy-Token: ${TOKEN}" "${BASE_URL}/_deploy/health" || true)"
+health_body="$(mktemp)"
+health_status="$(curl -sS --max-time 20 -o "${health_body}" -w '%{http_code}' \
+    -H "X-Deploy-Token: ${TOKEN}" "${BASE_URL}/_deploy/health" || true)"
+health="$(cat "${health_body}")"
+rm -f "${health_body}"
+
+if [[ "${health_status}" == "404" ]]; then
+    # The endpoint answers 404 both when the route is missing and when the token
+    # is wrong — hiding its existence is deliberate. Naming only one of the two
+    # causes sent a real investigation down the wrong path once, so say both.
+    fail "HTTP 404 from /_deploy/health. Either the deployed code predates the route
+       (the deploy shipped an older commit than you think — check deploy-target-sha
+       in the deploy log), or DEPLOY_HEALTH_TOKEN differs from the server's .env."
+elif [[ "${health_status}" != "200" ]]; then
+    fail "HTTP ${health_status:-000} from /_deploy/health"
+fi
 
 json_field() {
     # No jq on a bare runner image is a possibility; this needs no dependency.
@@ -58,16 +78,24 @@ json_field() {
 }
 
 release="$(json_field release)"
+commit="$(json_field commit)"
 environment="$(json_field environment)"
 config_cached="$(json_field config_cached)"
 pending="$(json_field pending_migrations)"
 
 if [[ -z "${release}" ]]; then
-    fail "no answer from /_deploy/health (wrong token, or the app is not serving): ${health:0:200}"
+    fail "no release in the /_deploy/health answer: ${health:0:200}"
 else
     [[ "${release}" == "${EXPECTED_RELEASE}" ]] \
         && pass "serving ${release}" \
         || fail "serving ${release}, expected ${EXPECTED_RELEASE}"
+
+    # The check that cannot be satisfied by a stale deploy wearing the right name.
+    if [[ -n "${EXPECTED_COMMIT}" ]]; then
+        [[ "${commit}" == "${EXPECTED_COMMIT}" ]] \
+            && pass "serving commit ${commit:0:7}" \
+            || fail "serving commit ${commit:-unknown}, expected ${EXPECTED_COMMIT} — the server deployed a different commit under the same name"
+    fi
 
     [[ "${environment}" == "production" ]] \
         && pass "environment is production" \

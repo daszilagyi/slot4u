@@ -127,6 +127,14 @@ jobs:
         with:
           ref: ${{ inputs.ref || github.ref_name }}
 
+      # The commit this deploy is about. Resolved here rather than trusted from
+      # the ref name: the server resolving `main` for itself is exactly how a
+      # deploy once shipped a months-old commit and called it a success
+      # (SLO-158).
+      - name: Resolve the commit being deployed
+        id: target
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
       - uses: actions/download-artifact@v4
         with:
           name: build-${{ github.run_id }}
@@ -177,12 +185,13 @@ jobs:
           DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '~/slot4u' }}
           DEPLOY_PHP: ${{ vars.DEPLOY_PHP || '/opt/cpanel/ea-php84/root/usr/bin/php' }}
           SKIP_MIGRATIONS: ${{ inputs.skip_migrations && '1' || '0' }}
+          EXPECT_SHA: ${{ steps.target.outputs.sha }}
         run: |
           set -o pipefail
           ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT}" \
               -o StrictHostKeyChecking=yes -o BatchMode=yes \
               "${DEPLOY_USER}@${DEPLOY_HOST}" \
-              "DEPLOY_PATH='${DEPLOY_PATH}' DEPLOY_PHP='${DEPLOY_PHP}' DEPLOY_SKIP_MIGRATIONS='${SKIP_MIGRATIONS}' bash -s -- '${RELEASE_REF}'" \
+              "DEPLOY_PATH='${DEPLOY_PATH}' DEPLOY_PHP='${DEPLOY_PHP}' DEPLOY_SKIP_MIGRATIONS='${SKIP_MIGRATIONS}' DEPLOY_EXPECT_SHA='${EXPECT_SHA}' bash -s -- '${RELEASE_REF}'" \
               < deploy/deploy.sh | tee /tmp/deploy.log
           previous="$(sed -n 's/^deploy-previous-ref=//p' /tmp/deploy.log | head -n 1)"
           echo "previous=${previous}" >> "$GITHUB_OUTPUT"
@@ -194,7 +203,7 @@ jobs:
       - name: Smoke test
         env:
           DEPLOY_HEALTH_TOKEN: ${{ secrets.DEPLOY_HEALTH_TOKEN }}
-        run: bash deploy/smoke.sh "${{ vars.DEPLOY_URL }}" "${RELEASE_REF}"
+        run: bash deploy/smoke.sh "${{ vars.DEPLOY_URL }}" "${RELEASE_REF}" "${{ steps.target.outputs.sha }}"
 
       - name: Report a failed deploy
         if: failure()

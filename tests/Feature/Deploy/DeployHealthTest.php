@@ -17,6 +17,7 @@ use App\Tenancy\TenantManager;
 beforeEach(function () {
     config()->set('deploy.health_token', 'test-deploy-token');
     config()->set('deploy.release', 'v9.9.9-TEST');
+    config()->set('deploy.commit', '1234567890abcdef1234567890abcdef12345678');
 });
 
 function healthUrl(): string
@@ -29,9 +30,23 @@ it('reports the release and migration state to a caller with the token', functio
         ->getJson(healthUrl())
         ->assertOk()
         ->assertJsonPath('release', 'v9.9.9-TEST')
+        // The commit is what the smoke test actually holds the deploy to: a ref
+        // name matches even when an older commit is serving (SLO-158).
+        ->assertJsonPath('commit', '1234567890abcdef1234567890abcdef12345678')
         ->assertJsonPath('environment', 'testing')
         // RefreshDatabase has run every migration, so nothing is outstanding.
         ->assertJsonPath('pending_migrations', 0);
+});
+
+it('reports a null commit on a tree that was never deployed', function () {
+    // Dev and CI. Null is honest here; the smoke test only compares the commit
+    // when the caller supplied one to compare against.
+    config()->set('deploy.commit', null);
+
+    $this->withHeader('X-Deploy-Token', 'test-deploy-token')
+        ->getJson(healthUrl())
+        ->assertOk()
+        ->assertJsonPath('commit', null);
 });
 
 it('hides the endpoint from a caller without the token', function () {
@@ -74,18 +89,19 @@ it('is throttled so the token cannot be guessed at speed', function () {
     $this->getJson(healthUrl())->assertStatus(429);
 });
 
-it('reads the release from the .release file the deploy script writes', function () {
+it('reads the release and the commit from the .release file the deploy script writes', function () {
     // The contract between deploy/deploy.sh and the application: no env edit on
-    // the server, no config change — the script drops a file and rebuilds the
-    // config cache. Exercised by re-evaluating the config file itself.
+    // the server, no config change — the script drops a two-line file and
+    // rebuilds the config cache. Exercised by re-evaluating the config itself.
     $file = base_path('.release');
     $existing = is_readable($file) ? file_get_contents($file) : null;
 
     try {
-        file_put_contents($file, "  v1.2.3-M9\n");
+        file_put_contents($file, "  v1.2.3-M9\n  abc1234def5678\n");
 
         expect(require config_path('deploy.php'))
-            ->toHaveKey('release', 'v1.2.3-M9');
+            ->toHaveKey('release', 'v1.2.3-M9')
+            ->toHaveKey('commit', 'abc1234def5678');
     } finally {
         $existing === null ? @unlink($file) : file_put_contents($file, $existing);
     }
