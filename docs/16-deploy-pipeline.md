@@ -66,7 +66,7 @@ git tag v0.8.0-M8 && git push origin v0.8.0-M8
 
 | Név | Példa | Megjegyzés |
 |---|---|---|
-| `DEPLOY_HOST` | `slot4u.hu` | |
+| `DEPLOY_HOST` | *(az origin IP-je)* | ⚠️ **NEM `slot4u.hu`**: a zóna Cloudflare mögött van, a névhez tartozó IP a CF-é, ami nem fogad SSH-t. Az origin IP a `docs/14`-ben. |
 | `DEPLOY_USER` | `slot4uhu` | |
 | `DEPLOY_PORT` | `22` | elhagyható |
 | `DEPLOY_PATH` | `~/slot4u` | az app gyökere a szerveren |
