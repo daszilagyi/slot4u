@@ -77,6 +77,8 @@ git tag v0.8.0-M8 && git push origin v0.8.0-M8
 | `VITE_REVERB_PORT` | `443` | |
 | `VITE_REVERB_SCHEME` | `https` | |
 | `VITE_APP_NAME` | `slot4u` | |
+| `VITE_SENTRY_DSN` | *(a frontend Sentry projekt DSN-je)* | SLO-153. Üresen hagyva a bundle a Sentry SDK-t **le sem tölti**. |
+| `VITE_SENTRY_ENVIRONMENT` | `production` | |
 
 > ⚠️ **A `VITE_*` értékek build-time-ban ÉGNEK a bundle-be** — a szerver `.env`-je utólag
 > nem javítja őket. Ezért repository-szintű variable-ök (nem environment-scope-osak):
@@ -89,10 +91,17 @@ git tag v0.8.0-M8 && git push origin v0.8.0-M8
 > és az élő foglalás-feed hibaüzenet nélkül halott. A workflow ezért **elbukik**, ha
 > ezek a variable-ök üresek.
 
+> ⚠️ A `VITE_SENTRY_DSN`-t **a szerver `.env`-jébe is** fel kell venni — nem a
+> reporting miatt (az a bundle-ben van), hanem mert a CSP `connect-src`-nek
+> ismernie kell az ingest hostot, különben a böngésző minden hibajelentést
+> blokkol (SLO-153, docs/17 §5).
+
 ### 3.4 Szerveroldali egyszeri lépések
 
 * `~/slot4u` git klón, origin = a repo (deploy key), `~/slot4u/public` a docroot.
-* `.env`-be: `DEPLOY_HEALTH_TOKEN=…` (ugyanaz, mint a GitHub secret).
+* `.env`-be: `DEPLOY_HEALTH_TOKEN=…` (ugyanaz, mint a GitHub secret), valamint a
+  monitoring kulcsai: `SENTRY_LARAVEL_DSN`, `VITE_SENTRY_DSN`,
+  `MONITORING_HEARTBEAT_URL` (docs/17).
 * A `git status` legyen tiszta — a script **elutasítja a deployt**, ha követett fájl módosult
   a szerveren (a checkout némán megenné). Untracked fájl nem akadály.
 

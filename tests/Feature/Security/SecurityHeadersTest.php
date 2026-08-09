@@ -204,6 +204,49 @@ it('adds no socket origin when broadcasting is off', function () {
         ->not->toContain('rt.slot4u.test');
 });
 
+it('lets browser error reports through to the Sentry ingest host', function () {
+    // Same failure mode as SLO-150, one integration later: a policy that looks
+    // correct silently blocks the reports, and the one error that could never be
+    // reported is "reporting is broken".
+    config()->set('monitoring.browser_dsn', 'https://publickey@o4507.ingest.de.sentry.io/4508');
+    Tenant::factory()->active()->create(['slug' => 'acme']);
+    app(TenantManager::class)->forget();
+
+    $response = $this->get(tenantHost('acme', '/login'))->assertOk();
+
+    expect($response->headers->get('Content-Security-Policy'))
+        ->toContain('https://o4507.ingest.de.sentry.io')
+        // The DSN's public key is not a secret, but it has no business in a
+        // response header either.
+        ->not->toContain('publickey');
+});
+
+it('falls back to the backend DSN for the ingest origin', function () {
+    // Both projects live in one Sentry organisation and therefore share an
+    // ingest host, so a host that only set the server DSN still gets a policy
+    // that would admit browser reports.
+    config()->set('monitoring.browser_dsn', '');
+    config()->set('sentry.dsn', 'https://publickey@o4507.ingest.de.sentry.io/4509');
+    Tenant::factory()->active()->create(['slug' => 'acme']);
+    app(TenantManager::class)->forget();
+
+    $response = $this->get(tenantHost('acme', '/login'))->assertOk();
+
+    expect($response->headers->get('Content-Security-Policy'))
+        ->toContain('https://o4507.ingest.de.sentry.io');
+});
+
+it('adds no error reporting origin when Sentry is not configured', function () {
+    config()->set('monitoring.browser_dsn', '');
+    config()->set('sentry.dsn', null);
+    Tenant::factory()->active()->create(['slug' => 'acme']);
+    app(TenantManager::class)->forget();
+
+    $response = $this->get(tenantHost('acme', '/login'))->assertOk();
+
+    expect($response->headers->get('Content-Security-Policy'))->not->toContain('sentry.io');
+});
+
 it('accepts extra origins from configuration', function () {
     $policy = (new ContentSecurityPolicy(extra: [
         'script' => 'https://cdn.example.test, https://pay.example.test',

@@ -87,6 +87,13 @@ jobs:
           VITE_REVERB_HOST: ${{ vars.VITE_REVERB_HOST }}
           VITE_REVERB_PORT: ${{ vars.VITE_REVERB_PORT || '443' }}
           VITE_REVERB_SCHEME: ${{ vars.VITE_REVERB_SCHEME }}
+          # Browser error reporting (SLO-153). Also build-time — and optional:
+          # without a DSN the bundle never even loads the SDK chunk. The release
+          # is the tag, so a JS stack trace names a deploy the log can be
+          # searched for.
+          VITE_SENTRY_DSN: ${{ vars.VITE_SENTRY_DSN }}
+          VITE_SENTRY_ENVIRONMENT: ${{ vars.VITE_SENTRY_ENVIRONMENT || 'production' }}
+          VITE_APP_RELEASE: ${{ inputs.ref || github.ref_name }}
         run: npm run build
 
       # manifest.json is a single file that the next release overwrites. Keeping

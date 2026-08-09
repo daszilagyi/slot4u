@@ -9,6 +9,8 @@ use App\Events\BookingStatusChanged;
 use App\Events\CommissionInvoiceIssued;
 use App\Events\QuoteRequestStatusChanged;
 use App\Events\WaitlistOffered;
+use App\Listeners\Monitoring\RecordQueueHeartbeat;
+use App\Listeners\Monitoring\VerifyDatabaseIsReachable;
 use App\Listeners\RecordBookingCommission;
 use App\Listeners\RecordNotificationDelivery;
 use App\Listeners\SendBookingCancellation;
@@ -28,14 +30,17 @@ use App\Services\Domain\DnsResolver;
 use App\Services\Domain\NullCustomHostnameProvisioner;
 use App\Services\Domain\SystemDnsResolver;
 use App\Services\Feature\FeatureResolver;
+use App\Services\Monitoring\Heartbeats;
 use App\Tenancy\CustomDomainResolver;
 use App\Tenancy\TenantManager;
 use App\Tenancy\TenantPublicUrl;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Foundation\Events\DiagnosingHealth;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\Events\NotificationFailed;
 use Illuminate\Notifications\Events\NotificationSent;
+use Illuminate\Queue\Events\Looping;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
@@ -78,6 +83,11 @@ class AppServiceProvider extends ServiceProvider
 
             return $cloudflare->isConfigured() ? $cloudflare : new NullCustomHostnameProvisioner;
         });
+
+        // Singleton, not scoped: the heartbeat recorder throttles its writes with
+        // in-process state, and the process it has to throttle is a queue worker
+        // run — which would otherwise write on every loop of its own lifetime.
+        $this->app->singleton(Heartbeats::class);
     }
 
     /**
@@ -144,6 +154,13 @@ class AppServiceProvider extends ServiceProvider
         // Commission invoicing (SLO-69 / docs/10 §6.5): a freshly issued monthly
         // invoice is emailed to the tenant's admins.
         Event::listen(CommissionInvoiceIssued::class, SendCommissionInvoiceIssued::class);
+
+        // Monitoring (SLO-153 / docs/17). The queue worker stamps that it ran, so
+        // `monitor:health` can tell a quiet queue from a dead cron; `/up` gains a
+        // database probe, so the uptime monitor stops reporting green while every
+        // real page is failing.
+        Event::listen(Looping::class, RecordQueueHeartbeat::class);
+        Event::listen(DiagnosingHealth::class, VerifyDatabaseIsReachable::class);
     }
 
     /**

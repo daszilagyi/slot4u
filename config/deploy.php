@@ -1,5 +1,7 @@
 <?php
 
+use App\Support\Release;
+
 return [
 
     /*
@@ -7,10 +9,10 @@ return [
     | Released version (SLO-152)
     |--------------------------------------------------------------------------
     |
-    | What the deploy pipeline last put on this server. `deploy/deploy.sh` writes
-    | the tag into the `.release` file (gitignored) before it rebuilds the config
-    | cache, so the value is baked into the cached config and costs no disk read
-    | per request in production.
+    | What the deploy pipeline last put on this server — see {@see Release}, which
+    | reads the `.release` file `deploy/deploy.sh` writes. Sentry tags its events
+    | with the same value (SLO-153), so a stack trace names a release the deploy
+    | log can be searched for.
     |
     | Reading a file here is safe precisely because config files run once — at
     | cache build time on a deployed host, at boot on a dev host. Null means
@@ -18,17 +20,7 @@ return [
     |
     */
 
-    'release' => env('APP_RELEASE') ?: (static function (): ?string {
-        $file = dirname(__DIR__).'/.release';
-
-        if (! is_readable($file)) {
-            return null;
-        }
-
-        $release = trim((string) file_get_contents($file));
-
-        return $release === '' ? null : $release;
-    })(),
+    'release' => env('APP_RELEASE') ?: Release::current(),
 
     /*
     |--------------------------------------------------------------------------

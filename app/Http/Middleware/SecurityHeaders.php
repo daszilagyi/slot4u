@@ -59,8 +59,41 @@ class SecurityHeaders
             hot: $hot,
             devServer: $hot ? $this->devServerOrigin() : null,
             websocket: $this->websocketOrigin(),
+            errorReporting: $this->errorReportingOrigin(),
             extra: (array) config('security.csp.extra'),
         ))->build();
+    }
+
+    /**
+     * Where the browser sends JavaScript errors (SLO-153).
+     *
+     * Derived from the DSN rather than configured separately, so enabling error
+     * reporting cannot leave the policy behind — the SLO-150 failure mode, where
+     * a correct-looking CSP silently killed the live feed.
+     *
+     * Falls back to the backend DSN: the two Sentry projects live in the same
+     * organisation and therefore share one ingest host, so a host that only set
+     * the server DSN still gets a policy that would admit browser reports.
+     */
+    private function errorReportingOrigin(): ?string
+    {
+        $dsn = (string) config('monitoring.browser_dsn');
+
+        if ($dsn === '') {
+            $dsn = (string) config('sentry.dsn');
+        }
+
+        if ($dsn === '') {
+            return null;
+        }
+
+        $parts = parse_url($dsn);
+
+        if ($parts === false || ! isset($parts['host'])) {
+            return null;
+        }
+
+        return ($parts['scheme'] ?? 'https').'://'.$parts['host'].(isset($parts['port']) ? ':'.$parts['port'] : '');
     }
 
     /**
