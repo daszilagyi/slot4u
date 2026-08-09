@@ -7,6 +7,8 @@ use App\Enums\Role;
 use App\Enums\TenantStatus;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Rules\Phone;
+use App\Support\PhoneNumber;
 use App\Tenancy\TenantHostResolver;
 use App\Tenancy\TenantManager;
 use Illuminate\Http\Request;
@@ -65,14 +67,23 @@ class CreateNewUser implements CreatesNewUsers
      * with the customer's own password; the tenant context is bound explicitly
      * because the Fortify route runs outside `identify.tenant`.
      *
-     * @param  array<string, string>  $input
+     * @param  array<string, mixed>  $input  raw registration input; `phone` is
+     *                                       rewritten to E.164 (or null) below
      */
     private function registerCustomer(array $input, Tenant $tenant): User
     {
+        // The dialling region is read off the tenant we resolved from the host,
+        // not from the container: this route runs outside `identify.tenant`, so
+        // nothing is bound yet (the set() below is what binds it).
+        $region = PhoneNumber::regionFor($tenant);
+        $phone = $input['phone'] ?? null;
+        // A non-string is left alone for the `string` rule to reject.
+        $input['phone'] = is_string($phone) ? PhoneNumber::normalizeInput($phone, $region) : $phone;
+
         Validator::make($input, [
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique(User::class, 'email')],
-            'phone' => ['nullable', 'string', 'max:50'],
+            'phone' => Phone::rules($region),
             'password' => $this->passwordRules(),
         ])->validate();
 

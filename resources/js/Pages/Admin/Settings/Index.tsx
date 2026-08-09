@@ -187,6 +187,8 @@ export default function SettingsIndex({
                         >
                             <Input
                                 id="set-phone"
+                                type="tel"
+                                inputMode="tel"
                                 value={form.data.phone}
                                 onChange={(e) =>
                                     form.setData('phone', e.target.value)

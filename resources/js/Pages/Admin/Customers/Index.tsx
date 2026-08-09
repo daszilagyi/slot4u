@@ -290,6 +290,8 @@ export default function CustomersIndex({ customers, filters, can }: IndexProps) 
                     </Label>
                     <Input
                         id="customer-phone"
+                        type="tel"
+                        inputMode="tel"
                         value={form.data.phone}
                         onChange={(e) => form.setData('phone', e.target.value)}
                     />

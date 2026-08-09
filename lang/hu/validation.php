@@ -115,6 +115,9 @@ return [
     'not_in' => 'A kiválasztott :attribute érvénytelen.',
     'not_regex' => 'A(z) :attribute formátuma érvénytelen.',
     'numeric' => 'A(z) :attribute szám kell legyen.',
+    // SLO-151. The example is the tenant's own country's format, so the visitor
+    // is told what right looks like instead of only that they got it wrong.
+    'phone' => 'Ez nem tűnik valódi telefonszámnak. Például: :example — külföldi szám esetén országhívóval (+43 …).',
     'password' => [
         'letters' => 'A(z) :attribute legalább egy betűt kell tartalmazzon.',
         'mixed' => 'A(z) :attribute legalább egy kis- és egy nagybetűt kell tartalmazzon.',

@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Tenant;
 
 use App\Enums\Feature;
+use App\Http\Requests\Concerns\NormalizesPhone;
 use App\Models\Service;
 use App\Tenancy\TenantManager;
 use Illuminate\Contracts\Validation\Validator;
@@ -24,6 +25,13 @@ use Laravel\Pennant\Feature as Pennant;
  */
 class PublicQuoteRequest extends FormRequest
 {
+    use NormalizesPhone;
+
+    protected function prepareForValidation(): void
+    {
+        $this->normalizePhone();
+    }
+
     public function authorize(): bool
     {
         return true;
@@ -40,7 +48,7 @@ class PublicQuoteRequest extends FormRequest
             'service_id' => ['required', Rule::exists('services', 'id')->where('tenant_id', $tenantId)->where('active', true)],
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:50'],
+            'phone' => $this->phoneRules(),
             'notes' => ['nullable', 'string', 'max:2000'],
             'fields' => ['nullable', 'array'],
             'fields.*' => ['required', 'string', 'max:2000'],

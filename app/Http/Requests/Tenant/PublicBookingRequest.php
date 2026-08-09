@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Tenant;
 
 use App\Enums\BookingMode;
+use App\Http\Requests\Concerns\NormalizesPhone;
 use App\Models\Service;
 use App\Services\Booking\AvailabilityService;
 use App\Tenancy\TenantManager;
@@ -21,6 +22,13 @@ use Illuminate\Validation\Rule;
  */
 class PublicBookingRequest extends FormRequest
 {
+    use NormalizesPhone;
+
+    protected function prepareForValidation(): void
+    {
+        $this->normalizePhone();
+    }
+
     public function authorize(): bool
     {
         return true;
@@ -48,7 +56,7 @@ class PublicBookingRequest extends FormRequest
             'duration_minutes' => ['nullable', 'integer', 'min:1'],
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:50'],
+            'phone' => $this->phoneRules(),
             'notes' => ['nullable', 'string', 'max:2000'],
         ];
     }

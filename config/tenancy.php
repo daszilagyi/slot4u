@@ -46,6 +46,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Default phone region (SLO-151)
+    |--------------------------------------------------------------------------
+    |
+    | ISO 3166-1 alpha-2 country whose national dialling format is assumed for a
+    | phone number typed without a country code (`06 30 …`). A tenant normally
+    | supplies its own via its timezone — the tz database knows which country
+    | owns Europe/Budapest — so this only covers zones that name no country
+    | (UTC) and forms submitted with no tenant bound at all.
+    |
+    */
+
+    'default_phone_region' => env('APP_DEFAULT_PHONE_REGION', 'HU'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Custom domains (feature_custom_domain, SLO-42)
     |--------------------------------------------------------------------------
     |

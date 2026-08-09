@@ -111,6 +111,7 @@ export default function Profile({ profile }: ProfileProps) {
                         <Input
                             id="phone"
                             type="tel"
+                            inputMode="tel"
                             autoComplete="tel"
                             value={details.data.phone}
                             onChange={(e) =>
