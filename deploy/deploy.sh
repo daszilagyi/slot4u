@@ -69,14 +69,28 @@ fi
 
 [[ -f .env ]] || { echo ".env missing in ${APP_DIR}" >&2; exit 1; }
 
+# Host-owned Apache directives. cPanel's MultiPHP writes the PHP handler into
+# the docroot's .htaccess — a tracked file — so the forced checkout below would
+# wipe it and drop the site to the host's default PHP, on which this app's
+# dependencies do not run. They are not committed because they name a hosting
+# account and this repository is public. Kept here, re-applied after checkout.
+HOST_HTACCESS="${APP_DIR}/.htaccess.host"
+
 # A modified tracked file means someone edited the server by hand; the forced
 # checkout below would silently throw that work away, so stop and let a human
 # look. Untracked files are explicitly not a reason to refuse: the server always
 # has some (.env, .release, public/build, logs), and a checkout does not eat
 # them — an untracked-file check would simply make every deploy fail.
-if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
+DIRTY="$(git status --porcelain --untracked-files=no)"
+
+if [[ -f "${HOST_HTACCESS}" ]]; then
+    # The one expected difference: this script itself put it there last time.
+    DIRTY="$(printf '%s\n' "${DIRTY}" | grep -v ' public/\.htaccess$' || true)"
+fi
+
+if [[ -n "${DIRTY//[[:space:]]/}" ]]; then
     echo "Tracked files are modified on the server — refusing to deploy:" >&2
-    git status --porcelain --untracked-files=no >&2
+    printf '%s\n' "${DIRTY}" >&2
     exit 1
 fi
 
@@ -136,6 +150,21 @@ if [[ "${NEEDS_COMPOSER}" == "1" ]]; then
     "${PHP}" "${COMPOSER}" install --no-dev --prefer-dist --optimize-autoloader --no-interaction --no-progress
 else
     log "Skipping composer install (composer.lock unchanged)"
+fi
+
+# Put the host's Apache directives back. The checkout just reverted .htaccess to
+# what the repository says, which on this host means "serve PHP with whatever
+# version cPanel defaults to" — a working deploy followed by an immediate
+# outage. Idempotent: skipped when the block is already present, so a cPanel that
+# re-adds it on its own cannot produce a duplicate.
+if [[ -f "${HOST_HTACCESS}" ]]; then
+    marker="$(head -n 1 "${HOST_HTACCESS}")"
+
+    if [[ -n "${marker}" ]] && ! grep -qxF "${marker}" public/.htaccess 2>/dev/null; then
+        log "Re-applying the host's Apache directives"
+        printf '\n' >> public/.htaccess
+        cat "${HOST_HTACCESS}" >> public/.htaccess
+    fi
 fi
 
 # The asset manifest belonging to THIS release. Uploads never delete, so the

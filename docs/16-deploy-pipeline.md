@@ -66,7 +66,7 @@ git tag v0.8.0-M8 && git push origin v0.8.0-M8
 
 | Név | Példa | Megjegyzés |
 |---|---|---|
-| `DEPLOY_HOST` | `slot4u.hu` | |
+| `DEPLOY_HOST` | *(az origin IP-je)* | ⚠️ **NEM `slot4u.hu`**: a zóna Cloudflare mögött van, a névhez tartozó IP a CF-é, ami nem fogad SSH-t. Az origin IP a `docs/14`-ben. |
 | `DEPLOY_USER` | `slot4uhu` | |
 | `DEPLOY_PORT` | `22` | elhagyható |
 | `DEPLOY_PATH` | `~/slot4u` | az app gyökere a szerveren |
@@ -104,6 +104,12 @@ git tag v0.8.0-M8 && git push origin v0.8.0-M8
   `MONITORING_HEARTBEAT_URL` (docs/17).
 * A `git status` legyen tiszta — a script **elutasítja a deployt**, ha követett fájl módosult
   a szerveren (a checkout némán megenné). Untracked fájl nem akadály.
+* **`~/slot4u/.htaccess.host`** (gitignore-olt, host-tulajdonú Apache direktívák, SLO-157):
+  a cPanel MultiPHP a **docroot `.htaccess`-ébe** írja a PHP-handlert (`ea-php84`), ami követett
+  fájl → a checkout letörölné, és az oldal visszaesne a tárhely alapértelmezett PHP-jére,
+  amin az app függőségei nem futnak. A blokk ezért ebbe a fájlba kerül, és a script a checkout
+  után fűzi vissza (idempotensen). A repo publikus, a blokk pedig hosting-fiók-specifikus —
+  ezért nem commitoljuk.
 
 ## 4. Deploy
 
