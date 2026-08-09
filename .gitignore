@@ -17,6 +17,8 @@
 /node_modules
 /public/build
 /public/hot
+# A deploy script írja a kiadott tag nevét (SLO-152) — szerver-állapot, nem forrás
+/.release
 /public/storage
 /storage/*.key
 /storage/pail

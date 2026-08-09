@@ -14,7 +14,7 @@
 - **Jogosultság:** spatie/laravel-permission (teams mód = tenant-szintű role-ok) · **Feature flag:** Laravel Pennant (tenant-scope)
 - **Tesztelés:** Pest · **Statikus analízis:** Larastan, Laravel Pint, ESLint + Prettier
 - **Dev környezet:** WSL2 + Docker Compose (PHP-FPM, nginx, MariaDB, Redis, Reverb, Horizon) — prod-dal azonos stack. A repo a WSL fájlrendszeren él, NEM az OneDrive mappában (ez a mappa csak a projektdokumentációé).
-- **CI/CD:** GitHub Actions — Pint, Larastan, Pest, build; milestone-tagre staging deploy
+- **CI/CD:** GitHub Actions — Pint, Larastan, Pest, build; **verziótagre (`v*`) prod deploy jóváhagyási kapuval** (`docs/16-deploy-pipeline.md`). Staging környezet még nincs (SLO-156).
 
 ## Fejlesztési ciklus (issue → PR → merge)
 
@@ -34,7 +34,7 @@ Ez a fő hatékonysági hurok. Minden munkadarab így megy:
 
 - `main` az egyetlen hosszú életű branch, MINDIG zöld és deployolható. Feature branch-ek rövid életűek (cél: max 2-3 nap).
 - Commit üzenetek: Conventional Commits (`feat:`, `fix:`, `test:`, `chore:` + scope, pl. `feat(booking): ...`), angolul.
-- **Milestone zárás = release:** minden milestone végén verzió-tag (`v0.1.0-M1`, `v0.2.0-M2`, ...), a tag automatikus staging deployt indít (GitHub Actions). A milestone csak akkor zárható, ha a demó-kritériuma (docs/05) staging-en bemutatható.
+- **Milestone zárás = release:** minden milestone végén verzió-tag (`v0.1.0-M1`, `v0.2.0-M2`, ...). A tag **deployt javasol, nem indít**: a GitHub Actions `Deploy` workflow megáll a `production` environment jóváhagyási kapujánál, és csak Daniel jóváhagyása után megy ki bármi (`docs/16-deploy-pipeline.md`). A milestone csak akkor zárható, ha a demó-kritériuma (docs/05) bemutatható.
 - Lefutott migrációt SOHA nem módosítunk — mindig új migráció. DB-séma változás csak migrációval.
 - Hotfix: branch `main`-ből, PR, merge, szükség esetén patch-tag.
 
@@ -78,6 +78,7 @@ Az issue acceptance criteriája teljesül, ÉS: tesztek zöldek, Pint/Larastan/E
 | `docs/07-phase2-modulok.md` | Phase 2: bérlet/csomag, membership, custom fields, form builder — NEM MVP |
 | `docs/08-integraciok-roadmap.md` | Külső integrációk prioritált roadmapje |
 | `docs/09-mcp-ajanlasok.md` | Fejlesztést gyorsító MCP-k (Laravel Boost, Context7, shadcn, Semgrep...) |
+| `docs/16-deploy-pipeline.md` | Deploy pipeline: tag → jóváhagyás → prod, füstteszt, rollback |
 
 A docs az igazság forrása. Viselkedésbeli változás = docs-frissítés ugyanabban a PR-ben.
 
