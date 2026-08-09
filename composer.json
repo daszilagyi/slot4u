@@ -14,6 +14,7 @@
         "laravel/pennant": "^1.23",
         "laravel/reverb": "^1.10",
         "laravel/tinker": "^2.10.1",
+        "sentry/sentry-laravel": "^4.27",
         "spatie/laravel-permission": "^8.0"
     },
     "require-dev": {

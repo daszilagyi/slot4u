@@ -8,6 +8,15 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
+// Watchdog for the parts nothing supervises (SLO-153): the cron-driven queue
+// worker and the scheduler itself. Every five minutes, because the alert has to
+// beat a human noticing that confirmation emails stopped. `--beat` marks that
+// *the scheduler* ran — a manual run deliberately omits it, so an operator
+// investigating a silent host sees the real staleness instead of refreshing it.
+// Not withoutOverlapping: a check that skipped itself would be a check that
+// stopped reporting.
+Schedule::command('monitor:health --beat')->everyFiveMinutes();
+
 // Flip tenants from trial to active once their 14-day trial ends (SLO-76).
 Schedule::command('tenants:expire-trials')->daily();
 

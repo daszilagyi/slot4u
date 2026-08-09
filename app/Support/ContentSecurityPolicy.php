@@ -27,6 +27,7 @@ final class ContentSecurityPolicy
      * @param  bool  $hot  Whether the Vite dev server is serving the frontend.
      * @param  string|null  $devServer  Origin of that dev server (e.g. http://localhost:5173).
      * @param  string|null  $websocket  Realtime origin the browser connects to (Reverb).
+     * @param  string|null  $errorReporting  Origin the browser posts JS errors to (Sentry ingest).
      * @param  array{script?: string, connect?: string, img?: string, frame?: string}  $extra
      */
     public function __construct(
@@ -34,6 +35,7 @@ final class ContentSecurityPolicy
         private readonly bool $hot = false,
         private readonly ?string $devServer = null,
         private readonly ?string $websocket = null,
+        private readonly ?string $errorReporting = null,
         private readonly array $extra = [],
     ) {}
 
@@ -105,6 +107,15 @@ final class ContentSecurityPolicy
 
         if ($this->websocket !== null) {
             $sources[] = $this->websocket;
+        }
+
+        // Browser error reporting (SLO-153). Sentry posts events with fetch, so
+        // without its ingest origin here the policy would block every report —
+        // and the one thing that would never be reported is that reporting is
+        // broken. Absent when no DSN is configured, so the policy stays as tight
+        // as the app's actual behaviour.
+        if ($this->errorReporting !== null) {
+            $sources[] = $this->errorReporting;
         }
 
         if ($this->hot && $this->devServer !== null) {

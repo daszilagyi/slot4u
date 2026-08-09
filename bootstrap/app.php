@@ -26,6 +26,7 @@ use Illuminate\Routing\Middleware\ThrottleRequestsWithRedis;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+use Sentry\Laravel\Integration;
 use Spatie\Permission\Middleware\PermissionMiddleware;
 use Spatie\Permission\Middleware\RoleMiddleware;
 use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
@@ -138,5 +139,13 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
+        // Error tracking (SLO-153, docs/17). Until this, a production 500 went to
+        // storage/logs and nowhere else — a broken booking page could take a
+        // tenant's whole week of bookings with nobody the wiser.
         //
+        // Registered as a `reportable` callback, so Laravel's own dontReport list
+        // still applies first: 404s, validation failures and auth redirects are
+        // normal traffic, not incidents. Without a DSN the SDK drops every event
+        // before opening a socket, so dev and CI are unaffected.
+        Integration::handles($exceptions);
     })->create();

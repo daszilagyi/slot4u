@@ -7,6 +7,12 @@ import { createRoot, hydrateRoot } from 'react-dom/client';
 import AppProviders from '@/components/AppProviders';
 import ClientOnly from '@/components/ClientOnly';
 import { Toaster } from '@/components/ui/sonner';
+import { startErrorReporting } from '@/lib/monitoring';
+
+// Before the app renders, so a crash during the very first render is reported
+// too. No-op without a DSN (SLO-153); the browser entry only — the SSR bundle
+// runs on the server, where the Laravel SDK is already watching.
+startErrorReporting();
 
 createInertiaApp({
     title: (title) => (title ? `${title} · slot4u` : 'slot4u'),

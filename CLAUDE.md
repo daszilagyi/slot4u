@@ -79,6 +79,7 @@ Az issue acceptance criteriája teljesül, ÉS: tesztek zöldek, Pint/Larastan/E
 | `docs/08-integraciok-roadmap.md` | Külső integrációk prioritált roadmapje |
 | `docs/09-mcp-ajanlasok.md` | Fejlesztést gyorsító MCP-k (Laravel Boost, Context7, shadcn, Semgrep...) |
 | `docs/16-deploy-pipeline.md` | Deploy pipeline: tag → jóváhagyás → prod, füstteszt, rollback |
+| `docs/17-monitoring-es-riasztas.md` | Sentry (PII-szabályok), queue/scheduler watchdog, uptime, riasztási runbook |
 
 A docs az igazság forrása. Viselkedésbeli változás = docs-frissítés ugyanabban a PR-ben.
 

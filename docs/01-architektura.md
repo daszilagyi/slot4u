@@ -308,6 +308,7 @@ Két külön profil fut: a **dev/CI referencia-stack** (Docker Compose) és az *
 **Dev / CI (referencia-stack):**
 - Docker Compose (PHP-FPM, nginx, MariaDB, Redis, Reverb, Horizon worker) — fejlesztésre és a stack-ekvivalencia igazolására.
 - CI: GitHub Actions — Pint, Larastan, Pest, build.
+- Monitoring: **Sentry** (backend + böngésző, DSN nélkül teljesen no-op), `monitor:health` watchdog a cron-vezérelt queue-ra és schedulerre (`heartbeats` tábla), külső **dead man's switch** a teljes app halálára, és `/up` uptime-végpont DB-próbával. PII-szabályok, riasztási runbook: **`docs/17-monitoring-es-riasztas.md`**.
 - Deploy: GitHub Actions, `v*` verziótagre, **jóváhagyási kapuval** (`production` environment) — a tag javaslatot tesz, az ember dönt. A logika verziókövetett shell scriptekben (`deploy/deploy.sh`, `deploy/rollback.sh`, `deploy/smoke.sh`), hogy a szerveren kézzel is futtatható legyen és a rollback ugyanazt a kódutat járja. Folyamat, beállítandó kulcsok és rollback-eljárás: **`docs/16-deploy-pipeline.md`**. Staging környezet és valódi zero-downtime (release-könyvtárak): SLO-156.
 
 **Éles profil (Tárhely.Eu osztott cPanel, `slot4u.hu`):**
