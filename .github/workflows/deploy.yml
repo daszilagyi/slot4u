@@ -161,9 +161,9 @@ jobs:
           DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '~/slot4u' }}
         run: |
           rsync -rlvz --human-readable \
-            -e "ssh -i ~/.ssh/deploy_key -p ${DEPLOY_PORT} -o StrictHostKeyChecking=yes -o BatchMode=yes" \
-            --rsync-path="mkdir -p ${DEPLOY_PATH}/public/build && rsync" \
-            public/build/ "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/public/build/"
+  -e "ssh -i ~/.ssh/deploy_key -p ${DEPLOY_PORT} -o StrictHostKeyChecking=yes -o BatchMode=yes" \
+  --rsync-path="mkdir -p ${DEPLOY_PATH}/public/build && /home/slot4uhu/.local/bin/rsync" \
+  public/build/ "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/public/build/"
 
       # The script is piped from this checkout, so the deploy logic that runs is
       # always the one committed at the ref being deployed — and it cannot be
