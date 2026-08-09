@@ -1,0 +1,195 @@
+name: Deploy
+
+# SLO-152 — a version tag proposes a production deploy; the `production`
+# environment's required reviewer is what releases it. Nothing reaches the
+# server before that approval (docs/16-deploy-pipeline.md).
+#
+# workflow_dispatch is the manual door: re-deploy a tag, or roll back by
+# dispatching the PREVIOUS tag with skip_migrations on — the same path
+# deploy/rollback.sh takes on the server.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Tag to deploy (e.g. v0.8.0-M8)'
+        required: true
+        type: string
+      skip_migrations:
+        description: 'Skip migrations (use when rolling BACK — migrations are forward-only)'
+        required: false
+        default: false
+        type: boolean
+
+# Two deploys must never interleave on one server. Queue, never cancel: a
+# cancelled deploy could leave the site in maintenance mode.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  RELEASE_REF: ${{ inputs.ref || github.ref_name }}
+
+jobs:
+  build:
+    name: Build assets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref_name }}
+          fetch-depth: 0
+
+      - name: Refuse to deploy a commit that is not on main
+        run: |
+          git fetch --no-tags origin main
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "::error::${RELEASE_REF} is not reachable from main — production only ever runs merged code."
+            exit 1
+          fi
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      # These values are compiled INTO the bundle, so they must be right at build
+      # time — the server's .env cannot fix them afterwards. Missing ones fail
+      # loudly here: getEcho() returns null without a key, which would silently
+      # kill the live booking feed in production instead of erroring.
+      - name: Check the build-time frontend configuration
+        env:
+          VITE_REVERB_APP_KEY: ${{ vars.VITE_REVERB_APP_KEY }}
+          VITE_REVERB_HOST: ${{ vars.VITE_REVERB_HOST }}
+          VITE_REVERB_SCHEME: ${{ vars.VITE_REVERB_SCHEME }}
+        run: |
+          missing=0
+          for name in VITE_REVERB_APP_KEY VITE_REVERB_HOST VITE_REVERB_SCHEME; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Repository variable ${name} is empty — see docs/16-deploy-pipeline.md"
+              missing=1
+            fi
+          done
+          exit $missing
+
+      - name: Build the production bundle
+        env:
+          VITE_APP_NAME: ${{ vars.VITE_APP_NAME || 'slot4u' }}
+          VITE_REVERB_APP_KEY: ${{ vars.VITE_REVERB_APP_KEY }}
+          VITE_REVERB_HOST: ${{ vars.VITE_REVERB_HOST }}
+          VITE_REVERB_PORT: ${{ vars.VITE_REVERB_PORT || '443' }}
+          VITE_REVERB_SCHEME: ${{ vars.VITE_REVERB_SCHEME }}
+        run: npm run build
+
+      # manifest.json is a single file that the next release overwrites. Keeping
+      # a copy under the release name is what lets a rollback serve the bundle
+      # its own code was built against (deploy.sh restores it).
+      - name: Snapshot the asset manifest under the release name
+        run: |
+          mkdir -p public/build/manifests
+          cp public/build/manifest.json "public/build/manifests/${RELEASE_REF//\//-}.json"
+
+      # Only the client build goes to the server: it has no Node process, so the
+      # SSR bundle (bootstrap/ssr) would never be executed there (docs/13).
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ github.run_id }}
+          path: public/build
+          retention-days: 7
+          include-hidden-files: true
+
+  deploy:
+    name: Deploy to production
+    needs: build
+    runs-on: ubuntu-latest
+    # The approval gate. Configure "Required reviewers" on this environment —
+    # without it the tag would deploy itself.
+    environment:
+      name: production
+      url: ${{ vars.DEPLOY_URL }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref_name }}
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: build-${{ github.run_id }}
+          path: public/build
+
+      - name: Configure ssh
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+        run: |
+          if [ -z "$SSH_KEY" ] || [ -z "$KNOWN_HOSTS" ]; then
+            echo "::error::DEPLOY_SSH_KEY / DEPLOY_SSH_KNOWN_HOSTS are not set on the production environment."
+            exit 1
+          fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          # Pinned host key, never ssh-keyscan at deploy time: accepting whatever
+          # answers would hand a deploy (and the key) to anyone who can spoof DNS.
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      # Before `artisan down`, on purpose: uploading is the slow part, and the
+      # site can serve happily while the new hashed files land next to the old
+      # ones. No --delete — the page a visitor loaded a moment ago still asks for
+      # the previous build's files, and a rollback needs them too.
+      - name: Upload the built assets
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '~/slot4u' }}
+        run: |
+          rsync -rlvz --human-readable \
+            -e "ssh -i ~/.ssh/deploy_key -p ${DEPLOY_PORT} -o StrictHostKeyChecking=yes -o BatchMode=yes" \
+            --rsync-path="mkdir -p ${DEPLOY_PATH}/public/build && rsync" \
+            public/build/ "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/public/build/"
+
+      # The script is piped from this checkout, so the deploy logic that runs is
+      # always the one committed at the ref being deployed — and it cannot be
+      # corrupted by the checkout it performs on the server.
+      - name: Run the deploy script on the server
+        id: remote
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
+          DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '~/slot4u' }}
+          DEPLOY_PHP: ${{ vars.DEPLOY_PHP || '/opt/cpanel/ea-php84/root/usr/bin/php' }}
+          SKIP_MIGRATIONS: ${{ inputs.skip_migrations && '1' || '0' }}
+        run: |
+          set -o pipefail
+          ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT}" \
+              -o StrictHostKeyChecking=yes -o BatchMode=yes \
+              "${DEPLOY_USER}@${DEPLOY_HOST}" \
+              "DEPLOY_PATH='${DEPLOY_PATH}' DEPLOY_PHP='${DEPLOY_PHP}' DEPLOY_SKIP_MIGRATIONS='${SKIP_MIGRATIONS}' bash -s -- '${RELEASE_REF}'" \
+              < deploy/deploy.sh | tee /tmp/deploy.log
+          previous="$(sed -n 's/^deploy-previous-ref=//p' /tmp/deploy.log | head -n 1)"
+          echo "previous=${previous}" >> "$GITHUB_OUTPUT"
+          echo "### Deployed \`${RELEASE_REF}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "Previous release: \`${previous}\` — roll back by dispatching this workflow with ref \`${previous}\` and *skip migrations* on." >> "$GITHUB_STEP_SUMMARY"
+
+      # "The script exited 0" is not evidence. This asks the running application
+      # which release it is and whether its migrations are in.
+      - name: Smoke test
+        env:
+          DEPLOY_HEALTH_TOKEN: ${{ secrets.DEPLOY_HEALTH_TOKEN }}
+        run: bash deploy/smoke.sh "${{ vars.DEPLOY_URL }}" "${RELEASE_REF}"
+
+      - name: Report a failed deploy
+        if: failure()
+        run: |
+          echo "::error::Deploy of ${RELEASE_REF} failed. If the deploy script had already started, the site is in MAINTENANCE MODE — roll back with the previous ref (see the job summary / docs/16)."
