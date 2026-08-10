@@ -50,3 +50,6 @@ id_ed25519*
 # Munkamenet-átadó jegyzetek (lokális állapot, nem repo-tartalom)
 /RESUME-STATUS.md
 /DEPLOY-FOLYTATAS.md
+
+# Restore-drill kimenet (SLO-154, docs/18 §5) — a helyi mentés-céldiszk gyökere
+/storage/backups

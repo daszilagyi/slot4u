@@ -21,6 +21,9 @@ class Heartbeat extends Model
     /** The scheduler's cron run, stamped by the scheduled health check itself. */
     public const SCHEDULER = 'scheduler';
 
+    /** The last *successful* offsite backup (SLO-154) — stamped after the upload. */
+    public const BACKUP = 'backup';
+
     protected $primaryKey = 'name';
 
     protected $keyType = 'string';

@@ -3,6 +3,7 @@
 namespace App\Services\Monitoring;
 
 use App\Models\Heartbeat;
+use App\Services\Backup\BackupDestination;
 use Illuminate\Support\Facades\DB;
 use Throwable;
 
@@ -16,15 +17,59 @@ use Throwable;
  */
 class RunHealthChecks
 {
-    public function __construct(private readonly Heartbeats $heartbeats) {}
+    public function __construct(
+        private readonly Heartbeats $heartbeats,
+        private readonly BackupDestination $backups,
+    ) {}
 
     public function __invoke(): HealthReport
     {
-        return new HealthReport([
+        $checks = [
             $this->queue(),
             $this->failedJobs(),
             $this->scheduler(),
-        ]);
+        ];
+
+        // Appended rather than filtered out: the backup check does not exist at
+        // all where backups are not configured, and "absent" is a different
+        // report from "present and passing".
+        $backup = $this->backup();
+
+        if ($backup !== null) {
+            $checks[] = $backup;
+        }
+
+        return new HealthReport($checks);
+    }
+
+    /**
+     * A backup subsystem nobody watches is a backup that stopped six months ago
+     * and will be discovered on the day it was needed (SLO-154).
+     *
+     * Only checked where backups are actually configured: dev machines and CI
+     * have no offsite destination and must not be told they are broken. In
+     * production the reverse trap — a destination that was never configured at
+     * all — is caught by the deploy checklist in docs/18 §2, not here, because
+     * this process cannot tell "deliberately off" from "forgotten".
+     */
+    private function backup(): ?HealthCheck
+    {
+        if (! $this->backups->isConfigured()) {
+            return null;
+        }
+
+        $threshold = (int) config('backup.stale_after_hours');
+        $minutes = $this->heartbeats->minutesSince(Heartbeat::BACKUP);
+
+        if ($minutes === null) {
+            return HealthCheck::failing('backup', 'no backup has ever completed on this host');
+        }
+
+        $hours = intdiv($minutes, 60);
+
+        return $hours > $threshold
+            ? HealthCheck::failing('backup', "the last successful backup was {$hours} hours ago (limit {$threshold})")
+            : HealthCheck::ok('backup', "last successful backup {$hours} hours ago");
     }
 
     /**
