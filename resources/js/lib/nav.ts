@@ -13,6 +13,7 @@ import {
     ReceiptTextIcon,
     SettingsIcon,
     ShieldCheckIcon,
+    ShieldUserIcon,
     SparklesIcon,
     UsersIcon,
     type LucideIcon,
@@ -140,6 +141,14 @@ export const navItems: NavItem[] = [
         href: '/settings/roles',
         icon: ShieldCheckIcon,
         permission: 'role.manage',
+        ready: true,
+    },
+    {
+        key: 'privacy',
+        labelKey: 'admin.nav.privacy',
+        href: '/settings/privacy',
+        icon: ShieldUserIcon,
+        permission: 'privacy.manage',
         ready: true,
     },
     {

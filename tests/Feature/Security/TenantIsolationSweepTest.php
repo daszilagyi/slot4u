@@ -10,6 +10,7 @@ use App\Models\Invoice;
 use App\Models\Location;
 use App\Models\MessageTemplate;
 use App\Models\Payment;
+use App\Models\PrivacyRequest;
 use App\Models\QuoteRequest;
 use App\Models\Room;
 use App\Models\Schedule;
@@ -112,6 +113,10 @@ function sweepRecords(Tenant $tenant): array
         ]),
         'location' => $location,
         'payment' => $payment,
+        // Data-subject request queue (SLO-159). The subject is this tenant's own
+        // customer, so the row is a complete, plausible record — the sweep must
+        // fail on the tenant boundary, not on a half-built fixture.
+        'privacyRequest' => PrivacyRequest::factory()->forTenant($tenant)->create(['user_id' => $customer->getKey()]),
         'quoteRequest' => QuoteRequest::factory()->forTenant($tenant)->create(['service_id' => $service->id]),
         'room' => $room,
         'schedule' => Schedule::factory()->forTenant($tenant)->forSchedulable($staff)->create(),

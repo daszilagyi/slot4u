@@ -41,6 +41,15 @@ enum Permission: string
     case BillingEdit = 'billing.edit';
     case SettingsEdit = 'settings.edit';
     case RoleManage = 'role.manage';
+    /**
+     * Handle data-subject requests: see the erasure queue and execute or refuse
+     * a request (SLO-159). Deliberately NOT admin-reserved — GDPR compliance is
+     * exactly the kind of duty a tenant delegates to one named person, and
+     * forcing it into the tenant-admin role would push that person into a role
+     * that also controls billing. It is simply not seeded to any other role, so
+     * the tenant has to grant it on purpose.
+     */
+    case PrivacyManage = 'privacy.manage';
 
     /**
      * @return list<string>
@@ -64,7 +73,7 @@ enum Permission: string
             self::ReportView => PermissionGroup::Insights,
             self::MessageSend, self::TemplateManage => PermissionGroup::Communication,
             self::BillingView, self::BillingEdit,
-            self::SettingsEdit, self::RoleManage => PermissionGroup::Administration,
+            self::SettingsEdit, self::RoleManage, self::PrivacyManage => PermissionGroup::Administration,
         };
     }
 

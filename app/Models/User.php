@@ -11,9 +11,26 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Carbon;
 use Spatie\Permission\PermissionRegistrar;
 use Spatie\Permission\Traits\HasRoles;
 
+/**
+ * Larastan cannot infer the date attributes on this model (the casts live in a
+ * method and the parent contributes some of them), so they are declared — the
+ * same treatment {@see Tenant} needed for its timestamps.
+ *
+ * @property int $id
+ * @property int|null $tenant_id
+ * @property string $name
+ * @property string $email
+ * @property string|null $phone
+ * @property string|null $locale
+ * @property Carbon|null $email_verified_at
+ * @property Carbon|null $anonymized_at the erasure instant (SLO-159); null while the account holds real personal data
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
+ */
 class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
@@ -128,6 +145,7 @@ class User extends Authenticatable implements MustVerifyEmail
     {
         return [
             'email_verified_at' => 'datetime',
+            'anonymized_at' => 'datetime',
             'password' => 'hashed',
         ];
     }
