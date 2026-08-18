@@ -64,6 +64,10 @@ export default function PublicLayout({ children }: PropsWithChildren) {
                         ]
                       : []),
                   { href: '/my/profile', label: t('tenant.nav.my_profile') },
+                  // Not feature-gated, unlike everything above it: the export
+                  // and erasure rights are statutory, so no tenant setting may
+                  // hide the way to exercise them (SLO-159).
+                  { href: '/my/privacy', label: t('tenant.nav.my_privacy') },
               ]
             : auth.user
               ? []
