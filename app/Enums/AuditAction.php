@@ -53,4 +53,15 @@ enum AuditAction: string
     case RoleRenamed = 'role.renamed';
     case RoleDeleted = 'role.deleted';
     case UserRbacUpdated = 'user.rbac_updated';
+
+    // Data-subject requests (SLO-159, GDPR art. 15 & 17). An erasure destroys
+    // personal data irreversibly and a refusal is a decision the tenant may have
+    // to justify, so both land in the trail — as does the export, because
+    // handing out a full copy of someone's data is itself a disclosure. The
+    // trail records the request, never the erased values: an audit row holding
+    // what was just erased would defeat the erasure.
+    case PrivacyDataExported = 'privacy.data_exported';
+    case PrivacyErasureRequested = 'privacy.erasure_requested';
+    case PrivacyErasureCompleted = 'privacy.erasure_completed';
+    case PrivacyErasureRejected = 'privacy.erasure_rejected';
 }

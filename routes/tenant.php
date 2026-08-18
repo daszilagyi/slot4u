@@ -12,6 +12,7 @@ use App\Http\Controllers\Admin\DomainController;
 use App\Http\Controllers\Admin\EventController;
 use App\Http\Controllers\Admin\LocationController;
 use App\Http\Controllers\Admin\MessageTemplateController;
+use App\Http\Controllers\Admin\PrivacyRequestController;
 use App\Http\Controllers\Admin\QuoteRequestController;
 use App\Http\Controllers\Admin\ReportController;
 use App\Http\Controllers\Admin\RoleController;
@@ -31,6 +32,7 @@ use App\Http\Controllers\Tenant\HomeController as TenantHomeController;
 use App\Http\Controllers\Tenant\MyBookingController;
 use App\Http\Controllers\Tenant\MyInvoiceController;
 use App\Http\Controllers\Tenant\MyPaymentController;
+use App\Http\Controllers\Tenant\MyPrivacyController;
 use App\Http\Controllers\Tenant\MyProfileController;
 use App\Http\Controllers\Tenant\MyRequestsController;
 use App\Http\Controllers\Tenant\PaymentController;
@@ -325,6 +327,16 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
             Route::put('/settings/users/{user}/rbac', [UserRbacController::class, 'update'])->name('tenant.users.rbac.update');
         });
 
+        // Data-subject request queue (SLO-159, docs/19). Gated by privacy.manage,
+        // which is seeded to tenant-admin only but — unlike role.manage — is
+        // grantable, so a tenant can put its data-protection contact on it
+        // without also handing them billing.
+        Route::middleware('can:'.Permission::PrivacyManage->value)->group(function () {
+            Route::get('/settings/privacy', [PrivacyRequestController::class, 'index'])->name('tenant.privacy.index');
+            Route::post('/settings/privacy/{privacyRequest}/approve', [PrivacyRequestController::class, 'approve'])->name('tenant.privacy.approve');
+            Route::post('/settings/privacy/{privacyRequest}/reject', [PrivacyRequestController::class, 'reject'])->name('tenant.privacy.reject');
+        });
+
         // Tenant-editable email templates (SLO-112/SLO-114). Gated by
         // template.manage (tenant-admin only per docs/03). The override renders in
         // place of the built-in default for the matching notification (SLO-113);
@@ -370,6 +382,19 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
         Route::put('/my/password', [MyProfileController::class, 'updatePassword'])
             ->middleware('throttle:6,1')
             ->name('tenant.my.password.update');
+
+        // Data protection self-service (SLO-159, docs/19): the art. 15 copy and
+        // the art. 17 request. Not feature-gated — these are statutory rights,
+        // not a product tier, so no tenant configuration may switch them off.
+        Route::get('/my/privacy', [MyPrivacyController::class, 'index'])->name('tenant.my.privacy');
+        // The download assembles a complete personal-data set on every hit;
+        // throttled so it cannot be used to hammer the database from a session.
+        Route::get('/my/privacy/export', [MyPrivacyController::class, 'download'])
+            ->middleware('throttle:6,1')
+            ->name('tenant.my.privacy.export');
+        Route::post('/my/privacy/erasure', [MyPrivacyController::class, 'requestErasure'])
+            ->middleware('throttle:6,1')
+            ->name('tenant.my.privacy.erasure');
 
         // My waitlist positions (SLO-98). Feature-gated; the members nav only shows
         // the link when the feature is on (shared `features` prop), so a customer

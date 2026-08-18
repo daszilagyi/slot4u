@@ -80,6 +80,7 @@ Az issue acceptance criteriája teljesül, ÉS: tesztek zöldek, Pint/Larastan/E
 | `docs/09-mcp-ajanlasok.md` | Fejlesztést gyorsító MCP-k (Laravel Boost, Context7, shadcn, Semgrep...) |
 | `docs/16-deploy-pipeline.md` | Deploy pipeline: tag → jóváhagyás → prod, füstteszt, rollback |
 | `docs/17-monitoring-es-riasztas.md` | Sentry (PII-szabályok), queue/scheduler watchdog, uptime, riasztási runbook |
+| `docs/19-adatvedelem-es-erintetti-jogok.md` | GDPR: adatexport, törlés/anonimizálás, a két jogi kivétel, adatkezelő ≠ adatfeldolgozó |
 
 A docs az igazság forrása. Viselkedésbeli változás = docs-frissítés ugyanabban a PR-ben.
 

@@ -142,6 +142,7 @@ return [
             'my_payments' => 'Fizetéseim',
             'my_invoices' => 'Számláim',
             'my_profile' => 'Profilom',
+            'my_privacy' => 'Adataim',
             'login' => 'Belépés',
         ],
         'my_waitlist' => [
@@ -239,6 +240,36 @@ return [
                 'cancel_submit' => 'Igen, lemondom',
                 'cancel_dismiss' => 'Mégsem',
                 'canceled' => 'A foglalásod lemondva.',
+            ],
+            // Adatvédelmi önkiszolgáló oldal (SLO-159).
+            'privacy' => [
+                'title' => 'Adataim',
+                'subtitle' => 'Letöltheted a rólad tárolt adatokat, és kérheted a törlésüket.',
+                'export_title' => 'Adataim letöltése',
+                'export_body' => 'Egy JSON fájlban megkapod mindazt, amit erről a fiókról tárolunk: a profilodat, a foglalásaidat, az ajánlatkéréseidet, a fizetéseidet és a neked küldött értesítéseket.',
+                'export_action' => 'Letöltés',
+                'erasure_title' => 'Adataim törlése',
+                'erasure_body' => 'A törlési kérelmet a szolgáltató bírálja el — ő az adatkezelő. A foglalásaid a törlés után is megmaradnak, de már nem lesznek hozzád köthetők. A jogszabály által megőrzendő számlák nem törölhetők.',
+                'erasure_action' => 'Törlési kérelem beküldése',
+                'erasure_confirm_title' => 'Biztosan kéred az adataid törlését?',
+                'erasure_confirm_body' => 'A kérelem beküldése után a szolgáltató elbírálja. A törlés végrehajtása nem vonható vissza, és a fiókodba többé nem tudsz belépni.',
+                'erasure_confirm_submit' => 'Igen, kérem a törlést',
+                'erasure_confirm_dismiss' => 'Mégsem',
+                'erasure_pending' => 'A törlési kérelmedet beküldtük, a szolgáltató elbírálására vár.',
+                'erasure_submitted' => 'A törlési kérelmedet rögzítettük.',
+                'anonymized' => 'A fiók adatai törölve lettek.',
+                'history_title' => 'Korábbi kérelmeim',
+                'history_empty' => 'Még nem küldtél be kérelmet.',
+                'type' => [
+                    'export' => 'Adatexport',
+                    'erasure' => 'Törlési kérelem',
+                ],
+                'status' => [
+                    'pending' => 'Elbírálásra vár',
+                    'completed' => 'Teljesítve',
+                    'rejected' => 'Elutasítva',
+                ],
+                'rejected_reason' => 'Az elutasítás indoklása',
             ],
         ],
         'my_reschedule' => [
@@ -653,10 +684,41 @@ return [
             'billing' => 'Számlázás',
             'templates' => 'Email sablonok',
             'roles' => 'Jogosultságok',
+            'privacy' => 'Adatvédelmi kérelmek',
             'domains' => 'Egyedi domain',
             'settings' => 'Beállítások',
             'showcase' => 'UI építőelemek',
             'soon' => 'hamarosan',
+        ],
+        // Adatvédelmi kérelmek sora (SLO-159). A tenant az adatkezelő — itt dönt
+        // az ügyfelei törlési kérelmeiről. A típus/státusz címkék NEM
+        // duplikálódnak: a `tenant.my.privacy.type/status` blokkból jönnek,
+        // ugyanazok a szavak ugyanarra a fogalomra mindkét oldalon.
+        'privacy' => [
+            'title' => 'Adatvédelmi kérelmek',
+            'subtitle' => 'Az ügyfeleid adatexport- és törlési kérelmei. A törlést te hajtod végre — az adatkezelő a te céged, a slot4u csak az adatfeldolgozó.',
+            'empty' => 'Nincs egyetlen kérelem sem.',
+            'pending_count' => 'Elbírálásra vár: :count',
+            'col_subject' => 'Ügyfél',
+            'col_type' => 'Kérelem',
+            'col_requested' => 'Beérkezett',
+            'col_status' => 'Állapot',
+            'col_resolved' => 'Elbírálva',
+            'anonymized_badge' => 'Anonimizálva',
+            'approve' => 'Törlés végrehajtása',
+            'reject' => 'Elutasítás',
+            'approved' => 'A kérelem teljesítve, az ügyfél adatai törölve.',
+            'rejected' => 'A kérelmet elutasítottad.',
+            'approve_confirm_title' => 'Ügyfél adatainak törlése',
+            'approve_confirm_body' => 'Az ügyfél neve, email címe, telefonszáma és a foglalásaihoz írt megjegyzések véglegesen törlődnek. A foglalások ideje, szolgáltatása és ára megmarad, így a statisztikád és a jutalékalapod nem változik. A kiállított számlák a jogszabályi megőrzési kötelezettség miatt érintetlenek maradnak. A művelet nem vonható vissza.',
+            'approve_confirm_submit' => 'Igen, törlöm az adatokat',
+            'reject_title' => 'Kérelem elutasítása',
+            'reject_body' => 'Az elutasítás indoklását az ügyfélnek meg kell adni — írd le, milyen jogalapon őrzitek tovább az adatait.',
+            'reject_label' => 'Indoklás',
+            'reject_placeholder' => 'Pl. folyamatban lévő jogvita miatt az adatokat meg kell őriznünk.',
+            'reject_submit' => 'Elutasítás rögzítése',
+            'dismiss' => 'Mégsem',
+            'resolved_by' => 'Elbírálta: :name',
         ],
         // Role permission-szerkesztő (SLO-141). A permission-címkék a
         // `permission.*` blokkból jönnek (nincs duplikátum), a role-nevek a
@@ -1718,6 +1780,15 @@ return [
             ],
         ],
     ],
+    // ⚠️ Ezt a két értéket az anonimizálás BEÍRJA az adatbázisba
+    // (App\Services\Privacy\AnonymizeCustomer, SLO-159) — a tenant nyelvén, egyszer.
+    // Azért lang fájlból jön, mert utána minden admin lista ezt jeleníti meg
+    // nyers értékként; nem futásidejű címke, hanem a tárolt helyettesítő szöveg.
+    // Megváltoztatása a MÁR anonimizált sorokra visszamenőleg nem hat.
+    'privacy' => [
+        'erased_customer' => 'Törölt ügyfél',
+        'erased_message' => '[Az üzenet tartalmát az ügyfél kérésére töröltük]',
+    ],
     'locale' => [
         'hu' => 'Magyar',
         'en' => 'English',
@@ -1804,6 +1875,13 @@ return [
         'user' => [
             'rbac_updated' => 'Felhasználó szerepkörei és jogosultságai módosítva',
         ],
+        // Nested for the same dot-path reason (SLO-159).
+        'privacy' => [
+            'data_exported' => 'Ügyfél adatexport letöltve',
+            'erasure_requested' => 'Törlési kérelem beérkezett',
+            'erasure_completed' => 'Törlési kérelem teljesítve (anonimizálás)',
+            'erasure_rejected' => 'Törlési kérelem elutasítva',
+        ],
     ],
     // Szerepkör- és jogosultság-címkék a role-szerkesztőhöz (SLO-141).
     // ⚠️ ÁGYAZOTT szerkezet: a permission kódok pontot tartalmaznak
@@ -1847,6 +1925,7 @@ return [
         ],
         'settings' => ['edit' => 'Cégprofil és foglalási szabályok szerkesztése'],
         'role' => ['manage' => 'Szerepkörök és jogosultságok kezelése'],
+        'privacy' => ['manage' => 'Adatvédelmi kérelmek elbírálása (adatexport, törlés)'],
     ],
     'features' => [
         'feature_online_payment' => 'Online fizetés',
