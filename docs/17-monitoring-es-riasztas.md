@@ -62,6 +62,11 @@ második vonal.
 | `queue` | a worker `MONITORING_QUEUE_STALE_MINUTES` (15) percnél régebben futott, **vagy soha nem futott** | nem megy ki visszaigazoló email, emlékeztető, jutalékszámla |
 | `failed_jobs` | legalább 1 sor a `failed_jobs`-ban | egy failed job = egy ügyfél, aki nem kapott visszaigazolást |
 | `scheduler` | a scheduler 15 percnél régebben futott | lejáró trial, várólista, dunning, számlazárás mind áll |
+| `backup` | az utolsó **sikeres** offsite mentés `BACKUP_STALE_AFTER_HOURS`-nál (36) régebbi, **vagy soha nem volt** | egy mentés, ami csendben abbahagyta a futást, a szükség napján derül ki (SLO-154, docs/18) |
+
+A `backup` check **csak ott fut, ahol a mentés be van állítva** — dev és CI nem kap riasztást
+arról, hogy nincs offsite bucketje. Az életjelet a `backup:run` a **feltöltés után** írja,
+tehát egy hetek óta visszautasított feltöltés nem tud egészségesnek látszani.
 
 A queue-életjelet **maga a worker** írja: minden `Looping` eseménynél (nem feldolgozott
 jobnál — a cron-worker üres sorral azonnal kilép, így egy csendes éjszaka is „élő"). Az
@@ -107,6 +112,8 @@ szolgáltatás értesítése.
 | **Sentry: „… failed_jobs: N failed job(s)"** | `php artisan queue:failed` → mi bukott. Ha átmeneti (SMTP timeout): `php artisan queue:retry all`. | Ha kódhiba: javító PR, utána retry. A `failed_jobs` táblát **ne ürítsd** vizsgálat nélkül — minden sor egy elmaradt ügyfél-értesítés. |
 | **Sentry: „… scheduler …"** | `crontab -l` → megvan-e a `schedule:run` sor? `tail ~/logs/scheduler.log`. | A cron újrafelvétele a docs/13 §5 szerint. |
 | **Heartbeat kimaradt (dead man's switch)** | Először: **él-e egyáltalán az oldal?** (`/up`). Ha igen, akkor a scheduler áll → a fenti sor. Ha nem, akkor host-szintű baj. | Tárhely.Eu support; közben statikus tájékoztatás. |
+| **Sentry: „Backup failed …"** | `php artisan backup:list` — mikori a legutolsó jó mentés? A hibaüzenet megnevezi a bukott lépést (dump / feltöltés / titkosítás). | Kézi futtatás: `php artisan backup:run`. Ha a dump bukik: `mysqldump` elérhető-e, van-e hely. Restore-eljárás: **docs/18 §4**. |
+| **Sentry: „… backup: the last successful backup was N hours ago"** | Fut-e egyáltalán a scheduler? (`scheduler` check). Ha igen, a `backup:run` bukik csendben → nézd a logot. | docs/18 §3. Amíg nincs friss mentés, **ne indíts sémát érintő deployt**. |
 | **Uptime: `/up` 500** | Szinte biztosan a DB. cPanel → MySQL él-e; `php artisan db:show`. | Ha a DB él, de az app nem: nézd meg, nem maradt-e karbantartási módban egy félbeszakadt deploy (`php artisan up`). |
 | **Uptime: időtúllépés / 5xx az edge-től** | Cloudflare status + origin közvetlen elérése. | Tárhely.Eu support. |
 
@@ -127,6 +134,7 @@ frissítené, amit értékel, és egy halott scheduler élőnek látszana annak,
 | prod `.env` | `VITE_SENTRY_DSN` | frontend projekt — **a CSP miatt** kell a szerverre is |
 | prod `.env` | `MONITORING_HEARTBEAT_URL` | dead man's switch; üresen nincs kimenő hívás |
 | prod `.env` | `MONITORING_QUEUE_STALE_MINUTES`, `MONITORING_FAILED_JOBS_THRESHOLD` | opcionális hangolás |
+| prod `.env` | `AWS_*`, `BACKUP_PASSPHRASE` | offsite mentés (SLO-154) — a teljes lista **docs/18 §2** |
 | GitHub variables | `VITE_SENTRY_DSN`, `VITE_SENTRY_ENVIRONMENT` | build-time égnek a bundle-be (docs/16 §3.3) |
 
 Semmi nem kötelező: minden kulcs nélkül az app pontosan úgy működik, mint eddig, csak nem
@@ -137,6 +145,7 @@ szól, ha baj van.
 * **Performance tracing és session replay.** A Sentry drága fele — kvótában és abban is,
   amit gyűjt (span-ek URL-lel és SQL-lel, replay az ügyfél gépeléséről). A kérdés itt az,
   hogy *elromlott-e valami*, nem az, hogy lassú-e. A teljesítmény az **SLO-155**.
-* **Disk/DB metrikák, log retention.** Szintén SLO-155 / SLO-154 (backup).
+* **Disk/DB metrikák, log retention.** SLO-155. A mentés és a visszaállítás már megvan:
+  **docs/18**.
 * **Több ügyeletes, eszkalációs lánc.** Egy fejlesztő van; a színlelt rotáció rosszabb, mint
   a nyílt beismerés.

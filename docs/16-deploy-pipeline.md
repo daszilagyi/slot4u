@@ -151,6 +151,11 @@ találkozik — ez a várt irány. Ha egy release valóban nem tud futni az új 
 Az assetekre a rollback a release manifest-pillanatképét állítja vissza
 (`public/build/manifests/<tag>.json`), így a régi kód a saját bundle-jét kapja.
 
+⚠️ **A rollback a kódot állítja vissza, az adatot nem.** Egy migráció, ami adatot ír át,
+a visszaállított kód alatt is átírva marad. Adatra a mentés a kiút, nem a rollback:
+**docs/18 §4**. Séma- vagy adatátíró migrációt tartalmazó release előtt érdemes egy kézi
+`php artisan backup:run`-t futtatni — a napi mentés akár 24 órás lehet.
+
 ### Mit tegyél, ha a deploy elbukott
 
 A script hiba esetén **karbantartási módban hagyja az oldalt**, és kiírja a pontos
@@ -198,5 +203,6 @@ Ami **nem** része ennek a megoldásnak: valódi zero-downtime. Ahhoz release-k�
 ## 8. Kapcsolódó
 
 * `docs/13` — a kézi deploy elődje és a hosting-sajátosságok (gitignore-olt).
+* `docs/18` — backup és restore: mit ment a napi futás, és hogyan áll vissza egy adatvesztés.
 * **SLO-156** — staging + zero-downtime release-könyvtárak.
 * **SLO-148** — `composer audit` / `npm audit` a CI-ban.

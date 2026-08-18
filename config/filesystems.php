@@ -47,6 +47,9 @@ return [
             'report' => false,
         ],
 
+        // The offsite backup target (SLO-154). `throw` is on, unlike the local
+        // disks: a failed upload that silently returns false is a backup that
+        // does not exist and does not say why.
         's3' => [
             'driver' => 's3',
             'key' => env('AWS_ACCESS_KEY_ID'),
@@ -56,7 +59,20 @@ return [
             'url' => env('AWS_URL'),
             'endpoint' => env('AWS_ENDPOINT'),
             'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
-            'throw' => false,
+            'throw' => true,
+            'report' => false,
+        ],
+
+        // Restore-drill target (SLO-154, docs/18 §5), so the drill exercises the
+        // same code path as production without needing bucket credentials.
+        //
+        // Rooted outside storage/app on purpose: a local backup disk inside the
+        // tree being archived would pack every previous backup into the next one,
+        // and the archive would double in size every night.
+        'backup-local' => [
+            'driver' => 'local',
+            'root' => storage_path('backups'),
+            'throw' => true,
             'report' => false,
         ],
 

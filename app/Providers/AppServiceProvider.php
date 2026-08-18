@@ -24,6 +24,7 @@ use App\Models\Staff;
 use App\Models\User;
 use App\Policies\RolePolicy;
 use App\Policies\TenantUserPolicy;
+use App\Services\Backup\BackupShell;
 use App\Services\Domain\CloudflareCustomHostnameProvisioner;
 use App\Services\Domain\CustomHostnameProvisioner;
 use App\Services\Domain\DnsResolver;
@@ -70,6 +71,14 @@ class AppServiceProvider extends ServiceProvider
         $this->app->scoped(CustomDomainResolver::class);
         $this->app->scoped(TenantPublicUrl::class);
         $this->app->bind(DnsResolver::class, SystemDnsResolver::class);
+
+        // Offsite backups (SLO-154). The shell that runs mysqldump/tar/openssl is
+        // built here because its binary and timeout are configuration, and a
+        // container-resolved class would silently get the constructor defaults.
+        $this->app->bind(BackupShell::class, fn (): BackupShell => new BackupShell(
+            shellBinary: (string) config('backup.shell_binary'),
+            timeout: (int) config('backup.timeout'),
+        ));
 
         // Custom hostname TLS (SLO-135). Falls back to the null provisioner
         // wherever Cloudflare is not configured — dev, CI, a fresh install —

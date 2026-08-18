@@ -51,6 +51,13 @@ Schedule::command('billing:close-periods')->hourly()->withoutOverlapping();
 // day-grained. withoutOverlapping keeps a slow run from racing itself.
 Schedule::command('billing:dunning-sweep')->daily()->withoutOverlapping();
 
+// Offsite backup (SLO-154, docs/18). Daily at 02:10 UTC — after midnight in the
+// tenant timezone (Europe/Budapest), so a day's bookings are settled, and off the
+// hour because every other cron on a shared host fires at :00. No-op wherever no
+// destination is configured. withoutOverlapping: a dump that outran its window
+// must not have a second mysqldump started on top of it.
+Schedule::command('backup:run')->dailyAt('02:10')->withoutOverlapping();
+
 // Custom domain certificates (SLO-135). Cloudflare issues them asynchronously
 // while the tenant's DNS propagates and never calls back, so the state has to be
 // polled — every ten minutes, because a tenant who just added a domain is
