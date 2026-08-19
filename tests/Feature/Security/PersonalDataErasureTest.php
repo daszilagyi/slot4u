@@ -18,8 +18,8 @@ use App\Tenancy\TenantManager;
 use Database\Seeders\BasePlanSeeder;
 use Database\Seeders\PermissionSeeder;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 use Spatie\Permission\PermissionRegistrar;
+use Tests\Fixtures\PersonalDataSweep;
 
 /**
  * The erasure sweep (SLO-159, docs/19) — the headline acceptance criterion:
@@ -127,42 +127,15 @@ function erasureFixture(): array
  * Every table/column pair in the live schema that could hold a string, searched
  * for `$needle`. Returns "table.column" for each hit.
  *
+ * The harness itself lives in {@see PersonalDataSweep} because the archived-tenant
+ * purge (SLO-160) has to prove the same thing about the same schema, and two
+ * copies would drift into checking two different things.
+ *
  * @return list<string>
  */
 function erasureSweep(string $needle): array
 {
-    $hits = [];
-
-    foreach (Schema::getTableListing() as $table) {
-        // SQLite reports names schema-qualified ("main.bookings"), MariaDB bare.
-        // Compare on the bare name or the skip list below never matches and the
-        // sweep quietly searches the queue tables too — where a serialised job
-        // payload legitimately holds a recipient address mid-flight.
-        $bare = str_contains($table, '.') ? substr($table, strrpos($table, '.') + 1) : $table;
-
-        // Framework bookkeeping, not tenant data.
-        if (in_array($bare, ['migrations', 'cache', 'cache_locks', 'jobs', 'job_batches', 'failed_jobs'], true)) {
-            continue;
-        }
-
-        foreach (Schema::getColumns($table) as $column) {
-            $type = strtolower((string) $column['type_name']);
-
-            if (! in_array($type, ['varchar', 'text', 'char', 'json', 'longtext', 'mediumtext', 'blob'], true)) {
-                continue;
-            }
-
-            $found = DB::table($table)
-                ->where($column['name'], 'like', '%'.$needle.'%')
-                ->exists();
-
-            if ($found) {
-                $hits[] = $table.'.'.$column['name'];
-            }
-        }
-    }
-
-    return $hits;
+    return PersonalDataSweep::find($needle);
 }
 
 it('finds the personal data everywhere before the erasure', function () {

@@ -64,3 +64,16 @@ Schedule::command('backup:run')->dailyAt('02:10')->withoutOverlapping();
 // watching the screen and an hourly sweep would make a working domain look
 // broken for most of an hour. No-op wherever no provider is configured.
 Schedule::command('domains:refresh-certificates')->everyTenMinutes()->withoutOverlapping();
+
+// Retention (SLO-160, docs/19 §7): purge archived tenants past their 90-day
+// grace period and enforce every log retention window. Daily at 03:30 UTC —
+// after the backup (02:10) has finished, so the last copy of a tenant's data
+// predates the purge by a full window rather than by minutes. Every window is
+// day-grained, so a daily pass is exact enough; withoutOverlapping keeps a slow
+// run from racing itself.
+Schedule::command('privacy:retention-sweep')->dailyAt('03:30')->withoutOverlapping();
+
+// Expired password-reset tokens (Laravel's own command). They are personal data
+// with a lifetime measured in minutes, and nothing else prunes them — the table
+// otherwise keeps every address that ever asked for a reset.
+Schedule::command('auth:clear-resets')->daily();

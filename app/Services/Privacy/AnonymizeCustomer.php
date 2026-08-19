@@ -14,9 +14,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Models\WaitlistEntry;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 
 /**
  * Erases one customer's personal data while leaving the tenant's business
@@ -48,7 +46,9 @@ use Illuminate\Support\Str;
 final class AnonymizeCustomer
 {
     /** Recipient placeholder on a send-ledger row we keep for its shape, not its address. */
-    private const REDACTED_RECIPIENT = 'redacted';
+    public const REDACTED_RECIPIENT = 'redacted';
+
+    public function __construct(private readonly AnonymizeUserProfile $profiles) {}
 
     /**
      * Erase `$user` within `$tenant`. Idempotent: a second call on an already
@@ -167,49 +167,22 @@ final class AnonymizeCustomer
     }
 
     /**
-     * The account itself. The row stays so every foreign key stays valid, but
-     * nothing about it can identify or admit anyone:
-     *
-     * - `email` becomes a per-user address in the reserved `.invalid` TLD
-     *   (RFC 2606), which is guaranteed undeliverable — a real-looking synthetic
-     *   address could collide with someone's actual mailbox;
-     * - `password` becomes a random unknown-to-anyone value rather than null,
-     *   because a null hash is a login attempt away from an unexpected outcome;
-     * - the session rows go, so an erasure logs the person out everywhere
-     *   instead of leaving a live session on an erased account.
+     * The account itself — see {@see AnonymizeUserProfile}, which the
+     * archived-tenant purge shares so the two can never forget a different set
+     * of columns.
      */
     private function eraseProfile(User $user, Tenant $tenant): void
     {
-        $sessionsTable = (string) config('session.table', 'sessions');
-
-        if (config('session.driver') === 'database') {
-            DB::table($sessionsTable)->where('user_id', $user->id)->delete();
-        }
-
-        $user->forceFill([
-            'name' => $this->placeholder('erased_customer', $tenant),
-            'email' => 'anonymized-'.$user->id.'@invalid',
-            'phone' => null,
-            'email_verified_at' => null,
-            'password' => Str::random(64),
-            'remember_token' => null,
-            'anonymized_at' => Carbon::now(),
-        ])->save();
+        $this->profiles->erase($user, $tenant, 'erased_customer');
     }
 
     /**
      * A user-visible replacement string, resolved in the *tenant's* locale
-     * rather than the request's.
-     *
-     * The value is written into the database and then rendered by every admin
-     * screen that lists customers, so it has to read as a sentence, not as a
-     * token — and retrofitting a localised label onto every one of those screens
-     * would be a much larger change with one screen guaranteed to be missed.
-     * Taking it from the lang file keeps the "no hardcoded UI string" rule.
+     * rather than the request's (see {@see AnonymizeUserProfile::placeholder()}).
      */
     private function placeholder(string $key, Tenant $tenant): string
     {
-        return (string) trans('app.privacy.'.$key, [], $tenant->locale);
+        return $this->profiles->placeholder($key, $tenant);
     }
 
     /**

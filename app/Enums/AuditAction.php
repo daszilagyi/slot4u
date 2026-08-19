@@ -64,4 +64,12 @@ enum AuditAction: string
     case PrivacyErasureRequested = 'privacy.erasure_requested';
     case PrivacyErasureCompleted = 'privacy.erasure_completed';
     case PrivacyErasureRejected = 'privacy.erasure_rejected';
+
+    // Retention (SLO-160, docs/19 §7). The purge is the one automated action
+    // that destroys a whole tenant's personal data, so it leaves a trail of
+    // having happened — and, like the erasure above, records nothing of what it
+    // erased. The tenant-wide export is logged for the same reason the customer
+    // one is: handing out a complete data set is itself a disclosure.
+    case TenantPurged = 'tenant.purged';
+    case TenantDataExported = 'tenant.data_exported';
 }
