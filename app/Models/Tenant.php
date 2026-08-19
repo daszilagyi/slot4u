@@ -26,6 +26,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at the archive instant — the platform's only churn timestamp (SLO-138)
+ * @property Carbon|null $purged_at when the retention sweep erased the archived tenant's personal data (SLO-160)
  */
 #[ObservedBy([TenantObserver::class])]
 class Tenant extends Model
@@ -57,6 +58,7 @@ class Tenant extends Model
         return [
             'status' => TenantStatus::class,
             'trial_ends_at' => 'datetime',
+            'purged_at' => 'datetime',
             'branding' => 'array',
             'settings' => 'array',
             // Encrypted at rest: it carries the invoicing provider's API key.

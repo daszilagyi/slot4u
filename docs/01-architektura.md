@@ -30,7 +30,7 @@ Tenant-scoped, gépi (nem lokalizált UI) SEO végpontok a publikus felülethez,
 - Egyedi domain CNAME-mel (`booking.functionalfit.hu`) — `tenant_domains` tábla, `feature_custom_domain` feature flag. **Megvalósítva: SLO-42**, l. az „Egyedi tenant-domain" szakaszt lent.
 - `IdentifyTenant` middleware: subdomain → tenant betöltés → container singleton + global scope aktiválás.
 - Minden tenant-tulajdonú modell: `BelongsToTenant` trait (creating eventnél tenant_id kitöltés, global scope szűrés).
-- Tenant státuszok: `trial`, `active`, `suspended` (lejárt fizetés — csak olvasás/figyelmeztető oldal), `archived` (soft delete, 90 nap megőrzés GDPR szerint).
+- Tenant státuszok: `trial`, `active`, `suspended` (lejárt fizetés — csak olvasás/figyelmeztető oldal), `archived` (soft delete, 90 nap megőrzés GDPR szerint, utána automatikus anonimizálás — `docs/19` §7).
 - Storage: tenantonként prefixelt mappa (`storage/tenants/{id}/...`), publikus asset-ek (logó) külön diskre.
 
 ## Egyedi tenant-domain (SLO-42)

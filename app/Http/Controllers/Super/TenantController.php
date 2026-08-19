@@ -6,14 +6,17 @@ use App\Actions\Tenant\ChangeTenantStatus;
 use App\Actions\Tenant\ExtendTrial;
 use App\Actions\Tenant\SetTenantFeature;
 use App\Actions\Tenant\UpdateTenant;
+use App\Enums\AuditAction;
 use App\Enums\Feature;
 use App\Enums\TenantStatus;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Super\UpdateTenantRequest;
 use App\Models\Tenant;
 use App\Models\TenantCommissionOverride;
+use App\Services\Audit\AuditLogger;
 use App\Services\Commission\ResolveTenantCommissionSettings;
 use App\Services\Feature\FeatureResolver;
+use App\Services\Privacy\TenantDataExport;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -22,6 +25,7 @@ use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 use RuntimeException;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Superadmin tenant management (SLO-77). The whole controller lives behind
@@ -120,6 +124,34 @@ class TenantController extends Controller
         $changeStatus($tenant, TenantStatus::Archived);
 
         return back();
+    }
+
+    /**
+     * Hand an archived tenant its own data back during the grace window
+     * (SLO-160, docs/19 §7.4).
+     *
+     * The tenant-side export lives on its data-protection page, but archiving
+     * soft-deletes the tenant and IdentifyTenant 404s the subdomain — so from
+     * the moment it would matter most, the tenant cannot reach it. This is the
+     * route the archive notice points at: the tenant asks, slot4u produces the
+     * file. Same streamed document, same exclusions.
+     */
+    public function export(Tenant $tenant, TenantDataExport $export, AuditLogger $audit): StreamedResponse
+    {
+        $audit->record(action: AuditAction::TenantDataExported, auditable: $tenant);
+
+        return response()->streamDownload(
+            function () use ($export, $tenant): void {
+                foreach ($export->stream($tenant) as $fragment) {
+                    echo $fragment;
+                }
+            },
+            $export->filename($tenant),
+            [
+                'Content-Type' => 'application/json',
+                'Cache-Control' => 'no-store, private',
+            ],
+        );
     }
 
     public function extendTrial(Tenant $tenant, ExtendTrial $extendTrial): RedirectResponse

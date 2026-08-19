@@ -333,6 +333,10 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
         // without also handing them billing.
         Route::middleware('can:'.Permission::PrivacyManage->value)->group(function () {
             Route::get('/settings/privacy', [PrivacyRequestController::class, 'index'])->name('tenant.privacy.index');
+            // The tenant's own full data set (SLO-160, docs/19 §7.4). Declared
+            // before the {privacyRequest} routes below only for readability —
+            // those are POSTs, so "export" could never be bound as an id.
+            Route::get('/settings/privacy/export', [PrivacyRequestController::class, 'export'])->name('tenant.privacy.export');
             Route::post('/settings/privacy/{privacyRequest}/approve', [PrivacyRequestController::class, 'approve'])->name('tenant.privacy.approve');
             Route::post('/settings/privacy/{privacyRequest}/reject', [PrivacyRequestController::class, 'reject'])->name('tenant.privacy.reject');
         });

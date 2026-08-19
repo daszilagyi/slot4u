@@ -24,6 +24,10 @@ Route::middleware(['auth', 'ensure.superadmin'])->group(function () {
     Route::post('/tenants/{tenant}/activate', [TenantController::class, 'activate'])->withTrashed()->name('super.tenants.activate');
     Route::post('/tenants/{tenant}/archive', [TenantController::class, 'archive'])->withTrashed()->name('super.tenants.archive');
     Route::post('/tenants/{tenant}/extend-trial', [TenantController::class, 'extendTrial'])->withTrashed()->name('super.tenants.extend-trial');
+    // The tenant's full data set, for handing an archived tenant its records
+    // back during the grace window (SLO-160, docs/19 §7.4). withTrashed: an
+    // archived tenant is exactly the one that needs it.
+    Route::get('/tenants/{tenant}/export', [TenantController::class, 'export'])->withTrashed()->name('super.tenants.export');
     Route::post('/tenants/{tenant}/features', [TenantController::class, 'toggleFeature'])->withTrashed()->name('super.tenants.features');
 
     // Impersonation start (SLO-79). No withTrashed: an archived tenant 404s on

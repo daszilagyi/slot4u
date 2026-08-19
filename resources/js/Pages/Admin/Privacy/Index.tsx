@@ -37,16 +37,18 @@ type PrivacyRequestRow = {
 
 type IndexProps = {
     requests: PrivacyRequestRow[];
+    retention_days: number;
 };
 
 /**
- * The tenant's data-subject request queue (SLO-159).
+ * The tenant's data-subject request queue (SLO-159) and its own data export
+ * (SLO-160).
  *
  * Only erasure rows carry actions — an export is already served by the time it
  * appears here, and it is listed purely so the register reads as one chronology
  * of everything that happened to a customer's data.
  */
-export default function PrivacyIndex({ requests }: IndexProps) {
+export default function PrivacyIndex({ requests, retention_days }: IndexProps) {
     const t = useTranslations();
     const [approving, setApproving] = useState<PrivacyRequestRow | null>(null);
     const [rejecting, setRejecting] = useState<PrivacyRequestRow | null>(null);
@@ -101,6 +103,29 @@ export default function PrivacyIndex({ requests }: IndexProps) {
                         })}
                     </p>
                 ) : null}
+
+                {/*
+                 * The tenant's own data set (SLO-160). A plain link, not an
+                 * Inertia visit: the response is a streamed file download, and
+                 * router.get would try to parse it as a page.
+                 */}
+                <section className="flex flex-col gap-3 rounded-xl border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex flex-col gap-1">
+                        <h2 className="font-medium">
+                            {t('admin.privacy.export_title')}
+                        </h2>
+                        <p className="text-sm text-muted-foreground">
+                            {t('admin.privacy.export_body', {
+                                days: retention_days,
+                            })}
+                        </p>
+                    </div>
+                    <Button variant="outline" asChild className="shrink-0">
+                        <a href="/settings/privacy/export">
+                            {t('admin.privacy.export_action')}
+                        </a>
+                    </Button>
+                </section>
 
                 {requests.length === 0 ? (
                     <p className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">

@@ -5,15 +5,20 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Admin;
 
 use App\Actions\Privacy\ResolveErasureRequest;
+use App\Enums\AuditAction;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Super\TenantController;
 use App\Http\Requests\Admin\RejectPrivacyRequestRequest;
 use App\Models\PrivacyRequest;
+use App\Services\Audit\AuditLogger;
+use App\Services\Privacy\TenantDataExport;
 use App\Tenancy\TenantManager;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * The tenant's data-subject request queue (SLO-159) — where the tenant, as
@@ -69,7 +74,54 @@ class PrivacyRequestController extends Controller
                 'resolved_by' => $item->resolvedBy?->name,
                 'resolution_note' => $item->resolution_note,
             ])->all(),
+            // How long an archived tenant's data survives, so the page that
+            // offers the export can say why taking one matters (docs/19 §7).
+            'retention_days' => (int) config('privacy.retention.archived_tenant_days'),
         ]);
+    }
+
+    /**
+     * The tenant's own complete data set, streamed as a JSON download
+     * (SLO-160, docs/19 §7.4).
+     *
+     * Sits on the data-protection page rather than under billing because it is
+     * the controller's counterpart to the customer export next to it: the tenant
+     * takes its records with it before the 90-day purge removes them. Streamed
+     * from a cursor — a busy tenant's history is not a thing to assemble in
+     * memory on a shared host.
+     *
+     * ⚠️ Available while the tenant is *reachable*, which an archived tenant is
+     * not: archiving soft-deletes it and IdentifyTenant 404s the whole
+     * subdomain. That is why the same export also hangs off the superadmin
+     * tenant page ({@see TenantController::export()})
+     * — during the grace window slot4u can still hand the data over on request,
+     * which is what the archive notice tells the tenant to ask for.
+     */
+    public function export(TenantDataExport $export, AuditLogger $audit): StreamedResponse
+    {
+        Gate::authorize('viewAny', PrivacyRequest::class);
+
+        $tenant = $this->tenants->current();
+        abort_if($tenant === null, 404);
+
+        // Recorded before the stream opens: a callback that runs while the
+        // response is being flushed cannot reliably write to the database, and
+        // an unlogged disclosure is worse than one logged a moment early.
+        $audit->record(action: AuditAction::TenantDataExported, auditable: $tenant);
+
+        return response()->streamDownload(
+            function () use ($export, $tenant): void {
+                foreach ($export->stream($tenant) as $fragment) {
+                    echo $fragment;
+                }
+            },
+            $export->filename($tenant),
+            [
+                'Content-Type' => 'application/json',
+                // A complete business data set; no cache, anywhere.
+                'Cache-Control' => 'no-store, private',
+            ],
+        );
     }
 
     /**

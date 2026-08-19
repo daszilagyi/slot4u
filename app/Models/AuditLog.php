@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Services\Audit\AuditLogger;
+use App\Services\Privacy\RetentionSweep;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
@@ -27,7 +28,14 @@ use Illuminate\Support\Carbon;
  */
 class AuditLog extends Model
 {
-    /** Audit rows are immutable: created once, never updated. */
+    /**
+     * Audit rows are immutable: created once, never updated.
+     *
+     * The one exception is retention ({@see RetentionSweep},
+     * SLO-160), which blanks `ip_address` after its window and deletes the row
+     * after a longer one. That is data minimisation acting on the row, not the
+     * application revising what it recorded — nothing else may write here.
+     */
     public const UPDATED_AT = null;
 
     /**

@@ -719,6 +719,11 @@ return [
             'reject_submit' => 'Elutasítás rögzítése',
             'dismiss' => 'Mégsem',
             'resolved_by' => 'Elbírálta: :name',
+            // Tenant-szintű adatexport (SLO-160, docs/19 §7.4) — ez nem az
+            // érintetti kérelem, hanem az adatkezelő saját másolata.
+            'export_title' => 'A cég teljes adatkészlete',
+            'export_body' => 'Letöltheted egy JSON fájlban a foglalásaitokat, ügyfeleiteket, szolgáltatásaitokat és számláitokat. Ha a fiókotokat archiváljuk, az adatokat még :days napig őrizzük meg — érdemes előtte másolatot készíteni.',
+            'export_action' => 'Adatexport letöltése',
         ],
         // Role permission-szerkesztő (SLO-141). A permission-címkék a
         // `permission.*` blokkból jönnek (nincs duplikátum), a role-nevek a
@@ -1788,6 +1793,11 @@ return [
     'privacy' => [
         'erased_customer' => 'Törölt ügyfél',
         'erased_message' => '[Az üzenet tartalmát az ügyfél kérésére töröltük]',
+        // A megőrzési idő lejárta után archivált tenant minden felhasználója
+        // (ügyfél és dolgozó egyaránt) ezt a nevet kapja — a purge után nincs
+        // értelmes különbség köztük, mindkettő olyan ember, akit a platform
+        // már nem ismer (SLO-160).
+        'erased_user' => 'Törölt felhasználó',
     ],
     'locale' => [
         'hu' => 'Magyar',
@@ -1841,6 +1851,9 @@ return [
             'trial_extended' => 'Trial meghosszabbítva',
             'feature_toggled' => 'Funkció átállítva',
             'updated' => 'Tenant adatok módosítva',
+            // SLO-160, docs/19 §7.
+            'purged' => 'Archivált tenant adatai törölve (megőrzési idő lejárt)',
+            'data_exported' => 'Tenant teljes adatexport letöltve',
         ],
         // Nested for the same dot-path reason as the tenant block above.
         'booking' => [
@@ -2068,6 +2081,17 @@ return [
             ],
             'amount' => 'Fizetendő összeg: :amount (fizetési határidő: :due).',
             'action' => 'Számlázás megnyitása',
+        ],
+        // Archiválási értesítő (SLO-160, docs/19 §7). Nincs benne „nyisd meg a
+        // fiókod" gomb: az archiválás soft delete, az aldomén ettől a
+        // pillanattól 404 — az adatait a slot4u adja ki a türelmi idő alatt.
+        'tenant_archived' => [
+            'subject' => 'A(z) :tenant fiókja archiválva',
+            'greeting' => 'Szia :name!',
+            'intro' => 'A(z) :tenant slot4u-fiókját archiváltuk. A foglalási felület és az admin felület mostantól nem érhető el.',
+            'deadline' => 'Az adataitokat :date napjáig őrizzük meg, utána a személyes adatokat véglegesen és visszafordíthatatlanul töröljük.',
+            'kept' => 'A kiállított számlákat és a jutalékszámlákat ezután is megőrizzük — ezt számviteli kötelezettség írja elő (Szt. 169. §, 8 év).',
+            'export' => 'Ha a törlés előtt kéred a teljes adatkészletetek másolatát (foglalások, ügyfelek, szolgáltatások, számlák), válaszolj erre az emailre, és elküldjük.',
         ],
     ],
 ];

@@ -1,9 +1,9 @@
 # 19 — Adatvédelem: érintetti jogok, adatexport és törlés
 
 > **Státusz:** az SLO-159 (SLO-48 1/3) szállította az érintetti jogok technikai
-> oldalát. A **megőrzési idők és az automatikus takarítás** (archivált tenant 90
-> nap, log-retention) az **SLO-160**-é, a **verziókövetett hozzájárulás és a
-> cookie consent** az **SLO-161**-é — mindkettő ebbe a dokumentumba fog beépülni.
+> oldalát, az **SLO-160** (2/3) a **megőrzési időket és az automatikus
+> takarítást** (§7). A **verziókövetett hozzájárulás és a cookie consent** az
+> **SLO-161**-é — az is ebbe a dokumentumba fog beépülni.
 >
 > ⚠️ Ez a fájl a **technikai** megvalósítást írja le. Az ÁSZF és az adatkezelési
 > tájékoztató **szövegéhez jogász kell**; a slot4u nem ad jogi tanácsot.
@@ -122,10 +122,145 @@ megjelenése napján megbuktatja a tesztet, nem akkor, amikor egy hatóság rák
 A söprés harness-e külön teszttel van validálva (a törlés **előtt** találnia
 kell), különben „nulla oszlopon" sikerülne.
 
-## 6. Ami még hátravan
+## 7. Megőrzési idők és az automatikus takarítás (SLO-160)
+
+A 2–3. szakasz arról szól, mit tehet az érintett *kérésre*. Ez a szakasz arról,
+ami **kérés nélkül, magától** történik: ami már nem kell, annak el kell tűnnie.
+
+### 7.1 A megőrzési ablakok
+
+Mind egy helyen: **`config/privacy.php`**. Szándékosan **nem env-vezérelt** — egy
+megőrzési idő dokumentált jogi álláspont, nem környezetenkénti kapcsoló, és egy
+`.env`-elgépelés olyan adatot semmisítene meg, amit egyetlen visszaállítás sem
+tesz a helyére.
+
+| Adat | Ablak | Mi történik | Miért ennyi |
+|---|---|---|---|
+| **Archivált tenant** | 90 nap | anonimizálás (§7.2) | `docs/01`, `docs/03` §105 óta ígért ablak |
+| `notifications_log.recipient` | 90 nap | **redaktálás** (`redacted`) | a sor a dedup-kulcsot hordozza (§7.3) |
+| `audit_logs.ip_address` | 90 nap | nullázás | a napló túléli az IP-t, ami nyomozáshoz sokkal hamarabb használhatatlan |
+| `audit_logs` sor | 730 nap | törlés | 2 év minden reális „ki írta át?" vizsgálatot lefed |
+| `sessions` | 30 nap tétlenség | törlés | user id + IP + user agent; a Laravel saját gc-je lottó |
+| `integration_logs` | 90 nap | törlés | `docs/06` — ⚠️ **a tábla még nem létezik**, l. §7.5 |
+| `password_reset_tokens` | Laravel `auth:clear-resets` | törlés | percekben mérhető élettartamú személyes adat |
+
+Végrehajtó: **`privacy:retention-sweep`**, naponta **03:30 UTC** — a mentés
+(02:10, `docs/18`) *után*, hogy egy tenant utolsó mentése egy teljes ablakkal
+előzze meg a törlést, ne pár perccel. Minden lépés felülírás vagy már lejárt
+sorok törlése, tehát **idempotens**; egy megszakadt futást egyszerűen pótol a
+következő. A lépések függetlenek: amelyik nem tud lefutni, nem állítja meg a
+többit, viszont **„skipped"-ként jelenik meg** — a némán nulla sor
+megkülönböztethetetlen lenne a „minden rendben"-től.
+
+### 7.2 Az archivált tenant: anonimizálás, NEM törlés
+
+Az „archiválás után 90 nappal töröljük a tenantot" kézenfekvő olvasata a hard
+delete, és **ez a rossz olvasat**. A `tenants` sor kaszkádol a foglalásokra, a
+foglalások viszont a forgalmat hordozzák, amiből a slot4u jutaléka számolódik
+(`docs/10` §3.1). Egy hard delete tehát **visszamenőleg átírná a slot4u saját
+bevételi történetét**, és árván hagyná a már kiállított jutalékszámlákat —
+amiket mindkét fél 8 évig köteles megőrizni (Szt. 169. §). Ugyanaz a logika,
+mint az ügyfél-törlésnél (§3.2), csak tenant-léptékben.
+
+Ezért a purge (`App\Services\Privacy\PurgeTenant`) **a vázat meghagyja** — a
+tenant sorát, a foglalások idejét/árát/státuszát, a kiállított számlákat és a
+PDF-eket —, és **minden személyre utaló adatot elvesz**:
+
+* minden felhasználó (ügyfél **és** dolgozó) profilja anonimizálódik — a közös
+  `AnonymizeUserProfile`-lal, hogy egy új PII-oszlop ne csak az egyik ágon
+  essen ki;
+* a foglalások és ajánlatkérések vendég-oszlopai, jegyzetei, indoklásai;
+* a `staff` név/titulus/bio/fotó, a `locations` telefon és cím;
+* a tenant kapcsolati blokkja a `settings`-ből, a `branding`, és az
+  **`invoicing` (a számlázó API kulcs)** — egy távozott cég hitelesítő adatának
+  semmi keresnivalója az adatbázisban, titkosítva sem;
+* a várólista-helyek **törlődnek** (élő ígéret a megkeresésre).
+
+**Megmarad** a tenant `name`/`slug` (a jutalékszámlák másik felét meg kell tudni
+nevezni), a foglalások üzleti adatai, a `invoices` + `commission_invoices` és az
+audit napló.
+
+A purge **tenant-szintű bulk művelet, nem `users`-ciklus**: egy vendég-foglalás,
+amit sosem regisztrált ember adott le, egyetlen user sorhoz sem kötődik, tehát
+egy ciklus állva hagyná.
+
+**Verseny és megszakítás.** Az egész purge egy tranzakció, ami a tenant sorára
+vett zárral indul és **újraellenőrzi az összes feltételt**. Egy párhuzamos
+visszaállítás sima `UPDATE tenants`, tehát erre a zárra vár: vagy előbb ér oda
+(és akkor kihagyjuk, mert a tenant már nem archivált), vagy utóbb. Ha a folyamat
+menet közben meghal, a tranzakció **egyben gördül vissza**, és a következő
+futás elölről csinálja — ezért kerül a `tenants.purged_at` **utolsóként**.
+
+### 7.3 Miért redaktálunk a naplókban, és miért törlünk
+
+* A **`notifications_log` sorai maradnak**: a `(tenant_id, type, dedupe_key)`
+  egyediség az, ami egy értesítést pontosan-egyszerivé tesz. Egy sor törlése
+  **feltámaszthat egy kiküldést**. Személyes adat benne csak a `recipient`,
+  tehát csak az megy. ⚠️ **Következmény:** a 15. cikkes export a címzett szerint
+  párosít, tehát 90 napnál régebbi értesítés már nem szerepel az ügyfél saját
+  másolatában. Ez maga az adatminimalizálás, nem az export hibája.
+* Az **`audit_logs` sorait törölhetjük**, mert semmi nem függ a létezésüktől. A
+  730 nap szándékosan rövidebb a 8 éves számviteli ablaknál: a **számviteli
+  bizonyíték a számla, nem az audit sor**, ami megemlíti — a számla és a PDF
+  amúgy is marad (§3.3).
+
+### 7.4 Tenant adatexport kilépéskor
+
+A 90 nap csak akkor tisztességes, ha a tenant **el tudja vinni a sajátját**.
+
+* **Tenant oldalon:** `/settings/privacy` → „Adatexport letöltése"
+  (`GET /settings/privacy/export`), `privacy.manage` mögött. Egy streamelt JSON:
+  helyszínek, termek, dolgozók, kategóriák, szolgáltatások, ügyfelek,
+  foglalások, ajánlatkérések + üzenetek, várólista, fizetések, számlák és a
+  jutalékszámlák. Kurzorból íródik, soronként — egy forgalmas tenant története
+  nem az a dolog, amit egy osztott tárhelyen memóriában rakunk össze.
+* **Nincs benne:** a `tenants.invoicing` (a modell dekódolná a szolgáltatói API
+  kulcsot egyenesen a fájlba), a jelszó-hashek és remember tokenek, valamint az
+  audit napló (az a slot4u platform-szintű biztonsági nyilvántartása, saját
+  jogalappal — nem tenant-tulajdon).
+* ⚠️ **Az archiválás pillanatától a tenant aldoménje 404**, tehát pont akkor nem
+  éri el a saját exportját, amikor kellene. Ezért ugyanaz az export a
+  **superadmin oldalon is elérhető** (`GET /tenants/{tenant}/export`,
+  `withTrashed`): a türelmi idő alatt a slot4u kérésre kiadja. Az archiválási
+  értesítő pontosan erre irányít.
+* Az **archiválási értesítő** (`TenantArchivedNotification`) a
+  `ChangeTenantStatus` Actionbe van kötve, nem a controllerbe — így egyetlen
+  jövőbeli belépési pont sem tud némán archiválni. Megnevezi a **pontos
+  törlési dátumot** a tenant időzónájában, hogy a számlák megmaradnak, és hogy
+  hogyan kérhető még másolat. Csak az archiváltba *belépéskor* megy ki: egy
+  már archivált tenant újraarchiválása nem küldhet egy második, későbbi
+  határidőt, mert a söprés továbbra is az eredeti `deleted_at`-ből számol.
+
+### 7.5 Amit ez a szakasz NEM old meg
+
+* Az **`integration_logs` tábla nem létezik** — a `docs/02` specifikálja, a
+  `docs/06` 90 napot ír rá, de az M6 fizetés-munka nélküle szállt le. A söprés
+  lépése **készen áll** és a tábla első napjától érvényesíti az ablakot; addig
+  „skipped"-et jelent. Ha a tábla megszületik, ebben nincs teendő.
+* A **fájl-logok** rotációja (`laravel.log`, méret/lemez) az **SLO-155** — más
+  probléma, ne csússzon össze ezzel.
+
+## 8. Bizonyíték a retentionre
+
+* `tests/Feature/Privacy/TenantPurgeTest.php` — ugyanaz az **élő sémán söprő**
+  harness (`Tests\Fixtures\PersonalDataSweep`), amit a §5 használ, csak most a
+  tenant összes emberére: ügyfél, dolgozó **és a sosem regisztrált vendég**. A
+  harness validálva (a purge előtt találnia *kell*), és a 89 vs. 91 napos
+  határeset mindkét irányban tesztelt. A verseny (visszaállítás a söprés alatt)
+  külön eset, a zár alatti újraellenőrzés pedig közvetlenül is.
+* `tests/Feature/Privacy/RetentionWindowsTest.php` — minden ablak a saját
+  határán (89/91, 729/731 nap), a chunkolt törlés több körön át, és hogy a
+  session-vágás **soha nem megy közelebb a `session.lifetime`-nál** (egy
+  megőrzési beállítás nem léptethet ki egy bejelentkezett felhasználót).
+* `tests/Feature/Privacy/TenantDataExportTest.php` — a fájl érvényes JSON, csak
+  a saját tenant adatait tartalmazza, és **nincs benne a számlázó API kulcs**.
+* `tests/Feature/Privacy/TenantArchiveNoticeTest.php` — az értesítő kimegy, a
+  határidőt a tenant időzónájában nevezi meg, és nem megy ki kétszer.
+
+## 9. Ami még hátravan
 
 | Mi | Hol |
 |---|---|
-| Archivált tenant 90 nap → anonimizálás, log-retention, tenant adatexport kilépéskor | **SLO-160** |
 | Verziókövetett ÁSZF/adatkezelési elfogadás, cookie consent | **SLO-161** |
 | ÁSZF + adatkezelési tájékoztató szövege | **jogász** |
+| `integration_logs` tábla (a retention-lépés már megvan) | `docs/02`, `docs/06` |
