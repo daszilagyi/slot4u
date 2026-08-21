@@ -172,6 +172,14 @@ Ellenőrzés a visszaállított adatbázison:
   visszaállított sémát olvassa.
 * A fájl-archívumból 5 fájl bomlott ki hiánytalanul.
 
+> ⚠️ **Egy ÜRES környezet felhúzásánál a visszaállítás önmagában nem elég** (SLO-166).
+> Egy adatbázis-visszaállítás mindent visszahoz, de egy nulláról épített környezetnél
+> (staging, új szerver) a **kötelező platform-adat** külön lépés:
+> `php artisan db:seed --class=ProductionSeeder --force`. A deploy ezt magától megteszi,
+> egy kézi felhúzás nem. A hiány **néma**: az app elindul, a füstteszt zöld, csak épp nincs
+> jogosultság-katalógus, nincs `base` plan, nincs jutalék-konfiguráció, és a regisztráció
+> nem kér elfogadást.
+
 ### 6.2 Amit ez a próba NEM fedett
 
 * **A letöltés az S3-ról** — ahhoz éles bucket-kulcs kell. A kód ugyanaz

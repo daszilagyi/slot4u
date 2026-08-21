@@ -231,6 +231,23 @@ else
     "${PHP}" artisan migrate --force
 fi
 
+# Required platform data (SLO-166). Idempotent by construction — every seeder it
+# calls returns early when its rows exist — so it runs on every deploy rather
+# than being a step somebody has to remember for the release that needs it.
+#
+# It ran nowhere before this, and the gap surfaced the way it always does: the
+# consent machinery shipped to production and sat inert because no platform
+# document existed. Everything was green and the feature quietly did nothing.
+#
+# Skipped on a rollback for the same reason migrations are: going backwards
+# should change as little as possible.
+if [[ "${SKIP_MIGRATIONS}" == "1" ]]; then
+    log "Skipping the required-data seed (rollback)"
+else
+    log "Seeding required platform data"
+    "${PHP}" artisan db:seed --class=ProductionSeeder --force
+fi
+
 # `artisan storage:link` cannot work here — symlink() is disabled on this shared
 # host (docs/13) — but the shell's ln can. Idempotent.
 ln -sfn "${APP_DIR}/storage/app/public" "${APP_DIR}/public/storage"

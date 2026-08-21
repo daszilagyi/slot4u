@@ -276,10 +276,30 @@ script ugyanazzal a curl-lel beszél vele, mint élesben. Lefedve: az egészség
 challenge három álruhája, a parkoló oldal, és hogy a token-header tényleg **minden**
 kérésen kimegy.
 
+### 6.3 Kötelező platform-adat (SLO-166)
+
+A deploy a migráció után lefuttatja a **`ProductionSeeder`**-t. Ez **csak katalógus-adatot**
+tesz ki — jogosultságok, `base` plan, jutalék-konfiguráció, platform jogi dokumentumok —,
+demo vagy teszt adatot **soha** (az a `DatabaseSeeder`, ami élesen nem futhat).
+
+⚠️ **Miért került bele:** a `v0.7.4`-ig a deploy **semmit nem seedelt**. Az SLO-161 emiatt
+**tétlenül landolt volna** élesben: kint volt a két új tábla, de nulla platform jogi
+dokumentum, tehát a cégregisztráció **semmilyen elfogadást nem kért volna**. Minden
+ellenőrzés zöld volt — az app elindult, a migrációk lefutottak, a füstteszt átment.
+
+**Ez a hiányosságok jellemző alakja itt:** a hiányzó katalógus-adat nem hibát okoz, hanem
+**udvarias semmittevést**. Ezért fut a seed **minden** deploynál, nem csak akkor, amikor
+„kell": minden hívott seeder idempotens (`if (...exists()) return;`), tehát a következő
+kötelező adat magától kimegy, ahelyett hogy egy kiadási jegyzetben kellene emlékezni rá —
+a `v0.7.4` tag üzenetébe pont ilyen kézi emlékeztető került.
+
+**Rollbacknál kimarad**, ugyanazért, amiért a migráció: visszafelé menet minél kevesebb
+változzon.
+
 ## 7. Karbantartási ablak
 
 `artisan down` és `artisan up` között csak ez van: checkout → (composer, ha a lock változott)
-→ migrate → cache-ek. A cron-vezérelt queue worker és a scheduler **maguktól állnak** a
+→ migrate → **kötelező adat seedelése** → cache-ek. A cron-vezérelt queue worker és a scheduler **maguktól állnak** a
 karbantartási mód alatt (mindkettő ellenőrzi), tehát nem fut job félig frissült kódon.
 
 Ami **nem** része ennek a megoldásnak: valódi zero-downtime. Ahhoz release-könyvtárak és
