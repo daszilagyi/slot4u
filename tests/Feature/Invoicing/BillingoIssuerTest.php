@@ -568,3 +568,59 @@ it('treats a booking with no billing details as a receipt', function () {
 
     expect(BillingDetails::fromBooking($booking)->canInvoice())->toBeFalse();
 });
+
+/*
+|--------------------------------------------------------------------------
+| The PDF is not ready the moment the document is (SLO-168)
+|--------------------------------------------------------------------------
+|
+| ⚠️ Billingo renders asynchronously and answers an early download with HTTP 202
+| and a 59-byte JSON error. 202 is a 2xx, so every "was it successful?" check
+| says yes — and the adapter stored that JSON as the customer's invoice. Nothing
+| looked wrong until somebody clicked download.
+|
+| Found by a live run against the demo account, because a fake that returns a
+| PDF instantly cannot express the problem. These tests exist so the fix is held
+| in place now that it is known.
+|
+*/
+
+it('waits for a PDF that is still being rendered', function () {
+    $tenant = billingoTenant();
+    fakeBillingo([
+        BillingoClient::BASE_URL.'/documents/*/download' => Http::sequence()
+            ->push('{"error":{"message":"Document PDF has not generated yet."}}', 202)
+            ->push('{"error":{"message":"Document PDF has not generated yet."}}', 202)
+            ->push('%PDF-1.4 rendered at last', 200),
+    ]);
+
+    $issued = app(BillingoInvoiceIssuer::class)->issue(billingoRequest($tenant));
+
+    expect($issued->pdf)->toStartWith('%PDF');
+});
+
+it('never stores a 202 body as the document', function () {
+    // The exact failure: a successful status carrying an error, saved as a PDF.
+    $tenant = billingoTenant();
+    fakeBillingo([
+        BillingoClient::BASE_URL.'/documents/*/download' => Http::response(
+            '{"error":{"message":"Document PDF has not generated yet."}}',
+            202,
+        ),
+    ]);
+
+    expect(fn () => app(BillingoInvoiceIssuer::class)->issue(billingoRequest($tenant)))
+        ->toThrow(RuntimeException::class, 'has not finished rendering');
+});
+
+it('refuses a 200 that is not a PDF either', function () {
+    // Belt and braces on the same idea: the status is only half the question,
+    // and the other half is whether the bytes are a document at all.
+    $tenant = billingoTenant();
+    fakeBillingo([
+        BillingoClient::BASE_URL.'/documents/*/download' => Http::response('<html>maintenance</html>', 200),
+    ]);
+
+    expect(fn () => app(BillingoInvoiceIssuer::class)->issue(billingoRequest($tenant)))
+        ->toThrow(RuntimeException::class, 'has not finished rendering');
+});
