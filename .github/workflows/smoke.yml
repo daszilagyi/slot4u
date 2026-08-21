@@ -1,0 +1,70 @@
+name: Smoke test
+
+# SLO-162 — a way to ask "does the edge let a GitHub runner through?" without
+# shipping anything.
+#
+# The smoke test otherwise only runs at the end of a deploy, which makes a
+# Cloudflare challenge something you can reproduce only by releasing. That is a
+# bad place to be: the free plan keeps Security Events for 24 hours, so an
+# investigation has to start within a day of the event that prompted it.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'The release currently live in production (e.g. v0.7.3)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Smoke test production
+    runs-on: ubuntu-latest
+    # DEPLOY_HEALTH_TOKEN is an environment secret, so this inherits the
+    # production approval gate. Reading production's secret is worth one click,
+    # even for a job that only ever performs GET requests.
+    environment:
+      name: production
+      url: ${{ vars.DEPLOY_URL }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Resolve the commit this release points at
+        id: target
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke test
+        env:
+          DEPLOY_HEALTH_TOKEN: ${{ secrets.DEPLOY_HEALTH_TOKEN }}
+        run: bash deploy/smoke.sh "${{ vars.DEPLOY_URL }}" "${{ inputs.ref }}" "${{ steps.target.outputs.sha }}"
+
+      # Only on failure, and only response headers. Which of the two callers the
+      # edge objects to is the whole question: Browser Integrity Check challenges
+      # a request whose user agent looks automated (a bare curl — which is what
+      # this test used to send), while a bot rule challenges the IP no matter who
+      # asks. One request each tells the two apart, and the answer decides
+      # whether a WAF skip rule can help at all (docs/16 §6.1).
+      - name: Who does the edge object to?
+        if: failure()
+        env:
+          DEPLOY_HEALTH_TOKEN: ${{ secrets.DEPLOY_HEALTH_TOKEN }}
+          URL: ${{ vars.DEPLOY_URL }}
+        run: |
+          interesting='^(HTTP/|cf-|server:|content-security-policy:)'
+          echo "--- as the smoke test (identified) ---"
+          curl -sS -o /dev/null -D - --max-time 20 \
+            -A 'slot4u-smoke/1 (+https://slot4u.hu)' \
+            -H "X-Deploy-Token: ${DEPLOY_HEALTH_TOKEN}" "${URL}/up" \
+            | grep -iE "${interesting}" || true
+          echo "--- as a bare curl (anonymous) ---"
+          curl -sS -o /dev/null -D - --max-time 20 "${URL}/up" \
+            | grep -iE "${interesting}" || true
+          echo
+          echo "Both challenged   → a bot rule or Security Level objects to the runner IP."
+          echo "Only the bare one → Browser Integrity Check; the identified request is already through."
+          echo "Then: Cloudflare → the zone → Analytics → Events, WITHIN 24 HOURS (free plan retention)."
