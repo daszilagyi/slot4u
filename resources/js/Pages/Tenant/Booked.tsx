@@ -1,4 +1,5 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
+import { useState } from 'react';
 import {
     CalendarPlusIcon,
     CheckCircle2Icon,
@@ -8,6 +9,7 @@ import {
 
 import PublicLayout from '@/Layouts/PublicLayout';
 import { Badge } from '@/components/ui/badge';
+import ConfirmDialog from '@/components/admin/ConfirmDialog';
 import { Button } from '@/components/ui/button';
 import { formatMoney } from '@/lib/format';
 import { useTranslations } from '@/lib/i18n';
@@ -32,6 +34,7 @@ const KNOWN_STATUSES = [
 
 export default function Booked({ booking }: BookedProps) {
     const t = useTranslations();
+    const [canceling, setCanceling] = useState(false);
 
     const statusKey = KNOWN_STATUSES.includes(booking.status)
         ? booking.status
@@ -157,6 +160,18 @@ export default function Booked({ booking }: BookedProps) {
                 </dl>
 
                 <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
+                    {/* Guest self-service cancellation (SLO-129). A button that
+                        POSTs, never a link — a cancel that a GET performs would be
+                        triggered by every mail scanner and link-preview bot that
+                        walks the confirmation email. */}
+                    {booking.can_cancel ? (
+                        <Button
+                            variant="outline"
+                            onClick={() => setCanceling(true)}
+                        >
+                            {t('tenant.booked.cancel')}
+                        </Button>
+                    ) : null}
                     {isScheduled ? (
                         <Button asChild variant="outline">
                             <a href={`/booked/${booking.code}/ics`}>
@@ -170,6 +185,24 @@ export default function Booked({ booking }: BookedProps) {
                     </Button>
                 </div>
             </div>
+
+            <ConfirmDialog
+                open={canceling}
+                onOpenChange={setCanceling}
+                title={t('tenant.booked.cancel_confirm_title')}
+                description={t('tenant.booked.cancel_confirm', {
+                    code: booking.code,
+                })}
+                confirmLabel={t('tenant.booked.cancel_submit')}
+                cancelLabel={t('tenant.booked.cancel_keep')}
+                destructive
+                onConfirm={() => {
+                    router.post(`/booked/${booking.code}/cancel`, undefined, {
+                        preserveScroll: true,
+                    });
+                    setCanceling(false);
+                }}
+            />
         </PublicLayout>
     );
 }

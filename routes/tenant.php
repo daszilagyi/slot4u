@@ -116,6 +116,10 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
             ->name('tenant.book.quote');
         Route::get('/quote-sent', [TenantBookingController::class, 'quoteSent'])->name('tenant.quote_sent');
         Route::get('/booked/{booking:code}', [TenantBookingController::class, 'confirmation'])->name('tenant.booked');
+        // Guest self-service cancellation (SLO-129). POST on purpose: a GET that
+        // cancels would be followed by mail scanners and link-preview bots, and
+        // bookings would cancel themselves before anyone read the email.
+        Route::post('/booked/{booking:code}/cancel', [TenantBookingController::class, 'cancelPublic'])->name('tenant.booked.cancel');
         Route::get('/booked/{booking:code}/ics', [TenantBookingController::class, 'ics'])->name('tenant.booked.ics');
     });
 

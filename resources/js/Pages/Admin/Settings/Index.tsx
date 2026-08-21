@@ -19,6 +19,7 @@ type SettingsData = {
     address_postal: string | null;
     opening_hours: string | null;
     social: Record<string, string>;
+    online_cancellation_enabled: boolean;
     cancellation_deadline_hours: number;
     slot_interval_minutes: number;
     refund_policy: string;
@@ -67,6 +68,7 @@ export default function SettingsIndex({
             acc[key] = settings.social[key] ?? '';
             return acc;
         }, {}),
+        online_cancellation_enabled: settings.online_cancellation_enabled,
         cancellation_deadline_hours: settings.cancellation_deadline_hours,
         slot_interval_minutes: settings.slot_interval_minutes,
         refund_policy: settings.refund_policy,
@@ -97,6 +99,7 @@ export default function SettingsIndex({
                 address_postal: data.address_postal,
                 opening_hours: data.opening_hours,
                 social: data.social,
+                online_cancellation_enabled: data.online_cancellation_enabled,
                 cancellation_deadline_hours: data.cancellation_deadline_hours,
                 slot_interval_minutes: data.slot_interval_minutes,
                 refund_policy: data.refund_policy,
@@ -293,6 +296,32 @@ export default function SettingsIndex({
                         </p>
                     </div>
 
+                    {/* The switch comes first and gates the deadline: the notice
+                        period is meaningless when nobody can cancel online, and a
+                        live-looking field under a disabled feature invites a
+                        setting that does nothing (SLO-129). */}
+                    <label className="flex items-start gap-2.5 text-sm">
+                        <input
+                            type="checkbox"
+                            checked={form.data.online_cancellation_enabled}
+                            onChange={(e) =>
+                                form.setData(
+                                    'online_cancellation_enabled',
+                                    e.target.checked,
+                                )
+                            }
+                            className="mt-0.5 size-4 shrink-0 rounded border-input"
+                        />
+                        <span>
+                            <span className="block font-medium">
+                                {t('admin.settings.field.online_cancellation')}
+                            </span>
+                            <span className="block text-xs text-muted-foreground">
+                                {t('admin.settings.field.online_cancellation_hint')}
+                            </span>
+                        </span>
+                    </label>
+
                     <div className="grid gap-4 sm:grid-cols-2">
                         <Field
                             id="set-cancel"
@@ -305,6 +334,7 @@ export default function SettingsIndex({
                                 min={0}
                                 max={336}
                                 value={form.data.cancellation_deadline_hours}
+                                disabled={!form.data.online_cancellation_enabled}
                                 onChange={(e) =>
                                     form.setData(
                                         'cancellation_deadline_hours',

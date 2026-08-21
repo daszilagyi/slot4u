@@ -54,6 +54,7 @@ class SettingsRequest extends FormRequest
             'social.instagram' => ['nullable', 'url', 'max:255'],
 
             // Booking rules (consumed by the M3 engine).
+            'online_cancellation_enabled' => ['nullable', 'boolean'],
             'cancellation_deadline_hours' => ['required', 'integer', 'min:0', 'max:336'],
             'slot_interval_minutes' => ['required', 'integer', Rule::in(TenantSettings::SLOT_INTERVALS)],
 
