@@ -192,6 +192,14 @@ commission_settings   id, free_threshold_minor, rate_bps, rate_with_integration_
 
 > A verziózás azért fontos, mert egy múltbeli period jutalékát a **period idején hatályos** beállítással kell tudni rekonstruálni (audit, reconciliation).
 
+> ⚠️ **A publikus landing ebből a táblából idéz** (SLO-50, `BuildPublicCommissionTerms`): a
+> `slot4u.hu` árazás-szekciójának minden száma — küszöb, ráta, plafon, sőt a kidolgozott
+> számpélda is (amit a valódi `CommissionCalculator` számol) — a **hatályos** verzióból jön,
+> tenant-override nélkül. Ez szándékos: egy árazóoldal, ami mást mond, mint a számla, rosszabb,
+> mint a semmi. Következmény a superadminnak: **új `commission_settings` verzió publikálása
+> azonnal átírja a nyilvános marketing-szöveget is** — nincs külön „landing árazás" kapcsoló.
+> Jövőbeli `effective_from`-mal felvett verzió a landingen még nem jelenik meg.
+
 ### 5.2 Tenant-szintű felülírás (opcionális, superadmin állítja)
 
 ```
