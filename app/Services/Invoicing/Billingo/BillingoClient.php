@@ -29,6 +29,12 @@ final class BillingoClient
 {
     public const BASE_URL = 'https://api.billingo.hu/v3';
 
+    /** How many times to ask for a PDF that is still being rendered. */
+    private const PDF_ATTEMPTS = 6;
+
+    /** Roughly three seconds in total — the demo account needed two. */
+    private const PDF_WAIT_MICROSECONDS = 500_000;
+
     public function __construct(private readonly string $apiKey) {}
 
     /**
@@ -133,14 +139,47 @@ final class BillingoClient
         return $this->json($this->request()->post(self::BASE_URL.'/documents/'.$id.'/cancel'));
     }
 
-    /** The rendered PDF bytes. */
+    /**
+     * The rendered PDF bytes, waiting for the renderer if it is still working.
+     *
+     * ⚠️ Billingo renders the PDF asynchronously, and answers a download that
+     * arrives too early with **HTTP 202** and a 59-byte JSON body:
+     * `{"error":{"message":"Document PDF has not generated yet."}}`.
+     *
+     * 202 is a 2xx, so every "was it successful?" check says yes — which is how
+     * this got as far as a live test: the adapter stored that JSON as the
+     * customer's invoice, the row went to `issued`, and nothing would have
+     * looked wrong until somebody clicked download. Measured on the demo
+     * account: not ready at 0s and 1s, ready at 2s.
+     *
+     * Hence two conditions rather than one. The status must not be 202, AND the
+     * bytes must actually begin a PDF — a "success" that is not a document is
+     * the failure mode this whole method exists to prevent.
+     */
     public function downloadDocument(int $id): string
     {
-        $response = $this->request()->get(self::BASE_URL.'/documents/'.$id.'/download');
+        for ($attempt = 1; $attempt <= self::PDF_ATTEMPTS; $attempt++) {
+            $response = $this->request()->get(self::BASE_URL.'/documents/'.$id.'/download');
 
-        $this->assertOk($response);
+            $this->assertOk($response);
 
-        return $response->body();
+            $body = $response->body();
+
+            if ($response->status() !== 202 && str_starts_with($body, '%PDF')) {
+                return $body;
+            }
+
+            if ($attempt < self::PDF_ATTEMPTS) {
+                usleep(self::PDF_WAIT_MICROSECONDS);
+            }
+        }
+
+        // Retryable rather than fatal: the caller is a queued job with its own
+        // backoff, and a renderer that is slow now is usually done in a minute.
+        throw new RuntimeException(sprintf(
+            'Billingo has not finished rendering the PDF of document %d.',
+            $id,
+        ));
     }
 
     private function request(): PendingRequest

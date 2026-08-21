@@ -147,6 +147,20 @@ félig töltötte ki a címet, azt **az űrlap utasítja el** — de ha valamié
 semmi: az ügyfél már fizetett, és egy jogilag érvényes bizonylat jobb, mint egy elbukott
 tranzakció. A `bookings.wants_invoice` megőrzi, hogy mit kért, tehát az admin látja.
 
+⚠️ **A PDF nem készül el a dokumentummal egyszerre.** A Billingo aszinkron rendereli, és
+egy túl korán érkező letöltésre **HTTP 202**-t ad, 59 bájtnyi JSON-nal:
+`{"error":{"message":"Document PDF has not generated yet."}}`.
+
+**A 202 egy 2xx**, tehát minden „sikeres volt?" ellenőrzés igent mond — így ez a hiba
+egészen egy éles próbáig eljutott: az adapter ezt a JSON-t mentette el az ügyfél
+számlájaként, a sor `issued` lett, és semmi nem látszott volna rosszul, amíg valaki rá nem
+kattint a letöltésre. A demo fiókon mérve: 0 és 1 másodpercnél még nem kész, 2-nél igen.
+
+A `downloadDocument()` ezért **két feltételt** néz, nem egyet: a státusz ne 202 legyen,
+**és** a bájtok tényleg PDF-fel kezdődjenek. Egy „siker", ami nem dokumentum, pont az a
+hibamód, ami ellen ez a metódus létezik. Hat próbálkozás, fél másodperces szünetekkel; utána
+kivétel, amit a queue-olt job saját backoffja újrapróbál.
+
 **A számlázási cím a `bookings`-en él, nem a `users`-en.** Tranzakciós adat: az a cím,
 amire a bizonylat kiállt, és nem változhat visszamenőleg attól, hogy az ügyfél később
 elköltözött. Egyben a törlés és az export is egy helyen söpri (`docs/19`).
