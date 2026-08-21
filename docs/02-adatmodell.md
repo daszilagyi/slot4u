@@ -199,6 +199,20 @@ notifications_log  id, tenant_id, type, channel, recipient, status(pending|sent|
 audit_logs         id, tenant_id(nullable), user_id(nullable), action, auditable_type/id(nullable), old_values/new_values(json), ip_address, created_at(immutable, nincs updated_at)
 ```
 
+### Számlázó partner-leképezés (SLO-167)
+
+```
+invoicing_partners id, tenant_id, provider, email, partner_ref, timestamps
+                   — unique(tenant_id, provider, email)
+                   — ⚠️ azért létezik, mert a Billingo NEM tud partnert email
+                     alapján keresni (a `?query=` névre illeszt) — enélkül minden
+                     számla új partnert szórna a tenant számlázó-fiókjába
+                   — névre keresni rossz alternatíva: a nevek ütköznek, és egy
+                     elgépelt név javítása második partnerré tenné az ügyfelet
+                   — email nélküli vevőnek nincs sora: minden alkalommal új
+                     partner. Ritka és őszinte, nem érdemel rosszabb kulcsot
+```
+
 ### Verziókövetett hozzájárulás (SLO-161, GDPR 7. cikk (1))
 
 ```

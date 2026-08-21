@@ -21,7 +21,9 @@ use App\Services\Invoicing\Contracts\InvoiceIssuer;
 use App\Services\Invoicing\InvoiceIssuerManager;
 use App\Services\Invoicing\InvoiceRequest;
 use App\Services\Invoicing\IssuedInvoice;
+use App\Services\Invoicing\Issuers\BillingoInvoiceIssuer;
 use App\Services\Invoicing\Issuers\SandboxInvoiceIssuer;
+use App\Settings\TenantInvoicingSettings;
 use App\Tenancy\TenantManager;
 use Database\Seeders\BasePlanSeeder;
 use Database\Seeders\PermissionSeeder;
@@ -105,7 +107,7 @@ function failingIssuer(string $message = 'agent kulcs érvénytelen'): void
     {
         public function __construct(private readonly string $message)
         {
-            parent::__construct(new SandboxInvoiceIssuer);
+            parent::__construct(new SandboxInvoiceIssuer, new BillingoInvoiceIssuer);
         }
 
         public function for(InvoiceProvider $provider): InvoiceIssuer
@@ -126,7 +128,7 @@ function failingIssuer(string $message = 'agent kulcs érvénytelen'): void
                     throw new RuntimeException($this->message);
                 }
 
-                public function storno(Invoice $invoice): IssuedInvoice
+                public function storno(Invoice $invoice, TenantInvoicingSettings $seller): IssuedInvoice
                 {
                     throw new RuntimeException($this->message);
                 }
@@ -227,7 +229,7 @@ it('keeps a refused invoice visible and retryable', function () {
 
     // The admin retries once the provider is back — the issuer is healthy again.
     app()->forgetInstance(InvoiceIssuerManager::class);
-    app()->bind(InvoiceIssuerManager::class, fn () => new InvoiceIssuerManager(new SandboxInvoiceIssuer));
+    app()->bind(InvoiceIssuerManager::class, fn () => new InvoiceIssuerManager(new SandboxInvoiceIssuer, new BillingoInvoiceIssuer));
 
     $admin = invAdmin($tenant);
     $this->actingAs($admin)

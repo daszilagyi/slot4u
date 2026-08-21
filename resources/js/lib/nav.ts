@@ -12,8 +12,8 @@ import {
     MapPinIcon,
     ReceiptTextIcon,
     SettingsIcon,
-    ShieldCheckIcon,
     ScrollTextIcon,
+    ShieldCheckIcon,
     ShieldUserIcon,
     SparklesIcon,
     UsersIcon,
@@ -161,6 +161,17 @@ export const navItems: NavItem[] = [
         href: '/settings/legal',
         icon: ScrollTextIcon,
         permission: 'privacy.manage',
+        ready: true,
+    },
+    {
+        // Invoicing configuration (SLO-167). Gated by the same feature that gates
+        // invoicing itself, so a tenant without it never sees a dead link.
+        key: 'invoicing',
+        labelKey: 'admin.nav.invoicing',
+        href: '/settings/invoicing',
+        icon: ReceiptTextIcon,
+        permission: 'settings.edit',
+        feature: 'feature_invoicing',
         ready: true,
     },
     {

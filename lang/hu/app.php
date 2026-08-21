@@ -686,6 +686,7 @@ return [
             'roles' => 'Jogosultságok',
             'privacy' => 'Adatvédelmi kérelmek',
             'legal' => 'Jogi dokumentumok',
+            'invoicing' => 'Számlázás',
             'domains' => 'Egyedi domain',
             'settings' => 'Beállítások',
             'showcase' => 'UI építőelemek',
@@ -2171,6 +2172,45 @@ return [
             'analytics_hint' => 'Névtelen látogatottsági mérés, hogy lássuk, mely oldalak működnek jól. Jelenleg nincs ilyen eszköz bekötve.',
             'marketing' => 'Marketing',
             'marketing_hint' => 'Hirdetési mérés és személyre szabás. Jelenleg nincs ilyen eszköz bekötve.',
+        ],
+    ],
+
+    // Számlázó szolgáltató beállításai (SLO-167). A tenant választ, mert ő
+    // szerződik a számlázóval — a slot4u csak a gépezetet adja.
+    'invoicing' => [
+        'provider' => [
+            'billingo' => 'Billingo',
+            'szamlazzhu' => 'Számlázz.hu',
+            'sandbox' => 'Teszt számlázó',
+        ],
+        'settings' => [
+            'title' => 'Számlázás',
+            'description' => 'Válaszd ki, melyik szolgáltató állítsa ki az ügyfeleid számláit, és add meg a saját fiókod hozzáférését. A számlák a te számlázó-fiókodban keletkeznek, a slot4u csak elindítja a kiállítást.',
+            'provider_label' => 'Számlázó szolgáltató',
+            'provider_none' => 'Nincs kiválasztva',
+            'api_key_label' => 'API kulcs',
+            // A kulcsot soha nem küldjük vissza a böngészőnek, ezért a mező
+            // mindig üres — az üres érték a meglévőt hagyja érintetlenül.
+            'api_key_set' => 'Beállítva — csak akkor tölts ki, ha cserélni akarod',
+            'api_key_unset' => 'Még nincs beállítva',
+            'api_key_hint' => 'A kulcsot titkosítva tároljuk, és soha nem jelenítjük meg újra. Üresen hagyva a korábbi marad érvényben.',
+            'block_label' => 'Számlatömb',
+            'block_unavailable' => 'Előbb add meg az API kulcsot',
+            'block_required' => 'Válassz számlatömböt — enélkül a szolgáltató nem tud számlát kiállítani.',
+            'bank_label' => 'Bankszámla',
+            'bank_none' => 'Nem kerül a számlára',
+            'bank_hint' => 'Csak akkor kell, ha átutalásos számlán szeretnéd feltüntetni a számlaszámot.',
+            'choose' => 'Válassz…',
+            'seller_name' => 'Kibocsátó neve',
+            'seller_tax_number' => 'Adószám',
+            'seller_address' => 'Cím',
+            'vat_key' => 'ÁFA kulcs',
+            'vat_hint' => 'Például 27, vagy AAM / TAM, ha alanyi mentes vagy.',
+            'save' => 'Mentés',
+            'saved' => 'A számlázási beállítások elmentve.',
+            'ready' => 'Beállítva',
+            'incomplete' => 'A számlázás még nincs készen: szolgáltató, API kulcs és számlatömb kell hozzá. Addig nem keletkezik számla a befizetésekből.',
+            'provider_error' => 'A szolgáltató nem válaszolt: :message',
         ],
     ],
 ];

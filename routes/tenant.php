@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\CustomerController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\DomainController;
 use App\Http\Controllers\Admin\EventController;
+use App\Http\Controllers\Admin\InvoicingSettingsController;
 use App\Http\Controllers\Admin\LegalDocumentController;
 use App\Http\Controllers\Admin\LocationController;
 use App\Http\Controllers\Admin\MessageTemplateController;
@@ -316,6 +317,14 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
         Route::middleware('can:'.Permission::SettingsEdit->value)->group(function () {
             Route::get('/settings', [SettingsController::class, 'edit'])->name('tenant.settings.edit');
             Route::post('/settings', [SettingsController::class, 'update'])->name('tenant.settings.update');
+        });
+
+        // Invoicing configuration (SLO-167). Behind the same feature flag that
+        // gates invoicing itself, plus settings.edit: choosing a provider and
+        // handing over its credential is a tenant-admin job.
+        Route::middleware(['ensure.feature:'.Feature::Invoicing->value, 'can:'.Permission::SettingsEdit->value])->group(function () {
+            Route::get('/settings/invoicing', [InvoicingSettingsController::class, 'index'])->name('tenant.invoicing.index');
+            Route::post('/settings/invoicing', [InvoicingSettingsController::class, 'update'])->name('tenant.invoicing.update');
         });
 
         // Custom domains (SLO-42). Behind the feature flag AND settings.edit:

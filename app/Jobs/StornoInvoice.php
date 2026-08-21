@@ -6,7 +6,9 @@ namespace App\Jobs;
 
 use App\Enums\InvoiceStatus;
 use App\Models\Invoice;
+use App\Models\Tenant;
 use App\Services\Invoicing\InvoiceIssuerManager;
+use App\Settings\TenantInvoicingSettings;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -51,8 +53,15 @@ class StornoInvoice implements ShouldQueue
             return;
         }
 
+        $tenant = Tenant::withoutGlobalScopes()->withTrashed()->find($invoice->tenant_id);
+
+        if (! $tenant instanceof Tenant) {
+            return;
+        }
+
         try {
-            $storno = $issuers->for($invoice->provider)->storno($invoice);
+            $storno = $issuers->for($invoice->provider)
+                ->storno($invoice, TenantInvoicingSettings::fromArray($tenant->invoicing));
         } catch (Throwable $e) {
             Log::warning('Invoice storno refused by the provider', [
                 'invoice_id' => $invoice->getKey(),

@@ -49,7 +49,8 @@ final class RecordInvoiceForPayment
         $invoice = new Invoice([
             'booking_id' => $payment->booking_id,
             'payment_id' => $payment->getKey(),
-            'provider' => $this->issuers->default()->provider(),
+            // The tenant's own choice, not a platform-wide one (SLO-167).
+            'provider' => $this->issuers->forTenant($tenant)->provider(),
             'amount_minor' => $payment->amount_minor,
             'currency' => $payment->currency,
         ]);
