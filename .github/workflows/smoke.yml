@@ -30,18 +30,39 @@ jobs:
       name: production
       url: ${{ vars.DEPLOY_URL }}
     steps:
+      # The script under test comes from the branch this run was dispatched on,
+      # NOT from the release being verified — hence the full history, which is
+      # what lets the tag be resolved to a commit below.
+      #
+      # The deploy pipeline does the opposite on purpose: it runs the smoke test
+      # that shipped with the release. A diagnostic run is the other question —
+      # does the CURRENT script get through the CURRENT edge — and having this
+      # backwards made the first run silently exercise the old script and prove
+      # nothing about the fix (SLO-162).
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref }}
+          fetch-depth: 0
 
-      - name: Resolve the commit this release points at
+      - name: Resolve the commit the release points at
         id: target
-        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+        env:
+          RELEASE_REF: ${{ inputs.ref }}
+        run: |
+          if ! sha="$(git rev-parse --verify "${RELEASE_REF}^{commit}" 2>/dev/null)"; then
+            echo "::error::${RELEASE_REF} is not a ref in this repository — pass the tag that is live in production."
+            exit 1
+          fi
+          echo "sha=${sha}" >> "$GITHUB_OUTPUT"
+          echo "Verifying that production serves ${RELEASE_REF} (${sha:0:7})."
+          echo "Script under test: deploy/smoke.sh at $(git rev-parse --short HEAD) on ${GITHUB_REF_NAME}."
 
       - name: Smoke test
         env:
           DEPLOY_HEALTH_TOKEN: ${{ secrets.DEPLOY_HEALTH_TOKEN }}
-        run: bash deploy/smoke.sh "${{ vars.DEPLOY_URL }}" "${{ inputs.ref }}" "${{ steps.target.outputs.sha }}"
+          RELEASE_REF: ${{ inputs.ref }}
+          URL: ${{ vars.DEPLOY_URL }}
+          SHA: ${{ steps.target.outputs.sha }}
+        run: bash deploy/smoke.sh "${URL}" "${RELEASE_REF}" "${SHA}"
 
       # Only on failure, and only response headers. Which of the two callers the
       # edge objects to is the whole question: Browser Integrity Check challenges

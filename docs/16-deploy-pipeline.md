@@ -220,8 +220,15 @@ challenge-el. Elképzelhető, hogy ennyi elég is — ezért a sorrend: **előbb
 
 **1. Reprodukálás deploy nélkül.** GitHub → Actions → **Smoke test** → *Run workflow*, a
 `ref` a jelenleg élő tag (pl. `v0.7.3`). Ez csak GET kéréseket küld, de a `production`
-environment jóváhagyási kapuján át (a token onnan jön) — egy kattintás. Bukás esetén a
-workflow kiírja ugyanannak a kérésnek a válaszfejléceit **azonosítva és névtelenül**:
+environment jóváhagyási kapuján át (a token onnan jön) — egy kattintás.
+
+⚠️ **A `ref` azt mondja meg, minek KELL kint lennie — nem azt, melyik script fut.** A
+diagnosztikai futás mindig a **dispatch branchén** lévő `deploy/smoke.sh`-t használja (alapból
+`main`), mert a kérdés az, hogy a *mostani* script átjut-e a *mostani* edge-en. A deploy
+pipeline szándékosan fordítva működik: ott a release-szel *együtt szállított* füstteszt fut.
+
+Bukás esetén a workflow kiírja ugyanannak a kérésnek a válaszfejléceit **azonosítva és
+névtelenül**:
 
 * **csak a névtelen kap challenge-t** → Browser Integrity Check volt, az azonosított kérés
   már átmegy: **nincs több teendő**.
