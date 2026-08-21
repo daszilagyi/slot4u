@@ -93,6 +93,16 @@ final class AnonymizeCustomer
                 // member wrote about this booking; treat them like notes.
                 'cancel_reason' => null,
                 'reject_reason' => null,
+                // The billing address a buyer gave to be invoiced (SLO-168). It
+                // is personal data like any other, and it goes — the ISSUED
+                // invoice keeps its own copy, which is the deliberate accounting
+                // exception (docs/19 §3.3), not this row.
+                'billing_name' => null,
+                'billing_tax_number' => null,
+                'billing_country_code' => null,
+                'billing_post_code' => null,
+                'billing_city' => null,
+                'billing_address' => null,
             ]);
     }
 

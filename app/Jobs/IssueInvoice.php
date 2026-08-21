@@ -8,6 +8,7 @@ use App\Enums\InvoiceStatus;
 use App\Models\Booking;
 use App\Models\Invoice;
 use App\Models\Tenant;
+use App\Services\Invoicing\BillingDetails;
 use App\Services\Invoicing\InvoiceIssuerManager;
 use App\Services\Invoicing\InvoiceRequest;
 use App\Settings\TenantInvoicingSettings;
@@ -80,6 +81,11 @@ class IssueInvoice implements ShouldQueue
             // Dated in the tenant's own calendar, like every other tenant-facing
             // date (docs/01 §7).
             issueDate: Carbon::now()->setTimezone($tenant->timezone)->toDateString(),
+            // What the buyer asked for at booking time (SLO-168). Read from the
+            // booking rather than from the customer's profile: an issued
+            // document records what was true then, and must not change because
+            // somebody later moved house.
+            billing: BillingDetails::fromBooking($booking),
         );
 
         try {

@@ -108,6 +108,17 @@ class CreateBooking
             'currency' => $service->currency,
             'notes' => $data['notes'] ?? null,
             'source' => $source,
+            // What the buyer asked to be invoiced as (SLO-168). Listed here
+            // explicitly like everything else: this array is a whitelist, and
+            // that is the point — nothing reaches a booking that the action did
+            // not decide to let through.
+            'wants_invoice' => (bool) ($data['wants_invoice'] ?? false),
+            'billing_name' => $data['billing_name'] ?? null,
+            'billing_tax_number' => $data['billing_tax_number'] ?? null,
+            'billing_country_code' => $data['billing_country_code'] ?? null,
+            'billing_post_code' => $data['billing_post_code'] ?? null,
+            'billing_city' => $data['billing_city'] ?? null,
+            'billing_address' => $data['billing_address'] ?? null,
         ];
 
         // Only a time-slot booking can be rescheduled (docs/04 §2, guarded in

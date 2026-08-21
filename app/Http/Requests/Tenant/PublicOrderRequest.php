@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Tenant;
 
 use App\Http\Requests\Concerns\AcceptsLegalDocuments;
+use App\Http\Requests\Concerns\CollectsBillingDetails;
 use App\Http\Requests\Concerns\NormalizesPhone;
 use App\Tenancy\TenantManager;
 use Illuminate\Contracts\Validation\Validator;
@@ -19,7 +20,7 @@ use Illuminate\Validation\Rule;
  */
 class PublicOrderRequest extends FormRequest
 {
-    use AcceptsLegalDocuments, NormalizesPhone;
+    use AcceptsLegalDocuments, CollectsBillingDetails, NormalizesPhone;
 
     protected function prepareForValidation(): void
     {
@@ -37,6 +38,7 @@ class PublicOrderRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(fn (Validator $validator) => $this->validateLegalDocumentsAreCurrent($validator));
+        $this->validateBillingDetails($validator);
     }
 
     /**
@@ -52,6 +54,6 @@ class PublicOrderRequest extends FormRequest
             'email' => ['required', 'string', 'email', 'max:255'],
             'phone' => $this->phoneRules(),
             'notes' => ['nullable', 'string', 'max:2000'],
-        ] + $this->legalRules();
+        ] + $this->legalRules() + $this->billingRules();
     }
 }

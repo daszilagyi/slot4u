@@ -170,6 +170,9 @@ class BookingController extends Controller
             'party_size' => 1,
             'notes' => $data['notes'] ?? null,
             'source' => BookingSource::Online->value,
+            // What the buyer asked to be invoiced as (SLO-168). A receipt is the
+            // default; these are only set when they asked for an invoice.
+            ...$request->billingAttributes(),
         ]);
 
         $this->recordLegalConsent($request, $contact->customer, $contact->email, ConsentContext::Booking);
@@ -202,6 +205,7 @@ class BookingController extends Controller
             'party_size' => 1,
             'notes' => $data['notes'] ?? null,
             'source' => BookingSource::Online->value,
+            ...$request->billingAttributes(),
         ]);
 
         $this->recordLegalConsent($request, $contact->customer, $contact->email, ConsentContext::Order);
@@ -321,6 +325,7 @@ class BookingController extends Controller
                 'party_size' => (int) $data['party_size'],
                 'notes' => $data['notes'] ?? null,
                 'source' => BookingSource::Online->value,
+                ...$request->billingAttributes(),
             ]);
         } catch (SlotUnavailableException) {
             throw ValidationException::withMessages([

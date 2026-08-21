@@ -36,6 +36,12 @@ final class TenantInvoicingSettings
          * fetches — never typed in (SLO-167).
          */
         public readonly ?int $blockId = null,
+        /**
+         * Billingo keeps receipts in their own numbering block, so a tenant that
+         * only configured an invoice block cannot issue the DEFAULT document
+         * (SLO-168). Nullable because a tenant may genuinely want invoices only.
+         */
+        public readonly ?int $receiptBlockId = null,
         public readonly ?int $bankAccountId = null,
     ) {}
 
@@ -54,6 +60,7 @@ final class TenantInvoicingSettings
             sellerAddress: self::str($data, 'seller_address'),
             vatKey: self::str($data, 'vat_key') ?? self::DEFAULT_VAT_KEY,
             blockId: self::int($data, 'block_id'),
+            receiptBlockId: self::int($data, 'receipt_block_id'),
             bankAccountId: self::int($data, 'bank_account_id'),
         );
     }
@@ -71,6 +78,7 @@ final class TenantInvoicingSettings
             'seller_address' => $this->sellerAddress,
             'vat_key' => $this->vatKey,
             'block_id' => $this->blockId,
+            'receipt_block_id' => $this->receiptBlockId,
             'bank_account_id' => $this->bankAccountId,
         ];
     }
@@ -93,7 +101,13 @@ final class TenantInvoicingSettings
             return false;
         }
 
-        return $this->provider !== InvoiceProvider::Billingo || $this->blockId !== null;
+        // Billingo needs at least one numbering block to write into. Either one
+        // will do: a tenant that configured only invoices can still serve a
+        // customer who asked for one, and a tenant that configured only receipts
+        // covers the default path.
+        return $this->provider !== InvoiceProvider::Billingo
+            || $this->blockId !== null
+            || $this->receiptBlockId !== null;
     }
 
     /**

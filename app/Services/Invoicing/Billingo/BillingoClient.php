@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Invoicing\Billingo;
 
+use App\Services\Invoicing\BillingDetails;
 use Illuminate\Http\Client\PendingRequest;
 use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
@@ -60,15 +61,25 @@ final class BillingoClient
      * stored mapping. Searching by name instead would collide on common names and
      * break the moment a customer's name is edited.
      */
-    public function createPartner(string $name, ?string $email): int
+    public function createPartner(string $name, ?string $email, BillingDetails $billing): int
     {
+        // ⚠️ The address is REQUIRED, and all four parts of it — verified the
+        // hard way, by a 422 naming post_code, city and address on the first
+        // real call. The OpenAPI document lists no required fields on a partner
+        // at all, which is one more reason to measure rather than read.
         $response = $this->request()->post(self::BASE_URL.'/partners', array_filter([
             'name' => $name,
             'emails' => $email === null ? null : [$email],
-            // A private individual: the tax fields stay empty rather than absent,
-            // which is what the API expects for "no tax number".
-            'taxcode' => '',
-            'tax_type' => 'NO_TAX_NUMBER',
+            'address' => [
+                'country_code' => $billing->country(),
+                'post_code' => $billing->postCode,
+                'city' => $billing->city,
+                'address' => $billing->address,
+            ],
+            // Empty rather than absent is what the API expects for "no tax
+            // number"; a tax number present means a business buyer.
+            'taxcode' => $billing->taxNumber ?? '',
+            'tax_type' => $billing->taxNumber === null ? 'NO_TAX_NUMBER' : 'HAS_TAX_NUMBER',
         ], static fn ($value): bool => $value !== null));
 
         $id = $this->json($response)['id'] ?? null;
@@ -93,6 +104,21 @@ final class BillingoClient
     public function createDocument(array $payload): array
     {
         return $this->json($this->request()->post(self::BASE_URL.'/documents', $payload));
+    }
+
+    /**
+     * Create a receipt (`nyugta`).
+     *
+     * Its own endpoint, and the reason the default path needs no address at all:
+     * a receipt names no partner. The buyer's name and email are plain fields,
+     * which is exactly what the Áfa tv. asks of a receipt and no more.
+     *
+     * @param  array<string, mixed>  $payload
+     * @return array<string, mixed>
+     */
+    public function createReceipt(array $payload): array
+    {
+        return $this->json($this->request()->post(self::BASE_URL.'/documents/receipt', $payload));
     }
 
     /**

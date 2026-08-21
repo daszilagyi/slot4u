@@ -2183,6 +2183,18 @@ return [
             'szamlazzhu' => 'Számlázz.hu',
             'sandbox' => 'Teszt számlázó',
         ],
+        // A foglalási űrlap opcionális számla-blokkja (SLO-168). A cím CSAK akkor
+        // kerül bekérésre, ha a vevő számlát kér — az Áfa tv. 169. § e) a
+        // számlához követeli meg, a nyugtához nem.
+        'billing' => [
+            'wants_invoice' => 'Számlát kérek',
+            'hint' => 'Alapból nyugtát állítunk ki, amihez nem kell cím. Ha számlát kérsz, a jogszabály miatt a nevedet és a címedet is meg kell adnod.',
+            'billing_name' => 'Számlázási név',
+            'billing_tax_number' => 'Adószám (céges vásárlás esetén)',
+            'billing_post_code' => 'Irányítószám',
+            'billing_city' => 'Város',
+            'billing_address' => 'Utca, házszám',
+        ],
         'settings' => [
             'title' => 'Számlázás',
             'description' => 'Válaszd ki, melyik szolgáltató állítsa ki az ügyfeleid számláit, és add meg a saját fiókod hozzáférését. A számlák a te számlázó-fiókodban keletkeznek, a slot4u csak elindítja a kiállítást.',
@@ -2194,9 +2206,13 @@ return [
             'api_key_set' => 'Beállítva — csak akkor tölts ki, ha cserélni akarod',
             'api_key_unset' => 'Még nincs beállítva',
             'api_key_hint' => 'A kulcsot titkosítva tároljuk, és soha nem jelenítjük meg újra. Üresen hagyva a korábbi marad érvényben.',
+            'receipt_block_label' => 'Nyugtatömb',
+            'receipt_block_hint' => 'Ebbe kerül az alapértelmezett bizonylat. Magánszemélynek kártyás fizetésnél a nyugta jogilag elegendő, és nem kér címet a vevőtől.',
+            'receipt_block_missing' => 'Nincs nyugtatömb a fiókodban — hozz létre egyet a Billingóban',
             'block_label' => 'Számlatömb',
+            'block_hint' => 'Csak akkor kell, ha az ügyfeleid számlát is kérhetnek. Ilyenkor a foglaláskor megadott cím kerül rá.',
             'block_unavailable' => 'Előbb add meg az API kulcsot',
-            'block_required' => 'Válassz számlatömböt — enélkül a szolgáltató nem tud számlát kiállítani.',
+            'block_required' => 'Válassz legalább egy tömböt (nyugta vagy számla) — enélkül a szolgáltató semmit nem tud kiállítani.',
             'bank_label' => 'Bankszámla',
             'bank_none' => 'Nem kerül a számlára',
             'bank_hint' => 'Csak akkor kell, ha átutalásos számlán szeretnéd feltüntetni a számlaszámot.',
@@ -2209,7 +2225,7 @@ return [
             'save' => 'Mentés',
             'saved' => 'A számlázási beállítások elmentve.',
             'ready' => 'Beállítva',
-            'incomplete' => 'A számlázás még nincs készen: szolgáltató, API kulcs és számlatömb kell hozzá. Addig nem keletkezik számla a befizetésekből.',
+            'incomplete' => 'A számlázás még nincs készen: szolgáltató, API kulcs és legalább egy tömb kell hozzá. Addig nem keletkezik bizonylat a befizetésekből.',
             'provider_error' => 'A szolgáltató nem válaszolt: :message',
         ],
     ],

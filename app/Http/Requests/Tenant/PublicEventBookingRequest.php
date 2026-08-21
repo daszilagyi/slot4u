@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Tenant;
 
 use App\Http\Requests\Concerns\AcceptsLegalDocuments;
+use App\Http\Requests\Concerns\CollectsBillingDetails;
 use App\Http\Requests\Concerns\NormalizesPhone;
 use App\Models\Event;
 use Illuminate\Contracts\Validation\Validator;
@@ -16,7 +17,7 @@ use Illuminate\Foundation\Http\FormRequest;
  */
 class PublicEventBookingRequest extends FormRequest
 {
-    use AcceptsLegalDocuments, NormalizesPhone;
+    use AcceptsLegalDocuments, CollectsBillingDetails, NormalizesPhone;
 
     protected function prepareForValidation(): void
     {
@@ -34,6 +35,7 @@ class PublicEventBookingRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(fn (Validator $validator) => $this->validateLegalDocumentsAreCurrent($validator));
+        $this->validateBillingDetails($validator);
     }
 
     /**
@@ -52,6 +54,6 @@ class PublicEventBookingRequest extends FormRequest
             'email' => ['required', 'string', 'email', 'max:255'],
             'phone' => $this->phoneRules(),
             'notes' => ['nullable', 'string', 'max:2000'],
-        ] + $this->legalRules();
+        ] + $this->legalRules() + $this->billingRules();
     }
 }

@@ -22,6 +22,7 @@ type InvoicingProps = {
         sellerAddress: string | null;
         vatKey: string;
         blockId: number | null;
+        receiptBlockId: number | null;
         bankAccountId: number | null;
         complete: boolean;
     };
@@ -51,6 +52,12 @@ export default function Invoicing({
 }: InvoicingProps) {
     const t = useTranslations();
 
+    // Billingo numbers receipts and invoices in separate blocks, so the two
+    // selects must not offer each other's — writing a receipt into an invoice
+    // series would mis-number a real one.
+    const receiptBlocks = blocks.filter((block) => block.type === 'receipt');
+    const invoiceBlocks = blocks.filter((block) => block.type !== 'receipt');
+
     const form = useForm({
         provider: settings.provider ?? '',
         api_key: '',
@@ -59,6 +66,10 @@ export default function Invoicing({
         seller_address: settings.sellerAddress ?? '',
         vat_key: settings.vatKey,
         block_id: settings.blockId === null ? '' : String(settings.blockId),
+        receipt_block_id:
+            settings.receiptBlockId === null
+                ? ''
+                : String(settings.receiptBlockId),
         bank_account_id:
             settings.bankAccountId === null ? '' : String(settings.bankAccountId),
     });
@@ -161,6 +172,45 @@ export default function Invoicing({
                     {form.data.provider !== '' && (
                         <>
                             <div className="flex flex-col gap-1.5">
+                                <Label htmlFor="receipt_block_id">
+                                    {t('invoicing.settings.receipt_block_label')}
+                                </Label>
+                                <select
+                                    id="receipt_block_id"
+                                    value={form.data.receipt_block_id}
+                                    onChange={(event) =>
+                                        form.setData(
+                                            'receipt_block_id',
+                                            event.target.value,
+                                        )
+                                    }
+                                    className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                                    disabled={receiptBlocks.length === 0}
+                                >
+                                    <option value="">
+                                        {receiptBlocks.length === 0
+                                            ? t(
+                                                  'invoicing.settings.receipt_block_missing',
+                                              )
+                                            : t('invoicing.settings.choose')}
+                                    </option>
+                                    {receiptBlocks.map((block) => (
+                                        <option key={block.id} value={block.id}>
+                                            {block.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                <p className="text-xs text-muted-foreground">
+                                    {t('invoicing.settings.receipt_block_hint')}
+                                </p>
+                                {form.errors.receipt_block_id !== undefined && (
+                                    <p className="text-sm text-destructive">
+                                        {form.errors.receipt_block_id}
+                                    </p>
+                                )}
+                            </div>
+
+                            <div className="flex flex-col gap-1.5">
                                 <Label htmlFor="block_id">
                                     {t('invoicing.settings.block_label')}
                                 </Label>
@@ -174,21 +224,24 @@ export default function Invoicing({
                                         )
                                     }
                                     className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                                    disabled={blocks.length === 0}
+                                    disabled={invoiceBlocks.length === 0}
                                 >
                                     <option value="">
-                                        {blocks.length === 0
+                                        {invoiceBlocks.length === 0
                                             ? t(
                                                   'invoicing.settings.block_unavailable',
                                               )
                                             : t('invoicing.settings.choose')}
                                     </option>
-                                    {blocks.map((block) => (
+                                    {invoiceBlocks.map((block) => (
                                         <option key={block.id} value={block.id}>
                                             {block.name}
                                         </option>
                                     ))}
                                 </select>
+                                <p className="text-xs text-muted-foreground">
+                                    {t('invoicing.settings.block_hint')}
+                                </p>
                                 {form.errors.block_id !== undefined && (
                                     <p className="text-sm text-destructive">
                                         {form.errors.block_id}

@@ -109,9 +109,9 @@ it('replaces the key when a new one is given', function () {
     expect(TenantInvoicingSettings::fromArray($tenant->fresh()->invoicing)->apiKey)->toBe('new');
 });
 
-it('refuses Billingo without a document block', function () {
-    // Otherwise the tenant looks configured and fails on its first real invoice —
-    // by which time the customer has already paid.
+it('refuses Billingo with no numbering block at all', function () {
+    // Otherwise the tenant looks configured and fails on its first document — by
+    // which time the customer has already paid.
     $tenant = invoicingTenant();
     Http::fake();
 
@@ -120,7 +120,37 @@ it('refuses Billingo without a document block', function () {
         ->post(tenantHost('acme', '/settings/invoicing'), [
             'provider' => 'billingo',
             'api_key' => 'k',
-        ])->assertSessionHasErrors('block_id');
+        ])->assertSessionHasErrors('receipt_block_id');
+});
+
+it('accepts a receipt block on its own', function () {
+    // A receipt is the DEFAULT document (SLO-168), so a tenant that configured
+    // only receipts has a complete setup. Demanding both blocks would refuse a
+    // configuration that works.
+    $tenant = invoicingTenant();
+    Http::fake([BillingoClient::BASE_URL.'/*' => Http::response(['data' => []], 200)]);
+
+    $this->actingAs(invoicingAdmin($tenant))
+        ->post(tenantHost('acme', '/settings/invoicing'), [
+            'provider' => 'billingo',
+            'api_key' => 'k',
+            'receipt_block_id' => 440404,
+        ])->assertSessionHasNoErrors();
+
+    expect(TenantInvoicingSettings::fromArray($tenant->fresh()->invoicing)->isComplete())->toBeTrue();
+});
+
+it('accepts an invoice block on its own', function () {
+    // Equally valid: a tenant whose customers always ask for invoices.
+    $tenant = invoicingTenant();
+    Http::fake([BillingoClient::BASE_URL.'/*' => Http::response(['data' => []], 200)]);
+
+    $this->actingAs(invoicingAdmin($tenant))
+        ->post(tenantHost('acme', '/settings/invoicing'), [
+            'provider' => 'billingo',
+            'api_key' => 'k',
+            'block_id' => 329303,
+        ])->assertSessionHasNoErrors();
 });
 
 it('does not offer a provider that has no adapter', function () {

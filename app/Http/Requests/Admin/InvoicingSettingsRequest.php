@@ -41,14 +41,20 @@ class InvoicingSettingsRequest extends FormRequest
             'seller_address' => ['nullable', 'string', 'max:255'],
             'vat_key' => ['nullable', 'string', 'max:16'],
             'block_id' => ['nullable', 'integer'],
+            'receipt_block_id' => ['nullable', 'integer'],
             'bank_account_id' => ['nullable', 'integer'],
         ];
     }
 
     /**
-     * Choosing Billingo without a document block would leave a tenant that looks
-     * configured and fails on its first real invoice — at which point the
+     * Choosing Billingo with no numbering block at all would leave a tenant that
+     * looks configured and fails on its first document — at which point the
      * customer has already paid.
+     *
+     * Either block satisfies this. A receipt is the default document (SLO-168),
+     * so a receipt block alone is a complete setup; an invoice block alone still
+     * serves the customers who ask for an invoice. Demanding both would refuse a
+     * configuration that works.
      */
     public function withValidator(Validator $validator): void
     {
@@ -57,8 +63,11 @@ class InvoicingSettingsRequest extends FormRequest
                 return;
             }
 
-            if ($this->input('block_id') === null || $this->input('block_id') === '') {
-                $validator->errors()->add('block_id', __('app.invoicing.settings.block_required'));
+            $hasInvoice = $this->filled('block_id');
+            $hasReceipt = $this->filled('receipt_block_id');
+
+            if (! $hasInvoice && ! $hasReceipt) {
+                $validator->errors()->add('receipt_block_id', __('app.invoicing.settings.block_required'));
             }
         });
     }
