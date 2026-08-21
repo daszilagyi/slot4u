@@ -4,6 +4,12 @@ on:
   push:
     branches: [main]
   pull_request:
+  # The audit job below is the reason for a schedule (SLO-148). A vulnerability
+  # is published on somebody else's timetable, not ours: an audit that only runs
+  # on a pull request tells you what was true the day you merged, and stays
+  # silent for however long nobody touches the repository.
+  schedule:
+    - cron: '0 6 * * 1'
 
 jobs:
   php:
@@ -118,3 +124,42 @@ jobs:
         env:
           INERTIA_SSR_URL: http://127.0.0.1:13714
         run: php artisan test --filter=PublicSsrSmokeTest
+
+  audit:
+    name: Függőség-audit — composer + npm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: intl, zip, gd, bcmath, pcntl, pdo_sqlite, redis
+          coverage: none
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+
+      # Reads the lock files; no install needed for either audit, which keeps
+      # this job fast enough to run on every pull request.
+      #
+      # ⚠️ `--locked` on purpose: auditing an installed tree would report on
+      # whatever composer happened to resolve, while the lock file is what
+      # actually ships. Those differ exactly when it matters.
+      - name: composer audit
+        run: composer audit --locked --format=plain
+
+      # ⚠️ The threshold is `high`, and it is a real gate rather than a report.
+      # Below it the noise wins: this project's first audit found 17 composer
+      # advisories and 6 npm ones, and a check that is red on the day it lands
+      # gets muted rather than acted on. They were fixed before this job existed
+      # (SLO-148), so red here means something new — which is the only way a
+      # gate stays worth reading.
+      #
+      # `low`/`moderate` still print, they just do not fail: `--audit-level`
+      # controls the exit code, not the output.
+      - name: npm audit
+        run: npm audit --audit-level=high
