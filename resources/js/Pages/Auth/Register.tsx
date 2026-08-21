@@ -5,7 +5,9 @@ import AuthLayout from '@/Layouts/AuthLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { LegalConsent } from '@/components/LegalConsent';
 import { useTranslations } from '@/lib/i18n';
+import { useLegalConsentFields } from '@/lib/legal';
 
 type RegisterProps = {
     centralDomain: string;
@@ -24,7 +26,9 @@ function slugify(value: string): string {
 export default function Register({ centralDomain }: RegisterProps) {
     const t = useTranslations();
     const [slugEdited, setSlugEdited] = useState(false);
+    const legalFields = useLegalConsentFields();
     const form = useForm({
+        ...legalFields,
         company_name: '',
         slug: '',
         name: '',
@@ -157,6 +161,14 @@ export default function Register({ centralDomain }: RegisterProps) {
                         }
                     />
                 </div>
+
+                <LegalConsent
+                    checked={form.data.accepted_legal}
+                    onChange={(checked) =>
+                        form.setData('accepted_legal', checked)
+                    }
+                    error={form.errors.accepted_legal}
+                />
 
                 <Button type="submit" className="mt-2 w-full" disabled={form.processing}>
                     {t('auth.register.submit')}

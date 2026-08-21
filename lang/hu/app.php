@@ -685,6 +685,7 @@ return [
             'templates' => 'Email sablonok',
             'roles' => 'Jogosultságok',
             'privacy' => 'Adatvédelmi kérelmek',
+            'legal' => 'Jogi dokumentumok',
             'domains' => 'Egyedi domain',
             'settings' => 'Beállítások',
             'showcase' => 'UI építőelemek',
@@ -2120,11 +2121,18 @@ return [
             'intro' => 'A folytatáshoz kérjük, olvasd el és fogadd el az alábbi dokumentumok új változatát.',
             'submit' => 'Elfogadom',
         ],
+        // A platform SAJÁT ÁSZF-je és tájékoztatója — ezt a tenantok fogadják el
+        // regisztrációkor. Külön a tenant felületétől, mert más felel értük.
+        'super' => [
+            'title' => 'Platform jogi dokumentumok',
+            'description' => 'Ezeket a bérlő cégek fogadják el a regisztrációkor. Új verzió közzététele minden meglévő bérlő-adminisztrátort újra-elfogadásra irányít a következő kérésénél.',
+        ],
         'admin' => [
             'title' => 'Jogi dokumentumok',
             'description' => 'Az ügyfeleid ezeket fogadják el regisztrációkor és foglaláskor. Egy hatályba lépett verziót nem írunk felül — új szöveg = új verzió, és a meglévő ügyfelek újra elfogadják.',
             'none' => 'Még nincs közzétett dokumentum. Amíg nincs, a foglalási űrlapok nem kérnek elfogadást.',
-            'new' => 'Új verzió',
+            'new' => 'Új verzió közzététele',
+            'type_label' => 'Típus',
             'version_label' => 'Verzió',
             'title_label' => 'Cím',
             'body_label' => 'Szöveg',
@@ -2137,6 +2145,12 @@ return [
             'superseded' => 'Lejárt',
             'consents' => 'Elfogadás',
             'created' => 'Az új verzió közzétéve.',
+            'delete' => 'Visszavonás',
+            'cancel' => 'Mégse',
+            // Csak olyan verzió vonható vissza, amit még senki nem fogadott el —
+            // egy elfogadott verzió bizonyíték, azt az idegen kulcs sem engedi
+            // törölni.
+            'delete_confirm' => 'Visszavonod a(z) „:title" verziót? Ezt csak addig lehet, amíg senki nem fogadta el.',
         ],
     ],
 ];

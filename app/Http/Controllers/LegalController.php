@@ -25,7 +25,7 @@ use Inertia\Response;
  * that names version 1.2 must be able to see what 1.2 said, or the record proves
  * nothing.
  */
-class LegalDocumentController extends Controller
+class LegalController extends Controller
 {
     public function show(string ...$routeParameters): Response|RedirectResponse
     {

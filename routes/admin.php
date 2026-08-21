@@ -5,6 +5,7 @@ use App\Http\Controllers\Super\CommissionController;
 use App\Http\Controllers\Super\CommissionInvoiceController;
 use App\Http\Controllers\Super\DashboardController;
 use App\Http\Controllers\Super\ImpersonationController;
+use App\Http\Controllers\Super\LegalDocumentController;
 use App\Http\Controllers\Super\StatisticsController;
 use App\Http\Controllers\Super\TenantController;
 use Illuminate\Support\Facades\Route;
@@ -42,6 +43,11 @@ Route::middleware(['auth', 'ensure.superadmin'])->group(function () {
     Route::get('/statistics', [StatisticsController::class, 'index'])->name('super.statistics.index');
 
     // Audit log viewer (SLO-78).
+    // The platform's own terms and privacy notice (SLO-161). Publishing a new
+    // version here sends every tenant admin through the re-acceptance screen.
+    Route::get('/legal', [LegalDocumentController::class, 'index'])->name('super.legal.index');
+    Route::post('/legal', [LegalDocumentController::class, 'store'])->name('super.legal.store');
+
     Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('super.audit-logs.index');
 
     // Commission configuration (SLO-121, docs/10 §10). Versions are immutable:

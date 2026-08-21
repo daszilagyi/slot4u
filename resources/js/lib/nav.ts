@@ -13,6 +13,7 @@ import {
     ReceiptTextIcon,
     SettingsIcon,
     ShieldCheckIcon,
+    ScrollTextIcon,
     ShieldUserIcon,
     SparklesIcon,
     UsersIcon,
@@ -148,6 +149,17 @@ export const navItems: NavItem[] = [
         labelKey: 'admin.nav.privacy',
         href: '/settings/privacy',
         icon: ShieldUserIcon,
+        permission: 'privacy.manage',
+        ready: true,
+    },
+    {
+        // The tenant's own terms and privacy notice (SLO-161). Same gate as the
+        // request queue above: whoever answers erasure requests owns what the
+        // notice says.
+        key: 'legal',
+        labelKey: 'admin.nav.legal',
+        href: '/settings/legal',
+        icon: ScrollTextIcon,
         permission: 'privacy.manage',
         ready: true,
     },

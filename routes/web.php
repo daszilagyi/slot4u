@@ -2,7 +2,7 @@
 
 use App\Http\Controllers\ConsentController;
 use App\Http\Controllers\DeployHealthController;
-use App\Http\Controllers\LegalDocumentController;
+use App\Http\Controllers\LegalController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -22,7 +22,7 @@ Route::domain(config('tenancy.central_domain'))->group(function () {
     // The platform's own terms and privacy notice (SLO-161). Public: nobody can
     // consent to a text they are not allowed to read, and the sign-up form links
     // straight here before an account exists.
-    Route::get('/legal/{legalDocument}', [LegalDocumentController::class, 'show'])
+    Route::get('/legal/{legalDocument}', [LegalController::class, 'show'])
         ->whereNumber('legalDocument')
         ->name('legal.show');
 
