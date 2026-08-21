@@ -39,11 +39,14 @@ jobs:
     name: Build assets
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref || github.ref_name }}
           fetch-depth: 0
 
+      # checkout@v6 moved the persisted token out of .git/config into a file
+      # under RUNNER_TEMP. Authenticated git commands keep working unchanged —
+      # which this fetch depends on, so it is called out rather than assumed.
       - name: Refuse to deploy a commit that is not on main
         run: |
           git fetch --no-tags origin main
@@ -53,7 +56,7 @@ jobs:
           fi
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '22'
           cache: npm
@@ -96,6 +99,11 @@ jobs:
           VITE_APP_RELEASE: ${{ inputs.ref || github.ref_name }}
         run: npm run build
 
+      # ⚠️ Uploaded ZIPPED (the default). actions/upload-artifact@v7 can now send
+      # a single file unzipped with `archive: false`, and download-artifact@v8
+      # checks the Content-Type before unpacking so both shapes work — but a
+      # whole build directory is not a single file, so zipped is the only option
+      # here and the download unpacks it exactly as before (SLO-164).
       # manifest.json is a single file that the next release overwrites. Keeping
       # a copy under the release name is what lets a rollback serve the bundle
       # its own code was built against (deploy.sh restores it).
@@ -106,7 +114,7 @@ jobs:
 
       # Only the client build goes to the server: it has no Node process, so the
       # SSR bundle (bootstrap/ssr) would never be executed there (docs/13).
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: build-${{ github.run_id }}
           path: public/build
@@ -123,7 +131,7 @@ jobs:
       name: production
       url: ${{ vars.DEPLOY_URL }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.ref || github.ref_name }}
 
@@ -135,7 +143,12 @@ jobs:
         id: target
         run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/download-artifact@v4
+      # ⚠️ Downloaded BY NAME. download-artifact@v5 changed the extraction path
+      # for single artifacts fetched BY ID — `path/name/` became `path/` — and
+      # left by-name downloads untouched. Reading that release note is what
+      # settled this bump: a silently relocated bundle would ship a broken front
+      # end while the smoke test still saw a 200 (SLO-164).
+      - uses: actions/download-artifact@v8
         with:
           name: build-${{ github.run_id }}
           path: public/build
