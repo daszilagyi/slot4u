@@ -810,6 +810,25 @@ export type MyQuoteRequest = {
     created_local: string | null;
 };
 
+/** One legal document in force, as shared to every page (SLO-161). */
+type LegalDocumentSummary = {
+    id: number;
+    type: 'terms' | 'privacy';
+    version: string;
+    title: string;
+    href: string;
+};
+
+/**
+ * The documents this host may ask a visitor to accept, plus the id set the form
+ * has to submit back. An empty `documents` means the scope has published
+ * nothing, and no acceptance is asked for anywhere.
+ */
+type LegalSharedProps = {
+    documents: LegalDocumentSummary[];
+    ids: number[];
+};
+
 declare module '@inertiajs/core' {
     interface PageProps {
         locale: string;
@@ -819,6 +838,7 @@ declare module '@inertiajs/core' {
         status: string | null;
         impersonation: ImpersonationState | null;
         tenant: TenantIdentity | null;
+        legal: LegalSharedProps | null;
     }
 }
 

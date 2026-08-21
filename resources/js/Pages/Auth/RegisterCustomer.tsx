@@ -5,7 +5,9 @@ import AuthLayout from '@/Layouts/AuthLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { LegalConsent } from '@/components/LegalConsent';
 import { useTranslations } from '@/lib/i18n';
+import { useLegalConsentFields } from '@/lib/legal';
 
 /**
  * Customer self-registration on a tenant subdomain (SLO-95). The Fortify
@@ -14,7 +16,9 @@ import { useTranslations } from '@/lib/i18n';
  */
 export default function RegisterCustomer() {
     const t = useTranslations();
+    const legalFields = useLegalConsentFields();
     const form = useForm({
+        ...legalFields,
         name: '',
         email: '',
         phone: '',
@@ -139,6 +143,14 @@ export default function RegisterCustomer() {
                         }
                     />
                 </div>
+
+                <LegalConsent
+                    checked={form.data.accepted_legal}
+                    onChange={(checked) =>
+                        form.setData('accepted_legal', checked)
+                    }
+                    error={form.errors.accepted_legal}
+                />
 
                 <Button
                     type="submit"

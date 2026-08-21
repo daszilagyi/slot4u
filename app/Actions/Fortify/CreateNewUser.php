@@ -3,15 +3,20 @@
 namespace App\Actions\Fortify;
 
 use App\Actions\Customer\CreateCustomer;
+use App\Actions\Legal\RecordConsent;
+use App\Enums\ConsentContext;
 use App\Enums\Role;
 use App\Enums\TenantStatus;
+use App\Models\LegalDocument;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Rules\Phone;
+use App\Services\Legal\LegalDocumentRegistry;
 use App\Support\PhoneNumber;
 use App\Tenancy\TenantHostResolver;
 use App\Tenancy\TenantManager;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -38,6 +43,8 @@ class CreateNewUser implements CreatesNewUsers
         private readonly TenantManager $tenants,
         private readonly Request $request,
         private readonly CreateCustomer $createCustomer,
+        private readonly LegalDocumentRegistry $legal,
+        private readonly RecordConsent $recordConsent,
     ) {}
 
     /**
@@ -80,21 +87,33 @@ class CreateNewUser implements CreatesNewUsers
         // A non-string is left alone for the `string` rule to reject.
         $input['phone'] = is_string($phone) ? PhoneNumber::normalizeInput($phone, $region) : $phone;
 
-        Validator::make($input, [
+        $documents = $this->legal->currentForTenant($tenant);
+
+        $this->validateWithLegal($input, [
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique(User::class, 'email')],
             'phone' => Phone::rules($region),
             'password' => $this->passwordRules(),
-        ])->validate();
+        ], $tenant, $documents);
 
         $this->tenants->set($tenant);
 
-        return ($this->createCustomer)([
+        $user = ($this->createCustomer)([
             'name' => $input['name'],
             'email' => $input['email'],
             'phone' => $input['phone'] ?? null,
             'password' => $input['password'],
         ]);
+
+        // The customer accepts the TENANT's documents, not the platform's: the
+        // tenant is the controller of their data (docs/19 §1), and slot4u is not
+        // a party to that relationship at all.
+        $this->recordConsent->many(
+            $documents, $tenant, ConsentContext::CustomerRegistration,
+            user: $user, ipAddress: $this->request->ip(),
+        );
+
+        return $user;
     }
 
     /**
@@ -104,7 +123,9 @@ class CreateNewUser implements CreatesNewUsers
      */
     private function createTenantWithAdmin(array $input): User
     {
-        Validator::make($input, [
+        $documents = $this->legal->currentPlatform();
+
+        $this->validateWithLegal($input, [
             'company_name' => ['required', 'string', 'max:255'],
             'slug' => [
                 'required', 'string', 'lowercase', 'min:3', 'max:63',
@@ -115,11 +136,11 @@ class CreateNewUser implements CreatesNewUsers
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', Rule::unique(User::class, 'email')],
             'password' => $this->passwordRules(),
-        ], [
+        ], null, $documents, [
             'slug.not_in' => __('validation.custom.slug.reserved'),
-        ])->validate();
+        ]);
 
-        return DB::transaction(function () use ($input): User {
+        return DB::transaction(function () use ($input, $documents): User {
             // Creating the tenant fires TenantObserver → seeds the tenant roles.
             $tenant = Tenant::create([
                 'name' => $input['company_name'],
@@ -142,8 +163,55 @@ class CreateNewUser implements CreatesNewUsers
 
             $this->assignTenantAdmin($user, $tenant);
 
+            // Inside the transaction on purpose: a tenant that exists without the
+            // acceptance that created it is a compliance gap that nothing later
+            // would notice. The consent belongs to the new tenant even though the
+            // document is the platform's — it is that tenant's own evidence.
+            $this->recordConsent->many(
+                $documents, $tenant, ConsentContext::TenantRegistration,
+                user: $user, ipAddress: $this->request->ip(),
+            );
+
             return $user;
         });
+    }
+
+    /**
+     * Validate registration input together with the acceptance a scope requires.
+     *
+     * The acceptance rules disappear when the scope has published nothing: a
+     * tenant that has not written a privacy notice yet must not have its sign-up
+     * page refuse every visitor over a setting it does not know exists.
+     *
+     * @param  array<string, mixed>  $input
+     * @param  array<string, mixed>  $rules
+     * @param  Collection<string, LegalDocument>  $documents
+     * @param  array<string, string>  $messages
+     */
+    private function validateWithLegal(array $input, array $rules, ?Tenant $tenant, $documents, array $messages = []): void
+    {
+        if ($documents->isNotEmpty()) {
+            $rules['accepted_legal'] = ['required', 'accepted'];
+            $rules['legal_document_ids'] = ['required', 'array'];
+            $rules['legal_document_ids.*'] = ['integer'];
+        }
+
+        $validator = Validator::make($input, $rules, $messages);
+
+        $validator->after(function ($validator) use ($input, $tenant, $documents): void {
+            // A version published between rendering the form and submitting it
+            // must not be recorded as accepted — the person never saw it. Nor may
+            // the superseded one be recorded. The submission is refused instead.
+            if ($documents->isEmpty()) {
+                return;
+            }
+
+            if (! $this->legal->isCurrentSet($tenant, (array) ($input['legal_document_ids'] ?? []))) {
+                $validator->errors()->add('accepted_legal', __('app.legal.stale'));
+            }
+        });
+
+        $validator->validate();
     }
 
     /**

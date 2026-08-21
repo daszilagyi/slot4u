@@ -2,8 +2,8 @@
 
 > **Státusz:** az SLO-159 (SLO-48 1/3) szállította az érintetti jogok technikai
 > oldalát, az **SLO-160** (2/3) a **megőrzési időket és az automatikus
-> takarítást** (§7). A **verziókövetett hozzájárulás és a cookie consent** az
-> **SLO-161**-é — az is ebbe a dokumentumba fog beépülni.
+> takarítást** (§7), az **SLO-161** (3/3) a **verziókövetett hozzájárulást**
+> (§10). A **cookie consent** külön issue-ban jön (**SLO-165**).
 >
 > ⚠️ Ez a fájl a **technikai** megvalósítást írja le. Az ÁSZF és az adatkezelési
 > tájékoztató **szövegéhez jogász kell**; a slot4u nem ad jogi tanácsot.
@@ -261,6 +261,92 @@ A 90 nap csak akkor tisztességes, ha a tenant **el tudja vinni a sajátját**.
 
 | Mi | Hol |
 |---|---|
-| Verziókövetett ÁSZF/adatkezelési elfogadás, cookie consent | **SLO-161** |
-| ÁSZF + adatkezelési tájékoztató szövege | **jogász** |
+| Cookie/consent banner a publikus felületen | **SLO-165** |
+| ÁSZF + adatkezelési tájékoztató **szövege** | **jogász** |
 | `integration_logs` tábla (a retention-lépés már megvan) | `docs/02`, `docs/06` |
+
+## 10. Verziókövetett hozzájárulás (SLO-161, GDPR 7. cikk (1))
+
+A 7. cikk (1) szerint az adatkezelőnek **igazolnia kell tudnia**, hogy az érintett
+hozzájárult. Ehhez nem elég egy boolean flag: azt kell tudni megmondani, **melyik
+szöveg melyik változatát** fogadta el valaki, mikor és honnan.
+
+### 10.1 Két szint, mert két szerződés van
+
+A §1 következménye a séma is:
+
+| `legal_documents.tenant_id` | Mi ez | Ki fogadja el |
+|---|---|---|
+| `NULL` | a **platform** ÁSZF-je és tájékoztatója | a **tenant** (a cég, ami regisztrál) |
+| kitöltve | a **tenant saját** dokumentuma | a tenant **ügyfelei** |
+
+A tenant az adatkezelő, tehát a **szöveg az övé**: a slot4u a gépezetet adja
+(verziózás, elfogadás-rögzítés, újra-elfogadás), nem a szavakat. Ha egy tenant még
+nem tett közzé semmit, **sehol nem kérünk elfogadást** — a foglalási űrlap
+letiltása egy olyan beállítás miatt, amiről a tenant még nem tud, működő oldalt
+állítana le.
+
+### 10.2 Az alany user VAGY email
+
+⚠️ A tábla neve `legal_consents`, **nem `user_consents`**. A belépési pontok fele
+vendégként fut (`bookings.guest_email`, SLO-128), user sor nélkül — egy `user_id`-ra
+kulcsolt tábla ezeket **rögzítetlenül hagyná, miközben teljesnek látszik**. Ez a
+lehető legrosszabb kimenet olyasminél, aminek az egyetlen dolga, hogy bizonyíték
+legyen.
+
+### 10.3 Hét belépési pont
+
+Tenant regisztráció (központi domain) · ügyfél regisztráció · foglalás · megrendelés
+(`no_time_slot`) · esemény-jelentkezés · **várólista** · ajánlatkérés.
+
+A rögzítés **a kísért dolog létrejötte után** történik: egy elfogadás, amit egy
+később elbukó foglalás hagyott hátra, rosszabb a semminél, mert azt sugallja, valaki
+beleegyezett valamibe, ami meg sem történt. A tenant regisztrációnál fordítva —
+ott a kettő **egy tranzakcióban** van, mert egy tenant, ami létezik az őt létrehozó
+elfogadás nélkül, olyan hiányosság, amit később semmi nem venne észre.
+
+### 10.4 Egy verziót hatályba lépés után nem írunk felül
+
+A hozzájárulás egy **szövegre** vonatkozik. A szöveg átírása egy rögzített elfogadás
+alatt a bizonyítékot állítássá változtatja. Ezért: új szöveg = **új sor**, és az
+`effective_from` dönti el, melyik van hatályban. Jövőbeli dátum = meghirdetett
+verzió (három állapot: hatályos / meghirdetve / lejárt).
+
+Ebből következik a **verzió-verseny** kezelése is: az űrlap visszaküldi, mely
+dokumentum-id-kat mutatta, és ha időközben új lépett hatályba, a beküldést
+**elutasítjuk**. Sem az újra nem rögzíthetjük (nem látta), sem a régire (már nem az
+van hatályban).
+
+### 10.5 Újra-elfogadás
+
+Az `EnsureLegalConsent` middleware adja a verziózás értelmét: nélküle az új szöveg
+senkire nem vonatkozna, akinek már van fiókja. Blokkoló képernyő, nem elzárható
+sáv — utóbbi használhatóan hagyná a terméket olyasvalaki számára, aki nem fogadta el
+a feltételeket, amik alatt használja.
+
+Kivételek, amik kapuvá és nem csapdává teszik: **maga a dokumentum**, az elfogadó
+űrlap, a kijelentkezés és a bejelentkezés. Superadmintól **soha nem kérünk**
+elfogadást (a slot4u nem szerződik önmagával), vendégtől sem — őt a foglalás
+pontján kérdezzük.
+
+### 10.6 Megőrzés — miért nem söpri a retention
+
+A §7.1 az `audit_logs.ip_address`-t 90 nap után nullázza. A `legal_consents.ip_address`
+**megmarad**. A különbség az, hogy mire való: az audit soron az IP telemetria egy
+amúgy is rögzített művelethez, itt viszont **maga a bizonyíték része** — az elfogadás
+körülményei nélkül a rekord állítás, nem bizonyíték.
+
+`user_agent` oszlop **nincs**: második azonosító lenne, jóval kisebb bizonyító
+erővel, mint az időbélyeg és a verzió — az adatminimalizálás pont abban a táblában
+nem opcionális, ami a megfelelés igazolására létezik.
+
+### 10.7 A 15. cikkes exportban
+
+A hozzájárulások **benne vannak** az ügyfél adatmásolatában (§2): az az adat, amivel
+az adatkezelést igazoljuk, ugyanúgy az érintettről szól. A vendégként adott
+elfogadások email-egyezéssel is bekerülnek, tehát aki előbb fiók nélkül foglalt és
+később regisztrált, a **teljes** előzményét kapja, nem a rendezettebbnek látszó felét.
+
+⚠️ **A dokumentumok SZÖVEGE jogászra vár.** A seeder látható helyőrzőket tesz ki,
+amik ezt ki is mondják magukról: egy hihetően hangzó vázlat rosszabb lenne, mert
+senki nem venné észre, hogy cserélni kell.

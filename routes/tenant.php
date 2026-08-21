@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\CustomerController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\DomainController;
 use App\Http\Controllers\Admin\EventController;
+use App\Http\Controllers\Admin\LegalDocumentController;
 use App\Http\Controllers\Admin\LocationController;
 use App\Http\Controllers\Admin\MessageTemplateController;
 use App\Http\Controllers\Admin\PrivacyRequestController;
@@ -25,6 +26,8 @@ use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Admin\UserRbacController;
 use App\Http\Controllers\Admin\WaitlistController;
+use App\Http\Controllers\ConsentController;
+use App\Http\Controllers\LegalController;
 use App\Http\Controllers\StaffProfileController;
 use App\Http\Controllers\Super\ImpersonationController;
 use App\Http\Controllers\Tenant\BookingController as TenantBookingController;
@@ -60,6 +63,23 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
     Route::middleware('throttle:seo')->group(function () {
         Route::get('/sitemap.xml', [SeoController::class, 'sitemap'])->name('tenant.sitemap');
         Route::get('/og-image.png', [SeoController::class, 'ogImage'])->name('tenant.og_image');
+    });
+
+    // The documents this host asks people to accept (SLO-161). Public, so it
+    // carries a named limiter like the rest of the unauthenticated surface
+    // (SLO-147) — the `public` bucket, keyed on tenant host + caller, rather
+    // than a bespoke one: a legal text is a cheap read, and 60/minute is far
+    // beyond anyone actually reading it. A document belonging to another tenant
+    // 404s like any cross-tenant id.
+    Route::middleware('throttle:public')
+        ->get('/legal/{legalDocument}', [LegalController::class, 'show'])
+        ->whereNumber('legalDocument')
+        ->name('tenant.legal.show');
+
+    // The re-acceptance screen (SLO-161) — see the note on the central copy.
+    Route::middleware('auth')->group(function () {
+        Route::get('/consent', [ConsentController::class, 'show'])->name('tenant.consent.show');
+        Route::post('/consent', [ConsentController::class, 'store'])->name('tenant.consent.store');
     });
 
     // Public slot-picker (SLO-30) + booking submission (SLO-31). Unauthenticated
@@ -332,6 +352,15 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
         // grantable, so a tenant can put its data-protection contact on it
         // without also handing them billing.
         Route::middleware('can:'.Permission::PrivacyManage->value)->group(function () {
+            // The tenant's own terms and privacy notice (SLO-161). Same gate as
+            // the request queue: whoever answers erasure requests is whoever owns
+            // what the notice says.
+            Route::get('/settings/legal', [LegalDocumentController::class, 'index'])->name('tenant.legal.index');
+            Route::post('/settings/legal', [LegalDocumentController::class, 'store'])->name('tenant.legal.store');
+            Route::delete('/settings/legal/{legalDocument}', [LegalDocumentController::class, 'destroy'])
+                ->whereNumber('legalDocument')
+                ->name('tenant.legal.destroy');
+
             Route::get('/settings/privacy', [PrivacyRequestController::class, 'index'])->name('tenant.privacy.index');
             // The tenant's own full data set (SLO-160, docs/19 §7.4). Declared
             // before the {privacyRequest} routes below only for readability —

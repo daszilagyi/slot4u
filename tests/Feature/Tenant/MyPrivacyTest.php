@@ -122,6 +122,9 @@ it('exports every section the app can hold data in', function () {
         'invoices',
         'notifications',
         'privacy_requests',
+        // SLO-161: the evidence used to justify processing someone's data is
+        // data about them.
+        'consents',
     ]);
 });
 

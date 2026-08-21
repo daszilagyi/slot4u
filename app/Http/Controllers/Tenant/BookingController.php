@@ -6,6 +6,7 @@ use App\Actions\Booking\CreateBooking;
 use App\Actions\Customer\FindOrCreateCustomer;
 use App\Actions\Customer\PublicContact;
 use App\Actions\Customer\ResolvePublicContact;
+use App\Actions\Legal\RecordConsent;
 use App\Actions\Payment\StartBookingPayment;
 use App\Actions\Quote\CreateQuoteRequest;
 use App\Actions\Quote\PostQuoteMessage;
@@ -13,6 +14,7 @@ use App\Actions\Waitlist\JoinWaitlist;
 use App\Enums\BookingMode;
 use App\Enums\BookingSource;
 use App\Enums\BookingStatus;
+use App\Enums\ConsentContext;
 use App\Enums\EventStatus;
 use App\Enums\Feature;
 use App\Exceptions\SlotUnavailableException;
@@ -26,8 +28,10 @@ use App\Models\Booking;
 use App\Models\Customer;
 use App\Models\Event;
 use App\Models\Service;
+use App\Models\User;
 use App\Services\Booking\AvailabilityService;
 use App\Services\Feature\FeatureResolver;
+use App\Services\Legal\LegalDocumentRegistry;
 use App\Support\IcsBuilder;
 use App\Tenancy\TenantManager;
 use Illuminate\Http\RedirectResponse;
@@ -168,6 +172,8 @@ class BookingController extends Controller
             'source' => BookingSource::Online->value,
         ]);
 
+        $this->recordLegalConsent($request, $contact->customer, $contact->email, ConsentContext::Booking);
+
         return $this->afterBooking($booking);
     }
 
@@ -197,6 +203,8 @@ class BookingController extends Controller
             'notes' => $data['notes'] ?? null,
             'source' => BookingSource::Online->value,
         ]);
+
+        $this->recordLegalConsent($request, $contact->customer, $contact->email, ConsentContext::Order);
 
         return $this->afterBooking($booking);
     }
@@ -247,6 +255,8 @@ class BookingController extends Controller
             // authorless (guest) message on the thread, like a system entry.
             $postQuoteMessage($quoteRequest, $message, $contact->customer);
         }
+
+        $this->recordLegalConsent($request, $contact->customer, $contact->email, ConsentContext::QuoteRequest);
 
         return redirect('/quote-sent')->with('quote', ['service' => $service->name]);
     }
@@ -318,6 +328,8 @@ class BookingController extends Controller
             ]);
         }
 
+        $this->recordLegalConsent($request, $contact->customer, $contact->email, ConsentContext::EventBooking);
+
         return $this->afterBooking($booking);
     }
 
@@ -340,6 +352,10 @@ class BookingController extends Controller
         $data = $request->validated();
         $customer = $this->findGuest($findOrCreateCustomer, $data);
         $entry = $joinWaitlist($event, $customer->id, (int) $data['party_size']);
+
+        // The waitlist shares PublicEventBookingRequest, so its form asks for the
+        // same acceptance. Asking without recording would be the worst of both.
+        $this->recordLegalConsent($request, $customer, (string) $data['email'], ConsentContext::EventBooking);
 
         return redirect('/waitlisted')->with('waitlist', [
             'position' => $entry->position,
@@ -383,6 +399,41 @@ class BookingController extends Controller
         );
 
         return $service;
+    }
+
+    /**
+     * Record that this visitor accepted the tenant's documents (SLO-161).
+     *
+     * Called after the booking exists rather than before: a validation failure
+     * downstream would otherwise leave an acceptance recorded for something that
+     * never happened, and evidence of a consent nobody acted on is worse than
+     * none — it invites the wrong conclusion.
+     *
+     * A visitor with an account is recorded by user; a guest by email, because
+     * there is no user row to point at (docs/04 guest booking).
+     */
+    private function recordLegalConsent(Request $request, ?User $user, string $email, ConsentContext $context): void
+    {
+        $tenant = app(TenantManager::class)->current();
+
+        if ($tenant === null) {
+            return;
+        }
+
+        $documents = app(LegalDocumentRegistry::class)->currentForTenant($tenant);
+
+        if ($documents->isEmpty()) {
+            return;
+        }
+
+        app(RecordConsent::class)->many(
+            $documents,
+            $tenant,
+            $context,
+            user: $user,
+            email: $email,
+            ipAddress: $request->ip(),
+        );
     }
 
     /**

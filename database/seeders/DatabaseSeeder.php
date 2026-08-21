@@ -21,6 +21,11 @@ class DatabaseSeeder extends Seeder
 
         $this->call(CommissionSettingSeeder::class);
 
+        // Placeholder platform terms + privacy notice (SLO-161). Without a
+        // version in force, sign-up asks for no acceptance at all — art. 7(1)
+        // would be undemonstrable from the first tenant onwards.
+        $this->call(LegalDocumentSeeder::class);
+
         $this->call(TenantDemoSeeder::class);
 
         // Tenant-less user (acts as a placeholder superadmin until SLO-14).

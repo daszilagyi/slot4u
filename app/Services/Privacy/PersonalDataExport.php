@@ -6,6 +6,7 @@ namespace App\Services\Privacy;
 
 use App\Models\Booking;
 use App\Models\Invoice;
+use App\Models\LegalConsent;
 use App\Models\NotificationLog;
 use App\Models\Payment;
 use App\Models\PrivacyRequest;
@@ -52,6 +53,7 @@ final class PersonalDataExport
             'invoices' => $this->invoices($user),
             'notifications' => $this->notifications($user),
             'privacy_requests' => $this->privacyRequests($user),
+            'consents' => $this->consents($user),
         ];
     }
 
@@ -271,6 +273,35 @@ final class PersonalDataExport
                 'requested_at' => $request->created_at?->toIso8601String(),
                 'resolved_at' => $request->resolved_at?->toIso8601String(),
                 'resolution_note' => $request->resolution_note,
+            ])
+            ->all();
+    }
+
+    /**
+     * What this person accepted, and which version of it (SLO-161).
+     *
+     * Part of an art. 15 copy because it is the subject's own record as much as
+     * the controller's: the evidence used to justify processing their data is
+     * data about them. Guest acceptances are matched by address, so someone who
+     * booked without an account and later registered gets both halves of their
+     * history rather than the tidier-looking half.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function consents(User $user): array
+    {
+        return LegalConsent::query()
+            ->with('document:id,type,version,title')
+            ->forSubject($user, $user->anonymized_at === null ? $user->email : null)
+            ->orderBy('id')
+            ->get()
+            ->map(fn (LegalConsent $consent): array => [
+                'document_type' => $consent->document?->type->value,
+                'document_version' => $consent->document?->version,
+                'document_title' => $consent->document?->title,
+                'context' => $consent->context->value,
+                'accepted_at' => $consent->accepted_at->toIso8601String(),
+                'ip_address' => $consent->ip_address,
             ])
             ->all();
     }

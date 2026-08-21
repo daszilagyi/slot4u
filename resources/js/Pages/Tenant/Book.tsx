@@ -9,7 +9,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatMoney } from '@/lib/format';
+import { LegalConsent } from '@/components/LegalConsent';
 import { useTranslations } from '@/lib/i18n';
+import { useLegalConsentFields } from '@/lib/legal';
 import type {
     BookDay,
     BookEvent,
@@ -173,7 +175,9 @@ export default function Book(props: BookProps) {
     // Booking details form (prefilled for a logged-in customer). The slot fields
     // are injected from the selected slot at submit time.
     const authUser = page.props.auth.user;
+    const legalFields = useLegalConsentFields();
     const form = useForm({
+        ...legalFields,
         name: authUser?.name ?? '',
         email: authUser?.email ?? '',
         phone: '',
@@ -187,6 +191,7 @@ export default function Book(props: BookProps) {
         mode: 'book' | 'waitlist';
     } | null>(null);
     const eventForm = useForm({
+        ...legalFields,
         party_size: 1,
         name: authUser?.name ?? '',
         email: authUser?.email ?? '',
@@ -261,6 +266,7 @@ export default function Book(props: BookProps) {
      */
     function guestFields(prefix: string) {
         return (
+            <div className="flex flex-col gap-4">
             <div className="grid gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
                     <Label htmlFor={`${prefix}-name`}>
@@ -316,6 +322,16 @@ export default function Book(props: BookProps) {
                         onChange={(e) => form.setData('notes', e.target.value)}
                     />
                 </div>
+            </div>
+
+            {/* Booking, order and quote all submit `form`, so the tick box lives
+                here rather than three times over. The event sign-up has its own
+                form and its own copy below. */}
+            <LegalConsent
+                checked={form.data.accepted_legal}
+                onChange={(checked) => form.setData('accepted_legal', checked)}
+                error={form.errors.accepted_legal}
+            />
             </div>
         );
     }
@@ -959,6 +975,21 @@ export default function Book(props: BookProps) {
                                                 />
                                             </div>
                                         </div>
+
+                                        <LegalConsent
+                                            checked={
+                                                eventForm.data.accepted_legal
+                                            }
+                                            onChange={(checked) =>
+                                                eventForm.setData(
+                                                    'accepted_legal',
+                                                    checked,
+                                                )
+                                            }
+                                            error={
+                                                eventForm.errors.accepted_legal
+                                            }
+                                        />
 
                                         <Button
                                             type="submit"
