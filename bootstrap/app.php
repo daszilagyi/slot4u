@@ -99,6 +99,17 @@ return Application::configure(basePath: dirname(__DIR__))
             EnsureLegalConsent::class,
         ]);
 
+        // The cookie-consent decision is NOT encrypted (SLO-165). It is a
+        // preference, not a capability: it authenticates nothing, and tampering
+        // with it only changes what that same browser is offered. Leaving it
+        // readable buys two things — a future third-party tag can check the
+        // decision synchronously before our bundle runs, and a visitor can
+        // inspect the privacy control they were given, which is the right
+        // posture for a control that exists to be trustworthy.
+        $middleware->encryptCookies(except: [
+            'slot4u_consent',
+        ]);
+
         // Payment gateway callbacks carry no session and cannot present a CSRF
         // token — they are authenticated by the provider's own signature, which the
         // gateway adapter verifies before anything is written (SLO-130).

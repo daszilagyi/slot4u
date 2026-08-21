@@ -27,6 +27,7 @@ use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Admin\UserRbacController;
 use App\Http\Controllers\Admin\WaitlistController;
 use App\Http\Controllers\ConsentController;
+use App\Http\Controllers\CookieConsentController;
 use App\Http\Controllers\LegalController;
 use App\Http\Controllers\StaffProfileController;
 use App\Http\Controllers\Super\ImpersonationController;
@@ -75,6 +76,11 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
         ->get('/legal/{legalDocument}', [LegalController::class, 'show'])
         ->whereNumber('legalDocument')
         ->name('tenant.legal.show');
+
+    // The cookie decision (SLO-165) — see the note on the central copy.
+    Route::post('/cookie-consent', [CookieConsentController::class, 'store'])
+        ->middleware('throttle:public')
+        ->name('tenant.cookie_consent.store');
 
     // The re-acceptance screen (SLO-161) — see the note on the central copy.
     Route::middleware('auth')->group(function () {

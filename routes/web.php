@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\ConsentController;
+use App\Http\Controllers\CookieConsentController;
 use App\Http\Controllers\DeployHealthController;
 use App\Http\Controllers\LegalController;
 use Illuminate\Support\Facades\Route;
@@ -25,6 +26,12 @@ Route::domain(config('tenancy.central_domain'))->group(function () {
     Route::get('/legal/{legalDocument}', [LegalController::class, 'show'])
         ->whereNumber('legalDocument')
         ->name('legal.show');
+
+    // The cookie decision (SLO-165). Public and outside auth: someone declining
+    // to be tracked cannot be asked to identify themselves first.
+    Route::post('/cookie-consent', [CookieConsentController::class, 'store'])
+        ->middleware('throttle:public')
+        ->name('cookie_consent.store');
 
     // The re-acceptance screen (SLO-161). Registered on every host a signed-in
     // user can land on, because EnsureLegalConsent sends them to /consent
