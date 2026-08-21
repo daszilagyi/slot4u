@@ -22,8 +22,32 @@ visszateszi. A `.env` **szándékosan nincs** a mentésben — l. §7.
 
 ## 2. Beállítás (egyszeri, Daniel)
 
-1. **S3-kompatibilis bucket** egy olyan szolgáltatónál, amelyik **nem** a webhoszt
-   (Backblaze B2 vagy Wasabi). A bucket legyen **privát**, verziózás nélkül is elég.
+> ### ⚠️ Jelenlegi éles állapot (2026-08-19): LOKÁLIS mentés, nem offsite
+>
+> A prod **`BACKUP_DISK=backup-local`** módban fut: a napi mentés a
+> `~/slot4u/storage/backups` alá íródik, titkosítva, ugyanazzal a kóddal és
+> retencióval — de **ugyanazon a gépen, amit véd**.
+>
+> **Miért:** amíg nincs éles ügyfél, Daniel nem vesz igénybe újabb szolgáltatót
+> (döntés: 2026-08-19). Ez tudatos, átmeneti kompromisszum.
+>
+> **Mi ellen véd így is:** elrontott migráció, véletlen tömeges törlés,
+> félresikerült deploy, a retention-söprés hibája — vagyis a *valószínű*
+> katasztrófák ebben a fázisban. **Mi ellen NEM:** a tárhely-fiók elvesztése,
+> lemezhiba, a fiók feltörése. Pontosan ezért nem ez a végállapot.
+>
+> **Váltás offsite-ra:** az alábbi §2 lépései, plusz `BACKUP_DISK=s3` (vagy a sor
+> törlése — az `s3` az alapértelmezés). Kódváltozás **nincs**; a `backup:run`,
+> a retention, a `monitor:health` checkje és a visszaállítási eljárás azonos.
+> Az első éles ügyfél előtt elvégzendő — **SLO-163**.
+
+1. **S3-kompatibilis bucket** egy olyan szolgáltatónál, amelyik **nem** a webhoszt.
+   A bucket legyen **privát**, verziózás nélkül is elég.
+   ⚠️ **A Wasabi minimum 1 TB-ot számláz** akkor is, ha pár MB-ot töltesz fel — ehhez
+   a mérethez rossz választás. A **Backblaze B2**-nél nincs ilyen minimum, a
+   **Cloudflare R2** pedig eggyel kevesebb szolgáltatói fiók, mert a Cloudflare
+   már a stackben van (DNS + custom domain). Mindkettő S3-kompatibilis, csak az
+   `AWS_ENDPOINT` és a régió más (R2-nél `AWS_DEFAULT_REGION=auto`).
 2. Külön **application key**, csak erre a bucketre, írás+listázás+törlés joggal.
    (Törlés kell: a retention takarít.)
 3. Prod `.env`:
