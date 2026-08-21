@@ -199,6 +199,34 @@ notifications_log  id, tenant_id, type, channel, recipient, status(pending|sent|
 audit_logs         id, tenant_id(nullable), user_id(nullable), action, auditable_type/id(nullable), old_values/new_values(json), ip_address, created_at(immutable, nincs updated_at)
 ```
 
+### Verziókövetett hozzájárulás (SLO-161, GDPR 7. cikk (1))
+
+```
+legal_documents    id, tenant_id(NULLABLE), type(terms|privacy), version, title,
+                   body(nullable), url(nullable), effective_from, created_by_id, timestamps
+                   — unique(tenant_id, type, version) · index(tenant_id, type, effective_from)
+                   — tenant_id NULL = PLATFORM dokumentum (a slot4u ÁSZF-je, amit a
+                     tenantok fogadnak el); kitöltve = a tenant sajátja, amit az
+                     ügyfelei fogadnak el. Két külön szerződés, l. docs/19 §1.
+                   — body VAGY url, sosem mindkettő: két forrás egy jogi szövegre
+                     két szöveg
+                   — hatályba lépett verziót SOHA nem írunk felül — új szöveg = új sor
+                   — ⚠️ a unique index a platform-sorokra NEM véd (MySQL/SQLite a
+                     NULL-t különbözőnek veszi); ott a Form Request az egyetlen őr
+legal_consents     id, tenant_id, legal_document_id(RESTRICT), user_id(nullable),
+                   email(nullable), context, accepted_at, ip_address, timestamps
+                   — index(tenant_id, user_id, legal_document_id) · index(tenant_id, email)
+                   — ⚠️ NEM `user_consents`: a belépési pontok fele vendégként fut
+                     (bookings.guest_email), user sor nélkül. A user_id-ra kulcsolt
+                     tábla ezeket rögzítetlenül hagyná, miközben teljesnek látszik.
+                     Az alany user_id VAGY email.
+                   — RESTRICT: elfogadott verziót nem lehet törölni — az a bizonyíték
+                   — az ip_address itt MEGMARAD (nem söpri a retention, l. docs/19
+                     §7.1): az audit sornál telemetria, itt maga a bizonyíték része
+                   — minden elfogadás ÚJ sor, nincs deduplikáció: a hozzájárulás
+                     cselekmény, a másodikat az elsőre ejteni bizonyítékot dob el
+```
+
 ## Statisztika
 
 MVP: lekérdezés-alapú riportok indexelt oszlopokon (bookings.starts_at, status, staff_id, service_id). Külön BI nem kell.
