@@ -209,17 +209,54 @@ script, vagy a blokkoló oldal címe), a deployról ez **semmit nem mond**. Elő
 más hálózatról (lokálisan futtatva a scriptet), és nézd meg SSH-n a `.release`-t — a
 „javítás" előtt.
 
-**Hogy a runner átmenjen** — a füstteszt minden kérése (nem csak a `/_deploy/health`)
-azonosítja magát: `User-Agent: slot4u-smoke/1` és `X-Deploy-Token: <DEPLOY_HEALTH_TOKEN>`.
-A Cloudflare-ben ehhez egy **WAF custom rule / Skip** szabály tartozik:
+### 6.2 Ha challenge-t kap a runner — mi a teendő
+
+A füstteszt minden kérése (nem csak a `/_deploy/health`) azonosítja magát:
+`User-Agent: slot4u-smoke/1` és `X-Deploy-Token: <DEPLOY_HEALTH_TOKEN>`. A javítás első
+lépcsője **maga ez**: a régi script `curl` alapértelmezett user agentjével kopogott, amit a
+Cloudflare **Browser Integrity Check**-je (minden tervben be van kapcsolva) rutinszerűen
+challenge-el. Elképzelhető, hogy ennyi elég is — ezért a sorrend: **előbb mérj, aztán
+állíts**.
+
+**1. Reprodukálás deploy nélkül.** GitHub → Actions → **Smoke test** → *Run workflow*, a
+`ref` a jelenleg élő tag (pl. `v0.7.3`). Ez csak GET kéréseket küld, de a `production`
+environment jóváhagyási kapuján át (a token onnan jön) — egy kattintás. Bukás esetén a
+workflow kiírja ugyanannak a kérésnek a válaszfejléceit **azonosítva és névtelenül**:
+
+* **csak a névtelen kap challenge-t** → Browser Integrity Check volt, az azonosított kérés
+  már átmegy: **nincs több teendő**.
+* **mindkettő challenge-t kap** → egy bot-szabály vagy a Security Level akad fel a runner
+  IP-jére → 2. lépés.
+
+**2. Ki adta a challenge-t?** Cloudflare → a zóna → **Analytics → Events**. ⚠️ **Az ingyenes
+terven a megőrzés 24 óra** (és mintavételezett), tehát ezt a reprodukálás után **azonnal**
+kell megnézni — utólag egy két napja történt eseményt már nem találsz. Az esemény sora
+megnevezi a szolgáltatást (Bot Fight Mode / Managed rules / Security Level / Browser
+Integrity Check / Rate limiting rules).
+
+**3a. Ha NEM Bot Fight Mode** — WAF custom rule, Skip action:
+Cloudflare → a zóna → **Security → WAF → Custom rules → Create rule** (újabb dashboardon
+**Security → Security rules**). Kifejezés (Edit expression):
 
 ```
 (http.request.headers["x-deploy-token"][0] eq "<DEPLOY_HEALTH_TOKEN>")
-→ Skip: All remaining custom rules, Bot Fight Mode, Managed Rules, Rate limiting
 ```
+
+Action: **Skip** → pipáld be, ami az Events szerint elkapta (`Browser Integrity Check`,
+`Security Level`, `Managed Rules`, `Rate limiting`), és a *All remaining custom rules*-t.
+A szabály legyen a lista **elején**.
 
 ⚠️ **A szabály a headerre illeszkedik, NEM a user agentre.** A UA-t bárki beírja; a header
 értéke titok. A UA csak azért van, hogy egy log-sorból is látszódjon, ki kopogtat.
+
+**3b. ⚠️ Ha Bot Fight Mode** (ingyenes terv) — **azt WAF skip szabállyal NEM lehet
+megkerülni.** A Bot Fight Mode nem a Ruleset Engine-en fut, tehát a Skip/Bypass/Allow
+akciók nem hatnak rá; ez a Cloudflare dokumentált korlátja, nem konfigurációs hiba. Három
+út van: **(a)** kikapcsolod (Security → Bots) — a `docs/12` B3 amúgy is jelezte, hogy a
+Barion webhook útvonalán sem szabad blokkolnia; **(b)** Pro tervre váltasz, ahol a **Super**
+Bot Fight Mode már skip-elhető; **(c)** együtt élsz vele, és a füstteszt bukását
+kézzel értékeled — ez a legrosszabb, mert visszahozza a „piros CI, ami nem jelent semmit"
+állapotot.
 
 ⚠️ **Ez kézi Cloudflare-beállítás**, nem a repóból jön. Amíg nincs meg, a füstteszt
 elbukhat egy tökéletesen jó deploy után is — de **hangosan és megnevezve**, nem néma hamis
