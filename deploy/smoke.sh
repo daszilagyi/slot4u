@@ -15,6 +15,13 @@
 # that moves: a deploy of `main` that shipped a months-old commit still called
 # itself "main" and would have passed a name comparison (SLO-158).
 #
+# Everything here goes through Cloudflare, which means every answer has two
+# possible authors: the application, or the edge in front of it. Telling them
+# apart is not a detail — a bot-protection challenge is a 200 with an HTML body,
+# so a check that only reads the status code passes while the app is down
+# (SLO-162). The rule below is therefore: a check is green only when the answer
+# carries proof it came from our middleware.
+#
 set -Eeuo pipefail
 
 BASE_URL="${1:-}"
@@ -39,37 +46,136 @@ failures=0
 pass() { printf '  \033[32mok\033[0m   %s\n' "$*"; }
 fail() { printf '  \033[31mFAIL\033[0m %s\n' "$*"; failures=$((failures + 1)); }
 
+# --- Probing ---------------------------------------------------------------
+# One request, three globals. The headers matter as much as the body: the proof
+# that the application answered is a response header, not page content.
+HEADERS="$(mktemp)"
+BODY="$(mktemp)"
+STATUS=""
+trap 'rm -f "${HEADERS}" "${BODY}"' EXIT
+
+# Every request identifies itself — including the public-page ones, which used
+# to go out as a bare curl. A datacenter IP running curl with no user agent is
+# exactly what a bot-protection rule exists to stop, and the smoke test has no
+# business looking like an unknown crawler to our own edge. The token header is
+# what a Cloudflare WAF "skip" rule matches on, so the test keeps measuring
+# THROUGH the edge rather than around it (docs/16 §6.1). Matching on the user
+# agent instead would be a bypass anyone could type.
+USER_AGENT='slot4u-smoke/1 (+https://slot4u.hu)'
+
+probe() {
+    STATUS="$(curl -sS --max-time 30 \
+        -A "${USER_AGENT}" \
+        -H "X-Deploy-Token: ${TOKEN}" \
+        -D "${HEADERS}" -o "${BODY}" -w '%{http_code}' "$1" || true)"
+}
+
+# The application's signature on a response: SecurityHeaders is prepended to the
+# global middleware stack (SLO-145), so every response the app produces carries a
+# CSP — and nothing in front of it does.
+answered_by_app() {
+    grep -qi '^content-security-policy:' "${HEADERS}"
+}
+
+# Cloudflare's bot protection, in its several disguises: the header it sets on a
+# mitigated request, the script the interstitial loads, and the titles of the
+# static block pages. Detected separately from "not our app" only so the failure
+# can say what actually happened — a challenge is an edge decision about the
+# caller, not evidence about the deploy.
+challenged() {
+    grep -qiE '^cf-mitigated:[[:space:]]*challenge' "${HEADERS}" && return 0
+    grep -qE '/cdn-cgi/challenge-platform|__cf_chl|cf_chl_opt|cf-browser-verification' "${BODY}" && return 0
+    grep -qiE '<title>[^<]*(just a moment|attention required|access denied|checking your browser)' "${BODY}" && return 0
+    return 1
+}
+
+probe_reason() {
+    if challenged; then
+        printf 'HTTP %s, Cloudflare challenge' "${STATUS:-000}"
+    elif [[ "${STATUS}" == "200" ]] && ! answered_by_app; then
+        printf 'HTTP 200 but not from the application'
+    else
+        printf 'HTTP %s' "${STATUS:-000}"
+    fi
+}
+
+# Probe until `ready` (the name of a predicate function) is satisfied, or the
+# retries run out. Retrying is not only for a slow boot: a challenge is often
+# transient, decided per IP and per minute, so one more attempt is worth more
+# than a paragraph of guesswork in the deploy log.
+probe_until() {
+    local url="$1" ready="$2" attempt
+    for attempt in $(seq 1 "${RETRIES}"); do
+        probe "${url}"
+        if "${ready}"; then
+            return 0
+        fi
+        if [[ "${attempt}" -lt "${RETRIES}" ]]; then
+            echo "  attempt ${attempt}: $(probe_reason), retrying in ${DELAY}s"
+            sleep "${DELAY}"
+        fi
+    done
+    return 1
+}
+
+not_challenged() { ! challenged; }
+live() { [[ "${STATUS}" == "200" ]] && answered_by_app; }
+
+# Said once, in full, wherever the edge got in the way: the deploy is not the
+# suspect here, and the fix is a configuration change rather than a code one.
+# Naming the wrong cause is how SLO-158 lost a round.
+fail_challenge() {
+    fail "$1: the Cloudflare edge answered with a bot-protection challenge, not the app.
+       This says nothing about the deploy — verify it from another network before touching
+       anything (docs/16 §6.1). To let this caller through, add a Cloudflare WAF *skip*
+       rule for the smoke test's own header:
+         (http.request.headers[\"x-deploy-token\"][0] eq \"<DEPLOY_HEALTH_TOKEN>\")"
+}
+
 # --- 1. Liveness -----------------------------------------------------------
 # Retried: `artisan up` has just run, and the edge may still be serving the 503
 # it cached a moment ago.
+#
+# The status code alone is not liveness. /up answering 200 from Cloudflare's
+# challenge page looks identical to /up answering 200 from Laravel, and the
+# version of this check that only read the status reported "ok" through an
+# outage it was written to catch (SLO-162).
 echo "==> Liveness (${BASE_URL}/up)"
-status=""
-for attempt in $(seq 1 "${RETRIES}"); do
-    # curl prints 000 itself when it never got a response, so no fallback echo.
-    status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 "${BASE_URL}/up" || true)"
-    [[ "${status}" == "200" ]] && break
-    echo "  attempt ${attempt}: HTTP ${status:-000}, retrying in ${DELAY}s"
-    sleep "${DELAY}"
-done
-[[ "${status}" == "200" ]] && pass "health endpoint returned 200" || fail "health endpoint returned ${status}"
+if probe_until "${BASE_URL}/up" live; then
+    pass "health endpoint returned 200 from the application"
+elif challenged; then
+    fail_challenge "the health endpoint is unreachable behind the edge"
+elif [[ "${STATUS}" == "200" ]]; then
+    fail "the health endpoint returned 200 without the app's security headers — something
+       in front of the application answered (parked page, edge error page), not the app"
+else
+    fail "health endpoint returned ${STATUS:-000}"
+fi
 
 # --- 2. The running code is the release we shipped -------------------------
 echo "==> Release (${BASE_URL}/_deploy/health)"
-health_body="$(mktemp)"
-health_status="$(curl -sS --max-time 20 -o "${health_body}" -w '%{http_code}' \
-    -H "X-Deploy-Token: ${TOKEN}" "${BASE_URL}/_deploy/health" || true)"
-health="$(cat "${health_body}")"
-rm -f "${health_body}"
+health_ok=1
+if ! probe_until "${BASE_URL}/_deploy/health" not_challenged; then
+    fail_challenge "cannot read the deployed release"
+    health_ok=0
+fi
 
-if [[ "${health_status}" == "404" ]]; then
-    # The endpoint answers 404 both when the route is missing and when the token
-    # is wrong — hiding its existence is deliberate. Naming only one of the two
-    # causes sent a real investigation down the wrong path once, so say both.
-    fail "HTTP 404 from /_deploy/health. Either the deployed code predates the route
+health="$(cat "${BODY}")"
+health_status="${STATUS}"
+
+if [[ "${health_ok}" == "1" ]]; then
+    if [[ "${health_status}" == "404" ]]; then
+        # The endpoint answers 404 both when the route is missing and when the token
+        # is wrong — hiding its existence is deliberate. Naming only one of the two
+        # causes sent a real investigation down the wrong path once, so say both.
+        fail "HTTP 404 from /_deploy/health. Either the deployed code predates the route
        (the deploy shipped an older commit than you think — check deploy-target-sha
        in the deploy log), or DEPLOY_HEALTH_TOKEN differs from the server's .env."
-elif [[ "${health_status}" != "200" ]]; then
-    fail "HTTP ${health_status:-000} from /_deploy/health"
+        health_ok=0
+    elif [[ "${health_status}" != "200" ]]; then
+        fail "HTTP ${health_status:-000} from /_deploy/health"
+        health_ok=0
+    fi
 fi
 
 json_field() {
@@ -83,9 +189,9 @@ environment="$(json_field environment)"
 config_cached="$(json_field config_cached)"
 pending="$(json_field pending_migrations)"
 
-if [[ -z "${release}" ]]; then
+if [[ "${health_ok}" == "1" && -z "${release}" ]]; then
     fail "no release in the /_deploy/health answer: ${health:0:200}"
-else
+elif [[ "${health_ok}" == "1" ]]; then
     [[ "${release}" == "${EXPECTED_RELEASE}" ]] \
         && pass "serving ${release}" \
         || fail "serving ${release}, expected ${EXPECTED_RELEASE}"
@@ -112,32 +218,32 @@ fi
 
 # --- 3. The public page renders, and not a debug page ----------------------
 echo "==> Public page (${BASE_URL}/)"
-headers="$(mktemp)"
-body="$(mktemp)"
-page="$(curl -sS --max-time 30 -D "${headers}" -o "${body}" -w '%{http_code}' "${BASE_URL}/" || true)"
-[[ "${page}" == "200" ]] && pass "landing page returned 200" || fail "landing page returned ${page:-000}"
-
-if [[ ! -s "${body}" ]]; then
-    fail "the landing page returned no body — skipping the content checks"
+if ! probe_until "${BASE_URL}/" not_challenged; then
+    fail_challenge "cannot read the landing page"
 else
-    # A stack trace on the public page is a deploy failure even when the status
-    # is 200 — APP_DEBUG left on renders one for any downstream error.
-    if grep -qiE 'whoops|stack trace|Illuminate\\Foundation' "${body}"; then
-        fail "the landing page looks like a debug/error page"
-    else
-        pass "no debug output on the landing page"
-    fi
+    [[ "${STATUS}" == "200" ]] && pass "landing page returned 200" || fail "landing page returned ${STATUS:-000}"
 
-    # The security headers ride on every response (SLO-145). Their absence means
-    # the global middleware never ran — i.e. this is not our app answering.
-    if grep -qi '^content-security-policy:' "${headers}"; then
-        pass "security headers present"
+    if [[ ! -s "${BODY}" ]]; then
+        fail "the landing page returned no body — skipping the content checks"
     else
-        fail "no Content-Security-Policy header — is this really the slot4u app?"
+        # A stack trace on the public page is a deploy failure even when the status
+        # is 200 — APP_DEBUG left on renders one for any downstream error.
+        if grep -qiE 'whoops|stack trace|Illuminate\\Foundation' "${BODY}"; then
+            fail "the landing page looks like a debug/error page"
+        else
+            pass "no debug output on the landing page"
+        fi
+
+        # The security headers ride on every response (SLO-145). Their absence means
+        # the global middleware never ran — i.e. this is not our app answering.
+        if answered_by_app; then
+            pass "security headers present"
+        else
+            fail "no Content-Security-Policy header — this is not the slot4u app answering
+       (a parked page or an edge error page would look exactly like this)"
+        fi
     fi
 fi
-
-rm -f "${headers}" "${body}"
 
 echo
 if [[ "${failures}" -gt 0 ]]; then
