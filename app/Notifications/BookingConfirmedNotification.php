@@ -66,6 +66,11 @@ class BookingConfirmedNotification extends TenantMailNotification
 
         return $mail
             ->action($actionLabel, $actionUrl)
+            // Points at the button above, never a cancel link of its own
+            // (SLO-129): a GET that cancels would be walked by mail scanners and
+            // link-preview bots, and the booking would cancel itself before
+            // anyone read the message.
+            ->line(__('app.mail.booking_confirmed.cancel_hint'))
             ->line(__('app.mail.booking_confirmed.outro'));
     }
 }

@@ -13,6 +13,7 @@ use App\Http\Requests\Tenant\CancelMyBookingRequest;
 use App\Http\Requests\Tenant\RescheduleMyBookingRequest;
 use App\Models\Booking;
 use App\Services\Booking\AvailabilityService;
+use App\Services\Booking\OnlineCancellation;
 use App\Settings\TenantSettings;
 use App\Support\IcsBuilder;
 use App\Tenancy\TenantManager;
@@ -44,7 +45,7 @@ class MyBookingController extends Controller
     {
         $tenant = app(TenantManager::class)->current();
         $timezone = $tenant->timezone;
-        $deadlineHours = TenantSettings::fromArray($tenant->settings)->cancellationDeadlineHours;
+        $settings = TenantSettings::fromArray($tenant->settings);
         $now = Carbon::now();
 
         /** @var Collection<int, Booking> $bookings */
@@ -66,8 +67,8 @@ class MyBookingController extends Controller
             ->sortByDesc(fn (Booking $b) => $b->starts_at?->getTimestamp() ?? 0);
 
         return Inertia::render('Tenant/My/Bookings', [
-            'upcoming' => $upcoming->map(fn (Booking $b) => $this->present($b, $timezone, $deadlineHours))->values(),
-            'past' => $past->map(fn (Booking $b) => $this->present($b, $timezone, $deadlineHours))->values(),
+            'upcoming' => $upcoming->map(fn (Booking $b) => $this->present($b, $timezone, $settings))->values(),
+            'past' => $past->map(fn (Booking $b) => $this->present($b, $timezone, $settings))->values(),
             'timezone' => $timezone,
         ]);
     }
@@ -203,10 +204,11 @@ class MyBookingController extends Controller
      *
      * @return array<string, mixed>
      */
-    private function present(Booking $booking, string $timezone, int $deadlineHours): array
+    private function present(Booking $booking, string $timezone, TenantSettings $settings): array
     {
-        $canCancel = $booking->status->canTransitionTo(BookingStatus::Canceled)
-            && ! $booking->isWithinCancellationDeadline($deadlineHours);
+        // The same rule the endpoint enforces (SLO-129), including the tenant's
+        // "online cancellation off" switch.
+        $canCancel = OnlineCancellation::allowed($booking, $settings);
 
         return [
             'id' => $booking->id,

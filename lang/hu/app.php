@@ -22,6 +22,15 @@ return [
         'book' => [
             'title' => 'Időpontfoglalás',
             'back' => 'Vissza a főoldalra',
+            // Vendég önkiszolgáló lemondás (SLO-129). A gomb csak akkor látszik,
+            // ha a szerver szerint tényleg lemondható — a kapu és a gomb ugyanabból
+            // a szabályból dolgozik.
+            'cancel' => 'Foglalás lemondása',
+            'cancel_confirm_title' => 'Lemondod a foglalást?',
+            'cancel_confirm' => 'A(z) :code kódú foglalás véglegesen lemondásra kerül. Ezt nem lehet visszavonni — új időpontot külön kell foglalnod.',
+            'cancel_submit' => 'Igen, lemondom',
+            'cancel_keep' => 'Mégsem',
+            'canceled' => 'A foglalásodat lemondtuk.',
             'choose_service' => 'Szolgáltatás',
             'no_services' => 'Jelenleg nincs foglalható szolgáltatás.',
             'location_label' => 'Helyszín',
@@ -1774,6 +1783,8 @@ return [
                 'address_city' => 'Város',
                 'address_postal' => 'Irányítószám',
                 'opening_hours' => 'Nyitvatartás',
+                'online_cancellation' => 'Online lemondás engedélyezése',
+                'online_cancellation_hint' => 'Ha kikapcsolod, sem a vendég a visszaigazoló oldalról, sem a belépett ügyfél nem tud lemondani — csak telefonon vagy emailben.',
                 'cancellation_deadline' => 'Lemondási határidő (óra)',
                 'slot_interval' => 'Idősáv rácsköz',
                 'refund_policy' => 'Visszatérítés lemondáskor',
@@ -1967,6 +1978,11 @@ return [
         ],
         'error' => [
             'cancel_deadline_passed' => 'A foglalás már nem mondható le online — a lemondási határidő (:hours óra) lejárt. Vedd fel a kapcsolatot a szolgáltatóval.',
+            // Külön üzenet a határidőtől: a „nálunk nem lehet online lemondani" és
+            // a „lekéstél róla" két különböző tény, és rossz helyre küldi az embert,
+            // ha összemossuk (SLO-129).
+            'cancel_online_disabled' => 'Ennél a szolgáltatónál a foglalás online nem mondható le. Vedd fel vele a kapcsolatot.',
+            'cancel_not_allowed' => 'Ez a foglalás a jelenlegi állapotában nem mondható le.',
             'slot_unavailable' => 'Ez az időpont időközben betelt. Kérjük, válassz másikat.',
             'duration_out_of_range' => 'A választott időtartam nem engedélyezett ehhez a szolgáltatáshoz.',
             'event_full' => 'Erre az eseményre már nincs szabad hely.',
@@ -1997,6 +2013,10 @@ return [
             'service' => 'Szolgáltatás: :service',
             'when' => 'Időpont: :when',
             'action' => 'Foglalás megtekintése',
+            // A lemondás a visszaigazoló OLDALON van, nem itt egy linkben
+            // (SLO-129): egy GET-tel lemondó link a levélszűrők és
+            // link-előnézet botok kezétől magától lemondaná a foglalást.
+            'cancel_hint' => 'Ha mégsem tudsz jönni, a fenti gombbal megnyitható oldalon le tudod mondani a foglalást.',
             'outro' => 'Ha kérdésed van, válaszolj erre az emailre. Köszönjük, hogy minket választottál!',
         ],
         'booking_modified' => [

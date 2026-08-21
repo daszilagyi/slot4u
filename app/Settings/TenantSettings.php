@@ -12,6 +12,9 @@ use App\Enums\RefundPolicy;
  */
 final class TenantSettings
 {
+    /** On by default: a booking system a customer cannot get out of is a worse default than one they can. */
+    public const DEFAULT_ONLINE_CANCELLATION_ENABLED = true;
+
     public const DEFAULT_CANCELLATION_DEADLINE_HOURS = 24;
 
     public const DEFAULT_SLOT_INTERVAL_MINUTES = 30;
@@ -58,6 +61,15 @@ final class TenantSettings
         public readonly ?string $addressPostal = null,
         public readonly ?string $openingHours = null,
         public readonly array $social = [],
+        /**
+         * Whether a customer may cancel online at all (SLO-129).
+         *
+         * Separate from the deadline because the deadline could never express
+         * "never": zero hours means "up to the moment it starts", which is the
+         * most permissive setting rather than the strictest. A tenant whose
+         * cancellations always go through a phone call had no way to say so.
+         */
+        public readonly bool $onlineCancellationEnabled = self::DEFAULT_ONLINE_CANCELLATION_ENABLED,
         public readonly int $cancellationDeadlineHours = self::DEFAULT_CANCELLATION_DEADLINE_HOURS,
         public readonly int $slotIntervalMinutes = self::DEFAULT_SLOT_INTERVAL_MINUTES,
         public readonly int $waitlistOfferHours = self::DEFAULT_WAITLIST_OFFER_HOURS,
@@ -101,6 +113,7 @@ final class TenantSettings
             addressPostal: self::str($data, 'address_postal'),
             openingHours: self::str($data, 'opening_hours'),
             social: $social,
+            onlineCancellationEnabled: (bool) ($data['online_cancellation_enabled'] ?? self::DEFAULT_ONLINE_CANCELLATION_ENABLED),
             cancellationDeadlineHours: max(0, (int) ($data['cancellation_deadline_hours'] ?? self::DEFAULT_CANCELLATION_DEADLINE_HOURS)),
             slotIntervalMinutes: in_array($interval, self::SLOT_INTERVALS, true) ? $interval : self::DEFAULT_SLOT_INTERVAL_MINUTES,
             waitlistOfferHours: max(1, (int) ($data['waitlist_offer_hours'] ?? self::DEFAULT_WAITLIST_OFFER_HOURS)),
@@ -125,6 +138,7 @@ final class TenantSettings
             'address_postal' => $this->addressPostal,
             'opening_hours' => $this->openingHours,
             'social' => $this->social,
+            'online_cancellation_enabled' => $this->onlineCancellationEnabled,
             'cancellation_deadline_hours' => $this->cancellationDeadlineHours,
             'slot_interval_minutes' => $this->slotIntervalMinutes,
             'waitlist_offer_hours' => $this->waitlistOfferHours,

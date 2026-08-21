@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Tenant;
 
+use App\Actions\Booking\CancelBooking;
 use App\Actions\Booking\CreateBooking;
 use App\Actions\Customer\FindOrCreateCustomer;
 use App\Actions\Customer\PublicContact;
@@ -30,8 +31,10 @@ use App\Models\Event;
 use App\Models\Service;
 use App\Models\User;
 use App\Services\Booking\AvailabilityService;
+use App\Services\Booking\OnlineCancellation;
 use App\Services\Feature\FeatureResolver;
 use App\Services\Legal\LegalDocumentRegistry;
+use App\Settings\TenantSettings;
 use App\Support\IcsBuilder;
 use App\Tenancy\TenantManager;
 use Illuminate\Http\RedirectResponse;
@@ -474,6 +477,27 @@ class BookingController extends Controller
     }
 
     /**
+     * Cancel a booking from its public confirmation page (SLO-129).
+     *
+     * ⚠️ POST, and reached only from the page — never a link in an email. A `GET`
+     * that cancels would be followed by corporate mail scanners, link-preview
+     * bots and security crawlers, and bookings would cancel themselves before
+     * anyone read the message.
+     *
+     * The public code is the only credential, which is the same bearer the
+     * confirmation page already runs on. It goes through CancelBooking's
+     * `online` path, so the tenant's switch, the notice period, the refund
+     * policy (SLO-131) and the notification all behave exactly as they do for a
+     * signed-in customer — there is no second code path to keep in step.
+     */
+    public function cancelPublic(Request $request, string $tenant, Booking $booking, CancelBooking $cancelBooking): RedirectResponse
+    {
+        $cancelBooking($booking, null, null, online: true);
+
+        return back()->with('status', __('app.tenant.booked.canceled'));
+    }
+
+    /**
      * Booking confirmation page (SLO-31), reached by the public code. Route-bound
      * {booking:code} is tenant-scoped (BelongsToTenant → cross-tenant 404). The
      * status drives the message (confirmed / awaiting approval / awaiting payment).
@@ -511,6 +535,12 @@ class BookingController extends Controller
                 'starts_local' => $this->localDateTime($booking->starts_at, $timezone),
                 'ends_local' => $this->localDateTime($booking->ends_at, $timezone),
                 'content_url' => $contentUrl,
+                // The guest's own cancel button (SLO-129), decided by the same
+                // rule the endpoint enforces.
+                'can_cancel' => OnlineCancellation::allowed(
+                    $booking,
+                    TenantSettings::fromArray($tenantModel->settings),
+                ),
                 'payable' => $payable,
                 'price_minor' => $booking->price_minor,
                 'currency' => $booking->currency,

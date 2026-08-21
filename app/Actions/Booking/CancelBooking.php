@@ -6,6 +6,7 @@ use App\Actions\Payment\RefundBookingPayments;
 use App\Enums\BookingStatus;
 use App\Models\Booking;
 use App\Models\User;
+use App\Services\Booking\OnlineCancellation;
 use App\Settings\TenantSettings;
 use Illuminate\Validation\ValidationException;
 
@@ -37,11 +38,16 @@ class CancelBooking
             // withTrashed: an archived tenant's settings must still resolve for a
             // late online-cancel attempt (fromArray(null) falls back to defaults).
             $tenant = $booking->tenant()->withTrashed()->first();
-            $deadlineHours = TenantSettings::fromArray($tenant?->settings)->cancellationDeadlineHours;
+            $settings = TenantSettings::fromArray($tenant?->settings);
 
-            if ($booking->isWithinCancellationDeadline($deadlineHours)) {
+            // One rule, shared with the two places that decide whether to show a
+            // button (SLO-129) — a guard and a button that disagree is either a
+            // dead control or a support ticket.
+            $refusal = OnlineCancellation::refusal($booking, $settings);
+
+            if ($refusal !== null) {
                 throw ValidationException::withMessages([
-                    'cancel' => __('app.booking.error.cancel_deadline_passed', ['hours' => $deadlineHours]),
+                    'cancel' => __($refusal, ['hours' => $settings->cancellationDeadlineHours]),
                 ]);
             }
         }

@@ -669,6 +669,12 @@ export type BookedBooking = {
     starts_local: string | null;
     ends_local: string | null;
     content_url: string | null;
+    /**
+     * Whether the guest may cancel it themselves right now (SLO-129) — decided
+     * by the server from the same rule the endpoint enforces, so the button is
+     * never offered for something that would be refused.
+     */
+    can_cancel: boolean;
     /** Still awaiting online payment and the integration is on (SLO-130). */
     payable: boolean;
     price_minor: number;

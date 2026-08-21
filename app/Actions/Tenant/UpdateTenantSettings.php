@@ -59,6 +59,10 @@ class UpdateTenantSettings
             'address_postal' => $data['address_postal'] ?? null,
             'opening_hours' => $data['opening_hours'] ?? null,
             'social' => $data['social'] ?? [],
+            // Absent means false: an unchecked box sends nothing, and reading a
+            // missing key as "leave it on" would make the switch impossible to
+            // turn off.
+            'online_cancellation_enabled' => (bool) ($data['online_cancellation_enabled'] ?? false),
             'cancellation_deadline_hours' => $data['cancellation_deadline_hours'] ?? null,
             'slot_interval_minutes' => $data['slot_interval_minutes'] ?? null,
             // Refund policy (SLO-131). The share is entered as a percentage and
