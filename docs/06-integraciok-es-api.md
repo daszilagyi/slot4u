@@ -80,6 +80,57 @@ Nincs csomag-tiering (egyetlen `base` plan). Egy nagyvonalú default napi/burst 
 - Kézbesítés: queue-ból, exponenciális retry (5x), utána dead-letter + admin riasztás
 - Napló: `webhook_logs` (lásd docs/02) — payload, processed státusz, válaszkód
 
+## Számlázás — provider-absztrakció és a Billingo (SLO-133, SLO-167)
+
+A számlázó **cserélhető**, és a választás a **tenanté**: ő szerződik a
+szolgáltatóval, a saját fiókjában keletkeznek a számlái, és a saját kulcsával
+hívjuk. A slot4u a gépezetet adja, nem a szolgáltatót.
+
+```
+InvoiceIssuer (interfész)          ← minden fölötte lévő réteg provider-agnosztikus
+├── SandboxInvoiceIssuer           ← beépített teszt-kiállító (nincs jogi ereje)
+├── BillingoInvoiceIssuer          ← SLO-167, az első valódi
+└── (Számlázz.hu)                  ← SLO-134, PARKOLVA
+```
+
+A választás a tenant titkosított `invoicing` beállításában él
+(`TenantInvoicingSettings::$provider`); a `config/invoicing.php` **csak
+fallback** annak a tenantnak, aki még nem választott. Korábban ez fordítva volt —
+egy érték az egész platformra —, ami két, különböző szolgáltatón számlázó
+tenantot soha nem tudott volna kiszolgálni.
+
+⚠️ **A `szamlazzhu` enum-eset megmarad adapter nélkül**, mert egy régi
+`invoices` sornak meg kell tudnia nevezni, ki állította ki. De **nem szabad
+elérhetőnek látszania**: a `selectable()` kihagyja a beállítás-űrlapból, a
+manager pedig **név szerint utasítja el**. A csendes visszaesés a sandboxra
+jogi erő nélküli bizonylatot állítana ki és sikert jelentene — rosszabb minden
+hibánál.
+
+### Amit a Billingo élő mérése hozott (2026-08-21)
+
+Ezek nem a specifikációból derültek ki, hanem a demo fiókon végigmért
+partner → számla → PDF → sztornó láncból:
+
+| Tény | Következmény a kódra |
+|---|---|
+| ⚠️ **A Billingo egész forintban számol**, mi fillérben (`docs/01` §6) | `unit_price = amount_minor / 100`. Kimaradva **százszoros** összegű számla — külön teszt őrzi, mert egy azonos hibát tükröző fake nem venné észre |
+| **A `partner_id` kötelező**, beágyazott vevő nincs | a kiállítás két hívás: partner, majd dokumentum |
+| ⚠️ **A partner nem kereshető email alapján** (a `?query=` névre illeszt) | a leképezést **nálunk** tároljuk: `invoicing_partners` (tenant + provider + email → partner id). Névre keresni ütközne és a vevőnév javításakor elhasadna |
+| **A sztornó ÚJ dokumentum** saját számlaszámmal, negatív végösszeggel | nem az eredetit módosítjuk; a sztornó száma és PDF-je külön oszlopban |
+| A `bank_account_id` **opcionális** | bankszámla nélkül is lehet számlázni; csak átutalásnál kerül a számlára |
+| A NAV Online Számla a **Billingo fiók** beállítása | a slot4u nem küld a NAV felé, és nem is tud: `no_online_szamla_settings` esetén a Billingo maga nem továbbít |
+
+**Kulcs-kezelés:** a tenant API kulcsa a titkosított `invoicing` oszlopban él, és
+**soha nem megy vissza a böngészőnek** — a beállító képernyő azt tudja meg, hogy
+*van* kulcs, nem azt, hogy *mi*. Üresen hagyott mező = „hagyd a meglévőt", mert a
+form nem is kaphatta meg, hogy visszaküldje.
+
+**Számlatömb és bankszámla legördülőből** jön (`GET /document-blocks`,
+`GET /bank-accounts`), nem kézzel beírt azonosítóként: egy elgépelt id csak egy
+valódi számlánál derülne ki, amikor az ügyfél már fizetett.
+
+**Szerződés:** OpenAPI 3.0.14, `https://api.billingo.hu/v3`, `X-API-KEY` fejléc.
+
 ## Beépített integrációk naplózása (már MVP/M6!)
 
 Minden külső hívás (Barion/Stripe, Számlázz.hu, később calendar/marketing) az `integration_logs` táblába kerül (provider, operation, request/response, status — lásd docs/02). Szenzitív adat (kártya, API kulcs) a logban maszkolva. Retention: 90 nap.

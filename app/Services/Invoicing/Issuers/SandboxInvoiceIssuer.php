@@ -9,13 +9,14 @@ use App\Models\Invoice;
 use App\Services\Invoicing\Contracts\InvoiceIssuer;
 use App\Services\Invoicing\InvoiceRequest;
 use App\Services\Invoicing\IssuedInvoice;
+use App\Settings\TenantInvoicingSettings;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
 /**
  * The built-in test issuer (SLO-133): mints a number and a minimal PDF locally so
  * the whole issue → storno → download flow is demoable and testable without an
- * external invoicing account. The real Számlázz.hu client lands with SLO-134
+ * external invoicing account. Billingo (SLO-167) is the first real adapter
  * behind the same contract.
  *
  * The document it produces is a real (if spartan) one-page PDF — enough for the
@@ -46,7 +47,7 @@ final class SandboxInvoiceIssuer implements InvoiceIssuer
         );
     }
 
-    public function storno(Invoice $invoice): IssuedInvoice
+    public function storno(Invoice $invoice, TenantInvoicingSettings $seller): IssuedInvoice
     {
         $number = 'SBX-ST-'.Str::upper(Str::random(6));
 
