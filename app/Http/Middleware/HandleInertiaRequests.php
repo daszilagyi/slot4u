@@ -10,6 +10,7 @@ use App\Services\Feature\FeatureResolver;
 use App\Services\Impersonation\Impersonation;
 use App\Services\Legal\LegalDocumentRegistry;
 use App\Settings\TenantBranding;
+use App\Support\CookieConsent;
 use App\Tenancy\TenantManager;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -98,6 +99,10 @@ class HandleInertiaRequests extends Middleware
             // it from. Lazy for the same reason as `features`: the tenant is
             // bound by route middleware that runs after this one.
             'legal' => fn (): array => $this->legalDocuments(),
+            // The visitor's cookie decision (SLO-165). Read from the request, so
+            // the banner's visibility is settled before the first byte goes out
+            // — a client-side decision flashes the banner on every page.
+            'consent' => fn (): array => CookieConsent::fromRequest($request)->toArray(),
         ];
     }
 

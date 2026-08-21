@@ -2153,4 +2153,24 @@ return [
             'delete_confirm' => 'Visszavonod a(z) „:title" verziót? Ezt csak addig lehet, amíg senki nem fogadta el.',
         ],
     ],
+
+    // Cookie/consent banner (SLO-165, docs/19 §11). A `necessary` kategória
+    // szándékosan nem választható: a session süti az, amitől a foglalási űrlap
+    // működik — egy kapcsoló mellette azt sugallná, hogy visszautasítható.
+    'consent' => [
+        'title' => 'Sütibeállítások',
+        'intro' => 'A működéshez szükséges sütiket mindig használjuk. A továbbiakhoz a hozzájárulásodat kérjük.',
+        'accept' => 'Mindet elfogadom',
+        'reject' => 'Csak a szükségeseket',
+        'settings' => 'Sütibeállítások',
+        'save' => 'Mentés',
+        'category' => [
+            'necessary' => 'Működéshez szükséges',
+            'necessary_hint' => 'Bejelentkezés, munkamenet, űrlapvédelem. Ezek nélkül az oldal nem működik, ezért nem kapcsolhatók ki.',
+            'analytics' => 'Statisztika',
+            'analytics_hint' => 'Névtelen látogatottsági mérés, hogy lássuk, mely oldalak működnek jól. Jelenleg nincs ilyen eszköz bekötve.',
+            'marketing' => 'Marketing',
+            'marketing_hint' => 'Hirdetési mérés és személyre szabás. Jelenleg nincs ilyen eszköz bekötve.',
+        ],
+    ],
 ];

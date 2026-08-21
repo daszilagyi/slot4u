@@ -829,6 +829,16 @@ type LegalSharedProps = {
     ids: number[];
 };
 
+/**
+ * The visitor's cookie decision (SLO-165). `decided` is separate from the
+ * categories because "declined analytics" and "has not been asked" must render
+ * differently — one shows the banner, the other does not.
+ */
+type ConsentSharedProps = {
+    decided: boolean;
+    categories: Record<string, boolean>;
+};
+
 declare module '@inertiajs/core' {
     interface PageProps {
         locale: string;
@@ -839,6 +849,7 @@ declare module '@inertiajs/core' {
         impersonation: ImpersonationState | null;
         tenant: TenantIdentity | null;
         legal: LegalSharedProps | null;
+        consent: ConsentSharedProps | null;
     }
 }
 

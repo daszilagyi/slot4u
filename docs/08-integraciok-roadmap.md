@@ -36,7 +36,7 @@ Effort: S ≈ pár nap, M ≈ 1-2 hét, L ≈ 2+ hét (absztrakció + OAuth + ed
 - **OAuth tokenek:** staff-szintű (naptár) ill. tenant-szintű (marketing) tokenek titkosítva, refresh-flow job-bal, lejárat-riasztással.
 - **Hibatűrés:** integráció-kiesés SOHA nem blokkolhat foglalást — minden külső hívás queue-ból, retry-jal; a foglalás a forrás-igazság (source of truth), a külső rendszer követi.
 - **Naptár-szinkron konfliktus:** külső naptár-esemény és slot4u-foglalás ütközésénél a slot4u-foglalás él, a konfliktus admin-riasztást generál (nem automatikus törlést).
-- **Consent:** Meta Pixel / GA4 csak cookie-consent után tölthet be; Mailchimp-szinkron csak explicit marketing opt-in-es ügyfeleket küld.
+- **Consent:** Meta Pixel / GA4 csak cookie-consent után tölthet be; Mailchimp-szinkron csak explicit marketing opt-in-es ügyfeleket küld. **A kapu készen áll (SLO-165):** `CookieConsent::allows('analytics'|'marketing')`, szerver oldalon eldöntve — a mérőkód így már meglévő döntés mögé landol, l. `docs/19` §11.
 
 ## PM döntési kapuk
 

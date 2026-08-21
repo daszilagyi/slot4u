@@ -2,6 +2,10 @@ import { Link, usePage } from '@inertiajs/react';
 import { motion } from 'framer-motion';
 import type { CSSProperties, PropsWithChildren } from 'react';
 
+import {
+    CookieConsent,
+    CookieSettingsLink,
+} from '@/components/CookieConsent';
 import ImpersonationBanner from '@/components/ImpersonationBanner';
 import ThemeToggle from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
@@ -137,11 +141,14 @@ export default function PublicLayout({ children }: PropsWithChildren) {
                     <span>
                         © {tenant?.name}
                     </span>
-                    <span className="text-xs">
+                    <span className="flex items-center gap-3 text-xs">
+                        <CookieSettingsLink />
                         {t('tenant.home.powered_by')}
                     </span>
                 </div>
             </footer>
+
+            <CookieConsent />
         </div>
     );
 }

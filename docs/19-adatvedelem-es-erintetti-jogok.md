@@ -3,7 +3,7 @@
 > **Státusz:** az SLO-159 (SLO-48 1/3) szállította az érintetti jogok technikai
 > oldalát, az **SLO-160** (2/3) a **megőrzési időket és az automatikus
 > takarítást** (§7), az **SLO-161** (3/3) a **verziókövetett hozzájárulást**
-> (§10). A **cookie consent** külön issue-ban jön (**SLO-165**).
+> (§10), az **SLO-165** pedig a **cookie consentet** (§11).
 >
 > ⚠️ Ez a fájl a **technikai** megvalósítást írja le. Az ÁSZF és az adatkezelési
 > tájékoztató **szövegéhez jogász kell**; a slot4u nem ad jogi tanácsot.
@@ -261,7 +261,6 @@ A 90 nap csak akkor tisztességes, ha a tenant **el tudja vinni a sajátját**.
 
 | Mi | Hol |
 |---|---|
-| Cookie/consent banner a publikus felületen | **SLO-165** |
 | ÁSZF + adatkezelési tájékoztató **szövege** | **jogász** |
 | `integration_logs` tábla (a retention-lépés már megvan) | `docs/02`, `docs/06` |
 
@@ -350,3 +349,58 @@ később regisztrált, a **teljes** előzményét kapja, nem a rendezettebbnek l
 ⚠️ **A dokumentumok SZÖVEGE jogászra vár.** A seeder látható helyőrzőket tesz ki,
 amik ezt ki is mondják magukról: egy hihetően hangzó vázlat rosszabb lenne, mert
 senki nem venné észre, hogy cserélni kell.
+
+## 11. Cookie consent (SLO-165)
+
+### 11.1 ⚠️ Ma semmit nem kapcsol ki — és ez nem hiba
+
+A slot4u jelenleg **kizárólag működéshez szükséges** sütiket használ (Laravel
+session + XSRF). Az ePrivacy szabályai szerint ezekhez **nem kell hozzájárulás**.
+A Meta Pixel és a GA4 a `docs/08` szerint **Phase 2**.
+
+Akkor miért van banner? Mert az analitika **egyszer meg fog érkezni**, és akkor
+egy **már létező** döntés mögé kell landolnia — nem fordítva, hogy előbb megy ki
+a mérőkód és utána jön a banner. A Phase 2 kapuja tehát:
+
+```php
+if (app(\App\Support\CookieConsent::class)->allows('analytics')) { … }
+// vagy a root Blade-ben, kiszolgálás ELŐTT eldöntve
+```
+
+### 11.2 Süti, nem localStorage — és nem DB sor
+
+**Süti**, mert a szervernek **az első bájt előtt** tudnia kell: egy böngészőben
+eldöntött láthatóság minden szerver-renderelt oldalon felvillantja a bannert, egy
+böngészőben kapuzott script pedig már letöltődött, mire kapuzzuk.
+
+**Nem adatbázis-sor**, mert a döntés egy **böngészőé**, nem egy személyé — egy
+névtelen látogatót azonosítani ahhoz, hogy rögzítsük, nem kér mérést, önmagában
+adatvédelmi költség. Ezért nem is kerül a `legal_consents` táblába (§10): az
+dokumentum-elfogadásokról szól, a süti-preferencia nem az.
+
+⚠️ **A süti NEM titkosított** (`bootstrap/app.php` `encryptCookies(except:)`).
+Preferencia, nem jogosultság: nem hitelesít semmit, a módosítása csak azt
+változtatja, mit kap ugyanaz a böngésző. Cserébe egy jövőbeli third-party tag
+szinkron módon el tudja olvasni, és a látogató **meg tudja nézni** azt az
+adatvédelmi kontrollt, amit kapott — ez a helyes tartás olyasminél, aminek
+bizalomkeltőnek kell lennie.
+
+### 11.3 Verziózva, mint egy jogi dokumentum
+
+A `config/consent.php` `version` kulcsa: ha a kategóriák vagy a süti-tájékoztató
+változik, a régi verziót megnevező döntés **nem döntés** — a banner újra kérdez.
+Ugyanaz a szabály, mint a §10-ben: egy **másik** opciókészletről hozott döntés nem
+döntés **erről**.
+
+### 11.4 Amit a tervezés kimondottan nem enged
+
+* **A hallgatás soha nem igen.** Amíg nincs döntés, minden kategória tiltott.
+* **Az elutasítás egy kattintás**, ugyanúgy, mint az elfogadás. Két szint mélyre
+  temetett „elutasítom" az a minta, amitől a banner hozzájárulásként értéktelen.
+* **Az elutasítás ugyanolyan tartós, mint az elfogadás** — a rövid életű „nem" a
+  következő látogatáskor újra kérdezne, ami rászoktatja az embereket az
+  elfogadás-gombra.
+* **A `necessary` nem választható**, csak felsorolt: a session süti az, amitől a
+  foglalási űrlap működik, egy kapcsoló mellette azt sugallná, hogy visszautasítható.
+* **A süti kategórialistája nem parancs:** egy ismeretlen kategóriát tartalmazó
+  süti semmit nem enged — a lista az appé, nem a sütié.
