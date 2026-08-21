@@ -202,11 +202,51 @@ Teszt rögzíti, hogy **minden hitelesítetlen tenant-route mögött van névvel
 | **A03** Injection | ✅ | Minden lekérdezés Eloquent/query builder kötött paraméterekkel. A `selectRaw`/`orderByRaw` helyek **nem tartalmaznak felhasználói bemenetet** (oszlopnevek literál ternáryból, a két `DB::raw` összefűzés `(int)`-re kényszerített `party_size`). React escape-el; a `dangerouslySetInnerHTML` egyetlen használata a Laravel **paginátor saját** címkéje (`&laquo; Previous`), nem felhasználói tartalom. |
 | **A04** Insecure Design | ✅ | Az ütközésvizsgálat DB-szinten is védve (lock / atomi kapacitás-update), soft hold, idempotens webhook (`unique(provider, provider_ref)`), jutalék-ledger invariánsok. A docs/04 edge case-listája tételesen tesztelt. |
 | **A05** Security Misconfiguration | 🟡 | Biztonsági headerek + CSP (SLO-145), a sandbox fizetési gateway prodban tiltott, `APP_DEBUG` env-ből. ⚠️ **Prod env-checklist és monitoring hiányzik → SLO-49.** |
-| **A06** Vulnerable/Outdated Components | ❌ | **A CI nem futtat `composer audit` / `npm audit`-ot → SLO-148.** |
+| **A06** Vulnerable/Outdated Components | ✅ | `composer audit --locked` + `npm audit --audit-level=high` a CI-ban, minden PR-en **és hetente ütemezve** (SLO-148, l. §Függőség-audit). A küszöb `high`: valódi kapu, nem jelentés. |
 | **A07** Identification & Authentication | 🟡 | Fortify; login (5/perc) és regisztráció (5/perc) limitálva; session-regeneráció belépéskor (tesztelve); jelszó min. 12 + breach-ellenőrzés; email-verifikáció. ⚠️ **Nincs 2FA → SLO-149.** |
 | **A08** Software & Data Integrity | ✅ | Webhook HMAC aláírás-ellenőrzés írás előtt; számla-PDF **privát** diszken, sosem publikus URL; audit log minden érzékeny műveletre. Külső script nincs betöltve (a CSP `script-src 'self'` + nonce ezt ki is kényszeríti). |
 | **A09** Logging & Monitoring | 🟡 | `audit_logs`, `notifications_log`, integrációs naplózás megvan. ⚠️ **Riasztás/monitoring nincs → SLO-49.** |
 | **A10** SSRF | ✅ | A kimenő hívások mind **fix, konfigurált** végpontokra mennek (Cloudflare API, HIBP, számlázó, fizetési gateway). Az egyetlen felhasználói bemenetet érintő kimenő művelet a domain-verifikáció **DNS TXT lekérdezése** (`DnsResolver`) — nem HTTP-fetch, tehát nem használható belső szolgáltatás elérésére. ⚠️ Ha később bármi **felhasználó által megadott URL-t tölt le** (webhook-kimenet, avatar-import), ezt a sort újra kell nyitni. |
+
+### Függőség-audit (SLO-148)
+
+A CI `audit` jobja két parancsot futtat, **minden PR-en és hetente ütemezve**:
+
+```
+composer audit --locked --format=plain
+npm audit --audit-level=high
+```
+
+⚠️ **Az ütemezés nem díszlet.** Egy sérülékenységet nem a mi naptárunk szerint tesznek közzé:
+egy csak PR-re futó audit azt mondja meg, mi volt igaz a merge napján, és utána hallgat,
+amíg valaki hozzá nem nyúl a repóhoz. A heti futás az, ami a **már bemergelt** kódról szól.
+
+**A küszöb `high`, és valódi kapu**, nem jelentés. A `low`/`moderate` továbbra is kiíródik,
+csak nem buktat — az `--audit-level` a kilépési kódot szabályozza, nem a kimenetet.
+
+⚠️ **A `--locked` szándékos:** a telepített fát auditálni azt jelentené, hogy arról kapunk
+jelentést, amit a composer épp feloldott; a **lock fájl** viszont az, ami ténylegesen
+kimegy. A kettő pont akkor tér el, amikor számít.
+
+**Miért nem alacsonyabb a küszöb.** Amikor ez a job elkészült, a projekt **17 composer**
+(ebből 5 `high`) és **6 npm** (3 `high`, 2 `critical`) sérülékenységgel állt. Mind
+javítva lett, **mielőtt** a kapu bekerült — egy ellenőrzés, ami az első napján piros,
+nem javítást szül, hanem elnémítást.
+
+**Teendő találat esetén.** Először **frissítés**, nem küszöb-süllyesztés:
+
+* PHP: `composer update <csomag> --with-all-dependencies` (mind a három akkori találat
+  **tranzitív** volt — a `composer.json` nem is említi őket).
+* npm: `npm audit fix`; `--force` csak tudatosan, mert major verziót emelhet (a
+  `@vitejs/plugin-react` például szándékosan `^5.2.0`-n áll, mert a v6 vite 8-at kér).
+* Ha egy találat **nem javítható** (nincs kiadva javítás, vagy a javítás töri a stacket),
+  az **nem** a küszöb süllyesztésének indoka: rögzítsd itt, indoklással és felülvizsgálati
+  dátummal, és hagyd a jobot pirosnak vagy tedd kivételbe **név szerint**.
+
+**Frissítési ritmus.** A lock fájlok frissítése nem naptárhoz kötött, hanem eseményhez: a
+heti audit találata, illetve a milestone-záró release előtti átnézés. A `composer.lock`
+változása a deployon `composer install`-t vált ki (`docs/16`), tehát egy függőség-frissítés
+**mindig kiadás, nem mellékhatás**.
 
 ## Tenant-izolációs söprés és a kód-címezhető felület (SLO-146)
 
