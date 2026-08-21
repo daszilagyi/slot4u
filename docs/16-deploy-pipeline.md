@@ -170,7 +170,7 @@ bizonyíték:
 
 | Ellenőrzés | Mit zár ki |
 |---|---|
-| `GET /up` → 200 (újrapróbálkozva) | az app fel sem áll |
+| `GET /up` → 200 **és CSP header** (újrapróbálkozva) | az app fel sem áll — a 200 önmagában nem elég (SLO-162) |
 | `GET /_deploy/health` → `release` | **nem a várt verzió szolgál ki** (rosszul sikerült checkout, régi opcache) |
 | … → `commit` | **ugyanaz a NÉV, más commit** — branch-refnél a név semmit nem bizonyít (SLO-158) |
 | … → `environment=production` | rossz `.env`-vel indult a konténer/host |
@@ -189,6 +189,48 @@ A token a `DEPLOY_HEALTH_TOKEN` env-ből jön; ha nincs beállítva, **senki** n
 (üres konfig ≠ üres token). A verziót a `deploy.sh` írja a gitignore-olt `.release`
 fájlba, a `config:cache` ELŐTT — így a cache-elt configba ég, és kérésenként nem kerül
 lemez-olvasásba.
+
+### 6.1 A Cloudflare edge — ki válaszolt valójában?
+
+Minden kérés a Cloudflare-en át megy, tehát minden válasznak **két lehetséges szerzője**
+van: az app, vagy az edge előtte. A kettő megkülönböztetése nem részletkérdés — a
+bot-védelmi challenge-oldal **HTTP 200, HTML törzzsel**, vagyis pontosan úgy néz ki, mint
+egy egészséges válasz annak, aki csak a státuszkódot nézi. A `v0.7.3` deploynál emiatt
+lett piros egy sikeres deploy CI-ja, és emiatt írt a liveness check „ok"-ot arra a
+kimaradásra, amit felderíteni hivatott (SLO-162).
+
+**A szabály:** egy check csak akkor zöld, ha a válasz **bizonyítja, hogy az apptól jött**.
+A bizonyíték a `Content-Security-Policy` header: a `SecurityHeaders` middleware a globális
+stack elejére van fűzve (SLO-145), tehát minden app-válaszon rajta van — az edge oldalain
+viszont soha. A füstteszt ezt kéri számon a `/up`-on és a nyitólapon egyaránt.
+
+**Ha challenge-t kapsz** (a script megnevezi: `cf-mitigated` header, `challenge-platform`
+script, vagy a blokkoló oldal címe), a deployról ez **semmit nem mond**. Előbb ellenőrizd
+más hálózatról (lokálisan futtatva a scriptet), és nézd meg SSH-n a `.release`-t — a
+„javítás" előtt.
+
+**Hogy a runner átmenjen** — a füstteszt minden kérése (nem csak a `/_deploy/health`)
+azonosítja magát: `User-Agent: slot4u-smoke/1` és `X-Deploy-Token: <DEPLOY_HEALTH_TOKEN>`.
+A Cloudflare-ben ehhez egy **WAF custom rule / Skip** szabály tartozik:
+
+```
+(http.request.headers["x-deploy-token"][0] eq "<DEPLOY_HEALTH_TOKEN>")
+→ Skip: All remaining custom rules, Bot Fight Mode, Managed Rules, Rate limiting
+```
+
+⚠️ **A szabály a headerre illeszkedik, NEM a user agentre.** A UA-t bárki beírja; a header
+értéke titok. A UA csak azért van, hogy egy log-sorból is látszódjon, ki kopogtat.
+
+⚠️ **Ez kézi Cloudflare-beállítás**, nem a repóból jön. Amíg nincs meg, a füstteszt
+elbukhat egy tökéletesen jó deploy után is — de **hangosan és megnevezve**, nem néma hamis
+zölddel. A script ezért újra is próbálkozik (`SMOKE_RETRIES`): a challenge gyakran
+IP-hez és perchez kötött, átmeneti.
+
+A `deploy/smoke.sh`-nak **saját tesztje van** (`tests/Feature/Deploy/SmokeScriptTest.php`):
+egy `php -S` folyamat játssza a túloldalt (`tests/Fixtures/deploy-smoke-server.php`), és a
+script ugyanazzal a curl-lel beszél vele, mint élesben. Lefedve: az egészséges eset, a
+challenge három álruhája, a parkoló oldal, és hogy a token-header tényleg **minden**
+kérésen kimegy.
 
 ## 7. Karbantartási ablak
 
