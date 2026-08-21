@@ -59,7 +59,7 @@ trap 'rm -f "${HEADERS}" "${BODY}"' EXIT
 # exactly what a bot-protection rule exists to stop, and the smoke test has no
 # business looking like an unknown crawler to our own edge. The token header is
 # what a Cloudflare WAF "skip" rule matches on, so the test keeps measuring
-# THROUGH the edge rather than around it (docs/16 §6.1). Matching on the user
+# THROUGH the edge rather than around it (docs/16 §6.2). Matching on the user
 # agent instead would be a bypass anyone could type.
 USER_AGENT='slot4u-smoke/1 (+https://slot4u.hu)'
 
@@ -127,9 +127,13 @@ live() { [[ "${STATUS}" == "200" ]] && answered_by_app; }
 fail_challenge() {
     fail "$1: the Cloudflare edge answered with a bot-protection challenge, not the app.
        This says nothing about the deploy — verify it from another network before touching
-       anything (docs/16 §6.1). To let this caller through, add a Cloudflare WAF *skip*
-       rule for the smoke test's own header:
-         (http.request.headers[\"x-deploy-token\"][0] eq \"<DEPLOY_HEALTH_TOKEN>\")"
+       anything. What to do, in order, is docs/16 §6.2: reproduce with the manual \"Smoke
+       test\" workflow, then read Cloudflare's Analytics -> Events WITHIN 24 HOURS (that is
+       the free plan's retention) to see which product challenged. Most of them can then be
+       skipped by a WAF custom rule matching this caller's own header:
+         (http.request.headers[\"x-deploy-token\"][0] eq \"<DEPLOY_HEALTH_TOKEN>\")
+       Bot Fight Mode is the exception — it does not run on the Ruleset Engine, so no skip
+       rule reaches it; that one has to be turned off or upgraded to Super Bot Fight Mode."
 }
 
 # --- 1. Liveness -----------------------------------------------------------
