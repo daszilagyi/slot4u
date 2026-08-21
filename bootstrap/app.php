@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureFeatureEnabled;
+use App\Http\Middleware\EnsureLegalConsent;
 use App\Http\Middleware\EnsureSuperAdmin;
 use App\Http\Middleware\EnsureTenantActive;
 use App\Http\Middleware\EnsureUserBelongsToTenant;
@@ -91,6 +92,11 @@ return Application::configure(basePath: dirname(__DIR__))
             // (route middleware) runs after and overrides with the tenant locale.
             SetLocale::class,
             HandleInertiaRequests::class,
+            // Versioned consent (SLO-161). In the web group rather than on the
+            // tenant chain: a signed-in user with an outstanding acceptance must
+            // meet the same wall on every host they can reach, and the check
+            // short-circuits on the first line for guests and super-admins.
+            EnsureLegalConsent::class,
         ]);
 
         // Payment gateway callbacks carry no session and cannot present a CSRF

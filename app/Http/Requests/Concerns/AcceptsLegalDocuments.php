@@ -61,7 +61,7 @@ trait AcceptsLegalDocuments
         $registry = app(LegalDocumentRegistry::class);
 
         if (! $registry->isCurrentSet($this->legalTenant(), (array) $this->input('legal_document_ids', []))) {
-            $validator->errors()->add('accepted_legal', __('legal.stale'));
+            $validator->errors()->add('accepted_legal', __('app.legal.stale'));
         }
     }
 

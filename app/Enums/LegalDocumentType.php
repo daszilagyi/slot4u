@@ -26,6 +26,6 @@ enum LegalDocumentType: string
     /** Translation key for the human name of this type. */
     public function label(): string
     {
-        return 'legal.type.'.$this->value;
+        return 'app.legal.type.'.$this->value;
     }
 }

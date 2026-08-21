@@ -25,6 +25,8 @@ use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Admin\UserRbacController;
 use App\Http\Controllers\Admin\WaitlistController;
+use App\Http\Controllers\ConsentController;
+use App\Http\Controllers\LegalDocumentController;
 use App\Http\Controllers\StaffProfileController;
 use App\Http\Controllers\Super\ImpersonationController;
 use App\Http\Controllers\Tenant\BookingController as TenantBookingController;
@@ -60,6 +62,23 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
     Route::middleware('throttle:seo')->group(function () {
         Route::get('/sitemap.xml', [SeoController::class, 'sitemap'])->name('tenant.sitemap');
         Route::get('/og-image.png', [SeoController::class, 'ogImage'])->name('tenant.og_image');
+    });
+
+    // The documents this host asks people to accept (SLO-161). Public, so it
+    // carries a named limiter like the rest of the unauthenticated surface
+    // (SLO-147) — the `public` bucket, keyed on tenant host + caller, rather
+    // than a bespoke one: a legal text is a cheap read, and 60/minute is far
+    // beyond anyone actually reading it. A document belonging to another tenant
+    // 404s like any cross-tenant id.
+    Route::middleware('throttle:public')
+        ->get('/legal/{legalDocument}', [LegalDocumentController::class, 'show'])
+        ->whereNumber('legalDocument')
+        ->name('tenant.legal.show');
+
+    // The re-acceptance screen (SLO-161) — see the note on the central copy.
+    Route::middleware('auth')->group(function () {
+        Route::get('/consent', [ConsentController::class, 'show'])->name('tenant.consent.show');
+        Route::post('/consent', [ConsentController::class, 'store'])->name('tenant.consent.store');
     });
 
     // Public slot-picker (SLO-30) + booking submission (SLO-31). Unauthenticated

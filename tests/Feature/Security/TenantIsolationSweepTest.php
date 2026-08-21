@@ -7,6 +7,7 @@ use App\Models\Booking;
 use App\Models\Customer;
 use App\Models\Event;
 use App\Models\Invoice;
+use App\Models\LegalDocument;
 use App\Models\Location;
 use App\Models\MessageTemplate;
 use App\Models\Payment;
@@ -111,6 +112,10 @@ function sweepRecords(Tenant $tenant): array
             'booking_id' => $booking->id,
             'payment_id' => $payment->id,
         ]),
+        // Versioned consent (SLO-161). Deliberately the TENANT's own document,
+        // not a platform one: a platform document is readable on every host by
+        // design, so seeding one here would assert the opposite of the rule.
+        'legalDocument' => LegalDocument::factory()->forTenant($tenant)->create(),
         'location' => $location,
         'payment' => $payment,
         // Data-subject request queue (SLO-159). The subject is this tenant's own

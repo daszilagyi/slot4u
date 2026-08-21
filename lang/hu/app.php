@@ -2094,4 +2094,49 @@ return [
             'export' => 'Ha a törlés előtt kéred a teljes adatkészletetek másolatát (foglalások, ügyfelek, szolgáltatások, számlák), válaszolj erre az emailre, és elküldjük.',
         ],
     ],
+
+    // Verziókövetett hozzájárulás (SLO-161, docs/19). A dokumentumok SZÖVEGE nem
+    // itt van: azt a tenant (illetve a platform ÁSZF-jénél a jogász) írja, és a
+    // `legal_documents` táblában él verziószámmal. Itt csak a keret szövegei
+    // vannak — a jelölőnégyzet, a hibaüzenetek és az újra-elfogadó képernyő.
+    'legal' => [
+        'type' => [
+            'terms' => 'Általános szerződési feltételek',
+            'privacy' => 'Adatkezelési tájékoztató',
+        ],
+        'accept' => 'Elfogadom az alábbiakat:',
+        'accept_single' => 'Elolvastam és elfogadom: :title',
+        'version' => ':version verzió',
+        'open' => 'Megnyitás',
+        'required' => 'A folytatáshoz el kell fogadnod a feltételeket.',
+        // Akkor jelenik meg, ha a form kitöltése közben új verzió lépett hatályba.
+        // Nem hallgatjuk el: sem az új szövegre nem rögzíthetjük az elfogadást (a
+        // felhasználó nem látta), sem a régire (már nem az van hatályban).
+        'stale' => 'A feltételek időközben megváltoztak. Kérjük, olvasd el az új változatot, és fogadd el újra.',
+        'outstanding' => 'A folytatáshoz el kell fogadnod a feltételek új változatát.',
+        'effective_from' => 'Hatályos: :date',
+        'consent' => [
+            'title' => 'Frissültek a feltételeink',
+            'intro' => 'A folytatáshoz kérjük, olvasd el és fogadd el az alábbi dokumentumok új változatát.',
+            'submit' => 'Elfogadom',
+        ],
+        'admin' => [
+            'title' => 'Jogi dokumentumok',
+            'description' => 'Az ügyfeleid ezeket fogadják el regisztrációkor és foglaláskor. Egy hatályba lépett verziót nem írunk felül — új szöveg = új verzió, és a meglévő ügyfelek újra elfogadják.',
+            'none' => 'Még nincs közzétett dokumentum. Amíg nincs, a foglalási űrlapok nem kérnek elfogadást.',
+            'new' => 'Új verzió',
+            'version_label' => 'Verzió',
+            'title_label' => 'Cím',
+            'body_label' => 'Szöveg',
+            'url_label' => 'Vagy hivatkozás egy külső oldalra',
+            'body_or_url' => 'Add meg a szöveget, vagy hivatkozz rá egy URL-lel — az egyik kötelező.',
+            'effective_from_label' => 'Hatályos ettől',
+            'effective_hint' => 'Jövőbeli dátum: a verzió meghirdetve, de még nem ez van hatályban.',
+            'in_force' => 'Hatályos',
+            'scheduled' => 'Meghirdetve',
+            'superseded' => 'Lejárt',
+            'consents' => 'Elfogadás',
+            'created' => 'Az új verzió közzétéve.',
+        ],
+    ],
 ];

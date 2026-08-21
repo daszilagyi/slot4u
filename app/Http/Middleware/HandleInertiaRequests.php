@@ -4,9 +4,11 @@ namespace App\Http\Middleware;
 
 use App\Enums\Feature;
 use App\Enums\Permission;
+use App\Models\LegalDocument;
 use App\Models\User;
 use App\Services\Feature\FeatureResolver;
 use App\Services\Impersonation\Impersonation;
+use App\Services\Legal\LegalDocumentRegistry;
 use App\Settings\TenantBranding;
 use App\Tenancy\TenantManager;
 use Illuminate\Http\Request;
@@ -90,6 +92,39 @@ class HandleInertiaRequests extends Middleware
             // is inside the tenant they are impersonating, so the layout can show
             // the "impersonation active" bar with a same-origin exit action.
             'impersonation' => fn (): ?array => $this->impersonationState(),
+            // The documents in force here (SLO-161). Shared rather than passed
+            // per page because six different forms have to show the same tick
+            // box, and Fortify's register page has no controller of ours to pass
+            // it from. Lazy for the same reason as `features`: the tenant is
+            // bound by route middleware that runs after this one.
+            'legal' => fn (): array => $this->legalDocuments(),
+        ];
+    }
+
+    /**
+     * The documents a visitor on this host may be asked to accept, with a link
+     * each, and the id set the form must submit back so a version published
+     * mid-form can be caught (SLO-161).
+     *
+     * @return array{documents: list<array{id: int, type: string, version: string, title: string, href: string}>, ids: list<int>}
+     */
+    private function legalDocuments(): array
+    {
+        $tenant = app(TenantManager::class)->current();
+        $documents = app(LegalDocumentRegistry::class)->currentFor($tenant);
+
+        return [
+            'documents' => $documents->values()->map(fn (LegalDocument $document): array => [
+                'id' => $document->getKey(),
+                'type' => $document->type->value,
+                'version' => $document->version,
+                'title' => $document->title,
+                // Always our own URL, even for a linked document: the redirect
+                // keeps one shape for the form to render and one place where
+                // "which document did they open" could ever be answered.
+                'href' => '/legal/'.$document->getKey(),
+            ])->all(),
+            'ids' => $documents->map->getKey()->values()->all(),
         ];
     }
 
