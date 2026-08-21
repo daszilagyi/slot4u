@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Tenant;
 
 use App\Enums\Feature;
+use App\Http\Requests\Concerns\AcceptsLegalDocuments;
 use App\Http\Requests\Concerns\NormalizesPhone;
 use App\Models\Service;
 use App\Tenancy\TenantManager;
@@ -25,7 +26,7 @@ use Laravel\Pennant\Feature as Pennant;
  */
 class PublicQuoteRequest extends FormRequest
 {
-    use NormalizesPhone;
+    use AcceptsLegalDocuments, NormalizesPhone;
 
     protected function prepareForValidation(): void
     {
@@ -52,11 +53,14 @@ class PublicQuoteRequest extends FormRequest
             'notes' => ['nullable', 'string', 'max:2000'],
             'fields' => ['nullable', 'array'],
             'fields.*' => ['required', 'string', 'max:2000'],
-        ];
+        ] + $this->legalRules();
     }
 
     public function withValidator(Validator $validator): void
     {
+        // The accepted documents must still be the ones in force (SLO-161).
+        $validator->after(fn (Validator $validator) => $this->validateLegalDocumentsAreCurrent($validator));
+
         $validator->after(function (Validator $validator): void {
             if (! Pennant::active(Feature::QuoteRequest->value)) {
                 $validator->errors()->add('quote', __('app.tenant.book.quote_unavailable'));

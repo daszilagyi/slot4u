@@ -2,8 +2,10 @@
 
 namespace App\Http\Requests\Tenant;
 
+use App\Http\Requests\Concerns\AcceptsLegalDocuments;
 use App\Http\Requests\Concerns\NormalizesPhone;
 use App\Tenancy\TenantManager;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -17,7 +19,7 @@ use Illuminate\Validation\Rule;
  */
 class PublicOrderRequest extends FormRequest
 {
-    use NormalizesPhone;
+    use AcceptsLegalDocuments, NormalizesPhone;
 
     protected function prepareForValidation(): void
     {
@@ -27,6 +29,14 @@ class PublicOrderRequest extends FormRequest
     public function authorize(): bool
     {
         return true;
+    }
+
+    /**
+     * The accepted documents must still be the ones in force (SLO-161).
+     */
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(fn (Validator $validator) => $this->validateLegalDocumentsAreCurrent($validator));
     }
 
     /**
@@ -42,6 +52,6 @@ class PublicOrderRequest extends FormRequest
             'email' => ['required', 'string', 'email', 'max:255'],
             'phone' => $this->phoneRules(),
             'notes' => ['nullable', 'string', 'max:2000'],
-        ];
+        ] + $this->legalRules();
     }
 }
