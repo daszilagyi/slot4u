@@ -9,7 +9,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatMoney } from '@/lib/format';
+import { BillingFields } from '@/components/BillingFields';
 import { LegalConsent } from '@/components/LegalConsent';
+import { useBillingFields } from '@/lib/billing';
+import { useFeatures } from '@/lib/features';
 import { useTranslations } from '@/lib/i18n';
 import { useLegalConsentFields } from '@/lib/legal';
 import type {
@@ -175,9 +178,12 @@ export default function Book(props: BookProps) {
     // Booking details form (prefilled for a logged-in customer). The slot fields
     // are injected from the selected slot at submit time.
     const authUser = page.props.auth.user;
+    const feature = useFeatures();
     const legalFields = useLegalConsentFields();
+    const billingFields = useBillingFields();
     const form = useForm({
         ...legalFields,
+        ...billingFields,
         name: authUser?.name ?? '',
         email: authUser?.email ?? '',
         phone: '',
@@ -192,6 +198,7 @@ export default function Book(props: BookProps) {
     } | null>(null);
     const eventForm = useForm({
         ...legalFields,
+        ...billingFields,
         party_size: 1,
         name: authUser?.name ?? '',
         email: authUser?.email ?? '',
@@ -323,6 +330,18 @@ export default function Book(props: BookProps) {
                     />
                 </div>
             </div>
+
+            {/* Only where money changes hands: a quote request produces no
+                payment and therefore no document (SLO-168). */}
+            {prefix !== 'quote' && (
+                <BillingFields
+                    prefix={prefix}
+                    enabled={feature('feature_invoicing')}
+                    data={form.data}
+                    errors={form.errors}
+                    onChange={(key, value) => form.setData(key, value)}
+                />
+            )}
 
             {/* Booking, order and quote all submit `form`, so the tick box lives
                 here rather than three times over. The event sign-up has its own
@@ -975,6 +994,18 @@ export default function Book(props: BookProps) {
                                                 />
                                             </div>
                                         </div>
+
+                                        <BillingFields
+                                            prefix="event"
+                                            enabled={feature(
+                                                'feature_invoicing',
+                                            )}
+                                            data={eventForm.data}
+                                            errors={eventForm.errors}
+                                            onChange={(key, value) =>
+                                                eventForm.setData(key, value)
+                                            }
+                                        />
 
                                         <LegalConsent
                                             checked={

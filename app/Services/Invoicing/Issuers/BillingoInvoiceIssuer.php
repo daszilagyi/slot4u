@@ -30,6 +30,12 @@ use RuntimeException;
  *    cannot look one up by email (see {@see InvoicingPartner}).
  * 3. **Voiding creates a NEW document** with its own number and a negative
  *    total. That is what comes back as the storno.
+ * 4. ⚠️ **A document REQUIRES a full buyer address** — which slot4u had nowhere,
+ *    and which the Áfa tv. 169. § e) makes mandatory on an invoice regardless of
+ *    provider. Hence the two paths below: a receipt by default (no address, no
+ *    partner, legally sufficient for a private individual paying by card), and a
+ *    full invoice only when the buyer asked for one and supplied an address
+ *    (SLO-168).
  */
 final class BillingoInvoiceIssuer implements InvoiceIssuer
 {
@@ -43,8 +49,46 @@ final class BillingoInvoiceIssuer implements InvoiceIssuer
 
     public function issue(InvoiceRequest $request): IssuedInvoice
     {
+        $client = $this->client($request->seller);
+
+        // A receipt unless an invoice was both asked for and made possible. The
+        // check is on the details, not on the request alone: someone who ticked
+        // the box but left the address half-filled gets a receipt rather than a
+        // failed transaction, and the admin can see what they asked for on the
+        // booking.
+        return $request->billing->canInvoice()
+            ? $this->issueInvoice($client, $request)
+            : $this->issueReceipt($client, $request);
+    }
+
+    /**
+     * A `nyugta`: no partner, no address, its own numbering block.
+     */
+    private function issueReceipt(BillingoClient $client, InvoiceRequest $request): IssuedInvoice
+    {
         $seller = $request->seller;
-        $client = $this->client($seller);
+
+        if ($seller->receiptBlockId === null) {
+            throw new RuntimeException('No Billingo receipt block is configured for this tenant.');
+        }
+
+        $receipt = $client->createReceipt(array_filter([
+            'block_id' => $seller->receiptBlockId,
+            'type' => 'receipt',
+            'name' => $request->buyerName,
+            'emails' => $request->buyerEmail === null ? null : [$request->buyerEmail],
+            'payment_method' => 'online_bankcard',
+            'currency' => $request->currency,
+            'electronic' => true,
+            'items' => [$this->item($request)],
+        ], static fn ($value): bool => $value !== null));
+
+        return $this->issued($client, $receipt);
+    }
+
+    private function issueInvoice(BillingoClient $client, InvoiceRequest $request): IssuedInvoice
+    {
+        $seller = $request->seller;
 
         if ($seller->blockId === null) {
             throw new RuntimeException('No Billingo document block is configured for this tenant.');
@@ -67,19 +111,29 @@ final class BillingoInvoiceIssuer implements InvoiceIssuer
             'electronic' => true,
             'language' => 'hu',
             'currency' => $request->currency,
-            'items' => [[
-                'name' => $request->itemName,
-                'unit_price' => $this->majorUnits($request->amountMinor),
-                // Our stored price is what the customer paid — gross. Declaring
-                // it as net would silently add VAT on top of VAT.
-                'unit_price_type' => 'gross',
-                'quantity' => 1,
-                'unit' => 'db',
-                'vat' => $this->vat($seller),
-            ]],
+            'items' => [$this->item($request)],
         ], static fn ($value): bool => $value !== null));
 
         return $this->issued($client, $document);
+    }
+
+    /**
+     * The single line every document carries.
+     *
+     * @return array<string, mixed>
+     */
+    private function item(InvoiceRequest $request): array
+    {
+        return [
+            'name' => $request->itemName,
+            'unit_price' => $this->majorUnits($request->amountMinor),
+            // Our stored price is what the customer paid — gross. Declaring it
+            // as net would silently add VAT on top of VAT.
+            'unit_price_type' => 'gross',
+            'quantity' => 1,
+            'unit' => 'db',
+            'vat' => $this->vat($request->seller),
+        ];
     }
 
     public function storno(Invoice $invoice, TenantInvoicingSettings $seller): IssuedInvoice
@@ -108,10 +162,12 @@ final class BillingoInvoiceIssuer implements InvoiceIssuer
             ? null
             : InvoicingPartner::normaliseEmail($request->buyerEmail);
 
+        $billing = $request->billing;
+
         // No address, no mapping key. A fresh partner every time is the honest
         // outcome, and rare: the booking flows all collect an email.
         if ($email === null) {
-            return $client->createPartner($request->buyerName, null);
+            return $client->createPartner($billing->name ?? $request->buyerName, null, $billing);
         }
 
         $existing = InvoicingPartner::query()
@@ -125,7 +181,7 @@ final class BillingoInvoiceIssuer implements InvoiceIssuer
             return (int) $existing->partner_ref;
         }
 
-        $partnerId = $client->createPartner($request->buyerName, $email);
+        $partnerId = $client->createPartner($billing->name ?? $request->buyerName, $email, $billing);
 
         InvoicingPartner::query()->updateOrCreate(
             ['provider' => InvoiceProvider::Billingo->value, 'email' => $email],

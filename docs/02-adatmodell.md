@@ -199,6 +199,20 @@ notifications_log  id, tenant_id, type, channel, recipient, status(pending|sent|
 audit_logs         id, tenant_id(nullable), user_id(nullable), action, auditable_type/id(nullable), old_values/new_values(json), ip_address, created_at(immutable, nincs updated_at)
 ```
 
+### Számlázási adatok a foglaláson (SLO-168)
+
+```
+bookings   + wants_invoice(bool, default false), billing_name, billing_tax_number,
+             billing_country_code, billing_post_code, billing_city, billing_address
+             — MIND nullable: alapból nyugta készül, ami nem kér címet
+             — ⚠️ a `bookings`-en és nem a `users`-en: TRANZAKCIÓS adat, az a cím,
+               amire a bizonylat kiállt; nem változhat visszamenőleg attól, hogy
+               az ügyfél elköltözött
+             — az Áfa tv. 169. § e) a SZÁMLÁHOZ követeli meg a vevő nevét és
+               címét; a nyugtához nem → csak attól gyűjtjük, akinek kell
+             — a törlés (docs/19) mind a hat oszlopot nullázza
+```
+
 ### Számlázó partner-leképezés (SLO-167)
 
 ```

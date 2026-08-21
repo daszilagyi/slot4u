@@ -45,6 +45,7 @@ class InvoicingSettingsController extends Controller
                 'sellerAddress' => $settings->sellerAddress,
                 'vatKey' => $settings->vatKey,
                 'blockId' => $settings->blockId,
+                'receiptBlockId' => $settings->receiptBlockId,
                 'bankAccountId' => $settings->bankAccountId,
                 'complete' => $settings->isComplete(),
             ],
@@ -86,6 +87,7 @@ class InvoicingSettingsController extends Controller
             sellerAddress: $this->str($data, 'seller_address'),
             vatKey: $this->str($data, 'vat_key') ?? TenantInvoicingSettings::DEFAULT_VAT_KEY,
             blockId: isset($data['block_id']) && is_numeric($data['block_id']) ? (int) $data['block_id'] : null,
+            receiptBlockId: isset($data['receipt_block_id']) && is_numeric($data['receipt_block_id']) ? (int) $data['receipt_block_id'] : null,
             bankAccountId: isset($data['bank_account_id']) && is_numeric($data['bank_account_id']) ? (int) $data['bank_account_id'] : null,
         ))->toArray();
 

@@ -4,6 +4,7 @@ namespace App\Http\Requests\Tenant;
 
 use App\Enums\BookingMode;
 use App\Http\Requests\Concerns\AcceptsLegalDocuments;
+use App\Http\Requests\Concerns\CollectsBillingDetails;
 use App\Http\Requests\Concerns\NormalizesPhone;
 use App\Models\Service;
 use App\Services\Booking\AvailabilityService;
@@ -23,7 +24,7 @@ use Illuminate\Validation\Rule;
  */
 class PublicBookingRequest extends FormRequest
 {
-    use AcceptsLegalDocuments, NormalizesPhone;
+    use AcceptsLegalDocuments, CollectsBillingDetails, NormalizesPhone;
 
     protected function prepareForValidation(): void
     {
@@ -59,7 +60,7 @@ class PublicBookingRequest extends FormRequest
             'email' => ['required', 'string', 'email', 'max:255'],
             'phone' => $this->phoneRules(),
             'notes' => ['nullable', 'string', 'max:2000'],
-        ] + $this->legalRules();
+        ] + $this->legalRules() + $this->billingRules();
     }
 
     /**
@@ -72,6 +73,7 @@ class PublicBookingRequest extends FormRequest
     {
         // The accepted documents must still be the ones in force (SLO-161).
         $validator->after(fn (Validator $validator) => $this->validateLegalDocumentsAreCurrent($validator));
+        $this->validateBillingDetails($validator);
 
         $validator->after(function (Validator $validator): void {
             $service = Service::query()->find($this->input('service_id')); // tenant-scoped by global scope

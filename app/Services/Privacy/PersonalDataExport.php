@@ -104,6 +104,17 @@ final class PersonalDataExport
                 'guest_name' => $booking->guest_name,
                 'guest_email' => $booking->guest_email,
                 'guest_phone' => $booking->guest_phone,
+                // What the buyer gave to be invoiced (SLO-168). Their own data,
+                // so it belongs in their own copy — and null on the bookings
+                // that only ever got a receipt, which is most of them.
+                'billing' => $booking->wants_invoice ? [
+                    'name' => $booking->billing_name,
+                    'tax_number' => $booking->billing_tax_number,
+                    'country_code' => $booking->billing_country_code,
+                    'post_code' => $booking->billing_post_code,
+                    'city' => $booking->billing_city,
+                    'address' => $booking->billing_address,
+                ] : null,
                 'source' => $booking->source->value,
                 'created_at' => $booking->created_at?->toIso8601String(),
                 'status_history' => $booking->statusHistory

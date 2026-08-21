@@ -120,6 +120,37 @@ partner → számla → PDF → sztornó láncból:
 | A `bank_account_id` **opcionális** | bankszámla nélkül is lehet számlázni; csak átutalásnál kerül a számlára |
 | A NAV Online Számla a **Billingo fiók** beállítása | a slot4u nem küld a NAV felé, és nem is tud: `no_online_szamla_settings` esetén a Billingo maga nem továbbít |
 
+### Nyugta alapból, számla kérésre (SLO-168)
+
+⚠️ **Ezt egy élő próba derítette ki, nem a specifikáció.** Az első valódi hívás 422-vel
+bukott: a Billingo a partnerhez **teljes címet** követel. És ez nem szolgáltatói
+sajátosság — az **Áfa tv. 169. § e)** szerint a vevő **neve ÉS címe** kötelező adata a
+**számlának**. A slot4u viszont sehol nem gyűjtött címet, tehát **semmilyen
+szolgáltatóval** nem tudott volna szabályos számlát kiállítani.
+
+**Döntés (Daniel, 2026-08-21):** alapértelmezésben **nyugta**, kérésre **számla**.
+
+| | Nyugta (`POST /documents/receipt`) | Számla (`POST /documents`) |
+|---|---|---|
+| Mikor | **alapértelmezés** | ha a vevő kérte ÉS megadta a címét |
+| Partner | **nincs** — név és email sima mező | kötelező (`partner_id`), címmel |
+| Cím | **nem kell** | kötelező (Áfa tv. 169. § e) |
+| Tömb | külön **nyugtatömb** | számlatömb |
+
+Magánszemélynek kártyás fizetésnél a nyugta jogilag elegendő, és a foglalási űrlapot sem
+terheli meg három mezővel mindenkinél. A cím így **csak attól gyűlik, akinek tényleg kell**
+— ez a `docs/19` adatminimalizálási elve, nem kényelmi döntés.
+
+⚠️ **A hiányos cím nem bukik el, hanem nyugtát ad.** Aki bepipálta a „számlát kérek"-et, de
+félig töltötte ki a címet, azt **az űrlap utasítja el** — de ha valamiért mégis idáig jut
+(admin által rögzített foglalás, importált adat), a bizonylat inkább nyugta lesz, mint
+semmi: az ügyfél már fizetett, és egy jogilag érvényes bizonylat jobb, mint egy elbukott
+tranzakció. A `bookings.wants_invoice` megőrzi, hogy mit kért, tehát az admin látja.
+
+**A számlázási cím a `bookings`-en él, nem a `users`-en.** Tranzakciós adat: az a cím,
+amire a bizonylat kiállt, és nem változhat visszamenőleg attól, hogy az ügyfél később
+elköltözött. Egyben a törlés és az export is egy helyen söpri (`docs/19`).
+
 **Kulcs-kezelés:** a tenant API kulcsa a titkosított `invoicing` oszlopban él, és
 **soha nem megy vissza a böngészőnek** — a beállító képernyő azt tudja meg, hogy
 *van* kulcs, nem azt, hogy *mi*. Üresen hagyott mező = „hagyd a meglévőt", mert a

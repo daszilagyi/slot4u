@@ -21,5 +21,12 @@ final class InvoiceRequest
         public readonly string $currency,
         /** The tenant-local calendar day the invoice is dated on. */
         public readonly string $issueDate,
+        /**
+         * What the buyer asked for and gave us (SLO-168). A receipt is issued
+         * unless this says an invoice was requested AND carries a complete
+         * address — a `nyugta` is legally sufficient for a private individual
+         * paying by card, and needs none of it.
+         */
+        public readonly BillingDetails $billing = new BillingDetails,
     ) {}
 }

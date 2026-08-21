@@ -80,6 +80,18 @@ function erasureFixture(): array
         'status' => BookingStatus::Completed,
         'price_minor' => 1_500_000,
         'notes' => ERASURE_NAME.' allergiás a levendulára',
+        // A booking that asked for an invoice (SLO-168). Put in the FIXTURE
+        // rather than in a test of its own, so every sweep assertion below
+        // covers these columns automatically — which is the whole design of
+        // this file: a new column holding a person's data should fail the day
+        // it lands, not the day somebody remembers to write a test for it.
+        'wants_invoice' => true,
+        'billing_name' => ERASURE_NAME,
+        'billing_tax_number' => '12345678-2-42',
+        'billing_country_code' => 'HU',
+        'billing_post_code' => '1051',
+        'billing_city' => 'Budapest',
+        'billing_address' => ERASURE_NAME.' utca 7.',
     ]);
 
     // Guest booking made with the same email but never linked to the account.

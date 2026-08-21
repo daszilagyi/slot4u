@@ -350,6 +350,23 @@ később regisztrált, a **teljes** előzményét kapja, nem a rendezettebbnek l
 amik ezt ki is mondják magukról: egy hihetően hangzó vázlat rosszabb lenne, mert
 senki nem venné észre, hogy cserélni kell.
 
+### 10.8 Számlázási cím (SLO-168)
+
+A foglaláson tárolt számlázási cím (`bookings.billing_*`) **személyes adat**, és ugyanúgy
+kezelendő: benne van a **15. cikkes exportban**, és a **törlés mind a hat oszlopot
+nullázza**.
+
+⚠️ **A kiállított számla a saját másolatát megtartja** — ez a §3.3 két tudatos kivételének
+egyike (Szt. 169. §, 8 év), nem mulasztás. A `bookings` sor viszont nem bizonylat, ezért
+onnan megy.
+
+⚠️ **Amit ez tanított a söprésről:** a `PersonalDataSweep` az ÉLŐ sémán keres, de csak azt
+találja meg, amit egy fixture beleírt. A hat új oszlop úgy landolt, hogy **minden privacy
+teszt zöld maradt** — mert egyetlen fixture sem írt bele számlázási címet. Ez hamis zöld
+volt, nem garancia. A javítás ezért **a fixture-ben** van (`erasureFixture()`), nem egy
+külön tesztben: így minden meglévő söprés-állítás magától fedi az új oszlopokat, és a
+következő PII-oszlop is aznap bukik, amikor beérkezik.
+
 ## 11. Cookie consent (SLO-165)
 
 ### 11.1 ⚠️ Ma semmit nem kapcsol ki — és ez nem hiba

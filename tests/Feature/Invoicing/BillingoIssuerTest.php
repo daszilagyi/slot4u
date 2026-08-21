@@ -2,9 +2,11 @@
 
 use App\Enums\InvoiceProvider;
 use App\Enums\InvoiceStatus;
+use App\Models\Booking;
 use App\Models\Invoice;
 use App\Models\InvoicingPartner;
 use App\Models\Tenant;
+use App\Services\Invoicing\BillingDetails;
 use App\Services\Invoicing\Billingo\BillingoClient;
 use App\Services\Invoicing\InvoiceIssuerManager;
 use App\Services\Invoicing\InvoiceRequest;
@@ -45,6 +47,7 @@ function billingoTenant(array $invoicing = []): Tenant
             'seller_name' => 'Acme Kft.',
             'vat_key' => '27',
             'block_id' => 329303,
+            'receipt_block_id' => 440404,
         ], $invoicing),
     ]);
 
@@ -58,8 +61,15 @@ function billingoSeller(Tenant $tenant): TenantInvoicingSettings
     return TenantInvoicingSettings::fromArray($tenant->invoicing);
 }
 
-function billingoRequest(Tenant $tenant, int $amountMinor = 1_270_000, ?string $email = 'vevo@example.test'): InvoiceRequest
-{
+/**
+ * The DEFAULT path: no invoice asked for, so a receipt is issued (SLO-168).
+ */
+function billingoRequest(
+    Tenant $tenant,
+    int $amountMinor = 1_270_000,
+    ?string $email = 'vevo@example.test',
+    ?BillingDetails $billing = null,
+): InvoiceRequest {
     return new InvoiceRequest(
         seller: billingoSeller($tenant),
         buyerName: 'Teszt Vevő',
@@ -68,7 +78,38 @@ function billingoRequest(Tenant $tenant, int $amountMinor = 1_270_000, ?string $
         amountMinor: $amountMinor,
         currency: 'HUF',
         issueDate: '2026-08-21',
+        billing: $billing ?? new BillingDetails,
     );
+}
+
+/**
+ * A buyer who asked for an invoice and gave a full address.
+ *
+ * ⚠️ `array_key_exists`, not `??`: passing `['city' => null]` to blank a field is
+ * exactly what the incomplete-address test needs, and `??` would silently hand
+ * back the default — making that test assert the opposite of what it claims.
+ */
+function billingoInvoiceDetails(array $overrides = []): BillingDetails
+{
+    $value = fn (string $key, mixed $default): mixed => array_key_exists($key, $overrides)
+        ? $overrides[$key]
+        : $default;
+
+    return new BillingDetails(
+        wantsInvoice: true,
+        name: $value('name', 'Teszt Vevő'),
+        taxNumber: $value('taxNumber', null),
+        countryCode: $value('countryCode', null),
+        postCode: $value('postCode', '1051'),
+        city: $value('city', 'Budapest'),
+        address: $value('address', 'Példa utca 1.'),
+    );
+}
+
+/** The invoice path: an invoice asked for, with everything it needs. */
+function billingoInvoiceRequest(Tenant $tenant, int $amountMinor = 1_270_000, ?string $email = 'vevo@example.test'): InvoiceRequest
+{
+    return billingoRequest($tenant, $amountMinor, $email, billingoInvoiceDetails());
 }
 
 /**
@@ -83,6 +124,13 @@ function fakeBillingo(array $overrides = []): void
     Http::fake($overrides + [
         BillingoClient::BASE_URL.'/partners/*' => Http::response(['id' => 1963290060], 200),
         BillingoClient::BASE_URL.'/partners' => Http::response(['id' => 1963290060], 201),
+        BillingoClient::BASE_URL.'/documents/receipt' => Http::response([
+            'id' => 134700001,
+            'invoice_number' => 'NY-2026-1',
+            'type' => 'receipt',
+            'gross_total' => 12700,
+            'currency' => 'HUF',
+        ], 201),
         BillingoClient::BASE_URL.'/documents' => Http::response([
             'id' => 134638151,
             'invoice_number' => '2026-1',
@@ -121,7 +169,7 @@ it('⚠️ sends whole forints, not fillér — a hundredfold invoice is the fai
     $tenant = billingoTenant();
     fakeBillingo();
 
-    app(BillingoInvoiceIssuer::class)->issue(billingoRequest($tenant, 1_270_000));
+    app(BillingoInvoiceIssuer::class)->issue(billingoInvoiceRequest($tenant, 1_270_000));
 
     expect(sentBody('/documents')['items'][0]['unit_price'])->toBe(12700);
 });
@@ -130,7 +178,7 @@ it('keeps a remainder rather than rounding a legal document', function () {
     $tenant = billingoTenant();
     fakeBillingo();
 
-    app(BillingoInvoiceIssuer::class)->issue(billingoRequest($tenant, 1_270_050));
+    app(BillingoInvoiceIssuer::class)->issue(billingoInvoiceRequest($tenant, 1_270_050));
 
     expect(sentBody('/documents')['items'][0]['unit_price'])->toBe(12700.5);
 });
@@ -141,7 +189,7 @@ it('declares the price as gross, because that is what the customer paid', functi
     $tenant = billingoTenant();
     fakeBillingo();
 
-    app(BillingoInvoiceIssuer::class)->issue(billingoRequest($tenant));
+    app(BillingoInvoiceIssuer::class)->issue(billingoInvoiceRequest($tenant));
 
     $item = sentBody('/documents')['items'][0];
 
@@ -153,7 +201,7 @@ it('returns the number, the document id and the PDF', function () {
     $tenant = billingoTenant();
     fakeBillingo();
 
-    $issued = app(BillingoInvoiceIssuer::class)->issue(billingoRequest($tenant));
+    $issued = app(BillingoInvoiceIssuer::class)->issue(billingoInvoiceRequest($tenant));
 
     expect($issued->number)->toBe('2026-1')
         ->and($issued->providerRef)->toBe('134638151')
@@ -164,7 +212,7 @@ it('names the tenant document block on the invoice', function () {
     $tenant = billingoTenant();
     fakeBillingo();
 
-    app(BillingoInvoiceIssuer::class)->issue(billingoRequest($tenant));
+    app(BillingoInvoiceIssuer::class)->issue(billingoInvoiceRequest($tenant));
 
     expect(sentBody('/documents')['block_id'])->toBe(329303);
 });
@@ -173,7 +221,7 @@ it('omits the bank account when the tenant has none, rather than sending null', 
     $tenant = billingoTenant(['bank_account_id' => null]);
     fakeBillingo();
 
-    app(BillingoInvoiceIssuer::class)->issue(billingoRequest($tenant));
+    app(BillingoInvoiceIssuer::class)->issue(billingoInvoiceRequest($tenant));
 
     expect(sentBody('/documents'))->not->toHaveKey('bank_account_id');
 });
@@ -182,7 +230,7 @@ it('creates a partner on the first invoice and remembers it', function () {
     $tenant = billingoTenant();
     fakeBillingo();
 
-    app(BillingoInvoiceIssuer::class)->issue(billingoRequest($tenant));
+    app(BillingoInvoiceIssuer::class)->issue(billingoInvoiceRequest($tenant));
 
     $partner = InvoicingPartner::withoutGlobalScopes()->sole();
 
@@ -199,8 +247,8 @@ it('reuses the remembered partner instead of creating a duplicate', function () 
     $tenant = billingoTenant();
     fakeBillingo();
 
-    app(BillingoInvoiceIssuer::class)->issue(billingoRequest($tenant));
-    app(BillingoInvoiceIssuer::class)->issue(billingoRequest($tenant));
+    app(BillingoInvoiceIssuer::class)->issue(billingoInvoiceRequest($tenant));
+    app(BillingoInvoiceIssuer::class)->issue(billingoInvoiceRequest($tenant));
 
     $created = collect(Http::recorded())
         ->filter(fn ($pair) => $pair[0]->method() === 'POST' && str_ends_with($pair[0]->url(), '/partners'))
@@ -223,7 +271,7 @@ it('creates a new partner when the remembered one is gone from Billingo', functi
 
     fakeBillingo([BillingoClient::BASE_URL.'/partners/999' => Http::response(['message' => 'Not Found'], 404)]);
 
-    app(BillingoInvoiceIssuer::class)->issue(billingoRequest($tenant));
+    app(BillingoInvoiceIssuer::class)->issue(billingoInvoiceRequest($tenant));
 
     expect(InvoicingPartner::withoutGlobalScopes()->sole()->partner_ref)->toBe('1963290060');
 });
@@ -232,7 +280,7 @@ it('does not try to remember a buyer with no email', function () {
     $tenant = billingoTenant();
     fakeBillingo();
 
-    app(BillingoInvoiceIssuer::class)->issue(billingoRequest($tenant, email: null));
+    app(BillingoInvoiceIssuer::class)->issue(billingoRequest($tenant, email: null, billing: billingoInvoiceDetails()));
 
     expect(InvoicingPartner::withoutGlobalScopes()->count())->toBe(0);
 });
@@ -256,7 +304,7 @@ it('keeps one tenant partner mapping away from another', function () {
     fakeBillingo();
     app(TenantManager::class)->set($tenant);
 
-    app(BillingoInvoiceIssuer::class)->issue(billingoRequest($tenant));
+    app(BillingoInvoiceIssuer::class)->issue(billingoInvoiceRequest($tenant));
 
     // The other tenant's partner id must never be used here: it belongs to a
     // different Billingo account entirely.
@@ -295,7 +343,7 @@ it('carries Billingo own words into the failure, not a generic message', functio
         ], 422),
     ]);
 
-    expect(fn () => app(BillingoInvoiceIssuer::class)->issue(billingoRequest($tenant)))
+    expect(fn () => app(BillingoInvoiceIssuer::class)->issue(billingoInvoiceRequest($tenant)))
         ->toThrow(RuntimeException::class, 'block_id');
 });
 
@@ -313,7 +361,7 @@ it('refuses before calling anything when no document block is chosen', function 
     $tenant = billingoTenant(['block_id' => null]);
     Http::fake();
 
-    expect(fn () => app(BillingoInvoiceIssuer::class)->issue(billingoRequest($tenant)))
+    expect(fn () => app(BillingoInvoiceIssuer::class)->issue(billingoInvoiceRequest($tenant)))
         ->toThrow(RuntimeException::class, 'document block');
 
     expect(collect(Http::recorded())->filter(fn ($pair) => str_contains($pair[0]->url(), 'billingo'))->count())->toBe(0);
@@ -361,7 +409,7 @@ it('never lets an invoice row escape without a provider that can be resolved lat
     $tenant = billingoTenant();
     fakeBillingo();
 
-    $issued = app(BillingoInvoiceIssuer::class)->issue(billingoRequest($tenant));
+    $issued = app(BillingoInvoiceIssuer::class)->issue(billingoInvoiceRequest($tenant));
 
     $invoice = new Invoice([
         'provider' => InvoiceProvider::Billingo,
@@ -373,4 +421,150 @@ it('never lets an invoice row escape without a provider that can be resolved lat
 
     expect(app(InvoiceIssuerManager::class)->for($invoice->provider))
         ->toBeInstanceOf(BillingoInvoiceIssuer::class);
+});
+
+/*
+|--------------------------------------------------------------------------
+| Receipt by default, invoice on request (SLO-168)
+|--------------------------------------------------------------------------
+|
+| The default path exists because the Áfa tv. 169. § e) makes the buyer's
+| address mandatory on an INVOICE and on nothing else. A receipt is legally
+| sufficient for a private individual paying by card, and asking everyone for an
+| address would collect personal data the transaction does not need.
+|
+*/
+
+it('issues a receipt when nobody asked for an invoice', function () {
+    $tenant = billingoTenant();
+    fakeBillingo();
+
+    $issued = app(BillingoInvoiceIssuer::class)->issue(billingoRequest($tenant));
+
+    expect($issued->number)->toBe('NY-2026-1');
+
+    Http::assertSent(fn (Request $request) => str_ends_with($request->url(), '/documents/receipt'));
+});
+
+it('needs no address and no partner for a receipt', function () {
+    // The whole point: this is the path that works with what a booking already
+    // collects — a name and an email.
+    $tenant = billingoTenant();
+    fakeBillingo();
+
+    app(BillingoInvoiceIssuer::class)->issue(billingoRequest($tenant));
+
+    $body = sentBody('/documents/receipt');
+
+    expect($body)->not->toHaveKey('partner_id')
+        ->and($body['name'])->toBe('Teszt Vevő')
+        ->and($body['emails'])->toBe(['vevo@example.test']);
+
+    expect(collect(Http::recorded())
+        ->filter(fn ($pair) => str_ends_with($pair[0]->url(), '/partners'))
+        ->count())->toBe(0);
+});
+
+it('writes a receipt into the receipt block, not the invoice one', function () {
+    // Billingo numbers receipts separately; using the invoice block would either
+    // be refused or, worse, mis-number a real invoice series.
+    $tenant = billingoTenant();
+    fakeBillingo();
+
+    app(BillingoInvoiceIssuer::class)->issue(billingoRequest($tenant));
+
+    expect(sentBody('/documents/receipt')['block_id'])->toBe(440404);
+});
+
+it('issues an invoice when one was asked for with a full address', function () {
+    $tenant = billingoTenant();
+    fakeBillingo();
+
+    $issued = app(BillingoInvoiceIssuer::class)->issue(billingoInvoiceRequest($tenant));
+
+    expect($issued->number)->toBe('2026-1');
+
+    Http::assertSent(fn (Request $request) => str_ends_with($request->url(), '/documents'));
+});
+
+it('sends the address Billingo refused to do without', function () {
+    // The 422 that started SLO-168: post_code, city and address are all required
+    // on a partner, and the OpenAPI document lists none of them as such.
+    $tenant = billingoTenant();
+    fakeBillingo();
+
+    app(BillingoInvoiceIssuer::class)->issue(billingoInvoiceRequest($tenant));
+
+    expect(sentBody('/partners')['address'])->toBe([
+        'country_code' => 'HU',
+        'post_code' => '1051',
+        'city' => 'Budapest',
+        'address' => 'Példa utca 1.',
+    ]);
+});
+
+it('marks a buyer with a tax number as a business', function () {
+    $tenant = billingoTenant();
+    fakeBillingo();
+
+    app(BillingoInvoiceIssuer::class)->issue(billingoRequest(
+        $tenant,
+        billing: billingoInvoiceDetails(['taxNumber' => '12345678-2-42']),
+    ));
+
+    $body = sentBody('/partners');
+
+    expect($body['taxcode'])->toBe('12345678-2-42')
+        ->and($body['tax_type'])->toBe('HAS_TAX_NUMBER');
+});
+
+it('falls back to a receipt when an invoice was asked for with half an address', function () {
+    // A refused transaction would be worse: the customer has paid, and the
+    // document they get is a legally valid one — just not the one they wanted.
+    // The booking still records that they asked, so an admin can see it.
+    $tenant = billingoTenant();
+    fakeBillingo();
+
+    app(BillingoInvoiceIssuer::class)->issue(billingoRequest(
+        $tenant,
+        billing: billingoInvoiceDetails(['city' => null]),
+    ));
+
+    Http::assertSent(fn (Request $request) => str_ends_with($request->url(), '/documents/receipt'));
+});
+
+it('refuses before calling anything when no receipt block is configured', function () {
+    $tenant = billingoTenant(['receipt_block_id' => null]);
+    Http::fake();
+
+    expect(fn () => app(BillingoInvoiceIssuer::class)->issue(billingoRequest($tenant)))
+        ->toThrow(RuntimeException::class, 'receipt block');
+
+    expect(collect(Http::recorded())->filter(fn ($pair) => str_contains($pair[0]->url(), 'billingo'))->count())->toBe(0);
+});
+
+it('reads what the buyer asked for off the booking, not off their profile', function () {
+    // An issued document records what was true then. Reading a live profile
+    // would let an address change rewrite history.
+    $tenant = billingoTenant();
+    $booking = Booking::factory()->forTenant($tenant)->create([
+        'wants_invoice' => true,
+        'billing_name' => 'Céges Vevő Kft.',
+        'billing_post_code' => '1051',
+        'billing_city' => 'Budapest',
+        'billing_address' => 'Példa utca 1.',
+    ]);
+
+    $billing = BillingDetails::fromBooking($booking);
+
+    expect($billing->canInvoice())->toBeTrue()
+        ->and($billing->name)->toBe('Céges Vevő Kft.')
+        ->and($billing->country())->toBe('HU');
+});
+
+it('treats a booking with no billing details as a receipt', function () {
+    $tenant = billingoTenant();
+    $booking = Booking::factory()->forTenant($tenant)->create();
+
+    expect(BillingDetails::fromBooking($booking)->canInvoice())->toBeFalse();
 });
