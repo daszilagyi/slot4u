@@ -39,7 +39,7 @@ jobs:
       # does the CURRENT script get through the CURRENT edge — and having this
       # backwards made the first run silently exercise the old script and prove
       # nothing about the fix (SLO-162).
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 

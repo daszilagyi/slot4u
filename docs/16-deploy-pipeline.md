@@ -296,6 +296,28 @@ a `v0.7.4` tag üzenetébe pont ilyen kézi emlékeztető került.
 **Rollbacknál kimarad**, ugyanazért, amiért a migráció: visszafelé menet minél kevesebb
 változzon.
 
+### 6.4 A pipeline saját függőségei (SLO-164)
+
+A workflow-k által használt actionök is függőségek, és ugyanúgy avulnak. 2026-08-21-én
+mind a legfrissebb majoron van: `checkout@v7`, `setup-node@v7`, `cache@v6`,
+`upload-artifact@v7`, `download-artifact@v8`.
+
+⚠️ **Két dolog, amit egy verzióemelésnél itt mindig meg kell nézni**, mert a deploy
+útvonalán vannak:
+
+* **Az artifact-útvonal.** A `download-artifact@v5` megváltoztatta, hova csomagol ki egy
+  **id szerint** kért artifactot (`path/név/` → `path/`) — a **név szerinti** letöltést
+  nem érintette. Mi név szerint töltünk le, ezért ez a törés minket kikerült. Ha valaha
+  id-re váltanánk, ez a sor a figyelmeztetés. Egy némán áthelyezett bundle **törött
+  frontendet szállítana, miközben a füstteszt 200-at lát** — a `/` ugyanúgy válaszol.
+* **A `git fetch` a checkout után.** A `checkout@v6` a megőrzött tokent a `.git/config`-ból
+  egy `RUNNER_TEMP` alatti fájlba mozgatta. A hitelesített git-parancsok változatlanul
+  működnek (ezt a felfelé-kompatibilitást a checkout dokumentálja), és a „csak `main`-ből
+  deployolunk" kapu épp ilyen parancsra épül.
+
+A `setup-node@v5` óta van automatikus cache, ha a `package.json`-ben van `packageManager`
+mező — nálunk **nincs**, tehát az explicit `cache: npm` marad az egyetlen utasítás.
+
 ## 7. Karbantartási ablak
 
 `artisan down` és `artisan up` között csak ez van: checkout → (composer, ha a lock változott)
