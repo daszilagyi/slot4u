@@ -165,7 +165,7 @@ $ dig +short default._domainkey.slot4u.hu TXT @1.1.1.1
 "v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0nqGbRqilp+Ix..." (2048 bit)
 
 $ dig +short _dmarc.slot4u.hu TXT @1.1.1.1
-"v=DMARC1; p=none; sp=none;"
+"v=DMARC1; p=none; sp=none; rua=mailto:14087cf7a60d48abaa2d02adb901f25a@dmarc-reports.cloudflare.net;"
 
 $ dig +short slot4u.hu MX @1.1.1.1
 0 mail.slot4u.hu.
@@ -176,11 +176,17 @@ $ dig +short slot4u.hu MX @1.1.1.1
 * **DKIM ✅** — a `default` selectoron 2048 bites RSA kulcs. ⚠️ Ez **változás**: a docs/11 §8
   2026-07-19-i mérése még `DKIM ❌`-et írt; a cPanel „Email Deliverability → Repair" azóta
   felvette. A régi mérésre hivatkozó jegyzet elavult.
-* **DMARC ⚠️** — létezik és szintaktikailag érvényes, de **`rua=` nélkül**. Így a `p=none`
-  semmit nem ér: `p=none` = „ne csinálj semmit", `rua` nélkül pedig jelentés sem érkezik —
-  azaz sem védelem, sem adat. **Teendő:** `rua=mailto:dmarc@slot4u.hu` felvétele a
-  Cloudflare DNS-ben; szigorítás (`p=quarantine`) csak azután, hogy pár hét jelentése
-  megmutatta, mi küld még a domainről.
+* **DMARC ✅** — `p=none`, és **2026-08-23 óta `rua=`-val**: a Cloudflare **DMARC
+  Management** kezeli, a jelentések a saját gyűjtőcímére mennek
+  (`…@dmarc-reports.cloudflare.net`). Ez azért jobb a saját postafióknál, mint amit
+  eredetileg terveztünk (`dmarc@slot4u.hu`): az aggregált jelentés **napi XML** minden
+  fogadó szolgáltatótól, ami egy postaládában olvashatatlan — pont az nem derülne ki
+  belőle, amiért bekapcsoltuk. A Cloudflare feldolgozza és forrásonként mutatja, hol megy
+  át a DKIM/SPF.
+  ⚠️ **A `p=none` szándékosan marad egyelőre.** A szigorítás (`p=quarantine`) csak akkor
+  megalapozott, ha pár hét jelentése megmutatta, mi küld még a domain nevében — vakon
+  szigorítani annyi, mint találomra eldobni a saját leveleinket. **A Cloudflare DMARC
+  Management felületén kell megnézni**, mielőtt hozzányúlunk.
 
 ### 8.3 A mérés — 2026-08-23, **9.5/10**
 
