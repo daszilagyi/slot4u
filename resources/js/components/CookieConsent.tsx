@@ -24,10 +24,9 @@ import { useTranslations } from '@/lib/i18n';
  * server-rendered page before JavaScript catches up, and SSR would render the
  * opposite of what hydration produces.
  *
- * ⚠️ Nothing is gated by this yet. slot4u sets only strictly necessary cookies
- * today, and those need no consent; this exists so that when analytics arrives
- * (docs/08: Phase 2) it lands behind a decision that already exists, instead of
- * the tag shipping first and the banner second.
+ * What the decision gates: slot4u's own GA4 tag on the marketing site
+ * (SLO-172), emitted by the root Blade only for a visitor who granted
+ * `analytics`. Tenant-side measurement follows in SLO-56.
  */
 
 /** The "cookie settings" affordance for a footer. */
@@ -73,6 +72,15 @@ export function CookieConsent() {
     function save(values: Record<string, boolean>) {
         router.post('/cookie-consent', values, {
             preserveScroll: true,
+            // A hard reload, not an Inertia re-render. The measurement tag is
+            // written into the document <head> by the server (SLO-172), and an
+            // Inertia visit only swaps the page component — the <head> it was
+            // served with stays exactly as it was. Without this, accepting would
+            // not start measurement until the visitor happened to hard-load a
+            // page, and — the half that actually matters — withdrawing consent
+            // would leave the already-loaded tag running for the rest of the
+            // session.
+            onSuccess: () => window.location.reload(),
             onFinish: () => setSettingsOpen(false),
         });
     }

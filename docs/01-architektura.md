@@ -209,7 +209,7 @@ Teszt rögzíti, hogy **minden hitelesítetlen tenant-route mögött van névvel
 | **A05** Security Misconfiguration | 🟡 | Biztonsági headerek + CSP (SLO-145), a sandbox fizetési gateway prodban tiltott, `APP_DEBUG` env-ből. ⚠️ **Prod env-checklist és monitoring hiányzik → SLO-49.** |
 | **A06** Vulnerable/Outdated Components | ✅ | `composer audit --locked` + `npm audit --audit-level=high` a CI-ban, minden PR-en **és hetente ütemezve** (SLO-148, l. §Függőség-audit). A küszöb `high`: valódi kapu, nem jelentés. |
 | **A07** Identification & Authentication | 🟡 | Fortify; login (5/perc) és regisztráció (5/perc) limitálva; session-regeneráció belépéskor (tesztelve); jelszó min. 12 + breach-ellenőrzés; email-verifikáció. ⚠️ **Nincs 2FA → SLO-149.** |
-| **A08** Software & Data Integrity | ✅ | Webhook HMAC aláírás-ellenőrzés írás előtt; számla-PDF **privát** diszken, sosem publikus URL; audit log minden érzékeny műveletre. Külső script nincs betöltve (a CSP `script-src 'self'` + nonce ezt ki is kényszeríti). |
+| **A08** Software & Data Integrity | ✅ | Webhook HMAC aláírás-ellenőrzés írás előtt; számla-PDF **privát** diszken, sosem publikus URL; audit log minden érzékeny műveletre. Külső script alapesetben nincs betöltve (a CSP `script-src 'self'` + nonce ezt ki is kényszeríti). ⚠️ **Egyetlen kivétel (SLO-172):** a `slot4u.hu` marketing-oldalon, **elfogadott analytics-consenttel** a GA4 tag betölt — és a policy is csak ilyenkor nevezi meg a Google originjeit, kérésenként eldöntve. |
 | **A09** Logging & Monitoring | 🟡 | `audit_logs`, `notifications_log`, integrációs naplózás megvan. ⚠️ **Riasztás/monitoring nincs → SLO-49.** |
 | **A10** SSRF | ✅ | A kimenő hívások mind **fix, konfigurált** végpontokra mennek (Cloudflare API, HIBP, számlázó, fizetési gateway). Az egyetlen felhasználói bemenetet érintő kimenő művelet a domain-verifikáció **DNS TXT lekérdezése** (`DnsResolver`) — nem HTTP-fetch, tehát nem használható belső szolgáltatás elérésére. ⚠️ Ha később bármi **felhasználó által megadott URL-t tölt le** (webhook-kimenet, avatar-import), ezt a sort újra kell nyitni. |
 
@@ -303,7 +303,12 @@ villanásmentes téma-váltó), és a Laravel Vite helper ugyanazt a nonce-ot b�
 A `style-src` **tudatos kivétel** (`unsafe-inline`): a Radix és a toast-könyvtár futásidőben szúr be
 `<style>` elemeket, és egy stílus-injekció nagyságrendekkel kisebb nyeremény, mint a script-futtatás.
 A policy-t a `App\Support\ContentSecurityPolicy` építi — külön osztály, hogy a **dev és a prod ág is
-tesztelhető** legyen Vite dev szerver nélkül. A dev ág (`'unsafe-eval'` + a dev szerver origin, a
+tesztelhető** legyen Vite dev szerver nélkül. ⚠️ **A mérés originjei (SLO-172) nem env-ből jönnek,
+hanem kérésenként** (`$analytics` konstruktor-paraméter): ugyanabból az objektumból, amelyik a root
+Blade-nek megmondta, hogy kimenjen-e a tag. A `SECURITY_CSP_SCRIPT_SRC` tágítása ehelyett a
+googletagmanager.com-ot **minden oldalon örökre** futtathatóvá tenné — az admin panelen és a foglalási
+folyamaton is —, azért, hogy egyetlen marketing-oldalon fusson egy script. Aki nem járult hozzá a
+méréshez, annak a policy is visszaszűkül. A dev ág (`'unsafe-eval'` + a dev szerver origin, a
 React Refresh miatt) **a `hot` állapotra van kötve, nem környezet-névre**, tehát buildelt bundle
 mellett strukturálisan nem tud érvényre jutni. A websocket origin (`connect-src`) az **AKTÍV** broadcast connectionből jön
 (`broadcasting.default`), különben az élő foglalás-feed minden oldalon elakadna. ⚠️ **Ezt driver-névre

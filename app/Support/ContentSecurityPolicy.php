@@ -29,6 +29,12 @@ final class ContentSecurityPolicy
      * @param  string|null  $websocket  Realtime origin the browser connects to (Reverb).
      * @param  string|null  $errorReporting  Origin the browser posts JS errors to (Sentry ingest).
      * @param  array{script?: string, connect?: string, img?: string, frame?: string}  $extra
+     * @param  array{script?: list<string>, connect?: list<string>, img?: list<string>}  $analytics
+     *                                                                                               Origins a measurement tag needs — but only on a request that
+     *                                                                                               actually emits one (SLO-172). Separate from `$extra` because
+     *                                                                                               `$extra` is a deployment-wide widening read from the
+     *                                                                                               environment, while this varies per request: a visitor who
+     *                                                                                               declined analytics gets the narrow policy back.
      */
     public function __construct(
         private readonly ?string $nonce = null,
@@ -37,6 +43,7 @@ final class ContentSecurityPolicy
         private readonly ?string $websocket = null,
         private readonly ?string $errorReporting = null,
         private readonly array $extra = [],
+        private readonly array $analytics = [],
     ) {}
 
     public function build(): string
@@ -81,7 +88,7 @@ final class ContentSecurityPolicy
             }
         }
 
-        return array_merge($sources, $this->list('script'));
+        return array_merge($sources, $this->list('script'), $this->measurement('script'));
     }
 
     /**
@@ -124,7 +131,7 @@ final class ContentSecurityPolicy
             $sources[] = str_replace(['http://', 'https://'], ['ws://', 'wss://'], $this->devServer);
         }
 
-        return array_merge($sources, $this->list('connect'));
+        return array_merge($sources, $this->list('connect'), $this->measurement('connect'));
     }
 
     /**
@@ -133,7 +140,21 @@ final class ContentSecurityPolicy
      */
     private function sources(array $base, string $key): array
     {
-        return array_merge($base, $this->list($key));
+        return array_merge($base, $this->list($key), $this->measurement($key));
+    }
+
+    /**
+     * Measurement origins for a directive. Empty whenever no tag is emitted, so
+     * the policy is only as wide as the page it describes.
+     *
+     * @return list<string>
+     */
+    private function measurement(string $key): array
+    {
+        return array_values(array_filter(
+            array_map('trim', (array) ($this->analytics[$key] ?? [])),
+            static fn (string $origin): bool => $origin !== '',
+        ));
     }
 
     /**

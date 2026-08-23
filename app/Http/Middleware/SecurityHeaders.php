@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Support\Analytics\PlatformAnalytics;
 use App\Support\ContentSecurityPolicy;
 use Closure;
 use Illuminate\Http\Request;
@@ -61,6 +62,12 @@ class SecurityHeaders
             websocket: $this->websocketOrigin(),
             errorReporting: $this->errorReportingOrigin(),
             extra: (array) config('security.csp.extra'),
+            // Measurement origins, from the very object the root Blade asked
+            // whether to emit the tag (SLO-172) — so the policy can never permit
+            // Google on a page that did not load it, nor block it on one that
+            // did. Resolved after $next() has run, which is when the request's
+            // consent and host have already decided the answer.
+            analytics: app(PlatformAnalytics::class)->cspOrigins(),
         ))->build();
     }
 
