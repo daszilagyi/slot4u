@@ -9,6 +9,8 @@ use App\Events\BookingStatusChanged;
 use App\Events\CommissionInvoiceIssued;
 use App\Events\QuoteRequestStatusChanged;
 use App\Events\WaitlistOffered;
+use App\Listeners\Analytics\RecordConversionContext;
+use App\Listeners\Analytics\SendConversionOnSale;
 use App\Listeners\Monitoring\RecordQueueHeartbeat;
 use App\Listeners\Monitoring\VerifyDatabaseIsReachable;
 use App\Listeners\RecordBookingCommission;
@@ -183,6 +185,18 @@ class AppServiceProvider extends ServiceProvider
         // transitioning through a billable status updates its ledger entry and
         // recomputes the tenant's monthly aggregate, synchronously with the change.
         Event::listen(BookingCreated::class, RecordBookingCommission::class);
+
+        // Server-side ad conversions (SLO-173). Order matters between these two,
+        // and only on BookingCreated: the context listener writes the row that
+        // the sale listener then looks for, so a booking created straight into
+        // `confirmed` would otherwise find nothing and never report.
+        //
+        // RecordConversionContext is intentionally synchronous — it reads the
+        // visitor's consent and Meta cookies off the live request, which a queued
+        // listener would no longer have.
+        Event::listen(BookingCreated::class, RecordConversionContext::class);
+        Event::listen(BookingCreated::class, SendConversionOnSale::class);
+        Event::listen(BookingStatusChanged::class, SendConversionOnSale::class);
         Event::listen(BookingStatusChanged::class, RecordBookingCommission::class);
         // An admin editing the list price moves the commission base too
         // (docs/10 §3.3, SLO-126) — open period syncs, closed period credits.

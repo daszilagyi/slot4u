@@ -108,6 +108,14 @@ return Application::configure(basePath: dirname(__DIR__))
         // posture for a control that exists to be trustworthy.
         $middleware->encryptCookies(except: [
             'slot4u_consent',
+            // ⚠️ Meta's own cookies (SLO-173), set by fbevents.js in the browser
+            // and read by us to attribute a conversion to the ad that produced
+            // it. They are not ours to encrypt — and without this exemption
+            // EncryptCookies fails to decrypt them and hands the request a NULL,
+            // which does not look like an error anywhere: the conversion is still
+            // reported, just with no attribution, forever.
+            '_fbp',
+            '_fbc',
         ]);
 
         // Payment gateway callbacks carry no session and cannot present a CSRF
