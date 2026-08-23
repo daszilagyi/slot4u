@@ -5,10 +5,9 @@ declare(strict_types=1);
 namespace App\Services\Invoicing\Contracts;
 
 use App\Enums\InvoiceProvider;
-use App\Models\Invoice;
 use App\Services\Invoicing\InvoiceRequest;
 use App\Services\Invoicing\IssuedInvoice;
-use App\Settings\TenantInvoicingSettings;
+use App\Services\Invoicing\StornoRequest;
 
 /**
  * The invoicing provider abstraction (SLO-133). Everything above it — the
@@ -19,11 +18,11 @@ use App\Settings\TenantInvoicingSettings;
  * Both methods throw on refusal; the caller records the failure on the invoice
  * and keeps it retryable.
  *
- * An adapter never reaches into models for configuration: the seller's settings
- * are handed to it. `storno()` takes them explicitly for that reason — the
- * built-in sandbox needed no credential, but a real provider does, and letting
- * the adapter load a tenant would put a query behind an interface that is
- * supposed to be a pure translation layer.
+ * An adapter never reaches into models at all: everything it needs arrives in a
+ * request object, the seller's settings included. `storno()` used to take an
+ * `Invoice` model, which broke the rule and then broke the abstraction — slot4u's
+ * own commission invoice lives in a different table, and there was no way to void
+ * one without teaching every adapter a second Eloquent class (SLO-143).
  */
 interface InvoiceIssuer
 {
@@ -32,6 +31,6 @@ interface InvoiceIssuer
     /** Issue an invoice for a settled payment. */
     public function issue(InvoiceRequest $request): IssuedInvoice;
 
-    /** Void an already issued invoice with a storno document. */
-    public function storno(Invoice $invoice, TenantInvoicingSettings $seller): IssuedInvoice;
+    /** Void an already issued document with a storno document. */
+    public function storno(StornoRequest $request): IssuedInvoice;
 }

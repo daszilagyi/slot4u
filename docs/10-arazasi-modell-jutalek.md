@@ -170,7 +170,11 @@ A forgalom egy foglalás állapotváltozásakor frissül (§6, event-vezérelt):
 
 **Következmény a v1-hez képest:** mivel a slot4u nem fogad és nem oszt újra ügyfélpénzt, **nincs payment-facilitator / pénzforgalmi közvetítői kérdés** — a v1 blokkoló jogi spike-ja (PSD2/MNB engedélykötelezettség a payee-splitre) **tárgytalan** a jutalék-beszedés szempontjából. A slot4u helyzete egy normál, használat-alapú (usage-based) B2B SaaS-szolgáltatóé.
 
-**ÁFA / számlázás (slot4u oldal):** a jutalék a slot4u **adóköteles bevétele**, amelyről a slot4u **ÁFA-s számlát** állít ki a tenantnak. Döntés (§15.1): a `commission_minor` a **nettó** szolgáltatási díj, a havi jutalékszámla erre számít rá ÁFÁ-t (HU default 27%). A slot4u a saját számláit ugyanazzal a Számlázz.hu/Billingo integrációval is kiállíthatja (önálló, tenant-független számlázási csatorna).
+**ÁFA / számlázás (slot4u oldal):** a jutalék a slot4u **adóköteles bevétele**, amelyről a slot4u **ÁFA-s számlát** állít ki a tenantnak. Döntés (§15.1): a `commission_minor` a **nettó** szolgáltatási díj, a havi jutalékszámla erre számít rá ÁFÁ-t (HU default 27%). A slot4u a saját számláit ugyanazzal az `InvoiceIssuer` absztrakcióval állítja ki, de a **platform saját fiókjával** — `config/invoicing.platform`, env-ből (SLO-143). Ez szigorúan tenant-független: egy tenantot a saját kulcsával számlázni nem csak fordítva lenne, hanem azt is jelentené, hogy egy tenant elrontott beállítása megakadályozza a slot4u-t abban, hogy kiszámlázza őt.
+
+⚠️ **Induláskor `sandbox` fut**: valódi PDF készül, **joghatás nélkül**. Ez tudatos szállítási állapot, nem ottfelejtett csonk — a teljes lánc (kiállítás, stornó, letöltés, újrapróbálás) fut és tesztelt, és az éles Billingo kulcs prod env-be írásának napján ugyanez a kód állít ki valódi bizonylatot. A superadmin jutalékszámla-lista sárga sávban kiírja, amíg nem éles. Az alternatíva — visszatartani a funkciót, amíg nincs fiók — azt jelentette volna, hogy a `pdf_path` addig is null marad, és a tenant letöltése 404-ezik.
+
+A **stornó második bizonylat**, saját oszlopokban (`storno_ref`, `storno_pdf_path`): az eredeti számla kiment a tenantnak és bekerült a könyvelésbe, egy csendben felülírható könyvelési rekord pedig nem rekord.
 
 > Megjegyzés: ha a tenant a saját ügyfeleitől online kártyás fizetést szed a slot4u-ban integrált Barion/Stripe szolgáltatón keresztül (M6 ügyfél-oldali fizetés), az **a tenant és az ügyfél** közti tranzakció — a slot4u abból semmit nem von le. Az integráció megléte csak a **jutalékrátát** emeli 1,5%-ra (§2.1). A két dolog (ügyfél-fizetés vs. jutalék-beszedés) **szigorúan külön** pénzáramlás.
 
@@ -317,7 +321,9 @@ Bemenet: `tenant_id`, `period` (lezárandó). Lépések:
 1. `RecomputeTenantPeriod` (végső számítás).
 2. Ha `commission_minor = 0` → period `status = void` (nincs számla), kész.
 3. Egyébként `commission_invoices` insert: `commission_net_minor = commission_minor`, ÁFA számítás (`vat_bps`, `vat_minor`, `total_gross_minor`), `due_at = issued_at + fizetési határidő` (default 8 nap, konfig).
-4. Opcionálisan külső számla kiállítása (Számlázz.hu/Billingo, slot4u saját számlázási csatornája) → `provider_ref`, `pdf_path`.
+4. **Külső bizonylat kiállítása (SLO-143)** — a slot4u SAJÁT számlázó-fiókjával, `IssueCommissionInvoiceDocument` queue-jobból → `number`, `provider_ref`, `pdf_path`.
+   ⚠️ **A tartozás nem függ ettől.** A sor, a lezárt period és a tenantnak menő email mind kész, mire ez a job elindul; a dunning a SORT olvassa, nem a bizonylatot. Egy számlázó-kiesés a hónap elsején nem akadályozhatja meg, hogy a slot4u-nak jár a pénz — és az emlékeztetőt sem. A hiba a `provider_error` oszlopba kerül, és a superadmin listán újrapróbálható.
+   ⚠️ **Egy tartozásról soha nem készül két bizonylat**: a job kilép, ha már van `provider_ref`. Egy számozási sorozatban nincs visszaadható rés.
 5. period `status = invoiced`, `invoice_id` beállítása.
 6. `CommissionInvoiceIssued` event → email a tenantnak (i18n sablon), `integration_logs`.
 

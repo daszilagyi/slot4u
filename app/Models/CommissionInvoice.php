@@ -32,7 +32,11 @@ use Illuminate\Support\Carbon;
  * @property string|null $paid_method
  * @property string|null $provider
  * @property string|null $provider_ref
+ * @property string|null $number the provider's human-readable document number (SLO-143)
  * @property string|null $pdf_path
+ * @property string|null $provider_error last refusal from the provider; non-null means retryable
+ * @property string|null $storno_ref
+ * @property string|null $storno_pdf_path the void document — a SECOND file, never a replacement
  */
 class CommissionInvoice extends Model
 {
@@ -61,7 +65,11 @@ class CommissionInvoice extends Model
         'paid_method',
         'provider',
         'provider_ref',
+        'number',
         'pdf_path',
+        'provider_error',
+        'storno_ref',
+        'storno_pdf_path',
     ];
 
     /**

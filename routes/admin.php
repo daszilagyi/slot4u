@@ -67,4 +67,8 @@ Route::middleware(['auth', 'ensure.superadmin'])->group(function () {
     Route::post('/commission-invoices/{invoice}/mark-paid', [CommissionInvoiceController::class, 'markPaid'])->name('super.commission-invoices.mark-paid');
     Route::post('/commission-invoices/{invoice}/void', [CommissionInvoiceController::class, 'void'])->name('super.commission-invoices.void');
     Route::post('/commission-invoices/{invoice}/resend', [CommissionInvoiceController::class, 'resend'])->middleware('throttle:12,1')->name('super.commission-invoices.resend');
+    // Re-ask slot4u's own invoicing provider for a document that never got one
+    // (SLO-143). Throttled like resend: it reaches an external service, and the
+    // button sits next to three others on a list of fifty rows.
+    Route::post('/commission-invoices/{invoice}/retry-document', [CommissionInvoiceController::class, 'retryDocument'])->middleware('throttle:12,1')->name('super.commission-invoices.retry-document');
 });

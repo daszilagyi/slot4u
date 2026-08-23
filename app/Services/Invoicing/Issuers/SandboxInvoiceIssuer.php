@@ -5,11 +5,10 @@ declare(strict_types=1);
 namespace App\Services\Invoicing\Issuers;
 
 use App\Enums\InvoiceProvider;
-use App\Models\Invoice;
 use App\Services\Invoicing\Contracts\InvoiceIssuer;
 use App\Services\Invoicing\InvoiceRequest;
 use App\Services\Invoicing\IssuedInvoice;
-use App\Settings\TenantInvoicingSettings;
+use App\Services\Invoicing\StornoRequest;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
@@ -47,7 +46,7 @@ final class SandboxInvoiceIssuer implements InvoiceIssuer
         );
     }
 
-    public function storno(Invoice $invoice, TenantInvoicingSettings $seller): IssuedInvoice
+    public function storno(StornoRequest $request): IssuedInvoice
     {
         $number = 'SBX-ST-'.Str::upper(Str::random(6));
 
@@ -56,8 +55,8 @@ final class SandboxInvoiceIssuer implements InvoiceIssuer
             providerRef: 'sbxs_'.Str::lower(Str::random(24)),
             pdf: $this->pdf([
                 'STORNO SZAMLA (sandbox) '.$number,
-                'Sztornozott szamla: '.((string) $invoice->number),
-                'Osszeg: '.number_format($invoice->amount_minor / 100, 2, '.', ' ').' '.$invoice->currency,
+                'Sztornozott szamla: '.((string) $request->number),
+                'Osszeg: '.number_format($request->amountMinor / 100, 2, '.', ' ').' '.$request->currency,
                 'Kelt: '.Carbon::now()->toDateString(),
             ]),
         );

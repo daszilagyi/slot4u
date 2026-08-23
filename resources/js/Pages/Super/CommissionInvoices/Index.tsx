@@ -44,6 +44,18 @@ type Invoice = {
     paid_method: string | null;
     can_manage: boolean;
     dunning: Dunning | null;
+    /**
+     * The external DOCUMENT's state (SLO-143) — not the invoice's status. The
+     * debt can be perfectly normal while the paperwork failed, and only one of
+     * those two is what dunning acts on.
+     */
+    document: {
+        number: string | null;
+        issued: boolean;
+        stornoed: boolean;
+        error: string | null;
+        can_retry: boolean;
+    };
 };
 
 type IndexProps = {
@@ -51,9 +63,11 @@ type IndexProps = {
     filters: { status: string | null; period: string | null; tenant_id: number | null };
     statuses: string[];
     grace_days: number;
+    /** False while slot4u invoices through the sandbox — said out loud below. */
+    invoicing_live: boolean;
 };
 
-type ActionType = 'paid' | 'void' | 'resend';
+type ActionType = 'paid' | 'void' | 'resend' | 'retry_document';
 
 /**
  * Superadmin commission-invoice management (docs/10 §10, SLO-122). The
@@ -66,6 +80,7 @@ export default function CommissionInvoicesIndex({
     filters,
     statuses,
     grace_days,
+    invoicing_live,
 }: IndexProps) {
     const t = useTranslations();
 
@@ -111,7 +126,12 @@ export default function CommissionInvoicesIndex({
         }
 
         const { type, invoice } = action;
-        const path = type === 'paid' ? 'mark-paid' : type;
+        const path =
+            type === 'paid'
+                ? 'mark-paid'
+                : type === 'retry_document'
+                  ? 'retry-document'
+                  : type;
         const data = type === 'paid' ? { method } : type === 'void' ? { reason } : {};
 
         setProcessing(true);
@@ -287,6 +307,37 @@ export default function CommissionInvoicesIndex({
                                             )}
                                         </td>
                                         <td className="px-4 py-3">
+                                            <div className="mb-1 text-right text-xs">
+                                                {invoice.document.issued ? (
+                                                    <span className="text-muted-foreground">
+                                                        {t('super.commission_invoices.document.issued', {
+                                                            number: invoice.document.number ?? '—',
+                                                        })}
+                                                        {invoice.document.stornoed
+                                                            ? ` · ${t('super.commission_invoices.document.stornoed')}`
+                                                            : ''}
+                                                    </span>
+                                                ) : invoice.document.error ? (
+                                                    <span className="text-destructive">
+                                                        {t('super.commission_invoices.document.failed')}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-muted-foreground">
+                                                        {t('super.commission_invoices.document.missing')}
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {invoice.document.can_retry ? (
+                                                <div className="mb-2 flex justify-end">
+                                                    <Button
+                                                        size="sm"
+                                                        variant="ghost"
+                                                        onClick={() => openAction('retry_document', invoice)}
+                                                    >
+                                                        {t('super.commission_invoices.action.retry_document')}
+                                                    </Button>
+                                                </div>
+                                            ) : null}
                                             {invoice.can_manage ? (
                                                 <div className="flex justify-end gap-2">
                                                     <Button size="sm" variant="outline" onClick={() => openAction('paid', invoice)}>
@@ -318,6 +369,16 @@ export default function CommissionInvoicesIndex({
                     {t('super.commission_invoices.grace_note', { days: grace_days })}
                 </p>
 
+                {/* Said out loud rather than assumed (SLO-143): under the sandbox
+                    the documents are real files with no legal standing, and a
+                    screen that showed them without saying so would be the most
+                    expensive kind of quiet. */}
+                {!invoicing_live ? (
+                    <p className="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/5 px-4 py-3 text-sm text-amber-400">
+                        {t('super.commission_invoices.document.sandbox_note')}
+                    </p>
+                ) : null}
+
                 {invoices.last_page > 1 ? (
                     <div className="mt-4 flex flex-wrap gap-1">
                         {invoices.links.map((link, i) => (
@@ -348,7 +409,9 @@ export default function CommissionInvoicesIndex({
                                 <DialogDescription>
                                     {action.type === 'resend'
                                         ? t('super.commission_invoices.resend_confirm')
-                                        : t(`super.commission_invoices.${dialogKey(action.type)}.description`, {
+                                        : action.type === 'retry_document'
+                                          ? t('super.commission_invoices.retry_document_confirm')
+                                          : t(`super.commission_invoices.${dialogKey(action.type)}.description`, {
                                               tenant: action.invoice.tenant?.name ?? '—',
                                               period: action.invoice.period,
                                           })}
@@ -416,6 +479,9 @@ function dialogTitleKey(type: ActionType): string {
     if (type === 'void') {
         return 'super.commission_invoices.void_dialog.title';
     }
+    if (type === 'retry_document') {
+        return 'super.commission_invoices.action.retry_document';
+    }
 
     return 'super.commission_invoices.resend_dialog.title';
 }
@@ -426,6 +492,9 @@ function confirmKey(type: ActionType): string {
     }
     if (type === 'void') {
         return 'void_dialog.confirm';
+    }
+    if (type === 'retry_document') {
+        return 'action.retry_document';
     }
 
     return 'action.resend';

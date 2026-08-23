@@ -7,6 +7,7 @@ namespace App\Actions\Commission;
 use App\Enums\AuditAction;
 use App\Enums\BillingPeriodStatus;
 use App\Enums\CommissionInvoiceStatus;
+use App\Jobs\StornoCommissionInvoiceDocument;
 use App\Models\CommissionInvoice;
 use App\Models\TenantBillingPeriod;
 use App\Services\Audit\AuditLogger;
@@ -51,6 +52,12 @@ final class VoidCommissionInvoice
         if ($wasOverdue) {
             ($this->reactivate)($invoice->tenant_id);
         }
+
+        // The cancelling document at slot4u's own provider (SLO-143). Queued and
+        // after the fact: the debt is already void here, so a provider refusing
+        // the storno leaves paperwork to finish, not a tenant still owing money.
+        // A no-op when the month closed without a document ever being issued.
+        StornoCommissionInvoiceDocument::dispatch($invoice->getKey());
 
         $this->audit->record(
             action: AuditAction::CommissionInvoiceVoided,

@@ -8,6 +8,7 @@ use App\Enums\InvoiceStatus;
 use App\Models\Invoice;
 use App\Models\Tenant;
 use App\Services\Invoicing\InvoiceIssuerManager;
+use App\Services\Invoicing\StornoRequest;
 use App\Settings\TenantInvoicingSettings;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -60,8 +61,13 @@ class StornoInvoice implements ShouldQueue
         }
 
         try {
-            $storno = $issuers->for($invoice->provider)
-                ->storno($invoice, TenantInvoicingSettings::fromArray($tenant->invoicing));
+            $storno = $issuers->for($invoice->provider)->storno(new StornoRequest(
+                seller: TenantInvoicingSettings::fromArray($tenant->invoicing),
+                providerRef: $invoice->provider_ref,
+                number: $invoice->number,
+                amountMinor: $invoice->amount_minor,
+                currency: $invoice->currency,
+            ));
         } catch (Throwable $e) {
             Log::warning('Invoice storno refused by the provider', [
                 'invoice_id' => $invoice->getKey(),

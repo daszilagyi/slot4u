@@ -11,6 +11,7 @@ use App\Services\Invoicing\Billingo\BillingoClient;
 use App\Services\Invoicing\Contracts\InvoiceIssuer;
 use App\Services\Invoicing\InvoiceRequest;
 use App\Services\Invoicing\IssuedInvoice;
+use App\Services\Invoicing\StornoRequest;
 use App\Settings\TenantInvoicingSettings;
 use RuntimeException;
 
@@ -136,11 +137,11 @@ final class BillingoInvoiceIssuer implements InvoiceIssuer
         ];
     }
 
-    public function storno(Invoice $invoice, TenantInvoicingSettings $seller): IssuedInvoice
+    public function storno(StornoRequest $request): IssuedInvoice
     {
-        $client = $this->client($seller);
+        $client = $this->client($request->seller);
 
-        $reference = $invoice->provider_ref;
+        $reference = $request->providerRef;
 
         if (! is_numeric($reference)) {
             throw new RuntimeException('The invoice carries no Billingo document id to void.');
