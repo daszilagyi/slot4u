@@ -69,6 +69,7 @@ class BookingReminderNotification extends TenantMailNotification
         return $mail
             ->line(__('app.mail.reminder_24h.code', ['code' => $this->booking->code]))
             ->action($actionLabel, $actionUrl)
-            ->line(__('app.mail.reminder_24h.outro'));
+            ->line(__('app.mail.reminder_24h.outro'))
+            ->line($this->closingLine());
     }
 }

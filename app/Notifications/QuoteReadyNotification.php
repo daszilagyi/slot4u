@@ -78,6 +78,7 @@ class QuoteReadyNotification extends TenantMailNotification
 
         return $mail
             ->action($actionLabel, $actionUrl)
-            ->line(__('app.mail.quote_ready.outro'));
+            ->line(__('app.mail.quote_ready.outro'))
+            ->line($this->closingLine());
     }
 }

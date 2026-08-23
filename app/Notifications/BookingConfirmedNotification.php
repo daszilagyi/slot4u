@@ -71,6 +71,7 @@ class BookingConfirmedNotification extends TenantMailNotification
             // link-preview bots, and the booking would cancel itself before
             // anyone read the message.
             ->line(__('app.mail.booking_confirmed.cancel_hint'))
-            ->line(__('app.mail.booking_confirmed.outro'));
+            ->line(__('app.mail.booking_confirmed.outro'))
+            ->line($this->closingLine());
     }
 }

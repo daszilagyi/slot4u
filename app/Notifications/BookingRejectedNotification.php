@@ -71,6 +71,7 @@ class BookingRejectedNotification extends TenantMailNotification
 
         return $mail
             ->action($actionLabel, $actionUrl)
-            ->line(__('app.mail.booking_rejected.outro'));
+            ->line(__('app.mail.booking_rejected.outro'))
+            ->line($this->closingLine());
     }
 }

@@ -8,6 +8,7 @@ use App\Models\Tenant;
 use App\Notifications\Concerns\RecordsDelivery;
 use App\Notifications\Concerns\TracksDelivery;
 use App\Services\Notification\MessageTemplateRenderer;
+use App\Settings\TenantSettings;
 use App\Tenancy\TenantPublicUrl;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -33,6 +34,15 @@ abstract class TenantMailNotification extends Notification implements RecordsDel
      * render. The listener resolves an operational tenant up front and hands it in.
      */
     protected Tenant $tenant;
+
+    /**
+     * Memoised reply address, and the flag that says the lookup already ran —
+     * `null` is a real answer here (the tenant has no usable address), so it
+     * cannot double as "not looked up yet".
+     */
+    private ?string $replyAddress = null;
+
+    private bool $replyAddressResolved = false;
 
     /**
      * @return list<string>
@@ -79,11 +89,100 @@ abstract class TenantMailNotification extends Notification implements RecordsDel
         $override = app(MessageTemplateRenderer::class)
             ->resolve($this->tenant, $this->templateType(), $this->locale);
 
-        if ($override === null) {
-            return $this->defaultMail($notifiable);
+        $mail = $override === null
+            ? $this->defaultMail($notifiable)
+            : $this->renderFromTemplate($override, $notifiable);
+
+        return $this->addressAsTenant($mail);
+    }
+
+    /**
+     * Make the mail look — and behave — like it came from the tenant (SLO-171).
+     *
+     * ⚠️ The ADDRESS stays the platform's. Sending as the tenant's own domain is
+     * what fails SPF and DKIM (docs/11 §8, docs/17 §8): we hold neither an SPF
+     * authorisation nor a signing key for a domain we do not control, and a
+     * confirmation in the spam folder is worth less than one with the wrong name
+     * on it. Only the DISPLAY NAME changes.
+     *
+     * The display name is not cosmetic either. A customer waiting to hear from
+     * their hairdresser sees "slot4u" in the inbox list and does not open it —
+     * which costs the same as the spam folder, one step later.
+     *
+     * `Reply-To` is the half that was actually broken: the mails invite a reply
+     * in their own text, and until this it went to an unattended mailbox called
+     * no-reply.
+     */
+    protected function addressAsTenant(MailMessage $mail): MailMessage
+    {
+        $mail->from((string) config('mail.from.address'), $this->tenant->name);
+
+        $replyTo = $this->tenantReplyAddress();
+
+        if ($replyTo !== null) {
+            $mail->replyTo($replyTo, $this->tenant->name);
         }
 
-        return $this->renderFromTemplate($override, $notifiable);
+        return $mail;
+    }
+
+    /**
+     * Where a customer's reply should land, or null if there is nowhere to send
+     * it (SLO-171).
+     *
+     * The tenant's company-profile email — already collected, already validated
+     * as an address, and already the one shown publicly on its booking page. A
+     * dedicated `reply_to_email` column would be a second thing to fill in, and
+     * a tenant who filled in only one of the two would end up with a mail
+     * pointing somewhere they do not read.
+     *
+     * ⚠️ Never the platform's own address. A tenant that typed our no-reply into
+     * its profile would otherwise get a `Reply-To` header that promises a human
+     * and delivers a mailbox nobody opens — worse than no header, because the
+     * absence of one at least makes the mail client say so.
+     */
+    protected function tenantReplyAddress(): ?string
+    {
+        if ($this->replyAddressResolved) {
+            return $this->replyAddress;
+        }
+
+        $this->replyAddressResolved = true;
+        $email = TenantSettings::fromArray($this->tenant->settings)->email;
+
+        if ($email === null || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+            return $this->replyAddress = null;
+        }
+
+        if (strcasecmp($email, (string) config('mail.from.address')) === 0) {
+            return $this->replyAddress = null;
+        }
+
+        return $this->replyAddress = $email;
+    }
+
+    /**
+     * The closing line, and the reason it lives here rather than in seven lang
+     * keys (SLO-171).
+     *
+     * Whether the mail may ask for a reply is decided by the same method that
+     * decides whether it carries a `Reply-To`. Seven copies of "válaszolj erre az
+     * emailre" scattered across seven notifications is how the text and the
+     * header drifted apart in the first place — the mails asked for something the
+     * headers could not deliver.
+     *
+     * With no reply address the line does not merely go quiet: it says the mail
+     * is unattended and points at the tenant's own page, which is where the
+     * contact details actually are.
+     */
+    protected function closingLine(): string
+    {
+        return $this->tenantReplyAddress() !== null
+            ? __('app.mail.reply.invite', ['tenant' => $this->tenant->name])
+            : __('app.mail.reply.contact', [
+                'tenant' => $this->tenant->name,
+                'url' => $this->tenantUrl('/'),
+            ]);
     }
 
     /**
@@ -104,7 +203,11 @@ abstract class TenantMailNotification extends Notification implements RecordsDel
             $mail->line($line);
         }
 
-        return $mail->action($actionLabel, $actionUrl);
+        // The closing goes on the override too. A tenant's own body may well end
+        // with "call us" or nothing at all; what must not happen is a template
+        // that invites a reply on a tenant with no reply address. One line,
+        // decided by the same method as the header.
+        return $mail->action($actionLabel, $actionUrl)->line($this->closingLine());
     }
 
     /**

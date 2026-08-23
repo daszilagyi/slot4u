@@ -71,6 +71,7 @@ class BookingCanceledNotification extends TenantMailNotification
 
         return $mail
             ->action($actionLabel, $actionUrl)
-            ->line(__('app.mail.booking_canceled.outro'));
+            ->line(__('app.mail.booking_canceled.outro'))
+            ->line($this->closingLine());
     }
 }

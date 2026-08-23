@@ -151,7 +151,9 @@ az a riasztás, ami ezt észrevenné; **csak a rendszeres újramérés**.
 
 | Mi | Érték | Miért így |
 |---|---|---|
-| Feladó | `From: slot4u <no-reply@slot4u.hu>` | **Minden** tenant erről a címről küld. Tenant saját domainjéről küldeni tilos: azon nincs se SPF-felhatalmazásunk, se DKIM-kulcsunk. ⚠️ A docs/11 §8 a tenant nevét kérné display name-ként és a tenant címét `Reply-To`-ban — **ez ma nincs bekötve** (a 2026-08-23-i mérés fejlécei), l. **SLO-171**. |
+| Feladó (tenant-levél) | `From: <tenant neve> <no-reply@slot4u.hu>` | **Minden** tenant erről a CÍMRŐL küld — csak a display name a tenanté (SLO-171). Tenant saját domainjéről küldeni tilos: azon nincs se SPF-felhatalmazásunk, se DKIM-kulcsunk, és pont az bukna, amit a 8.2 mér. |
+| `Reply-To` (tenant-levél) | a tenant cégprofiljának email címe | Ha nincs megadva, **nincs `Reply-To` fejléc, és a levél szövege sem kér választ** — helyette a tenant publikus oldalára mutat. Egy `Reply-To`, ami a no-reply-ra megy, rosszabb a hiányánál: az ügyfél azt hiszi, üzent. A döntést egy hely hozza (`TenantMailNotification::tenantReplyAddress()`), a fejléc és a záró mondat ezért nem tud széttartani. |
+| Feladó (platform-levél) | `From: slot4u <no-reply@slot4u.hu>` | A jutalékszámla, a meghívó és az archiválási értesítő tényleg a slot4u nevében megy — ezeken tenant-név félrevezető lenne arról, ki számláz kinek. |
 | SMTP | `tbfiftyseven.tarhely.eu:465` (`MAIL_SCHEME=smtps`) | ⚠️ A prod `.env`-ben **a gép neve** áll, nem `mail.slot4u.hu` — ugyanaz a `178.238.222.57`, ezért az SPF (`+a +mx`, IP-alapú) így is átmegy. A HELO viszont `tbfiftyseven.tarhely.eu`, aminek nincs saját SPF-je (`SPF_HELO_NONE`, 0.0 pont) — a hoster gépneve, nem a miénk, nem javítható és nem is számít. |
 | MX-cél | `mail.slot4u.hu` → `178.238.222.57` | **Nem Cloudflare-proxyzott** — az MX-célnak az origin IP-t kell adnia, különben a bejövő levél a proxyn akad el. |
 

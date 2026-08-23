@@ -78,7 +78,8 @@ class WaitlistOfferNotification extends TenantMailNotification
 
         return $mail
             ->action($actionLabel, $actionUrl)
-            ->line(__('app.mail.waitlist_offer.outro'));
+            ->line(__('app.mail.waitlist_offer.outro'))
+            ->line($this->closingLine());
     }
 
     /**
