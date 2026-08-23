@@ -168,6 +168,11 @@ invoices           id, tenant_id, booking_id, payment_id(unique), provider(sandb
                    -- A PDF PRIVÁT diszken (`config/invoicing.disk`), csak auth-os letöltés.
 
 tenants.invoicing  -- titkosított (encrypted:array) oszlop: számlázó API kulcs + eladó adatok
+tenants.analytics  -- titkosított (encrypted:array) oszlop (SLO-56): a tenant SAJÁT mérőkódjai
+                   -- (ga4_measurement_id, meta_pixel_id). Az azonosítók maguk publikusak — az
+                   -- oszlop azért titkosított, mert a Conversions API access token is ide kerül,
+                   -- és egy token csak annyira biztonságos, mint a sor legfigyelmetlenebb írása.
+                   -- NEM fillable: külön képernyő írja (AnalyticsSettingsController).
                    -- (SLO-133). NEM a sima `settings` json-ban, és sosem megy Inertia propba.
 ```
 

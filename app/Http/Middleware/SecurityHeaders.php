@@ -2,7 +2,7 @@
 
 namespace App\Http\Middleware;
 
-use App\Support\Analytics\PlatformAnalytics;
+use App\Support\Analytics\PageAnalytics;
 use App\Support\ContentSecurityPolicy;
 use Closure;
 use Illuminate\Http\Request;
@@ -67,7 +67,7 @@ class SecurityHeaders
             // Google on a page that did not load it, nor block it on one that
             // did. Resolved after $next() has run, which is when the request's
             // consent and host have already decided the answer.
-            analytics: app(PlatformAnalytics::class)->cspOrigins(),
+            analytics: app(PageAnalytics::class)->cspOrigins(),
         ))->build();
     }
 

@@ -70,7 +70,7 @@ final class PlatformAnalytics
      * Extra CSP sources this request needs — empty unless the tag is actually
      * emitted, so declining analytics also narrows the policy back down.
      *
-     * @return array{script?: list<string>, connect?: list<string>, img?: list<string>}
+     * @return array<string, list<string>>
      */
     public function cspOrigins(): array
     {
@@ -78,10 +78,7 @@ final class PlatformAnalytics
             return [];
         }
 
-        /** @var array{script?: list<string>, connect?: list<string>, img?: list<string>} $origins */
-        $origins = (array) config('analytics.origins.ga4', []);
-
-        return $origins;
+        return AnalyticsOrigins::merge((array) config('analytics.origins.ga4', []));
     }
 
     /**
