@@ -23,6 +23,7 @@ use Illuminate\Support\Carbon;
  * @property array<string, mixed>|null $branding
  * @property array<string, mixed>|null $settings
  * @property array<string, mixed>|null $invoicing seller details + provider API key (encrypted at rest)
+ * @property array<string, mixed>|null $analytics the tenant's own GA4 / Meta measurement config (encrypted at rest)
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at the archive instant — the platform's only churn timestamp (SLO-138)
@@ -48,6 +49,8 @@ class Tenant extends Model
         'settings',
         // NOTE: `invoicing` holds a provider credential and is deliberately NOT
         // fillable — it is written through UpdateTenantInvoicing only (SLO-133).
+        // `analytics` is out for the same reason (SLO-56): the Conversions API
+        // access token lives in it.
     ];
 
     /**
@@ -63,6 +66,9 @@ class Tenant extends Model
             'settings' => 'array',
             // Encrypted at rest: it carries the invoicing provider's API key.
             'invoicing' => 'encrypted:array',
+            // Same treatment (SLO-56): the measurement ids are public, but they
+            // share the column with the Conversions API access token.
+            'analytics' => 'encrypted:array',
         ];
     }
 

@@ -1,5 +1,5 @@
 import { Head, Link, router } from '@inertiajs/react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
     CalendarPlusIcon,
     CheckCircle2Icon,
@@ -11,12 +11,19 @@ import PublicLayout from '@/Layouts/PublicLayout';
 import { Badge } from '@/components/ui/badge';
 import ConfirmDialog from '@/components/admin/ConfirmDialog';
 import { Button } from '@/components/ui/button';
+import { trackPurchase } from '@/lib/analytics';
 import { formatMoney } from '@/lib/format';
 import { useTranslations } from '@/lib/i18n';
 import type { BookedBooking } from '@/types';
 
 type BookedProps = {
     booking: BookedBooking;
+    /**
+     * Whether THIS view should report a conversion (SLO-56). Decided on the
+     * server: /booked/{code} is a permanent link, so a page that fired on every
+     * render would count one booking many times over.
+     */
+    measurable?: boolean;
 };
 
 // The /booked/{code} link is permanent, so an admin may later cancel, reject or
@@ -32,9 +39,28 @@ const KNOWN_STATUSES = [
     ...NEGATIVE_STATUSES,
 ];
 
-export default function Booked({ booking }: BookedProps) {
+export default function Booked({ booking, measurable = false }: BookedProps) {
     const t = useTranslations();
     const [canceling, setCanceling] = useState(false);
+
+    useEffect(() => {
+        if (!measurable) {
+            return;
+        }
+
+        // The booking code is the deduplication key on both sides: GA4 drops a
+        // repeated transaction_id, and Meta matches it against the server-side
+        // Conversions API event carrying the same code.
+        trackPurchase({
+            transactionId: booking.code,
+            valueMinor: booking.price_minor,
+            currency: booking.currency,
+            itemName: booking.service,
+        });
+        // Deliberately keyed on the code alone: a re-render must not re-report,
+        // and the server has already decided this is the one view that counts.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [booking.code, measurable]);
 
     const statusKey = KNOWN_STATUSES.includes(booking.status)
         ? booking.status

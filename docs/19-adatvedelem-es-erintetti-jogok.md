@@ -412,8 +412,37 @@ adatfeldolgozói szerep megsértése, függetlenül attól, hogy a látogató mi
 kattintott a banneren. Ezt kódban a `PlatformAnalytics::isCentralHost()` zárja, és
 külön teszt őrzi (`tests/Feature/Analytics/PlatformAnalyticsTest.php`).
 
-A tenant **saját** mérőkódja (SLO-56) más lapra tartozik: ott a tenant a saját
-adatkezelői döntését hozza meg, a slot4u csak a technikai kiszolgáló.
+### 11.1.3 A tenant saját mérése (SLO-56)
+
+`{slug}.slot4u.hu`-n a tenant a **saját** GA4 propertyjébe és a **saját** Meta
+Pixelébe mérhet (`/settings/analytics`, `feature_analytics`). Itt a tenant az
+adatkezelő, a slot4u pedig **adatfeldolgozó**: mi illesztjük be a mérőkódot, de
+nem mi döntjük el, hogy mérnek-e és mibe.
+
+**A két vendor két külön kategória mögött van:**
+
+| Vendor | Kategória | Miért külön |
+|---|---|---|
+| GA4 | `analytics` | megszámolják |
+| Meta Pixel | `marketing` | újracélozzák |
+
+Aki elfogadta, hogy megszámolják, azzal még nem fogadta el, hogy hirdetéssel
+újracélozzák. A banner két kérdést tesz fel, tehát két választ is kell olvasni —
+egy közös kapu az egyik kapcsolót hazuggá tenné. Tesztre kötve mindkét irányban.
+
+⚠️ **A `purchase` / `Purchase` eseményt a SZERVER engedélyezi, nem a böngésző.**
+A `/booked/{code}` link **állandó**: a vendég megőrzi, a fizetési gateway oda
+tér vissza, admin is megnyithatja. Egy rendereléskor magától elsülő konverzió
+minden ilyen alkalommal újraszámolna, és a tenant hirdetési riportja csendben
+felfújódna — az a fajta rossz szám, amit elhisznek, mert semmi nem látszik
+elromlottnak. A szerver ezért munkamenetenként egyszer engedi
+(`measurable` prop), és csak olyan foglalásra, ami tényleg eladás
+(`confirmed` / `completed`) — a fizetésre váró nem az.
+
+⚠️ **A tenant felel a saját tájékoztatójáért.** A beállítófelület ezt ki is
+mondja: aki bekapcsolja, annak az adatkezelési tájékoztatójában szerepelnie kell
+a Google-nek és a Metának. A slot4u ezt nem tudja helyette megtenni, és nem is
+ellenőrzi — de a képernyőn nem hagyja szó nélkül.
 
 ### 11.2 Süti, nem localStorage — és nem DB sor
 

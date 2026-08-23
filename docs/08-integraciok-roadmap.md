@@ -21,8 +21,8 @@ Prioritált terv a külső integrációkhoz. Minden integráció: feature flag m
 | Billingo | Számlázás | ★★ | M | Phase 2/3 — InvoiceProvider absztrakcióra, igény szerint | feature_invoicing |
 | Outlook Calendar | Naptár-szinkron | ★★ | M | Phase 3 — a CalendarProvider absztrakcióra (MS Graph) | feature_outlook_calendar |
 | Zoom | Videó | ★★ | M | Phase 3 — VideoProvider absztrakció, ha a Meet nem elég | feature_zoom |
-| Google Analytics 4 | Analytics | ★★ | S | **A platform saját mérése kész (SLO-172)** — csak `slot4u.hu`, consent mögött. A tenant saját mérőkódja + foglalási funnel eventek (begin_checkout, purchase): SLO-56 | feature_analytics |
-| Meta Pixel | Analytics/Ads | ★★ | S | Phase 2 — GA4-gyel együtt, consent-höz kötve (GDPR!) | feature_analytics |
+| Google Analytics 4 | Analytics | ★★ | S | **Kész.** Platform (SLO-172): csak `slot4u.hu`. Tenant (SLO-56): saját mérőkód + funnel eventek (`view_item`, `begin_checkout`, `purchase`) | feature_analytics |
+| Meta Pixel | Analytics/Ads | ★★ | S | **Kész (SLO-56)** — a `marketing` consent-kategória mögött, `ViewContent` / `InitiateCheckout` / `Purchase`. A `Purchase` `eventID`-je a foglaláskód, hogy a szerver-oldali Conversions API event deduplikálható legyen | feature_analytics |
 | Mailchimp | Marketing | ★★ | M | Phase 3 — ügyfél-szinkron lista felé (opt-in!), foglalás-alapú szegmensek | feature_marketing_sync |
 | MailerLite | Marketing | ★ | S (Mailchimp után) | Phase 3 — MarketingProvider absztrakcióra | feature_marketing_sync |
 | ActiveCampaign | Marketing | ★ | M | Phase 3+ — csak konkrét ügyféligénynél | feature_marketing_sync |

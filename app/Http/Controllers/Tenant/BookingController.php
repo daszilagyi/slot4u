@@ -35,6 +35,7 @@ use App\Services\Booking\OnlineCancellation;
 use App\Services\Feature\FeatureResolver;
 use App\Services\Legal\LegalDocumentRegistry;
 use App\Settings\TenantSettings;
+use App\Support\Analytics\PageAnalytics;
 use App\Support\IcsBuilder;
 use App\Tenancy\TenantManager;
 use Illuminate\Http\RedirectResponse;
@@ -502,7 +503,7 @@ class BookingController extends Controller
      * {booking:code} is tenant-scoped (BelongsToTenant → cross-tenant 404). The
      * status drives the message (confirmed / awaiting approval / awaiting payment).
      */
-    public function confirmation(string $tenant, Booking $booking): Response
+    public function confirmation(Request $request, string $tenant, Booking $booking): Response
     {
         $booking->load(['service:id,name,settings,booking_mode', 'staff:id,name']);
         $tenantModel = app(TenantManager::class)->current();
@@ -552,7 +553,59 @@ class BookingController extends Controller
                     : null,
             ],
             'timezone' => $timezone,
+            // Whether THIS view should report a conversion (SLO-56).
+            'measurable' => $this->measurableOnce($request, $booking),
         ]);
+    }
+
+    /**
+     * Whether the browser should report a `purchase` for this view, and never
+     * again (SLO-56).
+     *
+     * The decision belongs on the server because /booked/{code} is a PERMANENT
+     * link: the guest keeps it, an admin may open it, and the payment gateway
+     * returns the customer to it. A page that fires a conversion on render would
+     * count the same booking every time any of those happened, and the tenant's
+     * ad reporting would quietly inflate — the kind of wrong number that gets
+     * believed because nothing looks broken.
+     *
+     * Recorded in the session rather than on the row: it is "has this browser
+     * been told", not "has this booking been reported". The server-side
+     * Conversions API event is the durable, per-booking one, and it deduplicates
+     * against this event by booking code.
+     *
+     * Only a booking that actually represents a sale counts. One still awaiting
+     * approval or payment is not one yet, and reporting it as such would put
+     * revenue into the tenant's ad platform for a slot that may never be taken.
+     */
+    private function measurableOnce(Request $request, Booking $booking): bool
+    {
+        if (! in_array($booking->status, [BookingStatus::Confirmed, BookingStatus::Completed], true)) {
+            return false;
+        }
+
+        // Nothing to report to. Checked before the session is touched so a tenant
+        // with no measurement configured never accumulates the list at all.
+        if (! app(PageAnalytics::class)->tenant->loadsAnything()) {
+            return false;
+        }
+
+        $key = 'analytics.reported_purchases';
+        /** @var list<string> $reported */
+        $reported = (array) $request->session()->get($key, []);
+
+        if (in_array($booking->code, $reported, true)) {
+            return false;
+        }
+
+        $reported[] = $booking->code;
+        // Bounded: a session is not a ledger, and a guest who books repeatedly
+        // must not grow one without limit. Twenty is far past any real visit, and
+        // falling off the end can only ever cause a re-report — which the CAPI
+        // event deduplicates by the same booking code anyway.
+        $request->session()->put($key, array_slice($reported, -20));
+
+        return true;
     }
 
     /**
