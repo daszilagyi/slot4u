@@ -96,4 +96,25 @@ return [
         'meta_pixel_category' => 'marketing',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Meta Conversions API (SLO-173)
+    |--------------------------------------------------------------------------
+    |
+    | Where the server-side half of a conversion goes. The pixel id and the
+    | access token are the TENANT's and live on the tenant row; only the endpoint
+    | and the timeout are the platform's business.
+    |
+    | The Graph host is configurable so a test can point it somewhere harmless
+    | without faking the HTTP client — and so a future proxy or regional endpoint
+    | is an env change rather than a release.
+    |
+    */
+
+    'meta' => [
+        'graph_url' => (string) env('META_GRAPH_URL', 'https://graph.facebook.com'),
+        'api_version' => (string) env('META_GRAPH_VERSION', 'v21.0'),
+        'timeout' => (int) env('META_CAPI_TIMEOUT', 15),
+    ],
+
 ];

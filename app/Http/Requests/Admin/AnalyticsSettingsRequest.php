@@ -41,6 +41,15 @@ class AnalyticsSettingsRequest extends FormRequest
                 'nullable', 'string', 'max:32',
                 'regex:'.TenantAnalyticsSettings::META_PIXEL_PATTERN,
             ],
+            // No pattern. Meta documents no stable shape for the token, and a
+            // rule invented here would start rejecting valid tokens the day they
+            // change it. A wrong one fails loudly on the first conversion, and
+            // the failure is recorded on the row (SLO-173).
+            //
+            // Blank means "keep the stored one" — the form never receives it, so
+            // it cannot send it back (see the controller).
+            'meta_access_token' => ['nullable', 'string', 'max:512'],
+            'meta_test_event_code' => ['nullable', 'string', 'max:64'],
         ];
     }
 

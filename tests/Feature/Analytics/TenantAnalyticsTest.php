@@ -366,3 +366,45 @@ it('does not report a conversion to a visitor who consented to nothing', functio
         ->assertOk()
         ->assertInertia(fn ($page) => $page->where('measurable', false));
 });
+
+// --- The access token is the one value that must not come back ---
+
+it('never sends the Conversions API token to the browser', function () {
+    // The credential that lets anyone post conversions into the tenant's ad
+    // account. A "reveal" affordance would put it into an Inertia prop, and from
+    // there into any page cache or error report that touches it.
+    $tenant = measuringTenant([
+        'meta_pixel_id' => TEST_PIXEL,
+        'meta_access_token' => 'super-secret-capi-token',
+    ]);
+    $admin = analyticsAdmin($tenant);
+
+    $response = $this->actingAs($admin)
+        ->get(tenantHost('acme', '/settings/analytics'))
+        ->assertOk();
+
+    $response->assertDontSee('super-secret-capi-token', escape: false);
+    $response->assertInertia(fn ($page) => $page
+        ->where('settings.has_meta_access_token', true)
+        ->where('settings.server_conversions', true));
+});
+
+it('keeps the stored token when the field is left blank', function () {
+    // The form cannot show the value, so it cannot send it back — treating a
+    // blank as a deletion would wipe the credential every time somebody edited
+    // the pixel id. The opposite of how the two ids behave, deliberately.
+    $tenant = measuringTenant([
+        'meta_pixel_id' => TEST_PIXEL,
+        'meta_access_token' => 'super-secret-capi-token',
+    ]);
+    $admin = analyticsAdmin($tenant);
+
+    $this->actingAs($admin)->post(tenantHost('acme', '/settings/analytics'), [
+        'ga4_measurement_id' => TEST_GA4,
+        'meta_pixel_id' => TEST_PIXEL,
+        'meta_access_token' => '',
+    ])->assertRedirect();
+
+    expect(TenantAnalyticsSettings::fromArray($tenant->fresh()?->analytics)->metaAccessToken)
+        ->toBe('super-secret-capi-token');
+});
