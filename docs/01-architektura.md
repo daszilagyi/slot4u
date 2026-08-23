@@ -208,7 +208,7 @@ Teszt rögzíti, hogy **minden hitelesítetlen tenant-route mögött van névvel
 | **A04** Insecure Design | ✅ | Az ütközésvizsgálat DB-szinten is védve (lock / atomi kapacitás-update), soft hold, idempotens webhook (`unique(provider, provider_ref)`), jutalék-ledger invariánsok. A docs/04 edge case-listája tételesen tesztelt. |
 | **A05** Security Misconfiguration | 🟡 | Biztonsági headerek + CSP (SLO-145), a sandbox fizetési gateway prodban tiltott, `APP_DEBUG` env-ből. ⚠️ **Prod env-checklist és monitoring hiányzik → SLO-49.** |
 | **A06** Vulnerable/Outdated Components | ✅ | `composer audit --locked` + `npm audit --audit-level=high` a CI-ban, minden PR-en **és hetente ütemezve** (SLO-148, l. §Függőség-audit). A küszöb `high`: valódi kapu, nem jelentés. |
-| **A07** Identification & Authentication | 🟡 | Fortify; login (5/perc) és regisztráció (5/perc) limitálva; session-regeneráció belépéskor (tesztelve); jelszó min. 12 + breach-ellenőrzés; email-verifikáció. ⚠️ **Nincs 2FA → SLO-149.** |
+| **A07** Identification & Authentication | ✅ | Fortify; login (5/perc) és regisztráció (5/perc) limitálva; session-regeneráció belépéskor (tesztelve); jelszó min. 12 + breach-ellenőrzés; email-verifikáció. **2FA (SLO-149):** TOTP + helyreállítási kódok, megerősítéssel és jelszó-fallal; a **superadmin panel kötelezően** mögötte van, tenant-adminnak opcionális (l. lent). |
 | **A08** Software & Data Integrity | ✅ | Webhook HMAC aláírás-ellenőrzés írás előtt; számla-PDF **privát** diszken, sosem publikus URL; audit log minden érzékeny műveletre. Külső script alapesetben nincs betöltve (a CSP `script-src 'self'` + nonce ezt ki is kényszeríti). ⚠️ **Egyetlen kivétel (SLO-172):** a `slot4u.hu` marketing-oldalon, **elfogadott analytics-consenttel** a GA4 tag betölt — és a policy is csak ilyenkor nevezi meg a Google originjeit, kérésenként eldöntve. |
 | **A09** Logging & Monitoring | 🟡 | `audit_logs`, `notifications_log`, integrációs naplózás megvan. ⚠️ **Riasztás/monitoring nincs → SLO-49.** |
 | **A10** SSRF | ✅ | A kimenő hívások mind **fix, konfigurált** végpontokra mennek (Cloudflare API, HIBP, számlázó, fizetési gateway). Az egyetlen felhasználói bemenetet érintő kimenő művelet a domain-verifikáció **DNS TXT lekérdezése** (`DnsResolver`) — nem HTTP-fetch, tehát nem használható belső szolgáltatás elérésére. ⚠️ Ha később bármi **felhasználó által megadott URL-t tölt le** (webhook-kimenet, avatar-import), ezt a sort újra kell nyitni. |
@@ -322,6 +322,46 @@ k-anonimitás). Korábban a kód `Password::default()`-ot használt anélkül, h
 definiálva lettek volna — vagyis a szabály a Laravel csupasz 8 karaktere volt, olyan fiókokra, amik
 egy tenant teljes ügyfélkörét kezelik. A breach-ellenőrzés hálózati hívás, ezért a teszt-suite egy
 fake verifiert köt be (`Tests\Fixtures\FakeUncompromisedVerifier`) — a suite sosem függ a hálózattól.
+
+## Kétlépcsős azonosítás (SLO-149)
+
+**TOTP + helyreállítási kódok**, Fortify-jal. A `config/fortify.php` négy milestone-on át azt
+mondta, hogy „2FA … out of MVP scope" — a támogatás végig ott volt, csak nem volt bekapcsolva.
+
+**Két beállítás, amit érdemes kimondani, mert mindkettő nélkül a funkció látszat lenne:**
+
+* `confirm: true` — a titok **nem él**, amíg a felhasználó vissza nem gépel egy általa generált
+  kódot. Enélkül egy félbehagyott beállítás (becsukott fül a QR-olvasás közben) a következő
+  belépésnél zárná ki a fiókot a saját második faktorából.
+* `confirmPassword: true` — a be-/kikapcsolás és a helyreállítási kódok megnézése **újra kéri
+  a jelszót**. A fenyegetés, ami ellen a 2FA véd, épp az, hogy valaki más ül a munkamenet
+  előtt; enélkül ugyanaz a munkamenet egyszerűen kikapcsolná.
+
+**Ki mögött kötelező:** a **superadmin panel** (`ensure.2fa` middleware). Ez a fiók minden
+tenantot lát és bármelyikbe be tud lépni — egy ellopott jelszó itt nem egy cég problémája,
+hanem mindegyiké. **Tenant-adminnál opcionális**, ajánlással a képernyőn: az ő hatósugara a
+saját ügyfélköre, és egy fizető ügyfelet kizárni a saját foglalási rendszeréből rosszabb
+csere, mint a megszüntetett kockázat (docs/03).
+
+⚠️ **A `/security` oldal szándékosan KÍVÜL van az `ensure.2fa` csoporton.** Egy middleware,
+ami olyan oldalra irányít, amit maga is őriz, végtelen hurok — és az érintettnek nem marad
+módja teljesíteni azt, amit a middleware kikényszerít.
+
+⚠️ **A kikapcsolás tiltása szerver oldalon van** (`App\Actions\Fortify\DisableTwoFactorAuthentication`,
+a Fortify actionje fölé kötve), nem csak elrejtett gombként. A Fortify végpontja egy sima
+DELETE, amit bárki kiadhat kézzel, aki a munkamenetet birtokolja — márpedig pont ő ellene
+szól a szabály. A markupban érvényesített szabály csak a tisztességes felhasználókkal szemben
+érvényes.
+
+**A visszaút:** `php artisan two-factor:reset <email>`. Enélkül egy elveszett telefon kizárná
+a platform egyetlen adminisztrátorát minden tenantból — az nem biztonsági tartás, hanem egy
+egypontos hibaforrás jelszóval. **Nem új bejárat:** shell-hozzáférés kell hozzá, amivel az
+adatbázis közvetlenül is szerkeszthető. Amit hozzáad egy kézi `UPDATE`-hez képest: dokumentált,
+nem lehet elgépelni az oszlopot, és **auditba kerül** — egy kézzel írt UPDATE semmit nem hagy.
+
+⚠️ **A tesztekben a `superAdmin()` helper eleve megerősített 2FA-val hoz létre fiókot.** Nem
+kényelem: egy 2FA nélküli superadmin olyan állapot, amit a prod ezentúl nem szolgál ki, tehát
+egy ilyen fixture nem létező felhasználót tesztelne.
 
 ## Eseménybekötés (SLO-174)
 

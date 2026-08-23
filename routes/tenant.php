@@ -31,6 +31,7 @@ use App\Http\Controllers\Admin\WaitlistController;
 use App\Http\Controllers\ConsentController;
 use App\Http\Controllers\CookieConsentController;
 use App\Http\Controllers\LegalController;
+use App\Http\Controllers\SecurityController;
 use App\Http\Controllers\StaffProfileController;
 use App\Http\Controllers\Super\ImpersonationController;
 use App\Http\Controllers\Tenant\BookingController as TenantBookingController;
@@ -416,6 +417,16 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
         // StaffPolicy update ability.
         Route::get('/profile', [StaffProfileController::class, 'edit'])->name('tenant.profile.edit');
         Route::put('/profile', [StaffProfileController::class, 'update'])->name('tenant.profile.update');
+
+        // Account security — the staff member's own two-factor setup (SLO-149).
+        // Optional here, unlike the superadmin panel: a tenant-admin's blast
+        // radius is their own customer list, and locking a paying customer out of
+        // their booking system is a worse trade than the risk it removes
+        // (docs/03). Behind password confirmation, because the page shows the
+        // recovery codes.
+        Route::get('/security', [SecurityController::class, 'show'])
+            ->middleware('password.confirm')
+            ->name('tenant.security');
     });
 
     // Members area (SLO-33): a logged-in customer's own account. A separate group

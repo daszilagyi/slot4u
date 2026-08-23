@@ -73,6 +73,23 @@ Superadmin extra: tenant CRUD + felfüggesztés/aktiválás, csomag- és feature
 
 **Ügyfél-nyilvántartás (SLO-84):** az ügyfél = **tenant-scoped `User` a `customer` role-lal** (nincs külön `customers` tábla, docs/02); a `users.phone` oszlop az elérhetőséghez. A `/customers` admin oldal (`customer.view` lista + karton, `customer.edit` létrehozás/szerkesztés) az `App\Models\Customer` altípuson át kezeli őket (User a `users` táblán, `customer` role + tenant szűréssel; route-binding tenant+role-scope-olt → idegen/nem-customer id `404`). **Employee saját scope** (`App\Support\CustomerVisibility`): Tenant Admin/Manager minden ügyfelet lát, az Employee csak a **saját** ügyfeleit — akiknek van foglalása egy hozzá kötött (`staff.user_id === user`) staff-nál. Az **ügyfélkarton** aggregátumai: összes foglalás száma, teljesített foglalások, `total_spend_minor` (a `completed` foglalások `price_minor` összege). A **vendég-foglalás** (`FindOrCreateCustomer`): email alapján a tenant meglévő ügyfelét újrahasználja, egyébként újat hoz létre; idegen fiókhoz tartozó emailt tiszta validációs hibával utasít el (az MVP auth-modell **globálisan egyedi emailt** feltételez — egy user egy tenanthoz; a per-tenant email + tenant-aware login post-MVP follow-up). Az admin által létrehozott ügyfél belépni csak jelszó beállítása után tud (M4 members area); a booking-endpoint vendég-bekötése az admin foglaláskezelővel (SLO-85) / publikus flow-val (M4) jön.
 
+## Kétlépcsős azonosítás (SLO-149)
+
+| Kinek | Kötelező? | Miért így |
+|---|---|---|
+| **superadmin** | **Igen**, és nem kapcsolható ki | Ez a fiók minden tenantot lát és bármelyikbe be tud lépni (impersonáció). Egy ellopott jelszó itt nem egy cég problémája, hanem mindegyiké. |
+| tenant-admin | Nem, de a beállító oldal ajánlja | A hatósugara a **saját** ügyfélköre. Egy fizető ügyfelet kizárni a saját foglalási rendszeréből rosszabb csere, mint a megszüntetett kockázat. |
+| dolgozó, ügyfél | Nem | Ugyanaz a képernyő elérhető nekik is, ha akarják. |
+
+A beállítás a `/security` oldalon van — mind a tenant-admin felületen, mind a superadmin
+panelen ugyanaz a controller. **Jelszó-megerősítés mögött**, mert az oldal kiírja a
+helyreállítási kódokat: egy oldal, ami ezeket megmutatja annak, aki épp birtokolja a sütit,
+pont azt adja oda, amiből a második faktor áll.
+
+⚠️ **A superadmin kikapcsolás-tiltása szerver oldali** (nem csak elrejtett gomb), és van
+dokumentált visszaút elveszett hitelesítő esetére: `php artisan two-factor:reset <email>`,
+auditba kerül. A részletek és az indoklás: `docs/01` §Kétlépcsős azonosítás.
+
 ## Feature flagek (Pennant, tenant scope)
 
 `feature_online_payment`, `feature_invoicing`, `feature_custom_domain`, `feature_branding`, `feature_waitlist`, `feature_quote_request`, `feature_approval_flow`, `feature_messages`, `feature_documents`, `feature_reports`, `feature_sms`, `feature_api`, `feature_nlp_booking` (AI foglalás, később), `feature_google_meet` (később), `feature_analytics` (a tenant saját GA4/Meta mérése — SLO-56).

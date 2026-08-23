@@ -4,6 +4,7 @@ use App\Http\Middleware\EnsureFeatureEnabled;
 use App\Http\Middleware\EnsureLegalConsent;
 use App\Http\Middleware\EnsureSuperAdmin;
 use App\Http\Middleware\EnsureTenantActive;
+use App\Http\Middleware\EnsureTwoFactorEnabled;
 use App\Http\Middleware\EnsureUserBelongsToTenant;
 use App\Http\Middleware\EnsureUserIsCustomer;
 use App\Http\Middleware\EnsureUserIsStaff;
@@ -155,6 +156,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'ensure.staff' => EnsureUserIsStaff::class,
             'ensure.customer' => EnsureUserIsCustomer::class,
             'ensure.superadmin' => EnsureSuperAdmin::class,
+            // The superadmin panel behind a second factor (SLO-149).
+            'ensure.2fa' => EnsureTwoFactorEnabled::class,
             'ensure.feature' => EnsureFeatureEnabled::class,
             // `can:` is built in; these add spatie's role/permission gates.
             'role' => RoleMiddleware::class,

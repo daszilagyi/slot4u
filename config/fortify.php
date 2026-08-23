@@ -138,9 +138,9 @@ return [
     |--------------------------------------------------------------------------
     |
     | slot4u enables login (always on), tenant registration (SLO-76, backed by a
-    | custom tenant-aware CreateNewUser action), password reset and email
-    | verification. 2FA, passkeys and profile/password self-service are out of
-    | MVP scope.
+    | custom tenant-aware CreateNewUser action), password reset, email
+    | verification and two-factor authentication (SLO-149). Passkeys and
+    | password self-service are out of MVP scope.
     |
     */
 
@@ -148,6 +148,24 @@ return [
         Features::registration(),
         Features::resetPasswords(),
         Features::emailVerification(),
+
+        /*
+         * Two-factor authentication (SLO-149, docs/01 OWASP A07).
+         *
+         * `confirm` — the secret is not live until the user has typed a code it
+         * generated. Without it a mistyped or half-finished setup would lock the
+         * account out of its own second factor at the next login, which is how
+         * 2FA becomes a support ticket instead of a protection.
+         *
+         * `confirmPassword` — enabling, disabling or re-reading the recovery
+         * codes asks for the password again. The threat 2FA exists for is a
+         * session somebody else is holding; without this, that same session
+         * could simply turn the second factor off.
+         */
+        Features::twoFactorAuthentication([
+            'confirm' => true,
+            'confirmPassword' => true,
+        ]),
     ],
 
 ];

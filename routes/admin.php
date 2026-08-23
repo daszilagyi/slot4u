@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\SecurityController;
 use App\Http\Controllers\Super\AuditLogController;
 use App\Http\Controllers\Super\CommissionController;
 use App\Http\Controllers\Super\CommissionInvoiceController;
@@ -13,62 +14,75 @@ use Illuminate\Support\Facades\Route;
 // Superadmin panel (admin.{central}) — no tenant context. Gated to platform
 // super-admins (tenant_id = null).
 Route::middleware(['auth', 'ensure.superadmin'])->group(function () {
-    // Dashboard = platform-wide commission statistics + navigation hub (SLO-123).
-    Route::get('/', [DashboardController::class, 'index'])->name('super.dashboard');
+    // Account security (SLO-149) — the person's own two-factor setup.
+    //
+    // ⚠️ Deliberately OUTSIDE the `ensure.2fa` group below. That middleware
+    // redirects here; if this route were inside it, the redirect would land on a
+    // page that redirects again, and the superadmin would have no way to satisfy
+    // the very requirement being enforced.
+    Route::get('/security', [SecurityController::class, 'show'])
+        ->middleware('password.confirm')
+        ->name('super.security');
 
-    // Tenant management (SLO-77). withTrashed so archived (soft-deleted) tenants
-    // still resolve for the superadmin on the detail/action routes.
-    Route::get('/tenants', [TenantController::class, 'index'])->name('super.tenants.index');
-    Route::get('/tenants/{tenant}', [TenantController::class, 'show'])->withTrashed()->name('super.tenants.show');
-    Route::put('/tenants/{tenant}', [TenantController::class, 'update'])->withTrashed()->name('super.tenants.update');
-    Route::post('/tenants/{tenant}/suspend', [TenantController::class, 'suspend'])->withTrashed()->name('super.tenants.suspend');
-    Route::post('/tenants/{tenant}/activate', [TenantController::class, 'activate'])->withTrashed()->name('super.tenants.activate');
-    Route::post('/tenants/{tenant}/archive', [TenantController::class, 'archive'])->withTrashed()->name('super.tenants.archive');
-    Route::post('/tenants/{tenant}/extend-trial', [TenantController::class, 'extendTrial'])->withTrashed()->name('super.tenants.extend-trial');
-    // The tenant's full data set, for handing an archived tenant its records
-    // back during the grace window (SLO-160, docs/19 §7.4). withTrashed: an
-    // archived tenant is exactly the one that needs it.
-    Route::get('/tenants/{tenant}/export', [TenantController::class, 'export'])->withTrashed()->name('super.tenants.export');
-    Route::post('/tenants/{tenant}/features', [TenantController::class, 'toggleFeature'])->withTrashed()->name('super.tenants.features');
+    // Everything else needs the second factor first.
+    Route::middleware('ensure.2fa')->group(function () {
+        // Dashboard = platform-wide commission statistics + navigation hub (SLO-123).
+        Route::get('/', [DashboardController::class, 'index'])->name('super.dashboard');
 
-    // Impersonation start (SLO-79). No withTrashed: an archived tenant 404s on
-    // binding here (and would 404 on its subdomain anyway), so it can't be
-    // impersonated. The matching stop route lives on the tenant domain
-    // (routes/tenant.php) so the exit button is same-origin.
-    Route::post('/tenants/{tenant}/impersonate', [ImpersonationController::class, 'store'])->name('super.tenants.impersonate');
+        // Tenant management (SLO-77). withTrashed so archived (soft-deleted) tenants
+        // still resolve for the superadmin on the detail/action routes.
+        Route::get('/tenants', [TenantController::class, 'index'])->name('super.tenants.index');
+        Route::get('/tenants/{tenant}', [TenantController::class, 'show'])->withTrashed()->name('super.tenants.show');
+        Route::put('/tenants/{tenant}', [TenantController::class, 'update'])->withTrashed()->name('super.tenants.update');
+        Route::post('/tenants/{tenant}/suspend', [TenantController::class, 'suspend'])->withTrashed()->name('super.tenants.suspend');
+        Route::post('/tenants/{tenant}/activate', [TenantController::class, 'activate'])->withTrashed()->name('super.tenants.activate');
+        Route::post('/tenants/{tenant}/archive', [TenantController::class, 'archive'])->withTrashed()->name('super.tenants.archive');
+        Route::post('/tenants/{tenant}/extend-trial', [TenantController::class, 'extendTrial'])->withTrashed()->name('super.tenants.extend-trial');
+        // The tenant's full data set, for handing an archived tenant its records
+        // back during the grace window (SLO-160, docs/19 §7.4). withTrashed: an
+        // archived tenant is exactly the one that needs it.
+        Route::get('/tenants/{tenant}/export', [TenantController::class, 'export'])->withTrashed()->name('super.tenants.export');
+        Route::post('/tenants/{tenant}/features', [TenantController::class, 'toggleFeature'])->withTrashed()->name('super.tenants.features');
 
-    // Platform statistics (SLO-138): tenant lifecycle, growth/churn series and
-    // turnover distribution — the business the commission is levied on, next to
-    // the dashboard's view of what the commission earns.
-    Route::get('/statistics', [StatisticsController::class, 'index'])->name('super.statistics.index');
+        // Impersonation start (SLO-79). No withTrashed: an archived tenant 404s on
+        // binding here (and would 404 on its subdomain anyway), so it can't be
+        // impersonated. The matching stop route lives on the tenant domain
+        // (routes/tenant.php) so the exit button is same-origin.
+        Route::post('/tenants/{tenant}/impersonate', [ImpersonationController::class, 'store'])->name('super.tenants.impersonate');
 
-    // Audit log viewer (SLO-78).
-    // The platform's own terms and privacy notice (SLO-161). Publishing a new
-    // version here sends every tenant admin through the re-acceptance screen.
-    Route::get('/legal', [LegalDocumentController::class, 'index'])->name('super.legal.index');
-    Route::post('/legal', [LegalDocumentController::class, 'store'])->name('super.legal.store');
+        // Platform statistics (SLO-138): tenant lifecycle, growth/churn series and
+        // turnover distribution — the business the commission is levied on, next to
+        // the dashboard's view of what the commission earns.
+        Route::get('/statistics', [StatisticsController::class, 'index'])->name('super.statistics.index');
 
-    Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('super.audit-logs.index');
+        // Audit log viewer (SLO-78).
+        // The platform's own terms and privacy notice (SLO-161). Publishing a new
+        // version here sends every tenant admin through the re-acceptance screen.
+        Route::get('/legal', [LegalDocumentController::class, 'index'])->name('super.legal.index');
+        Route::post('/legal', [LegalDocumentController::class, 'store'])->name('super.legal.store');
 
-    // Commission configuration (SLO-121, docs/10 §10). Versions are immutable:
-    // publishing is the only write, hence no update/destroy route. The tenant
-    // override hangs off the tenant it prices; withTrashed to match the other
-    // tenant routes (an archived tenant still has billing history).
-    Route::get('/commission', [CommissionController::class, 'index'])->name('super.commission.index');
-    Route::post('/commission', [CommissionController::class, 'store'])->name('super.commission.store');
-    Route::put('/tenants/{tenant}/commission-override', [CommissionController::class, 'updateOverride'])->withTrashed()->name('super.tenants.commission-override.update');
-    Route::delete('/tenants/{tenant}/commission-override', [CommissionController::class, 'clearOverride'])->withTrashed()->name('super.tenants.commission-override.destroy');
+        Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('super.audit-logs.index');
 
-    // Commission invoice management (SLO-122, docs/10 §10). The cross-tenant
-    // invoice list plus manual settle / void / resend. Settle and void are gated
-    // to outstanding invoices in the controller; resend is throttled as a mail
-    // spam guard on top of the superadmin gate.
-    Route::get('/commission-invoices', [CommissionInvoiceController::class, 'index'])->name('super.commission-invoices.index');
-    Route::post('/commission-invoices/{invoice}/mark-paid', [CommissionInvoiceController::class, 'markPaid'])->name('super.commission-invoices.mark-paid');
-    Route::post('/commission-invoices/{invoice}/void', [CommissionInvoiceController::class, 'void'])->name('super.commission-invoices.void');
-    Route::post('/commission-invoices/{invoice}/resend', [CommissionInvoiceController::class, 'resend'])->middleware('throttle:12,1')->name('super.commission-invoices.resend');
-    // Re-ask slot4u's own invoicing provider for a document that never got one
-    // (SLO-143). Throttled like resend: it reaches an external service, and the
-    // button sits next to three others on a list of fifty rows.
-    Route::post('/commission-invoices/{invoice}/retry-document', [CommissionInvoiceController::class, 'retryDocument'])->middleware('throttle:12,1')->name('super.commission-invoices.retry-document');
+        // Commission configuration (SLO-121, docs/10 §10). Versions are immutable:
+        // publishing is the only write, hence no update/destroy route. The tenant
+        // override hangs off the tenant it prices; withTrashed to match the other
+        // tenant routes (an archived tenant still has billing history).
+        Route::get('/commission', [CommissionController::class, 'index'])->name('super.commission.index');
+        Route::post('/commission', [CommissionController::class, 'store'])->name('super.commission.store');
+        Route::put('/tenants/{tenant}/commission-override', [CommissionController::class, 'updateOverride'])->withTrashed()->name('super.tenants.commission-override.update');
+        Route::delete('/tenants/{tenant}/commission-override', [CommissionController::class, 'clearOverride'])->withTrashed()->name('super.tenants.commission-override.destroy');
+
+        // Commission invoice management (SLO-122, docs/10 §10). The cross-tenant
+        // invoice list plus manual settle / void / resend. Settle and void are gated
+        // to outstanding invoices in the controller; resend is throttled as a mail
+        // spam guard on top of the superadmin gate.
+        Route::get('/commission-invoices', [CommissionInvoiceController::class, 'index'])->name('super.commission-invoices.index');
+        Route::post('/commission-invoices/{invoice}/mark-paid', [CommissionInvoiceController::class, 'markPaid'])->name('super.commission-invoices.mark-paid');
+        Route::post('/commission-invoices/{invoice}/void', [CommissionInvoiceController::class, 'void'])->name('super.commission-invoices.void');
+        Route::post('/commission-invoices/{invoice}/resend', [CommissionInvoiceController::class, 'resend'])->middleware('throttle:12,1')->name('super.commission-invoices.resend');
+        // Re-ask slot4u's own invoicing provider for a document that never got one
+        // (SLO-143). Throttled like resend: it reaches an external service, and the
+        // button sits next to three others on a list of fifty rows.
+        Route::post('/commission-invoices/{invoice}/retry-document', [CommissionInvoiceController::class, 'retryDocument'])->middleware('throttle:12,1')->name('super.commission-invoices.retry-document');
+    });
 });

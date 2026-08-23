@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
+use Laravel\Fortify\TwoFactorAuthenticatable;
 use Spatie\Permission\PermissionRegistrar;
 use Spatie\Permission\Traits\HasRoles;
 
@@ -34,7 +35,7 @@ use Spatie\Permission\Traits\HasRoles;
 class User extends Authenticatable implements MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
-    use HasFactory, HasRoles, Notifiable;
+    use HasFactory, HasRoles, Notifiable, TwoFactorAuthenticatable;
 
     /**
      * The attributes that are mass assignable.
@@ -134,6 +135,13 @@ class User extends Authenticatable implements MustVerifyEmail
     protected $hidden = [
         'password',
         'remember_token',
+        // ⚠️ The second factor itself (SLO-149). A two-factor secret that reaches
+        // an Inertia prop is a second factor anybody who can read the page
+        // already has — and the recovery codes are worse, because they do not
+        // expire. The TwoFactorAuthenticatable trait hides them too; repeated
+        // here so a future edit to that list cannot quietly widen this one.
+        'two_factor_secret',
+        'two_factor_recovery_codes',
     ];
 
     /**

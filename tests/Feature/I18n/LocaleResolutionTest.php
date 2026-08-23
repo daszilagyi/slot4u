@@ -27,7 +27,7 @@ it('falls back to the app default locale on the central domain', function () {
 });
 
 it('uses the authenticated user locale on the admin domain', function () {
-    $admin = User::factory()->create(['tenant_id' => null, 'locale' => 'en']);
+    $admin = User::factory()->create(['tenant_id' => null, 'locale' => 'en', 'two_factor_confirmed_at' => now()]);
 
     $this->actingAs($admin)
         ->get(superUrl('/'))
@@ -36,7 +36,7 @@ it('uses the authenticated user locale on the admin domain', function () {
 });
 
 it('falls back to the app default when the user has no locale preference', function () {
-    $admin = User::factory()->create(['tenant_id' => null, 'locale' => null]);
+    $admin = User::factory()->create(['tenant_id' => null, 'locale' => null, 'two_factor_confirmed_at' => now()]);
 
     $this->actingAs($admin)
         ->get(superUrl('/'))
