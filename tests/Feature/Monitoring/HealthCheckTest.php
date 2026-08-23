@@ -24,6 +24,10 @@ beforeEach(function () {
     config()->set('monitoring.scheduler.stale_after_minutes', 15);
     config()->set('monitoring.queue.failed_jobs_threshold', 1);
     config()->set('monitoring.heartbeat_url', 'https://hc.example.com/ping/abc');
+    // Pinned high so the log-size check (SLO-175) cannot make the "everything
+    // passed" assertions below depend on how much this particular machine has
+    // logged. Its own two tests set the limit deliberately.
+    config()->set('monitoring.logs.max_megabytes', 4096);
 });
 
 /** Put both cron-driven parts in a healthy state. */
@@ -155,4 +159,70 @@ it('lets an operator see a dead scheduler instead of refreshing it', function ()
 
     $this->artisan('monitor:health')->assertExitCode(1);
     expect(app(Heartbeats::class)->minutesSince(Heartbeat::SCHEDULER))->toBe(60);
+});
+
+// --- Log directory size (SLO-175) ---
+
+/**
+ * A real file in the real log directory.
+ *
+ * The check globs and stats, so a faked disk would test a different code path
+ * than the one that runs in production. Two megabytes is cheap to write and
+ * unambiguous against a one-megabyte limit.
+ */
+function writeLogFile(int $megabytes): string
+{
+    $path = storage_path('logs/slo175-size-probe.log');
+    file_put_contents($path, str_repeat('x', $megabytes * 1024 * 1024));
+
+    return $path;
+}
+
+afterEach(function () {
+    $probe = storage_path('logs/slo175-size-probe.log');
+
+    if (is_file($probe)) {
+        unlink($probe);
+    }
+});
+
+it('reports a log directory that has outgrown its limit', function () {
+    // Rotation bounds the logs by TIME — fourteen files, then the oldest goes.
+    // This is the other axis: one afternoon of a stack trace in a loop outgrows
+    // a fortnight of ordinary traffic, and rotation keeps all fourteen days of it.
+    beatEverything();
+    writeLogFile(2);
+    config()->set('monitoring.logs.max_megabytes', 1);
+
+    $report = app(RunHealthChecks::class)();
+    $logs = collect($report->checks)->firstWhere('name', 'logs');
+
+    expect($logs->healthy)->toBeFalse()
+        ->and($logs->message)->toContain('limit 1');
+});
+
+it('is content with a log directory inside its limit', function () {
+    beatEverything();
+    writeLogFile(2);
+    config()->set('monitoring.logs.max_megabytes', 512);
+
+    $logs = collect(app(RunHealthChecks::class)()->checks)->firstWhere('name', 'logs');
+
+    expect($logs->healthy)->toBeTrue();
+});
+
+it('fails the whole sweep on a full log directory, so somebody is told', function () {
+    // The point of making this a health check rather than a config setting: when
+    // the disk fills on the shared host, the booking flow, the queue worker and
+    // the nightly backup stop at the same moment.
+    beatEverything();
+    writeLogFile(2);
+    config()->set('monitoring.logs.max_megabytes', 1);
+    Http::fake();
+
+    test()->artisan('monitor:health')->assertFailed();
+
+    // And the dead man's switch is NOT pinged — the absence of the ping is what
+    // the external monitor alerts on.
+    Http::assertNothingSent();
 });

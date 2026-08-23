@@ -237,7 +237,7 @@ A 90 nap csak akkor tisztességes, ha a tenant **el tudja vinni a sajátját**.
   `docs/06` 90 napot ír rá, de az M6 fizetés-munka nélküle szállt le. A söprés
   lépése **készen áll** és a tábla első napjától érvényesíti az ablakot; addig
   „skipped"-et jelent. Ha a tábla megszületik, ebben nincs teendő.
-* A **fájl-logok** rotációja (`laravel.log`, méret/lemez) az **SLO-155** — más
+* A **fájl-logok** rotációja (`laravel.log`, méret/lemez) az **SLO-175** — más
   probléma, ne csússzon össze ezzel.
 
 ## 8. Bizonyíték a retentionre

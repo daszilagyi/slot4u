@@ -30,6 +30,29 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Log directory size (SLO-175)
+    |--------------------------------------------------------------------------
+    |
+    | `daily` rotation bounds the log by TIME — fourteen files, then the oldest
+    | goes. This bounds it by SIZE, which is a different failure: one afternoon
+    | of a stack trace in a loop can outgrow a fortnight of ordinary traffic, and
+    | rotation will happily keep all fourteen of those days.
+    |
+    | Why it is a health check and not just a config setting: the disk filling on
+    | the shared host stops the booking flow, the queue worker and the nightly
+    | backup at the same moment. That is worth a page, not a hope.
+    |
+    | 512 MB against a plan measured in gigabytes: high enough that ordinary
+    | traffic never reaches it, low enough to be a warning rather than a wake.
+    |
+    */
+
+    'logs' => [
+        'max_megabytes' => (int) env('MONITORING_LOG_MAX_MB', 512),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Dead man's switch
     |--------------------------------------------------------------------------
     |

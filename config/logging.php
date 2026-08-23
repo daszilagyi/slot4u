@@ -52,9 +52,24 @@ return [
 
     'channels' => [
 
+        /*
+         * ⚠️ The default is `daily`, not Laravel's `single` (SLO-175).
+         *
+         * With `single` every line in the installation's life goes into ONE
+         * `laravel.log`, which nothing ever truncates. On the shared host that is
+         * not an untidiness, it is an outage waiting on a calendar: when the disk
+         * fills, the booking flow, the queue worker and the nightly backup all
+         * stop at the same moment, and the thing that filled it is a file nobody
+         * was looking at.
+         *
+         * The default is changed here rather than left to the production `.env`
+         * on purpose. Relying on that file being right is exactly how it was
+         * wrong — production never set LOG_STACK, so it inherited `single` from
+         * a framework default meant for a laptop.
+         */
         'stack' => [
             'driver' => 'stack',
-            'channels' => explode(',', (string) env('LOG_STACK', 'single')),
+            'channels' => explode(',', (string) env('LOG_STACK', 'daily')),
             'ignore_exceptions' => false,
         ],
 
@@ -65,6 +80,12 @@ return [
             'replace_placeholders' => true,
         ],
 
+        /*
+         * Fourteen dated files, then the oldest is deleted. That bounds the
+         * directory by TIME; `monitor:health` bounds it by SIZE as well, because
+         * a single day of a stack trace loop can outgrow a fortnight of ordinary
+         * traffic (SLO-175, docs/17).
+         */
         'daily' => [
             'driver' => 'daily',
             'path' => storage_path('logs/laravel.log'),
