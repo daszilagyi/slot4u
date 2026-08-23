@@ -83,6 +83,18 @@ return [
          * step reports itself as skipped rather than failing the daily run.
          */
         'integration_log_days' => 90,
+
+        /*
+         * Days before an ad-conversion row is deleted (SLO-173, docs/19 §11.1.4).
+         *
+         * Short on purpose. Most of these rows are `sent` within minutes and hold
+         * nothing but a booking code afterwards; the interesting ones are the
+         * `pending` rows for bookings that never became sales, and those carry
+         * the visitor's Meta cookie values with nothing left to do with them.
+         * Meta's own attribution window tops out at 28 days, so a row older than
+         * this could not be sent even if something tried.
+         */
+        'conversion_days' => 45,
     ],
 
     /*

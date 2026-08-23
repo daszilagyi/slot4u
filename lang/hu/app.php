@@ -771,6 +771,7 @@ return [
             'privacy' => 'Adatvédelmi kérelmek',
             'legal' => 'Jogi dokumentumok',
             'invoicing' => 'Számlázás',
+            'analytics' => 'Mérés és hirdetés',
             'domains' => 'Egyedi domain',
             'settings' => 'Beállítások',
             'showcase' => 'UI építőelemek',
@@ -2043,6 +2044,7 @@ return [
         'feature_api' => 'API hozzáférés',
         'feature_nlp_booking' => 'AI foglalás',
         'feature_google_meet' => 'Google Meet',
+        'feature_analytics' => 'Mérés és hirdetés',
     ],
     'booking' => [
         'rescheduled' => 'Átfoglalva',
@@ -2270,9 +2272,37 @@ return [
             'necessary' => 'Működéshez szükséges',
             'necessary_hint' => 'Bejelentkezés, munkamenet, űrlapvédelem. Ezek nélkül az oldal nem működik, ezért nem kapcsolhatók ki.',
             'analytics' => 'Statisztika',
-            'analytics_hint' => 'Névtelen látogatottsági mérés, hogy lássuk, mely oldalak működnek jól. Jelenleg nincs ilyen eszköz bekötve.',
+            'analytics_hint' => 'Látogatottsági mérés (Google Analytics), hogy lássuk, mely oldalak működnek jól. A mérőkód csak a hozzájárulásod után kerül be az oldalba — előtte le sem töltődik.',
             'marketing' => 'Marketing',
-            'marketing_hint' => 'Hirdetési mérés és személyre szabás. Jelenleg nincs ilyen eszköz bekötve.',
+            'marketing_hint' => 'Hirdetési mérés és személyre szabás (Meta Pixel). A mérőkód csak a hozzájárulásod után kerül be az oldalba — előtte le sem töltődik.',
+        ],
+    ],
+
+    // A tenant SAJÁT mérőkódjai (SLO-56). Itt a tenant az adatkezelő: a saját
+    // GA4 propertyjébe és a saját Meta Pixelébe mér, a slot4u csak kiszolgál.
+    'analytics' => [
+        'settings' => [
+            'title' => 'Mérés és hirdetés',
+            'description' => 'Add meg a saját Google Analytics és Meta Pixel azonosítódat. A publikus foglalófelületed ezekbe küld eseményeket — a te fiókodba, nem a slot4uéba.',
+            'controller_notice' => 'Ezekkel az azonosítókkal te leszel az adatkezelő a látogatóid mérése tekintetében: a slot4u csak beilleszti a mérőkódot az oldalba. Gondoskodj róla, hogy az adatkezelési tájékoztatód említse a Google-t és a Metát.',
+            'ga4_label' => 'Google Analytics 4 mérőazonosító',
+            'ga4_hint' => 'A GA4 property „G-" kezdetű azonosítója. Csak azoknál a látogatóknál tölt be, akik a(z) „:category" sütikategóriát elfogadták.',
+            'ga4_invalid' => 'A GA4 mérőazonosító „G-" kezdetű, például G-10EPJ99W18.',
+            'pixel_label' => 'Meta Pixel azonosító',
+            'pixel_hint' => 'A Meta Events Managerben található, csupa számjegy. Csak azoknál a látogatóknál tölt be, akik a(z) „:category" sütikategóriát elfogadták.',
+            'pixel_invalid' => 'A Meta Pixel azonosító csak számjegyekből áll (jellemzően 15-16 karakter).',
+            'clear_hint' => 'Egy mező kiürítése kikapcsolja az adott mérést — a következő oldalletöltéstől a mérőkód nem kerül be az oldalba. (Az access token kivétel: üresen hagyva a korábbi marad érvényben.)',
+            'saved' => 'A mérési beállítások elmentve.',
+            // Meta Conversions API (SLO-173) — a szerver-oldali fele annak,
+            // amit a böngészőben a Pixel csinál.
+            'token_label' => 'Meta Conversions API access token',
+            'token_set' => 'Beállítva — csak akkor tölts ki, ha cserélni akarod',
+            'token_unset' => 'Még nincs beállítva',
+            'token_hint' => 'A Meta Events Managerben generálható. Ezzel a szerverünk közvetlenül is jelenti a foglalásokat — azt a részt, amit a böngészőben futó Pixel elől elvesz a reklámblokkoló és az iOS. Titkosítva tároljuk, és soha nem jelenítjük meg újra.',
+            'test_code_label' => 'Teszt esemény kód (opcionális)',
+            'test_code_hint' => 'Amíg ki van töltve, az események a Meta Events Manager „Test events" nézetébe kerülnek, és NEM számítanak valós konverziónak. Bevezetés után töröld.',
+            'capi_active' => 'A szerver-oldali jelentés aktív: a hozzájáruló látogatók foglalásait a Pixel mellett a szerverünk is jelenti, ugyanazzal az esemény-azonosítóval — a Meta ezért egy konverziónak látja, nem kettőnek.',
+            'capi_inactive' => 'A szerver-oldali jelentés nem aktív. Ehhez a Pixel azonosító ÉS az access token is kell — csak az egyikkel a mérés a böngészőre marad, amit a reklámblokkolók egy része megfog.',
         ],
     ],
 

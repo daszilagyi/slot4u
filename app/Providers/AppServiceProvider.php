@@ -9,6 +9,8 @@ use App\Events\BookingStatusChanged;
 use App\Events\CommissionInvoiceIssued;
 use App\Events\QuoteRequestStatusChanged;
 use App\Events\WaitlistOffered;
+use App\Listeners\Analytics\RecordConversionContext;
+use App\Listeners\Analytics\SendConversionOnSale;
 use App\Listeners\Monitoring\RecordQueueHeartbeat;
 use App\Listeners\Monitoring\VerifyDatabaseIsReachable;
 use App\Listeners\RecordBookingCommission;
@@ -32,7 +34,7 @@ use App\Services\Domain\NullCustomHostnameProvisioner;
 use App\Services\Domain\SystemDnsResolver;
 use App\Services\Feature\FeatureResolver;
 use App\Services\Monitoring\Heartbeats;
-use App\Support\Analytics\PlatformAnalytics;
+use App\Support\Analytics\PageAnalytics;
 use App\Tenancy\CustomDomainResolver;
 use App\Tenancy\TenantManager;
 use App\Tenancy\TenantPublicUrl;
@@ -101,19 +103,20 @@ class AppServiceProvider extends ServiceProvider
         // run — which would otherwise write on every loop of its own lifetime.
         $this->app->singleton(Heartbeats::class);
 
-        // slot4u's own GA4 decision (SLO-172). Scoped so the root Blade and the
-        // CSP builder cannot answer "does the tag load?" differently within one
-        // request — a policy that disagrees with the markup is the SLO-150 bug.
+        // What this page measures (SLO-172 platform, SLO-56 tenant). Scoped so
+        // the root Blade and the CSP builder cannot answer "does the tag load?"
+        // differently within one request — a policy that disagrees with the
+        // markup is the SLO-150 bug.
         //
         // No console special-case. A queue worker or an artisan command holds a
-        // synthetic Request whose host is not the marketing domain and which
-        // carries no consent cookie, so it resolves to disabled by the same
-        // three conditions everything else does — and the branch that would have
+        // synthetic Request whose host is not the marketing domain, which carries
+        // no consent cookie and binds no tenant, so it resolves to nothing by the
+        // same conditions everything else does — and the branch that would have
         // asserted that explicitly (`runningInConsole()`) is true under Pest,
         // which would have made every test of this feature test nothing at all.
         $this->app->scoped(
-            PlatformAnalytics::class,
-            fn ($app): PlatformAnalytics => PlatformAnalytics::forRequest($app['request']),
+            PageAnalytics::class,
+            fn ($app): PageAnalytics => PageAnalytics::forRequest($app['request']),
         );
     }
 
@@ -145,12 +148,13 @@ class AppServiceProvider extends ServiceProvider
 
         $this->definePublicRateLimiters();
 
-        // The GA4 partial gets its decision injected rather than resolving the
-        // container itself (SLO-172), so a test can render the root view with a
-        // disabled instance and the Blade stays free of service location.
+        // The measurement partial gets its decision injected rather than
+        // resolving the container itself (SLO-172, SLO-56), so a test can render
+        // the root view with a disabled instance and the Blade stays free of
+        // service location.
         View::composer(
             'partials.analytics',
-            fn (ViewContract $view) => $view->with('analytics', app(PlatformAnalytics::class)),
+            fn (ViewContract $view) => $view->with('analytics', app(PageAnalytics::class)),
         );
 
         // The role editor (SLO-141) authorizes against spatie's Role model, which
@@ -181,6 +185,18 @@ class AppServiceProvider extends ServiceProvider
         // transitioning through a billable status updates its ledger entry and
         // recomputes the tenant's monthly aggregate, synchronously with the change.
         Event::listen(BookingCreated::class, RecordBookingCommission::class);
+
+        // Server-side ad conversions (SLO-173). Order matters between these two,
+        // and only on BookingCreated: the context listener writes the row that
+        // the sale listener then looks for, so a booking created straight into
+        // `confirmed` would otherwise find nothing and never report.
+        //
+        // RecordConversionContext is intentionally synchronous — it reads the
+        // visitor's consent and Meta cookies off the live request, which a queued
+        // listener would no longer have.
+        Event::listen(BookingCreated::class, RecordConversionContext::class);
+        Event::listen(BookingCreated::class, SendConversionOnSale::class);
+        Event::listen(BookingStatusChanged::class, SendConversionOnSale::class);
         Event::listen(BookingStatusChanged::class, RecordBookingCommission::class);
         // An admin editing the list price moves the commission base too
         // (docs/10 §3.3, SLO-126) — open period syncs, closed period credits.

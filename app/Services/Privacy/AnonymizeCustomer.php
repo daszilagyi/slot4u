@@ -6,6 +6,7 @@ namespace App\Services\Privacy;
 
 use App\Actions\Waitlist\JoinWaitlist;
 use App\Enums\AuditAction;
+use App\Models\AnalyticsConversion;
 use App\Models\Booking;
 use App\Models\NotificationLog;
 use App\Models\QuoteRequest;
@@ -66,12 +67,45 @@ final class AnonymizeCustomer
         $originalPhone = $user->phone;
 
         DB::transaction(function () use ($user, $tenant, $originalEmail, $originalPhone): void {
+            $this->eraseConversions($user, $tenant, $originalEmail);
             $this->eraseBookings($user, $tenant, $originalEmail);
             $this->eraseQuoteRequests($user, $tenant, $originalEmail);
             $this->eraseWaitlistEntries($user, $tenant);
             $this->redactNotificationLog($tenant, $originalEmail, $originalPhone);
             $this->eraseProfile($user, $tenant);
         });
+    }
+
+    /**
+     * Pending ad-conversion rows go entirely (SLO-173).
+     *
+     * ⚠️ Runs BEFORE the bookings are anonymised, because it finds them through
+     * the same subject match — once the guest columns are nulled there is no way
+     * left to tell which bookings were this person's.
+     *
+     * Deleted rather than redacted, unlike almost everything else here. The row
+     * holds Meta's own browser identifiers and exists solely to report this sale
+     * to an ad platform; a person exercising erasure has said, among other
+     * things, that this must not happen. A row already `sent` no longer carries
+     * the identifiers (the job clears them), but it goes too — its remaining
+     * content is "this individual's booking was reported to Meta", which is
+     * exactly the fact being erased.
+     */
+    private function eraseConversions(User $user, Tenant $tenant, ?string $originalEmail): void
+    {
+        $bookingIds = Booking::query()
+            ->where('tenant_id', $tenant->id)
+            ->where(fn ($query) => $this->matchesSubject($query, $user, $originalEmail))
+            ->pluck('id');
+
+        if ($bookingIds->isEmpty()) {
+            return;
+        }
+
+        AnalyticsConversion::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->id)
+            ->whereIn('booking_id', $bookingIds)
+            ->delete();
     }
 
     /**

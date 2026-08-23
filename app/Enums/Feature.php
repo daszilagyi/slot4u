@@ -22,6 +22,7 @@ enum Feature: string
     case Api = 'feature_api';
     case NlpBooking = 'feature_nlp_booking';
     case GoogleMeet = 'feature_google_meet';
+    case Analytics = 'feature_analytics';
 
     /**
      * Rate-raising integrations: free to enable, but bump the tenant's commission
@@ -56,6 +57,12 @@ enum Feature: string
             self::Api,
             self::NlpBooking,
             self::GoogleMeet => false,
+            // Analytics (SLO-56) falls through to `true` deliberately. It costs
+            // slot4u nothing — the tenant measures into its OWN GA4 property and
+            // Meta pixel — and under a commission model a tenant that can see its
+            // own funnel and grow its traffic is the platform's interest too.
+            // Locking it behind a superadmin switch would have been a toll on
+            // something with no toll to collect.
             default => true,
         };
     }

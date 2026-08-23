@@ -2,6 +2,7 @@
 
 use App\Enums\Feature;
 use App\Enums\Permission;
+use App\Http\Controllers\Admin\AnalyticsSettingsController;
 use App\Http\Controllers\Admin\BillingController;
 use App\Http\Controllers\Admin\BookingApprovalController;
 use App\Http\Controllers\Admin\BookingController;
@@ -329,6 +330,15 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
         Route::middleware(['ensure.feature:'.Feature::Invoicing->value, 'can:'.Permission::SettingsEdit->value])->group(function () {
             Route::get('/settings/invoicing', [InvoicingSettingsController::class, 'index'])->name('tenant.invoicing.index');
             Route::post('/settings/invoicing', [InvoicingSettingsController::class, 'update'])->name('tenant.invoicing.update');
+        });
+
+        // The tenant's own measurement ids (SLO-56). Behind the analytics feature
+        // AND settings.edit — pointing the public pages at a GA4 property and a
+        // Meta pixel is a decision about where the tenant's visitors are
+        // reported to, which is the same weight as the rest of the settings.
+        Route::middleware(['ensure.feature:'.Feature::Analytics->value, 'can:'.Permission::SettingsEdit->value])->group(function () {
+            Route::get('/settings/analytics', [AnalyticsSettingsController::class, 'index'])->name('tenant.analytics.index');
+            Route::post('/settings/analytics', [AnalyticsSettingsController::class, 'update'])->name('tenant.analytics.update');
         });
 
         // Custom domains (SLO-42). Behind the feature flag AND settings.edit:

@@ -412,8 +412,85 @@ adatfeldolgozói szerep megsértése, függetlenül attól, hogy a látogató mi
 kattintott a banneren. Ezt kódban a `PlatformAnalytics::isCentralHost()` zárja, és
 külön teszt őrzi (`tests/Feature/Analytics/PlatformAnalyticsTest.php`).
 
-A tenant **saját** mérőkódja (SLO-56) más lapra tartozik: ott a tenant a saját
-adatkezelői döntését hozza meg, a slot4u csak a technikai kiszolgáló.
+### 11.1.3 A tenant saját mérése (SLO-56)
+
+`{slug}.slot4u.hu`-n a tenant a **saját** GA4 propertyjébe és a **saját** Meta
+Pixelébe mérhet (`/settings/analytics`, `feature_analytics`). Itt a tenant az
+adatkezelő, a slot4u pedig **adatfeldolgozó**: mi illesztjük be a mérőkódot, de
+nem mi döntjük el, hogy mérnek-e és mibe.
+
+**A két vendor két külön kategória mögött van:**
+
+| Vendor | Kategória | Miért külön |
+|---|---|---|
+| GA4 | `analytics` | megszámolják |
+| Meta Pixel | `marketing` | újracélozzák |
+
+Aki elfogadta, hogy megszámolják, azzal még nem fogadta el, hogy hirdetéssel
+újracélozzák. A banner két kérdést tesz fel, tehát két választ is kell olvasni —
+egy közös kapu az egyik kapcsolót hazuggá tenné. Tesztre kötve mindkét irányban.
+
+⚠️ **A `purchase` / `Purchase` eseményt a SZERVER engedélyezi, nem a böngésző.**
+A `/booked/{code}` link **állandó**: a vendég megőrzi, a fizetési gateway oda
+tér vissza, admin is megnyithatja. Egy rendereléskor magától elsülő konverzió
+minden ilyen alkalommal újraszámolna, és a tenant hirdetési riportja csendben
+felfújódna — az a fajta rossz szám, amit elhisznek, mert semmi nem látszik
+elromlottnak. A szerver ezért munkamenetenként egyszer engedi
+(`measurable` prop), és csak olyan foglalásra, ami tényleg eladás
+(`confirmed` / `completed`) — a fizetésre váró nem az.
+
+⚠️ **A tenant felel a saját tájékoztatójáért.** A beállítófelület ezt ki is
+mondja: aki bekapcsolja, annak az adatkezelési tájékoztatójában szerepelnie kell
+a Google-nek és a Metának. A slot4u ezt nem tudja helyette megtenni, és nem is
+ellenőrzi — de a képernyőn nem hagyja szó nélkül.
+
+### 11.1.4 Meta Conversions API — mi megy ki a szerverről (SLO-173)
+
+A böngészőben futó Pixelt a reklámblokkoló, az ITP és az iOS egy része megfogja.
+A Conversions API ugyanazt a `Purchase` eseményt a **szerverünkről** küldi. Ez az
+a pont, ahol a slot4u aktívan **továbbít** adatot egy hirdetési platformnak, ezért
+a szabályai szigorúbbak, mint egy oldalba illesztett címkéé.
+
+**Mi megy ki, egyetlen eseményben:**
+
+| Mező | Tartalom | Forma |
+|---|---|---|
+| `em` | a foglaló email címe | **SHA-256 hash**, kisbetűsítve, trimmelve |
+| `ph` | a foglaló telefonszáma | **SHA-256 hash**, csak számjegyek |
+| `fbp`, `fbc` | a Meta SAJÁT sütijei a látogató böngészőjéből | változatlanul |
+| `event_id` | a foglaláskód | nyílt |
+| `custom_data` | összeg + pénznem | nyílt |
+
+**Nyílt szövegű email vagy telefonszám soha nem hagyja el a rendszert**, és a
+hash-t sehol nem tároljuk — a küldés pillanatában készül, és ott is marad. A
+slot4u így egy **egyeztetési kulcsot** ad át, nem egy ügyféllistát. Erre külön
+teszt van, ami a kimenő payloadban keresi a nyílt címet.
+
+**Jogalap és szerepek.** Az adatkezelő a tenant, a slot4u adatfeldolgozó (§2). A
+látogatói jogalap a **hozzájárulás**, konkrétan a `marketing` kategória — és
+ennek a döntésnek a pillanata a lényeg: a küldés akkor indul, amikor a foglalás
+eladássá válik, ami lehet **órákkal később**, egy adminisztrátor kérésében. Ott a
+látogató sütije már nincs kéznél, és az admin sütijét olvasni az ő válaszaként
+súlyos hiba lenne. Ezért a hozzájárulás a **foglalás pillanatában** rögzül egy
+`analytics_conversions` sorban, és **hozzájárulás nélkül nem jön létre sor** — a
+sor hiánya a „nem" tartós rögzítése, nem egy flag, amit később valami átbillenthet.
+
+**Megőrzés.** Az `fbp` / `fbc` a sikeres küldés után **azonnal törlődik a sorból**:
+egy konverzió attribuálására valók, és utána cél nélküli személyes adat. Ami
+marad — foglaláskód, státusz, időbélyeg — a `privacy.retention.conversion_days`
+(45 nap) után a napi söprés törli. A Meta attribúciós ablaka legfeljebb 28 nap,
+tehát ennél régebbi sor már küldhető sem lenne.
+
+**Törlési kérelem.** Az `AnonymizeCustomer` a sorokat **törli**, nem maszkolja —
+szemben szinte minden mással, amit megőrzünk. A sor egyetlen tartalma az, hogy
+„ennek a személynek a foglalását jelentettük egy hirdetési platformnak", és pont
+ez az a tény, amit a törlés megszüntet. Ugyanígy a `PurgeTenant` az archivált
+tenant összes sorát.
+
+⚠️ **Amit visszavonni nem tudunk:** a MÁR elküldött eseményt a Metánál. A törlési
+kérelem a slot4u oldaláról szünteti meg az adatot; a Meta felé a tenantnak kell
+élnie a saját eszközeivel. Ezt a korlátot a tenant tájékoztatójának kell kimondania,
+és ezért is fontos, hogy egyetlen esemény se menjen ki hozzájárulás nélkül.
 
 ### 11.2 Süti, nem localStorage — és nem DB sor
 

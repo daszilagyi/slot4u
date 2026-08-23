@@ -48,6 +48,7 @@ final class RetentionSweep
             $this->pruneAuditLogs($now),
             $this->pruneSessions($now),
             $this->pruneIntegrationLogs($now),
+            $this->pruneConversions($now),
         ];
     }
 
@@ -194,6 +195,34 @@ final class RetentionSweep
         );
 
         return RetentionStep::done('integration_logs_deleted', $deleted);
+    }
+
+    /**
+     * Ad-conversion rows past their window (SLO-173).
+     *
+     * These are the rows the sweep exists for in the most literal sense: a
+     * `pending` row for a booking that never became a sale holds the visitor's
+     * Meta cookie identifiers and will never be sent, so after a while it is
+     * personal data being kept for a purpose that has expired.
+     *
+     * Guarded on the table existing, like the integration log above, so a host
+     * that has not run the migration yet reports the step skipped rather than
+     * failing the whole daily run.
+     */
+    private function pruneConversions(Carbon $now): RetentionStep
+    {
+        if (! Schema::hasTable('analytics_conversions')) {
+            return RetentionStep::skipped('analytics_conversions_deleted', 'no analytics_conversions table');
+        }
+
+        $cutoff = $now->copy()->subDays($this->days('conversion_days'));
+
+        $deleted = $this->deleteInChunks(
+            fn () => DB::table('analytics_conversions')->where('created_at', '<', $cutoff),
+            'analytics_conversions',
+        );
+
+        return RetentionStep::done('analytics_conversions_deleted', $deleted);
     }
 
     /**

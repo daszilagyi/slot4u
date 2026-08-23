@@ -168,6 +168,21 @@ invoices           id, tenant_id, booking_id, payment_id(unique), provider(sandb
                    -- A PDF PRIVÁT diszken (`config/invoicing.disk`), csak auth-os letöltés.
 
 tenants.invoicing  -- titkosított (encrypted:array) oszlop: számlázó API kulcs + eladó adatok
+analytics_conversions id, tenant_id, booking_id, provider, event_name, event_id, status,
+                   -- attempts, fbp, fbc, event_source_url, last_error, sent_at, timestamps
+                   -- (SLO-173) Szerver-oldali hirdetési konverzió. UNIQUE(tenant_id, booking_id,
+                   -- provider, event_name) — az idempotencia DB-szinten, nem a jó szándékon.
+                   -- A sor a FOGLALÁSKOR jön létre (akkor olvasható a hozzájárulás és az
+                   -- _fbp/_fbc süti), és akkor megy ki, amikor a foglalás eladássá válik.
+                   -- Hozzájárulás nélkül NINCS sor — a sor hiánya a „nem" tartós rögzítése.
+                   -- Az fbp/fbc a sikeres küldés után törlődik: utána cél nélküli személyes adat.
+
+tenants.analytics  -- titkosított (encrypted:array) oszlop (SLO-56): a tenant SAJÁT mérőkódjai
+                   -- (ga4_measurement_id, meta_pixel_id) + a Conversions API hitelesítése
+                   -- (meta_access_token, meta_test_event_code). Az azonosítók publikusak, a
+                   -- TOKEN nem — ezért titkosított az egész oszlop, és ezért nem megy vissza
+                   -- soha Inertia propba (csak a `hasMetaAccessToken` tény).
+                   -- NEM fillable: külön képernyő írja (AnalyticsSettingsController).
                    -- (SLO-133). NEM a sima `settings` json-ban, és sosem megy Inertia propba.
 ```
 

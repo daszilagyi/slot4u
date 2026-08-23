@@ -65,6 +65,56 @@ return [
             ],
         ],
 
+        'meta_pixel' => [
+            'script' => ['https://connect.facebook.net'],
+            'connect' => ['https://www.facebook.com', 'https://connect.facebook.net'],
+            // fbevents.js reports by dropping a 1×1 on facebook.com, and the
+            // <noscript> fallback is literally an <img>.
+            'img' => ['https://www.facebook.com'],
+        ],
+
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Tenant measurement (SLO-56)
+    |--------------------------------------------------------------------------
+    |
+    | The TENANT's own GA4 property and Meta Pixel, on the TENANT's own public
+    | pages. Configured per tenant (`tenants.analytics`), never here — this only
+    | says which consent category each vendor answers to.
+    |
+    | The split is not cosmetic. GA4 is measurement and Meta Pixel is advertising:
+    | a visitor who agreed to be counted has not thereby agreed to be retargeted,
+    | and the banner asks the two questions separately. Mapping both to
+    | `analytics` would quietly make one answer stand for the other.
+    |
+    */
+
+    'tenant' => [
+        'ga4_category' => 'analytics',
+        'meta_pixel_category' => 'marketing',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Meta Conversions API (SLO-173)
+    |--------------------------------------------------------------------------
+    |
+    | Where the server-side half of a conversion goes. The pixel id and the
+    | access token are the TENANT's and live on the tenant row; only the endpoint
+    | and the timeout are the platform's business.
+    |
+    | The Graph host is configurable so a test can point it somewhere harmless
+    | without faking the HTTP client — and so a future proxy or regional endpoint
+    | is an env change rather than a release.
+    |
+    */
+
+    'meta' => [
+        'graph_url' => (string) env('META_GRAPH_URL', 'https://graph.facebook.com'),
+        'api_version' => (string) env('META_GRAPH_VERSION', 'v21.0'),
+        'timeout' => (int) env('META_CAPI_TIMEOUT', 15),
     ],
 
 ];
