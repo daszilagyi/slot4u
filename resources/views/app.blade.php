@@ -14,6 +14,7 @@
             } catch (e) {}
         })();
     </script>
+    @include('partials.analytics')
     @viteReactRefresh
     @vite(['resources/js/app.tsx'])
     @inertiaHead

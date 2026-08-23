@@ -12,12 +12,12 @@ return [
     | not to a person, and writing it to a row would mean identifying an
     | anonymous visitor in order to record that they declined to be tracked.
     |
-    | ⚠️ Nothing in the app is gated by this yet, and that is not an oversight.
-    | slot4u sets only strictly necessary cookies today (session + XSRF), and
-    | under the ePrivacy rules those need no consent at all. What this exists for
-    | is the moment analytics arrives (docs/08: Meta Pixel / GA4 are Phase 2) —
-    | so it lands behind a decision that already exists, rather than shipping the
-    | tag first and the banner second.
+    | What it gates today: slot4u's own GA4 tag on the marketing site (SLO-172).
+    | The decision is read server-side, before the root Blade decides whether to
+    | emit the tag and before the CSP decides whether Google is a permitted
+    | origin — so declining does not merely stop a script from running, it stops
+    | the page from ever containing it. Tenant-side measurement (Meta Pixel /
+    | tenant GA4) follows in SLO-56 and hangs off the same two categories.
     |
     */
 

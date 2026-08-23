@@ -32,10 +32,12 @@ use App\Services\Domain\NullCustomHostnameProvisioner;
 use App\Services\Domain\SystemDnsResolver;
 use App\Services\Feature\FeatureResolver;
 use App\Services\Monitoring\Heartbeats;
+use App\Support\Analytics\PlatformAnalytics;
 use App\Tenancy\CustomDomainResolver;
 use App\Tenancy\TenantManager;
 use App\Tenancy\TenantPublicUrl;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Contracts\View\View as ViewContract;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Foundation\Events\DiagnosingHealth;
 use Illuminate\Http\Request;
@@ -45,6 +47,7 @@ use Illuminate\Queue\Events\Looping;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 use Spatie\Permission\Models\Role as RoleModel;
@@ -97,6 +100,21 @@ class AppServiceProvider extends ServiceProvider
         // in-process state, and the process it has to throttle is a queue worker
         // run — which would otherwise write on every loop of its own lifetime.
         $this->app->singleton(Heartbeats::class);
+
+        // slot4u's own GA4 decision (SLO-172). Scoped so the root Blade and the
+        // CSP builder cannot answer "does the tag load?" differently within one
+        // request — a policy that disagrees with the markup is the SLO-150 bug.
+        //
+        // No console special-case. A queue worker or an artisan command holds a
+        // synthetic Request whose host is not the marketing domain and which
+        // carries no consent cookie, so it resolves to disabled by the same
+        // three conditions everything else does — and the branch that would have
+        // asserted that explicitly (`runningInConsole()`) is true under Pest,
+        // which would have made every test of this feature test nothing at all.
+        $this->app->scoped(
+            PlatformAnalytics::class,
+            fn ($app): PlatformAnalytics => PlatformAnalytics::forRequest($app['request']),
+        );
     }
 
     /**
@@ -126,6 +144,14 @@ class AppServiceProvider extends ServiceProvider
         Password::defaults(fn () => Password::min(12)->uncompromised());
 
         $this->definePublicRateLimiters();
+
+        // The GA4 partial gets its decision injected rather than resolving the
+        // container itself (SLO-172), so a test can render the root view with a
+        // disabled instance and the Blade stays free of service location.
+        View::composer(
+            'partials.analytics',
+            fn (ViewContract $view) => $view->with('analytics', app(PlatformAnalytics::class)),
+        );
 
         // The role editor (SLO-141) authorizes against spatie's Role model, which
         // policy auto-discovery cannot map by naming convention (different

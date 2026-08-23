@@ -367,22 +367,53 @@ volt, nem garancia. A javítás ezért **a fixture-ben** van (`erasureFixture()`
 külön tesztben: így minden meglévő söprés-állítás magától fedi az új oszlopokat, és a
 következő PII-oszlop is aznap bukik, amikor beérkezik.
 
-## 11. Cookie consent (SLO-165)
+## 11. Cookie consent (SLO-165) és a mérés (SLO-172)
 
-### 11.1 ⚠️ Ma semmit nem kapcsol ki — és ez nem hiba
+### 11.1 Mit kapcsol ki ma
 
-A slot4u jelenleg **kizárólag működéshez szükséges** sütiket használ (Laravel
-session + XSRF). Az ePrivacy szabályai szerint ezekhez **nem kell hozzájárulás**.
-A Meta Pixel és a GA4 a `docs/08` szerint **Phase 2**.
+Az `analytics` kategória a **slot4u saját GA4 tagjét** kapcsolja a marketing-oldalon
+(SLO-172). A `marketing` kategória ma még semmit — a tenant-oldali Meta Pixel a
+SLO-56-tal érkezik.
 
-Akkor miért van banner? Mert az analitika **egyszer meg fog érkezni**, és akkor
-egy **már létező** döntés mögé kell landolnia — nem fordítva, hogy előbb megy ki
-a mérőkód és utána jön a banner. A Phase 2 kapuja tehát:
+A `necessary` sütik (Laravel session + XSRF) az ePrivacy szerint hozzájárulás
+nélkül is mehetnek, ezért nem is választhatók.
+
+### 11.1.1 A kapu a szerveren van, nem a böngészőben
 
 ```php
-if (app(\App\Support\CookieConsent::class)->allows('analytics')) { … }
-// vagy a root Blade-ben, kiszolgálás ELŐTT eldöntve
+// app/Support/Analytics/PlatformAnalytics.php
+if (! CookieConsent::fromRequest($request)->allows('analytics')) { /* nincs tag */ }
 ```
+
+A döntés **három** feltétel egyike, és mindhármat a szerver hozza meg, mielőtt
+egyetlen bájt kimenne:
+
+1. van beállított mérőazonosító (`ANALYTICS_GA4_MEASUREMENT_ID`, prod-only),
+2. a kérés a **központi domainre** jött,
+3. a látogató megadta az `analytics` hozzájárulást.
+
+Amíg ezek nem állnak, a `gtag.js` **nem kerül bele a HTML-be** — nem „betölt, de
+nem mér", hanem nincs ott. A CSP-t ugyanaz az objektum tágítja
+(`ContentSecurityPolicy::$analytics`), tehát elutasítás esetén a policy sem
+engedné meg a googletagmanager.com-ot. Két független zár, ugyanarra a döntésre.
+
+⚠️ **A döntés megváltoztatása teljes újratöltést vált ki**
+(`CookieConsent.tsx` → `window.location.reload()`). Ez nem kényelmi kérdés: a tag
+a dokumentum `<head>`-jében ül, egy Inertia-navigáció pedig csak az oldal-komponenst
+cseréli. Újratöltés nélkül a **visszavonás** nem érne semmit — a már betöltött tag
+a munkamenet végéig futna tovább.
+
+### 11.1.2 ⚠️ A tenant-aldoménen a platform SOHA nem mér
+
+`{slug}.slot4u.hu`-n a **tenant az adatkezelő**, a slot4u az adatfeldolgozó (§2).
+Egy slot4u tulajdonú GA4 property, ami ezt a forgalmat gyűjti, azt jelentené, hogy
+a platform a **más nevében kezelt** adatból csinál magának terméket — az
+adatfeldolgozói szerep megsértése, függetlenül attól, hogy a látogató mit
+kattintott a banneren. Ezt kódban a `PlatformAnalytics::isCentralHost()` zárja, és
+külön teszt őrzi (`tests/Feature/Analytics/PlatformAnalyticsTest.php`).
+
+A tenant **saját** mérőkódja (SLO-56) más lapra tartozik: ott a tenant a saját
+adatkezelői döntését hozza meg, a slot4u csak a technikai kiszolgáló.
 
 ### 11.2 Süti, nem localStorage — és nem DB sor
 

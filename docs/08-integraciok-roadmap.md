@@ -21,7 +21,7 @@ Prioritált terv a külső integrációkhoz. Minden integráció: feature flag m
 | Billingo | Számlázás | ★★ | M | Phase 2/3 — InvoiceProvider absztrakcióra, igény szerint | feature_invoicing |
 | Outlook Calendar | Naptár-szinkron | ★★ | M | Phase 3 — a CalendarProvider absztrakcióra (MS Graph) | feature_outlook_calendar |
 | Zoom | Videó | ★★ | M | Phase 3 — VideoProvider absztrakció, ha a Meet nem elég | feature_zoom |
-| Google Analytics 4 | Analytics | ★★ | S | Phase 2 — tenant megadja a mérőkódot, foglalási funnel eventek (begin_checkout, purchase) | feature_analytics |
+| Google Analytics 4 | Analytics | ★★ | S | **A platform saját mérése kész (SLO-172)** — csak `slot4u.hu`, consent mögött. A tenant saját mérőkódja + foglalási funnel eventek (begin_checkout, purchase): SLO-56 | feature_analytics |
 | Meta Pixel | Analytics/Ads | ★★ | S | Phase 2 — GA4-gyel együtt, consent-höz kötve (GDPR!) | feature_analytics |
 | Mailchimp | Marketing | ★★ | M | Phase 3 — ügyfél-szinkron lista felé (opt-in!), foglalás-alapú szegmensek | feature_marketing_sync |
 | MailerLite | Marketing | ★ | S (Mailchimp után) | Phase 3 — MarketingProvider absztrakcióra | feature_marketing_sync |
@@ -36,7 +36,8 @@ Effort: S ≈ pár nap, M ≈ 1-2 hét, L ≈ 2+ hét (absztrakció + OAuth + ed
 - **OAuth tokenek:** staff-szintű (naptár) ill. tenant-szintű (marketing) tokenek titkosítva, refresh-flow job-bal, lejárat-riasztással.
 - **Hibatűrés:** integráció-kiesés SOHA nem blokkolhat foglalást — minden külső hívás queue-ból, retry-jal; a foglalás a forrás-igazság (source of truth), a külső rendszer követi.
 - **Naptár-szinkron konfliktus:** külső naptár-esemény és slot4u-foglalás ütközésénél a slot4u-foglalás él, a konfliktus admin-riasztást generál (nem automatikus törlést).
-- **Consent:** Meta Pixel / GA4 csak cookie-consent után tölthet be; Mailchimp-szinkron csak explicit marketing opt-in-es ügyfeleket küld. **A kapu készen áll (SLO-165):** `CookieConsent::allows('analytics'|'marketing')`, szerver oldalon eldöntve — a mérőkód így már meglévő döntés mögé landol, l. `docs/19` §11.
+- **Consent:** Meta Pixel / GA4 csak cookie-consent után tölthet be; Mailchimp-szinkron csak explicit marketing opt-in-es ügyfeleket küld. **A kapu készen áll (SLO-165):** `CookieConsent::allows('analytics'|'marketing')`, szerver oldalon eldöntve — a mérőkód így már meglévő döntés mögé landol, l. `docs/19` §11. A SLO-172 ezt a mintát már használja: a tag a **root Blade-ben** dől el, és ugyanaz az objektum tágítja a CSP-t, hogy a policy és a markup ne tudjon széttartani.
+- **⚠️ Ki az adatkezelő:** a platform saját mérése kizárólag a központi domainen fut. Tenant-aldoménen a tenant az adatkezelő és a slot4u az adatfeldolgozó (`docs/19` §2) — ott csak a **tenant saját** mérőkódja szólalhat meg, a platformé soha.
 
 ## PM döntési kapuk
 
