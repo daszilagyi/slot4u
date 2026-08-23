@@ -271,6 +271,100 @@ szerint bontva. Egy külső mérő ma csak annyit adna hozzá, hogy a látogató
 — cserébe consent-menedzsmentet és adatfeldolgozói kitettséget hozna. A consent-kapu (SLO-165)
 **készen áll**, tehát ha a mérés később kell, a bekötése nem blokkolt.
 
+## 10. Teljesítmény — a mérés módja és az eredménye (SLO-176)
+
+### 10.1 Hogyan mérünk
+
+```bash
+php artisan perf:probe --tenant=<slug> --iterations=30 [--queries]
+```
+
+**Csak olvas, prodon is futtatható** — minden útvonala olyan GET, amit a publikum
+egyébként is kér. Ez a lényeg: staging nincs (SLO-156), tehát az egyetlen hely, ahol a
+szám jelent valamit, az éles host, éles adaton.
+
+A parancs a HTTP kernelen keresztül, **folyamaton belül** küld kéréseket. Tudatos csere:
+osztott tárhelyen nincs mit telepíteni terhelésgenerátornak, egy laptopról indított curl
+pedig inkább az internetet méri, mint minket. ⚠️ **Az nginx, az FPM process-felvétel és a
+TLS NINCS benne** — a szám alsó korlát, nem a látogató élménye.
+
+A `queries` és a `db (ms)` oszlop a hasznosabbik fele: megmondják, hogy **melyik javítás
+tartozik a problémához**. Sok query → N+1. Kevés, de lassú query → index. Idő, ami nem a
+DB-ben van → más kód kell. A kettő közti találgatás az, amitől valaki cache-t épít arra,
+amit a cache nem old meg.
+
+⚠️ **A parancs megtagadja az eredmény közlését, ha bármelyik útvonal nem 200-at adott.**
+Ennek konkrét oka van: az első futása gyönyörű, egyszámjegyű ezredmásodperceket írt ki —
+mindegyik egy 429-es válasz renderelési ideje volt. Egy szám, ami nem azt méri, amit
+állít, rosszabb, mint a mérés hiánya, mert idézni fogják.
+
+Élethű méretű teszt-tenant lokálisan (**prodban megtagadja magát**):
+
+```bash
+php artisan perf:seed-load --tenant=acme --bookings=50000 --staff=20
+```
+
+### 10.2 A mérés — 2026-08-23, 55 000 foglalás / 20 munkatárs
+
+| Útvonal | p95 ELŐTTE | p95 UTÁNA | DB-idő előtte → utána |
+|---|---|---|---|
+| tenant nyitóoldal | 33 ms | 38 ms | 12 → 8 ms |
+| `/book` (szolgáltatás nélkül) | 394 ms | **192 ms** | 264 → 34 ms |
+| `/book?service=` | 344 ms | **205 ms** | 300 → 62 ms |
+| `/book?service=&date=` | **509 ms** | **212 ms** | 429 → 20 ms |
+
+**AC: p95 < 300 ms — teljesül**, egy olyan tenanton, ami minden induláskori valós ügyfélnél
+nagyobb.
+
+### 10.3 Mi volt a baj — és mi NEM
+
+Egyetlen lekérdezés adta a teljes időt: `AvailabilityService::loadBookings()`.
+
+```sql
+where tenant_id = ? and staff_id in (...) and starts_at < ? and ends_at > ?
+```
+
+Az átfedés-vizsgálat kézenfekvő alakja — **és nincs alsó korlát a `starts_at`-en**. Emiatt
+egyetlen index sem tudja kiszolgálni: az adatbázisnak a tenant **összes eddigi foglalását**
+végig kell néznie. `EXPLAIN`:
+
+```
+type: ALL   key: NULL   rows: 54475      ← teljes tábla-scan
+```
+
+Alsó korláttal:
+
+```
+type: range key: bookings_tenant_starts_at_idx   rows: 745
+```
+
+⚠️ **A SLO-155-ben hozzáadott `(tenant_id, starts_at)` index eddig ezen a lekérdezésen
+semmit nem ért** — egy index nem tud segíteni egy alulról nyitott tartományon. A két
+javítás együtt ér valamit.
+
+⚠️ **Cache-t szándékosan NEM építettünk.** Az SLO-176 eredetileg azt feltételezte, hogy az
+availability endpointot cache-elni kell. A mérés mást mondott: nem sok query volt, nem is
+lassú PHP, hanem egy indexelhetetlen feltétel. Egy cache elrejtette volna a teljes
+tábla-scant egy TTL mögé, **dupla foglalás kockázatát** hozva egy olyan nyereségért, amit
+egy `where` sor ingyen ad. A cache-t akkor vesszük elő, ha egy mérés kéri.
+
+### 10.4 A korlát ára: a foglalás hossza plafonos
+
+Az alsó korlát csak akkor **helyes**, ha semmi nem tarthat tovább nála: egy korábban indult,
+még futó foglalás láthatatlan lenne az availability számára, egy láthatatlan foglalás pedig
+kétszer felkínált időpont. Ezért a `booking.max_span_hours` (24 óra) **két helyen** olvasott
+egyetlen érték: az `Admin\BookingRequest` visszautasítja a hosszabbat, a lekérdezés pedig
+erre a garanciára támaszkodik.
+
+⚠️ Ez **viselkedésváltozás**: eddig az admin `ends_at`-je csak `after:starts_at` volt — a
+rendszer egyetlen olyan időtartama, aminek nem volt plafonja (a szolgáltatás-hossz, a
+bérlési határok és mindkét buffer `max:1440` perc). Meglévő, ennél hosszabb foglalás
+ellenőrzése:
+
+```sql
+SELECT COUNT(*) FROM bookings WHERE TIMESTAMPDIFF(HOUR, starts_at, ends_at) > 24;
+```
+
 ## 9. Ami tudatosan kimaradt
 
 * **Performance tracing és session replay.** A Sentry drága fele — kvótában és abban is,

@@ -1595,6 +1595,11 @@ return [
                 'event_required' => 'Eseményalapú szolgáltatáshoz válassz eseményt.',
                 'slot_required' => 'Add meg a foglalás kezdő és záró időpontját.',
                 'end_required' => 'Ennek a szolgáltatásnak nincs fix hossza, ezért add meg a foglalás záró időpontját is.',
+                // A foglalás maximális hossza (SLO-176). ⚠️ Nem rendetlenség
+                // ellen véd: az availability lekérdezés erre a garanciára épül —
+                // egy ennél hosszabb foglalás láthatatlan lenne neki, egy
+                // láthatatlan foglalás pedig kétszer felkínált időpont.
+                'span_too_long' => 'Egy foglalás nem tarthat tovább :hours óránál.',
                 'resource_required' => 'Válassz dolgozót vagy helyiséget a foglaláshoz.',
                 'quote_mode' => 'Ajánlatkérés módú szolgáltatás foglalása csak ajánlat elfogadásán keresztül lehetséges.',
                 'reschedule_mode' => 'Csak idősávos foglalás foglalható át (időpont-alapú vagy erőforrás-bérlés).',

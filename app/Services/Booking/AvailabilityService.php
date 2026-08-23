@@ -381,11 +381,29 @@ class AvailabilityService
         $dayStart = $day->copy()->utc()->subDay();
         $dayEnd = $day->copy()->addDays(2)->utc();
 
+        // ⚠️ The lower bound is what makes this query indexable (SLO-176).
+        //
+        // The overlap test on its own — `starts_at < end AND ends_at > start` —
+        // has no floor under `starts_at`, so no index can serve it and the
+        // database must consider every booking the tenant has ever made.
+        // Measured on 55,000 bookings that was a full table scan of 54,475 rows
+        // on the busiest public endpoint: ~400 ms of a ~500 ms page. With this
+        // bound it is a range scan of ~745 rows on `(tenant_id, starts_at)`
+        // (docs/17 §10).
+        //
+        // The bound is CORRECT rather than convenient: nothing may span longer
+        // than `booking.max_span_hours`, because Admin\BookingRequest refuses it.
+        // A booking that began before this floor and is still running would be
+        // invisible here — and an invisible booking is a slot offered twice — so
+        // the guarantee is enforced at the write, not assumed at the read.
+        $earliest = $dayStart->copy()->subHours((int) config('booking.max_span_hours', 24));
+
         $grouped = Booking::query()
             ->where('tenant_id', $tenantId)
             ->whereIn($column, $resourceIds)
             ->whereIn('status', BookingStatus::occupyingValues())
             ->whereNotNull('starts_at')
+            ->where('starts_at', '>=', $earliest)
             ->where('starts_at', '<', $dayEnd)
             ->where('ends_at', '>', $dayStart)
             ->get()
