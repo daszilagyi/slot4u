@@ -144,7 +144,7 @@ A központi domain `APP_CENTRAL_DOMAIN=slot4u.test` (`.env`). A séma:
 
 | Host | Felület |
 |---|---|
-| `slot4u.test` | központi (apex) Welcome |
+| `slot4u.test` | központi (apex) marketing landing (SLO-50) |
 | `admin.slot4u.test` | superadmin panel |
 | `{slug}.slot4u.test` | tenant felület (pl. `acme.slot4u.test`) |
 
@@ -162,6 +162,11 @@ A `SESSION_DOMAIN=.slot4u.test` (vezető pont) megosztja a session cookie-t a su
 **Demo tenantok** (`TenantDemoSeeder`, `make fresh` után): `acme` (active → tenant home),
 `suspended-demo` (suspended → 503 státuszoldal). Tenant-admin loginok: `admin@acme.test` /
 `admin@suspended-demo.test`, jelszó `password`.
+
+A landing „nézd meg működés közben" gombja az `APP_DEMO_TENANT_SLUG` aldoménjére mutat
+(`tenancy.demo_slug`, default `demo` — ez az éles `demo.slot4u.hu`). Lokálisan a
+`.env.example` `acme`-re állítja, mert `demo` nevű tenantot a seeder nem hoz létre.
+Üres érték esetén a landing **nem** rendel demo gombot — dead link helyett inkább semmit.
 
 ## Rate limiting (SLO-147)
 

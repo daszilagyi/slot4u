@@ -6,6 +6,7 @@ use App\Models\ServiceCategory;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Tenancy\TenantManager;
+use Database\Seeders\CommissionSettingSeeder;
 use Illuminate\Support\Facades\Vite;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -135,4 +136,27 @@ it('server-renders the admin calendar, grid and all', function () {
 
     // Real server-rendered markup, not just the serialized props.
     expect(renderedMarkupOnly($response->getContent()))->toContain('Naptár');
+});
+
+it('server-renders the marketing landing with its price in the HTML (SLO-50)', function () {
+    // The landing is the one page written for search engines and link previews,
+    // so a client-only shell there is not a cosmetic problem — it is the page
+    // being invisible. The price is asserted after prop-stripping because it is
+    // computed server-side: if it survives, SSR ran AND the figure reached the
+    // markup rather than only the serialized props.
+    $this->seed(CommissionSettingSeeder::class);
+
+    $content = $this->get('http://'.config('tenancy.central_domain').'/')
+        ->assertOk()
+        ->getContent();
+
+    $rendered = renderedMarkupOnly($content);
+
+    expect($rendered)
+        ->toContain('id="app"')
+        // welcome.pricing_title, rendered by the server.
+        ->toContain('fizetsz, ha keresel')
+        // The free threshold, formatted from commission_settings (10 000 Ft —
+        // Intl uses a non-breaking space as the group separator).
+        ->toContain('10'."\u{A0}".'000');
 });

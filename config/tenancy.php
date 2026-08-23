@@ -29,6 +29,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Demo tenant (SLO-50)
+    |--------------------------------------------------------------------------
+    |
+    | Slug of the seeded, publicly linkable demo tenant the landing page sends
+    | visitors to. Null or empty means there is no demo on this installation and
+    | the landing renders no demo link at all — a dead first click costs more
+    | than a missing button.
+    |
+    */
+
+    'demo_slug' => env('APP_DEMO_TENANT_SLUG', 'demo'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Reserved subdomains
     |--------------------------------------------------------------------------
     |

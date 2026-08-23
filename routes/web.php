@@ -3,9 +3,9 @@
 use App\Http\Controllers\ConsentController;
 use App\Http\Controllers\CookieConsentController;
 use App\Http\Controllers\DeployHealthController;
+use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LegalController;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
 // Deploy verification (SLO-152). Deliberately not domain-constrained: the smoke
 // test runs against whatever host the pipeline was pointed at, and the answer is
@@ -18,7 +18,7 @@ Route::get('_deploy/health', DeployHealthController::class)
 // Central (apex) domain — marketing / registration. Constrained to the central
 // domain so tenant subdomains fall through to routes/tenant.php.
 Route::domain(config('tenancy.central_domain'))->group(function () {
-    Route::get('/', fn () => Inertia::render('Welcome'))->name('home');
+    Route::get('/', HomeController::class)->name('home');
 
     // The platform's own terms and privacy notice (SLO-161). Public: nobody can
     // consent to a text they are not allowed to read, and the sign-up form links

@@ -1,10 +1,85 @@
 <?php
 
 return [
+    // A központi slot4u.hu marketing landing (SLO-50).
+    //
+    // ⚠️ A szövegek NEM kitalált márkahang: az árazási állítások a docs/10 §1-ből
+    // szó szerint következnek, a funkciólista a docs/04 foglalási módjaiból. Ahol
+    // számot írunk ki, az a platform-default (docs/10 §2.1) — ha az superadminban
+    // változik, ez a szöveg NEM követi magától, ezért a `pricing_note` kimondja,
+    // hogy tájékoztató jellegű.
     'welcome' => [
-        'title' => 'Üdvözlünk a slot4u-ban',
-        'subtitle' => 'Foglalási rendszer — fejlesztés alatt.',
-        'badge' => 'M1 · Alapinfrastruktúra',
+        'meta_title' => 'slot4u — online foglalási rendszer, havidíj nélkül',
+        'meta_description' => 'Ingyenes online foglalási rendszer szolgáltatóknak. Nincs havidíj és nincs csomagválasztás — jutalékot csak a havi 10 000 Ft forgalom feletti részre számolunk.',
+        'badge' => 'Havidíj nélkül · fizetsz, ha már van forgalmad',
+        'title' => 'Online foglalás, ami nem kerül semmibe, amíg nincs miből fizetned',
+        'subtitle' => 'A slot4u foglalási motorja ingyenes: nincs belépő havidíj, nincs csomagválasztás. Jutalékot csak akkor számolunk, ha már van forgalmad — és akkor is csak a küszöb feletti részre.',
+        'cta_primary' => 'Kezdd el ingyen',
+        'cta_secondary' => 'Nézd meg működés közben',
+        'login' => 'Belépés',
+
+        'pricing_title' => 'Az árazás egy mondatban: fizetsz, ha keresel',
+        'pricing_lead' => 'A slot4u nem ül be a pénzáramlásba. A foglalás ellenértéke közvetlenül hozzád fut — készpénzben, utalással vagy a saját fizetési integrációdon. Mi a havi forgalmad után számlázunk jutalékot.',
+        'pricing_free' => 'Havi :amount forgalomig',
+        'pricing_free_value' => '0% jutalék',
+        'pricing_rate' => 'A küszöb feletti rész után',
+        'pricing_rate_value' => ':rate jutalék',
+        'pricing_rate_hint' => ':rate, ha online kártyás fizetést vagy számlázást is használsz.',
+        'pricing_cap' => 'Havi felső korlát',
+        'pricing_cap_value' => ':amount',
+        'pricing_cap_hint' => 'Efölött abban a hónapban nincs több jutalék.',
+        'pricing_example_title' => 'Egy példa, számokkal',
+        'pricing_example' => 'Ha egy hónapban :turnover forgalmad van, a jutalék a küszöb feletti :taxable :rate-a, azaz :fee — nem a teljes forgalomé.',
+        'pricing_cancel' => 'A 24 óránál korábbi lemondás jutalékmentes — amiért nem kaptál pénzt, azért nem kérünk.',
+        'pricing_note' => 'A feltüntetett értékek az induló beállítások, tájékoztató jelleggel. A pontos, rád vonatkozó feltételeket a szerződés rögzíti.',
+
+        'features_title' => 'Ötféle foglalás, egy rendszerben',
+        'features_lead' => 'Nem minden szolgáltatás időpont. A slot4u ugyanazon a motoron kezeli mindet — nem kell eldöntened, melyik dobozba férsz bele.',
+        // Külön szövegek, NEM az admin `admin.services.mode.*` kulcsai: az admin
+        // felület címkéi rövidek és belső használatra valók, itt eladni kell.
+        'modes' => [
+            'duration_based' => 'Idősávos időpont',
+            'duration_based_hint' => 'Fix hosszúságú alkalom a munkatárs munkarendje szerint, ütközésmentesen.',
+            'event_based' => 'Meghirdetett esemény',
+            'event_based_hint' => 'Fix kezdés, korlátos létszám, várólista, ha betelt.',
+            'resource_rental' => 'Terem- és eszközbérlés',
+            'resource_rental_hint' => 'Szabadon választott idősáv arra, amiből csak egy van.',
+            'no_time_slot' => 'Időpont nélküli',
+            'no_time_slot_hint' => 'Amihez nem kell naptár: dokumentumbeküldés, digitális termék, kérés.',
+            'quote_request' => 'Ajánlatkérés',
+            'quote_request_hint' => 'Ha az ár csak a részletek ismeretében derül ki — ajánlat, elfogadás, foglalás.',
+        ],
+
+        'audience_title' => 'Kinek készült',
+        'audience_lead' => 'Bárkinek, aki időt vagy kapacitást ad el — és nem akar érte havidíjat fizetni, amíg nincs miből.',
+        'audience' => [
+            'therapist' => 'Pszichológus, terapeuta',
+            'therapist_hint' => 'Idősávos foglalás, lemondási határidő, emlékeztető — és adatvédelem, ami elbírja az egészségügyhöz közeli adatokat.',
+            'trainer' => 'Edző, oktató',
+            'trainer_hint' => 'Egyéni időpont és meghirdetett csoportos alkalom, várólistával, ha betelt.',
+            'salon' => 'Szalon, több munkatárssal',
+            'salon_hint' => 'Munkatársankénti munkarend, helyiség-ütközés, admin naptár.',
+            'rental' => 'Terem- és eszközbérlés',
+            'rental_hint' => 'Szabadon választott hosszúságú idősáv, kaució, kihasználtsági riport.',
+        ],
+
+        'trust_title' => 'Amit alapból kapsz',
+        'trust' => [
+            'domain' => 'Saját foglalóoldal',
+            'domain_hint' => 'A saját aldoménod az első perctől, később egyedi domainnel is.',
+            'privacy' => 'GDPR-eszközök',
+            'privacy_hint' => 'Ügyfél-adatexport, törlési kérelem, megőrzési idők — nem utólag ragasztva.',
+            'notify' => 'Értesítések',
+            'notify_hint' => 'Visszaigazoló és emlékeztető emailek, a te szövegeddel, a te nevedben.',
+            'reports' => 'Kimutatások',
+            'reports_hint' => 'Bevétel, kihasználtság, no-show — abból, ami a rendszerben történik.',
+        ],
+
+        'closing_title' => 'A regisztráció ingyenes, és két percbe telik',
+        'closing_lead' => 'Nem kell bankkártya. A foglalóoldalad azonnal él.',
+
+        'footer_demo' => 'Demó foglalóoldal',
+        'footer_rights' => '© :year slot4u',
     ],
     'tenant' => [
         'home' => [
