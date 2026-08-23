@@ -23,6 +23,7 @@ Prioritált terv a külső integrációkhoz. Minden integráció: feature flag m
 | Zoom | Videó | ★★ | M | Phase 3 — VideoProvider absztrakció, ha a Meet nem elég | feature_zoom |
 | Google Analytics 4 | Analytics | ★★ | S | **Kész.** Platform (SLO-172): csak `slot4u.hu`. Tenant (SLO-56): saját mérőkód + funnel eventek (`view_item`, `begin_checkout`, `purchase`) | feature_analytics |
 | Meta Pixel | Analytics/Ads | ★★ | S | **Kész (SLO-56)** — a `marketing` consent-kategória mögött, `ViewContent` / `InitiateCheckout` / `Purchase`. A `Purchase` `eventID`-je a foglaláskód, hogy a szerver-oldali Conversions API event deduplikálható legyen | feature_analytics |
+| Meta Conversions API | Analytics/Ads | ★★★ | M | **Kész (SLO-173)** — szerver-oldali `Purchase`, hashelt PII-jal, queue-ból, retry-jal. Ez az a fele, amit a reklámblokkoló nem vesz el; a dedup a foglaláskódon keresztül megy | feature_analytics |
 | Mailchimp | Marketing | ★★ | M | Phase 3 — ügyfél-szinkron lista felé (opt-in!), foglalás-alapú szegmensek | feature_marketing_sync |
 | MailerLite | Marketing | ★ | S (Mailchimp után) | Phase 3 — MarketingProvider absztrakcióra | feature_marketing_sync |
 | ActiveCampaign | Marketing | ★ | M | Phase 3+ — csak konkrét ügyféligénynél | feature_marketing_sync |

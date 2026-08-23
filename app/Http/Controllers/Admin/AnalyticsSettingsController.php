@@ -39,6 +39,14 @@ class AnalyticsSettingsController extends Controller
             'settings' => [
                 'ga4_measurement_id' => $settings->ga4MeasurementId,
                 'meta_pixel_id' => $settings->metaPixelId,
+                // ⚠️ The token itself never leaves the server (SLO-173). It is
+                // the credential that lets anyone post conversions into the
+                // tenant's ad account; a "reveal" affordance would put it into an
+                // Inertia prop, and from there into any page cache or error
+                // report that touches it. The screen learns only that one is set.
+                'has_meta_access_token' => $settings->hasMetaAccessToken(),
+                'meta_test_event_code' => $settings->metaTestEventCode,
+                'server_conversions' => $settings->sendsServerConversions(),
             ],
             // Which consent category each vendor answers to, so the screen can
             // tell the tenant the truth about when measurement actually runs
@@ -56,22 +64,29 @@ class AnalyticsSettingsController extends Controller
         abort_if($tenant === null, 404);
 
         $data = $request->validated();
+        $current = TenantAnalyticsSettings::fromArray($tenant->analytics);
 
-        // An empty field means "stop measuring with this vendor", not "keep what
-        // was there" — the opposite of the invoicing API key. The value IS shown
-        // in the form, so a blank field is a deliberate erasure, and a tenant who
-        // wants to stop feeding an account must be able to say so by clearing the
-        // box.
+        // The two ids behave the OPPOSITE way to the access token, and both are
+        // right:
         //
-        // Spread over the RAW stored array rather than replacing it: this screen
-        // owns two keys of a column that will hold more (the Conversions API
-        // settings land here next), and a wholesale overwrite would silently drop
-        // whatever it does not yet know about.
+        //  - An empty id means "stop measuring with this vendor". The value is
+        //    shown in the form, so a blank field is a decision, not an omission —
+        //    and a tenant who wants to stop feeding an account must be able to
+        //    say so by emptying the box.
+        //  - An empty token means "leave it alone". The form cannot show the
+        //    stored value, so it cannot send it back either, and treating a blank
+        //    as a deletion would wipe the credential every time somebody edited
+        //    the pixel id.
+        //
+        // Spread over the RAW stored array so a key this class does not model yet
+        // survives an edit made through this screen.
         $tenant->analytics = [
             ...(array) $tenant->analytics,
             ...(new TenantAnalyticsSettings(
                 ga4MeasurementId: $this->str($data, 'ga4_measurement_id'),
                 metaPixelId: $this->str($data, 'meta_pixel_id'),
+                metaAccessToken: $this->str($data, 'meta_access_token') ?? $current->metaAccessToken,
+                metaTestEventCode: $this->str($data, 'meta_test_event_code'),
             ))->toArray(),
         ];
 

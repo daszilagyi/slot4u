@@ -180,6 +180,10 @@ it('runs every declared window in one pass', function () {
         'audit_logs_deleted',
         'sessions_deleted',
         'integration_logs_deleted',
+        // Server-side ad conversions (SLO-173). A pending row for a booking that
+        // never became a sale holds the visitor's Meta cookie identifiers and
+        // will never be sent — personal data kept for an expired purpose.
+        'analytics_conversions_deleted',
     ]);
 });
 

@@ -6,6 +6,7 @@ namespace App\Services\Privacy;
 
 use App\Enums\AuditAction;
 use App\Enums\TenantStatus;
+use App\Models\AnalyticsConversion;
 use App\Models\Booking;
 use App\Models\Location;
 use App\Models\NotificationLog;
@@ -88,6 +89,7 @@ final class PurgeTenant
             $this->eraseBookings($locked);
             $this->eraseQuoteRequests($locked);
             $this->eraseWaitlist($locked);
+            $this->eraseConversions($locked);
             $this->redactNotificationLog($locked);
             $this->erasePrivacyRequests($locked);
             $this->eraseStaffProfiles($locked);
@@ -203,6 +205,18 @@ final class PurgeTenant
     private function eraseWaitlist(Tenant $tenant): void
     {
         WaitlistEntry::query()->where('tenant_id', $tenant->getKey())->delete();
+    }
+
+    /**
+     * Ad-conversion rows go entirely (SLO-173). They exist to report a sale to a
+     * platform on this tenant's behalf, and there is no longer a tenant on whose
+     * behalf to report it.
+     */
+    private function eraseConversions(Tenant $tenant): void
+    {
+        AnalyticsConversion::withoutGlobalScopes()
+            ->where('tenant_id', $tenant->getKey())
+            ->delete();
     }
 
     /**

@@ -14,8 +14,9 @@ namespace App\Settings;
  * marketing site.
  *
  * Both ids reach the browser: they are printed into the page, so treating them
- * as secrets would be theatre. The column is encrypted anyway, because the CAPI
- * access token shares it.
+ * as secrets would be theatre. The access token does NOT — it is the credential
+ * that lets anyone post conversions into the tenant's ad account, and it is why
+ * the whole column is encrypted at rest.
  */
 final class TenantAnalyticsSettings
 {
@@ -32,6 +33,18 @@ final class TenantAnalyticsSettings
     public function __construct(
         public readonly ?string $ga4MeasurementId = null,
         public readonly ?string $metaPixelId = null,
+        /**
+         * The Conversions API access token (SLO-173). A SECRET: it never reaches
+         * an Inertia prop — the settings screen only ever learns whether one is
+         * set ({@see hasMetaAccessToken()}).
+         */
+        public readonly ?string $metaAccessToken = null,
+        /**
+         * Meta's test event code. Present only while a tenant is verifying the
+         * integration in Events Manager; events carrying it show up in the test
+         * view instead of counting as real conversions.
+         */
+        public readonly ?string $metaTestEventCode = null,
     ) {}
 
     /**
@@ -48,6 +61,11 @@ final class TenantAnalyticsSettings
             // src> just because it is already in the database.
             ga4MeasurementId: self::matching($data, 'ga4_measurement_id', self::GA4_PATTERN),
             metaPixelId: self::matching($data, 'meta_pixel_id', self::META_PIXEL_PATTERN),
+            // Not pattern-matched: Meta does not document a stable shape for it,
+            // and a rule invented here would reject a valid token the day they
+            // change the format. A wrong one fails loudly on the first call.
+            metaAccessToken: self::str($data, 'meta_access_token'),
+            metaTestEventCode: self::str($data, 'meta_test_event_code'),
         );
     }
 
@@ -59,6 +77,8 @@ final class TenantAnalyticsSettings
         return [
             'ga4_measurement_id' => $this->ga4MeasurementId,
             'meta_pixel_id' => $this->metaPixelId,
+            'meta_access_token' => $this->metaAccessToken,
+            'meta_test_event_code' => $this->metaTestEventCode,
         ];
     }
 
@@ -72,10 +92,34 @@ final class TenantAnalyticsSettings
         return $this->metaPixelId !== null;
     }
 
+    public function hasMetaAccessToken(): bool
+    {
+        return $this->metaAccessToken !== null;
+    }
+
+    /**
+     * Whether server-side conversions can be sent at all (SLO-173). Both halves
+     * are needed: the pixel says WHERE, the token says WITH WHAT.
+     */
+    public function sendsServerConversions(): bool
+    {
+        return $this->hasMetaPixel() && $this->hasMetaAccessToken();
+    }
+
     /** Whether the tenant has configured any measurement at all. */
     public function isEmpty(): bool
     {
         return ! $this->hasGa4() && ! $this->hasMetaPixel();
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    private static function str(array $data, string $key): ?string
+    {
+        $value = $data[$key] ?? null;
+
+        return is_string($value) && trim($value) !== '' ? trim($value) : null;
     }
 
     /**
