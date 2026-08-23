@@ -33,6 +33,29 @@ use Spatie\Permission\Middleware\RoleMiddleware;
 use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
 
 return Application::configure(basePath: dirname(__DIR__))
+    /*
+     * Event listeners are wired EXPLICITLY, in AppServiceProvider::boot() — and
+     * discovery is off so that they are wired exactly once (SLO-174).
+     *
+     * ⚠️ Until this line, they were wired twice. `Application::configure()` calls
+     * `withEvents()` with `$discover = true`, which walks `app/Listeners` and
+     * registers every class whose `handle()` names an event — on top of this
+     * app's own `Event::listen()` calls. Every booking event therefore ran every
+     * one of its listeners TWICE: the confirmation mail, the commission ledger,
+     * the broadcast, all of it.
+     *
+     * Nothing visibly broke, because the listeners happen to be idempotent (the
+     * notifier's dedupe key, the ledger's upsert). That is luck, not design, and
+     * it would have run out at the first listener that does something twice —
+     * which is exactly what the Meta conversion (SLO-173) would have been, had it
+     * not been built with an atomic claim.
+     *
+     * Explicit registration wins over discovery here because those calls are the
+     * only place the wiring is readable, searchable and commented; discovery adds
+     * nothing today (every discovered listener already had an explicit twin — the
+     * check is in tests/Feature/EventWiringTest.php).
+     */
+    ->withEvents(discover: false)
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
         commands: __DIR__.'/../routes/console.php',

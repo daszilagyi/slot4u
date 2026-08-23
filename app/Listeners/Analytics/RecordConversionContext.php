@@ -97,10 +97,10 @@ class RecordConversionContext
             // The unique key fired: a row for this booking already exists. That
             // is the guarantee working, not a problem to report.
             //
-            // ⚠️ This is the normal path today, not an edge case: Laravel's event
-            // discovery registers every class in `app/Listeners` on top of this
-            // app's explicit Event::listen calls, so this listener runs twice per
-            // booking (SLO-174). The unique key is what makes that harmless.
+            // ⚠️ This used to be the normal path, not an edge case: event
+            // discovery double-registered every listener, so this one ran twice
+            // per booking (SLO-174, since fixed). It is back to being an edge
+            // case — a retried create — and the unique key still covers it.
         }
     }
 

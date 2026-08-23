@@ -22,11 +22,13 @@ enum ConversionStatus: string
      * claim. Without it, two invocations of the same transition would each
      * dispatch a job, and Meta would be told about one sale twice.
      *
-     * ⚠️ That is not hypothetical. Laravel's event discovery registers every
+     * ⚠️ That is not hypothetical. When this was written every domain listener
+     * ran twice per event, because Laravel's event discovery registered every
      * class in `app/Listeners` on top of this app's explicit `Event::listen`
-     * calls, so each domain listener currently runs TWICE per event (SLO-174).
-     * The other listeners happen to be idempotent and hide it; this one is
-     * idempotent on purpose.
+     * calls — the claim is what kept Meta from being told about one sale twice.
+     * Discovery is off since SLO-174, but the claim stays: a replayed status
+     * transition, a retried queue message and two concurrent confirmations are
+     * all still real, and none of them has a retraction at Meta's end.
      */
     case Queued = 'queued';
 
