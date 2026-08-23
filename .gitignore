@@ -53,3 +53,7 @@ id_ed25519*
 
 # Restore-drill kimenet (SLO-154, docs/18 §5) — a helyi mentés-céldiszk gyökere
 /storage/backups
+
+# Munkapéldányban tartott piszkozatok (pl. logó-exportok, SLO-170). A repóban
+# a forrás a resources/images/ alatt van; ide csak ideiglenes fájlok kerülnek.
+/tmp

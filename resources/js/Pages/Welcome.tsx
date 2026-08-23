@@ -24,6 +24,8 @@ type CommissionTerms = {
 type Props = {
     commission: CommissionTerms | null;
     demo_url: string | null;
+    /** Absolute URL of the link-preview card — see HomeController. */
+    og_image: string;
 };
 
 function Section({
@@ -63,7 +65,7 @@ function Tile({ title, hint }: { title: string; hint: string }) {
     );
 }
 
-export default function Welcome({ commission, demo_url }: Props) {
+export default function Welcome({ commission, demo_url, og_image }: Props) {
     const t = useTranslations();
     const currency = commission?.currency ?? 'HUF';
 
@@ -76,16 +78,21 @@ export default function Welcome({ commission, demo_url }: Props) {
                     content={t('welcome.meta_description')}
                 />
                 {/* Open Graph, so a link pasted into a chat renders as something
-                    other than a bare URL. No og:image yet — that waits on the
-                    visual identity (SLO-170); a broken image reference is worse
-                    than none, because platforms cache the failure. */}
+                    other than a bare URL. The card image landed with the visual
+                    identity (SLO-170); `summary_large_image` rather than
+                    `summary`, because a 1200×630 card shown in the small square
+                    slot is centre-cropped into an unreadable detail. */}
                 <meta property="og:type" content="website" />
                 <meta property="og:title" content={t('welcome.meta_title')} />
                 <meta
                     property="og:description"
                     content={t('welcome.meta_description')}
                 />
-                <meta name="twitter:card" content="summary" />
+                <meta property="og:image" content={og_image} />
+                <meta property="og:image:width" content="1200" />
+                <meta property="og:image:height" content="630" />
+                <meta name="twitter:card" content="summary_large_image" />
+                <meta name="twitter:image" content={og_image} />
             </Head>
 
             {/* Hero */}

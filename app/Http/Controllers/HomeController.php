@@ -23,6 +23,13 @@ class HomeController extends Controller
             'commission' => $terms->build()?->toArray(),
 
             'demo_url' => $this->demoUrl(),
+
+            // ⚠️ Absolute, because every platform that fetches an OG image
+            // fetches it from its own servers — a root-relative path resolves
+            // against THEIR host and 404s. Built server-side for the same reason
+            // it cannot come from `window.location`: the page is server-rendered
+            // (SSR), where there is no window (SLO-170).
+            'og_image' => rtrim((string) config('app.url'), '/').'/img/og-image.png',
         ]);
     }
 
