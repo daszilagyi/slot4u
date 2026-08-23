@@ -76,6 +76,7 @@ class BookingRescheduledNotification extends TenantMailNotification
         return $mail
             ->line(__('app.mail.booking_modified.code', ['code' => $this->booking->code]))
             ->action($actionLabel, $actionUrl)
-            ->line(__('app.mail.booking_modified.outro'));
+            ->line(__('app.mail.booking_modified.outro'))
+            ->line($this->closingLine());
     }
 }

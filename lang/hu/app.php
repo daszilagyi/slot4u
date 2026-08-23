@@ -2075,6 +2075,15 @@ return [
     'mail' => [
         // Shared greeting used when a tenant email template override is rendered.
         'greeting' => 'Szia :name!',
+        // A záró sor MINDEN tenant-levélen (SLO-171). Azért közös, mert ugyanaz
+        // dönti el, mint a `Reply-To` fejlécet: hét külön kulcsban szétszórva
+        // pont az történt, hogy a szöveg választ kért, a fejléc meg nem tudta
+        // hova vinni. Válaszcím nélkül nem elhallgat, hanem megmondja, hol
+        // érhető el a szolgáltató.
+        'reply' => [
+            'invite' => 'Ha kérdésed van, válaszolj erre az emailre — a válaszod közvetlenül a(z) :tenant címére érkezik.',
+            'contact' => 'Erre a levélre ne válaszolj: automatikusan küldjük, és a válaszokat nem olvassa senki. A(z) :tenant elérhetőségeit itt találod: :url',
+        ],
         // A kézbesíthetőségi próbaküldés címzettneve (mail:deliverability-test,
         // SLO-169) — a levél valódi rendszer-email, tehát a megszólítása is
         // fordított szöveg, nem beégetett angol placeholder.
@@ -2100,7 +2109,7 @@ return [
             // (SLO-129): egy GET-tel lemondó link a levélszűrők és
             // link-előnézet botok kezétől magától lemondaná a foglalást.
             'cancel_hint' => 'Ha mégsem tudsz jönni, a fenti gombbal megnyitható oldalon le tudod mondani a foglalást.',
-            'outro' => 'Ha kérdésed van, válaszolj erre az emailre. Köszönjük, hogy minket választottál!',
+            'outro' => 'Köszönjük, hogy minket választottál!',
         ],
         'booking_modified' => [
             'subject' => 'Foglalásod módosítva – :tenant',
@@ -2111,7 +2120,7 @@ return [
             'service' => 'Szolgáltatás: :service',
             'code' => 'Új foglalási kód: :code',
             'action' => 'Foglalás megtekintése',
-            'outro' => 'A korábbi foglalási kódod már nem érvényes — mostantól ez a foglalás él. Ha az új időpont nem megfelelő, válaszolj erre az emailre.',
+            'outro' => 'A korábbi foglalási kódod már nem érvényes — mostantól ez a foglalás él.',
         ],
         'booking_canceled' => [
             'subject' => 'Foglalásod lemondva – :tenant',
@@ -2122,7 +2131,7 @@ return [
             'when' => 'Eredeti időpont: :when',
             'reason' => 'A lemondás oka: :reason',
             'action' => 'Új időpont foglalása',
-            'outro' => 'Ha nem te mondtad le, vagy kérdésed van, válaszolj erre az emailre.',
+            'outro' => 'Ha nem te mondtad le, mindenképp jelezd nekünk.',
         ],
         'booking_rejected' => [
             'subject' => 'Foglalási kérésedet elutasították – :tenant',
@@ -2133,7 +2142,7 @@ return [
             'when' => 'Kért időpont: :when',
             'reason' => 'Indoklás: :reason',
             'action' => 'Másik időpont választása',
-            'outro' => 'Válassz másik időpontot, vagy válaszolj erre az emailre, ha egyeztetnél.',
+            'outro' => 'A fenti gombbal másik időpontot is választhatsz.',
         ],
         'waitlist_offer' => [
             'subject' => 'Felszabadult egy hely – :tenant',
@@ -2163,7 +2172,7 @@ return [
             'price' => 'Ajánlati ár: :price',
             'valid_until' => 'Az ajánlat érvényes: :date',
             'action' => 'Ajánlat megtekintése',
-            'outro' => 'Ha elfogadnád az ajánlatot vagy kérdésed van, válaszolj erre az emailre.',
+            'outro' => 'Az ajánlatot a fenti gombbal tudod megtekinteni és elfogadni.',
         ],
         'commission_invoice' => [
             'issued' => [
