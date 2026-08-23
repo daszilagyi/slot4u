@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Actions\Fortify\CreateNewUser;
+use App\Actions\Fortify\DisableTwoFactorAuthentication;
 use App\Actions\Fortify\ResetUserPassword;
 use App\Http\Responses\LoginResponse;
 use App\Http\Responses\RegisterResponse;
@@ -14,6 +15,7 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
+use Laravel\Fortify\Actions\DisableTwoFactorAuthentication as FortifyDisableTwoFactorAuthentication;
 use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
 use Laravel\Fortify\Contracts\RegisterResponse as RegisterResponseContract;
 use Laravel\Fortify\Fortify;
@@ -36,6 +38,16 @@ class FortifyServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // The superadmin may not switch off their own second factor (SLO-149).
+        // Bound over Fortify's action rather than guarded in a middleware: the
+        // controller method-injects it, so this is the one place every path to
+        // disabling goes through — the button, a hand-issued DELETE, and any
+        // future caller.
+        $this->app->bind(
+            FortifyDisableTwoFactorAuthentication::class,
+            DisableTwoFactorAuthentication::class,
+        );
+
         Fortify::createUsersUsing(CreateNewUser::class);
         Fortify::resetUserPasswordsUsing(ResetUserPassword::class);
 
@@ -68,6 +80,19 @@ class FortifyServiceProvider extends ServiceProvider
             'token' => $request->route('token'),
         ]));
         Fortify::verifyEmailView(fn () => Inertia::render('Auth/VerifyEmail'));
+
+        // The second-factor step of signing in (SLO-149). Reached after the
+        // password was accepted, so it renders on whatever host the person was
+        // logging in to — Fortify's routes are domain-less, like the login form.
+        Fortify::twoFactorChallengeView(fn () => Inertia::render('Auth/TwoFactorChallenge'));
+
+        // Re-asking for the password before touching the second factor.
+        //
+        // ⚠️ This is not ceremony. The threat 2FA defends against is a session
+        // somebody else is holding; without this wall that same session could
+        // simply turn the second factor off, or read the recovery codes, and the
+        // protection would be worth exactly nothing.
+        Fortify::confirmPasswordView(fn () => Inertia::render('Auth/ConfirmPassword'));
 
         RateLimiter::for('login', function (Request $request) {
             $throttleKey = Str::transliterate(Str::lower($request->input(Fortify::username())).'|'.$request->ip());

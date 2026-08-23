@@ -64,8 +64,25 @@ function tenantHost(string $slug, string $path = '/'): string
     return 'http://'.$slug.'.'.config('tenancy.central_domain').$path;
 }
 
-/** A platform super-admin (no tenant). */
+/**
+ * A platform super-admin (no tenant), with its second factor already in place.
+ *
+ * ⚠️ The 2FA stamp is not test convenience. Since SLO-149 the superadmin panel
+ * is gated on it, so a superadmin WITHOUT a confirmed second factor is a state
+ * production refuses to serve — a fixture that created one would be testing a
+ * user who cannot exist. The tests that exercise the gate itself build their own
+ * (see `superAdminWithoutTwoFactor`).
+ */
 function superAdmin(): User
+{
+    return User::factory()->create([
+        'tenant_id' => null,
+        'two_factor_confirmed_at' => now(),
+    ]);
+}
+
+/** A super-admin who has not set up 2FA yet — for testing the gate. */
+function superAdminWithoutTwoFactor(): User
 {
     return User::factory()->create(['tenant_id' => null]);
 }

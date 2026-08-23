@@ -44,7 +44,9 @@ it('forbids a user from accessing another tenant\'s dashboard (403)', function (
 
 it('redirects a super-admin away from a tenant dashboard to the admin panel', function () {
     Tenant::factory()->active()->create(['slug' => 'acme']);
-    $superAdmin = User::factory()->create(['tenant_id' => null]);
+    // With the second factor in place: the panel is gated on it (SLO-149), so a
+    // superadmin without one is a state production refuses to serve.
+    $superAdmin = User::factory()->create(['tenant_id' => null, 'two_factor_confirmed_at' => now()]);
 
     $this->actingAs($superAdmin)
         ->get(authTenantUrl('acme', '/dashboard'))
@@ -59,7 +61,9 @@ it('redirects a guest from the tenant dashboard to login', function () {
 });
 
 it('lets a super-admin reach the admin panel', function () {
-    $superAdmin = User::factory()->create(['tenant_id' => null]);
+    // With the second factor in place: the panel is gated on it (SLO-149), so a
+    // superadmin without one is a state production refuses to serve.
+    $superAdmin = User::factory()->create(['tenant_id' => null, 'two_factor_confirmed_at' => now()]);
 
     $this->actingAs($superAdmin)
         ->get(authAdminUrl('/'))

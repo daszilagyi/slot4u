@@ -367,6 +367,24 @@ return [
         ],
     ],
     'auth' => [
+        // Kétlépcsős azonosítás (SLO-149) — a belépés második lépése és a
+        // beállítás elé tett jelszó-fal.
+        'two_factor' => [
+            'title' => 'Kétlépcsős azonosítás',
+            'subtitle' => 'Írd be a hitelesítő alkalmazásod által mutatott hatjegyű kódot.',
+            'subtitle_recovery' => 'Írd be az egyik helyreállítási kódodat. Minden kód egyszer használható.',
+            'code' => 'Hitelesítő kód',
+            'recovery_code' => 'Helyreállítási kód',
+            'submit' => 'Belépés',
+            'use_recovery' => 'Nincs nálad a hitelesítő? Helyreállítási kód használata',
+            'use_code' => 'Mégis a hitelesítő kódját adom meg',
+        ],
+        'confirm_password' => [
+            'title' => 'Erősítsd meg a jelszavad',
+            'subtitle' => 'Biztonsági beállítás következik, ezért újra kérjük a jelszavad — a kétlépcsős azonosítás épp az ellen véd, ha valaki más ülne a munkameneted előtt.',
+            'password' => 'Jelszó',
+            'submit' => 'Megerősítés',
+        ],
         'login' => [
             'title' => 'Bejelentkezés',
             'subtitle' => 'Lépj be a fiókodba.',
@@ -1995,6 +2013,11 @@ return [
         // Nested for the same dot-path reason (SLO-142).
         'user' => [
             'rbac_updated' => 'Felhasználó szerepkörei és jogosultságai módosítva',
+            // SLO-149: csak a KONZOLOS visszaállítás kerül auditba. A be- és
+            // kikapcsolás a fiók tulajdonosának rutin döntése, jelszó-megerősítés
+            // mögött; shellhez nyúlni valaki második faktorának eltávolításáért
+            // nem rutin, és később pont erre kérdez rá valaki.
+            'two_factor_reset' => 'Kétlépcsős azonosítás visszaállítva (konzolról)',
         ],
         // Nested for the same dot-path reason (SLO-159).
         'privacy' => [
@@ -2289,6 +2312,31 @@ return [
     // Cookie/consent banner (SLO-165, docs/19 §11). A `necessary` kategória
     // szándékosan nem választható: a session süti az, amitől a foglalási űrlap
     // működik — egy kapcsoló mellette azt sugallná, hogy visszautasítható.
+    // Kétlépcsős azonosítás (SLO-149).
+    'security' => [
+        'title' => 'Fiókbiztonság',
+        'subtitle' => 'A saját fiókod védelme. Nem a tenant beállításai — ez csak rád vonatkozik.',
+        'back' => '← Vissza',
+        'two_factor' => [
+            'title' => 'Kétlépcsős azonosítás',
+            'optional_hint' => 'Egy hitelesítő alkalmazás (Google Authenticator, 1Password, Authy) hatjegyű kódot ad a jelszavad mellé. Erősen ajánlott: a fiókod egy egész ügyfélkört kezel.',
+            'required_hint' => 'A superadmin fióknál kötelező, és nem kapcsolható ki. Ez a fiók minden tenantot lát és bármelyikbe be tud lépni — egy ellopott jelszó itt nem egy cég problémája, hanem mindegyiké.',
+            'required_notice' => 'A superadmin panel eléréséhez előbb kapcsold be a kétlépcsős azonosítást.',
+            'enable' => 'Bekapcsolás',
+            'scan' => 'Olvasd be a QR-kódot a hitelesítő alkalmazásoddal, majd írd be az általa mutatott hatjegyű kódot. A kód megadásáig a beállítás nem él — így egy félbehagyott beállítás nem zár ki a saját fiókodból.',
+            'manual_key' => 'Ha az alkalmazás nem tud QR-t olvasni, a kulcs:',
+            'confirm_label' => 'A hitelesítő által mutatott kód',
+            'confirm' => 'Megerősítés',
+            'cancel_setup' => 'Beállítás elvetése',
+            'enabled' => '✓ A kétlépcsős azonosítás bekapcsolva.',
+            'recovery_title' => 'Helyreállítási kódok',
+            'recovery_hint' => 'Mentsd el ezeket olyan helyre, ami nem a telefonod. Ha elveszted a hitelesítőt, EZEKKEL tudsz belépni — mindegyik egyszer használható.',
+            'regenerate' => 'Új helyreállítási kódok',
+            'disable' => 'Kikapcsolás',
+            'cannot_disable' => 'A superadmin fiókról a kétlépcsős azonosítás nem kapcsolható ki.',
+        ],
+    ],
+
     'consent' => [
         'title' => 'Sütibeállítások',
         'intro' => 'A működéshez szükséges sütiket mindig használjuk. A továbbiakhoz a hozzájárulásodat kérjük.',

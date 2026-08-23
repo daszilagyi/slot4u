@@ -72,4 +72,13 @@ enum AuditAction: string
     // one is: handing out a complete data set is itself a disclosure.
     case TenantPurged = 'tenant.purged';
     case TenantDataExported = 'tenant.data_exported';
+
+    /*
+     * Two-factor (SLO-149). Only the RESET is recorded, and only the console one:
+     * enabling and disabling from the security page are the account holder's own
+     * routine choices, made behind a password confirmation. Reaching for the
+     * shell to remove somebody's second factor is not routine, and it is the one
+     * a later question ("who unlocked that account, and when?") will be about.
+     */
+    case TwoFactorReset = 'user.two_factor_reset';
 }
