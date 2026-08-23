@@ -323,6 +323,31 @@ definiálva lettek volna — vagyis a szabály a Laravel csupasz 8 karaktere vol
 egy tenant teljes ügyfélkörét kezelik. A breach-ellenőrzés hálózati hívás, ezért a teszt-suite egy
 fake verifiert köt be (`Tests\Fixtures\FakeUncompromisedVerifier`) — a suite sosem függ a hálózattól.
 
+## Eseménybekötés (SLO-174)
+
+**A listenerek EXPLICIT módon vannak bekötve**, az `AppServiceProvider::boot()`-ban, és a
+**felfedezés ki van kapcsolva**: `bootstrap/app.php` → `->withEvents(discover: false)`.
+
+⚠️ **Miért kellett kikapcsolni.** Az `Application::configure()` magától meghívja a
+`withEvents()`-et `$discover = true`-val, ami végigjárja az `app/Listeners` mappát, és minden
+osztályt bejegyez, amelynek a `handle()`-je eseményt nevez meg — **az explicit
+`Event::listen()` hívások MELLÉ**. Emiatt minden foglalási esemény minden listenere **kétszer
+futott le**: a visszaigazoló email, a jutalék-főkönyv, a broadcast, mind.
+
+**Semmi nem tört el látványosan**, mert a listenerek véletlenül idempotensek (a notifier
+dedupe-kulcsa, a főkönyv upsertje). Ez szerencse volt, nem tervezés, és az első nem-idempotens
+listenernél elfogyott volna — pontosan ez lett volna a Meta-konverzió (SLO-173), ha nem atomi
+claim mintával épül.
+
+**Az explicit bekötés nyert a felfedezéssel szemben**, mert az `AppServiceProvider` az egyetlen
+hely, ahol a bekötés olvasható, kereshető és kommentelhető. A felfedezés ma semmit nem tett
+hozzá: minden felderített listenernek volt explicit párja is (empirikusan ellenőrizve a
+váltás előtt).
+
+**Új listenernél tehát:** az `AppServiceProvider::boot()`-ba KELL egy `Event::listen(...)` sor
+— a mappába bemásolás önmagában már nem köti be. A `tests/Feature/EventWiringTest.php` őrzi
+mindkét irányt: nincs kétszer bejegyzett listener, és a meglévők nem tűntek el.
+
 ## Mappastruktúra (lényegi részek)
 
 ```

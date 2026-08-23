@@ -56,11 +56,12 @@ class SendConversionOnSale
         // whose UPDATE actually touched a row goes on to dispatch.
         //
         // Reading the row and then dispatching would be a race with a second
-        // invocation of the same transition — and there IS a second invocation
-        // today, because Laravel's event discovery registers every listener in
-        // `app/Listeners` on top of this app's explicit Event::listen calls, so
-        // each one runs twice (SLO-174). Meta has no retraction for a conversion
-        // reported twice, so this does not wait for that to be fixed.
+        // invocation of the same transition. When this was written there WAS a
+        // guaranteed second invocation — event discovery double-registered every
+        // listener (SLO-174, since fixed) — and the claim is what stopped Meta
+        // being told about one sale twice. It stays because the other ways in
+        // still exist: a replayed transition, a retried queue message, two
+        // concurrent confirmations. Meta has no retraction for a duplicate.
         $claimed = AnalyticsConversion::withoutGlobalScopes()
             ->whereKey($conversion->getKey())
             ->where('status', ConversionStatus::Pending)
