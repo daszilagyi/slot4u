@@ -1,10 +1,15 @@
 import { Link, usePage } from '@inertiajs/react';
-import type { PropsWithChildren } from 'react';
+import type { CSSProperties, PropsWithChildren } from 'react';
 
+import BrandLockup from '@/components/BrandLockup';
 import { CookieConsent, CookieSettingsLink } from '@/components/CookieConsent';
 import ThemeToggle from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
-import { BRAND_NAME } from '@/lib/brand';
+import {
+    BRAND_NAME,
+    PLATFORM_ACCENT,
+    PLATFORM_ACCENT_FOREGROUND,
+} from '@/lib/brand';
 import { useTranslations } from '@/lib/i18n';
 
 /**
@@ -24,18 +29,24 @@ export default function MarketingLayout({ children }: PropsWithChildren) {
     const { auth, legal } = usePage().props;
     const documents = legal?.documents ?? [];
 
+    // The platform's own accent, scoped to this layout (SLO-170). Overriding the
+    // token here rather than in the stylesheet is what keeps it OFF a tenant's
+    // pages: the tenant public shell sets the same variable to the tenant's own
+    // colour, and neither can reach the other.
+    const accent = {
+        ['--primary']: PLATFORM_ACCENT,
+        ['--primary-foreground']: PLATFORM_ACCENT_FOREGROUND,
+    } as CSSProperties;
+
     return (
-        <div className="flex min-h-screen flex-col bg-background text-foreground">
+        <div
+            style={accent}
+            className="flex min-h-screen flex-col bg-background text-foreground"
+        >
             <header className="border-b border-border">
                 <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
-                    {/* A typographic wordmark, deliberately. The sloth logo is a
-                        design task of its own (SLO-170) and shipping a
-                        placeholder drawing would be worse than shipping none. */}
-                    <Link
-                        href="/"
-                        className="text-lg font-semibold tracking-tight"
-                    >
-                        {BRAND_NAME}
+                    <Link href="/" aria-label={BRAND_NAME}>
+                        <BrandLockup size={36} />
                     </Link>
 
                     <div className="flex items-center gap-2">
@@ -64,7 +75,8 @@ export default function MarketingLayout({ children }: PropsWithChildren) {
 
             <footer className="border-t border-border">
                 <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 px-4 py-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6">
-                    <span>
+                    <span className="flex items-center gap-2">
+                        <BrandLockup size={20} markOnly />
                         {t('welcome.footer_rights', {
                             year: new Date().getFullYear(),
                         })}

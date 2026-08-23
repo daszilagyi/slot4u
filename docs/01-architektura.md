@@ -388,6 +388,33 @@ váltás előtt).
 — a mappába bemásolás önmagában már nem köti be. A `tests/Feature/EventWiringTest.php` őrzi
 mindkét irányt: nincs kétszer bejegyzett listener, és a meglévők nem tűntek el.
 
+## Vizuális arculat (SLO-170)
+
+| Asset | Hol a forrás | Mire való |
+|---|---|---|
+| `resources/images/brand-tile.svg` | vektor, commitolva | a fejléc/lábléc lockup **és** minden ikon forrása |
+| `public/img/favicon-32.png`, `apple-touch-icon.png`, `icon-192/512.png` | generált, commitolva | böngésző- és launcher-ikonok |
+| `public/img/og-image.png` (1200×630) | generált, commitolva | link-előnézeti kártya |
+
+**Újragenerálás:** `php artisan brand:icons <négyzetes-png-export>`.
+⚠️ A parancs **raszter útvonalat vesz át**, nem a commitolt SVG-t olvassa: ezen a hoston
+semmi nem tud SVG-t raszterizálni (nincs ImageMagick, nincs librsvg). A vektor marad az
+igazság forrása; újragenerálni annyi, hogy egyszer exportálod PNG-be. Ezt kimondani jobb, mint
+egy parancs, ami csendben egy elavult rasztert olvas, és úgy tesz, mintha a vektort olvasná.
+
+⚠️ **A fejlécben a CSEMPE van, nem a lógó lajhár** — és ez az elsőre rossz döntés javítása.
+Egymás mellé renderelve a lógó illusztráció **~26 px-nél beige folttá esik szét** egy teal
+csíkkal, a csempe viszont 20 px-en is arcként olvasható. Az egyik illusztráció, a másik ikon;
+egy fejléc ikont kér. Ez oldja meg a világos téma problémáját is: a szabadon álló jel krém
+színe fehéren majdnem láthatatlan, a csempe viszont hozza a saját sötét alapját.
+
+⚠️ **A platform akcentusa (teal, `#22DECB`) CSAK a marketing-felületre vonatkozik.** A
+`MarketingLayout` felülírja a `--primary` tokent — pontosan azzal a mechanizmussal, amivel a
+tenant publikus shellje a saját márkaszínét állítja, tehát a kettő nem tud egymáshoz érni. A
+`TenantBranding::DEFAULT_PRIMARY_COLOR` **szándékosan indigó marad**: a tenant foglalóoldala
+az Ő márkája, nem a miénk, és minden színt nem választó tenantot átfesteni annyi lenne, mint a
+platform kiszolgálja magát mások kirakatából (ugyanaz a határvonal, mint `docs/19` §2).
+
 ## N+1 védelem (SLO-155)
 
 **Az `AppServiceProvider::boot()` bekapcsolja a `Model::preventLazyLoading()`-ot mindenhol,
