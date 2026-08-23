@@ -348,6 +348,27 @@ váltás előtt).
 — a mappába bemásolás önmagában már nem köti be. A `tests/Feature/EventWiringTest.php` őrzi
 mindkét irányt: nincs kétszer bejegyzett listener, és a meglévők nem tűntek el.
 
+## N+1 védelem (SLO-155)
+
+**Az `AppServiceProvider::boot()` bekapcsolja a `Model::preventLazyLoading()`-ot mindenhol,
+KIVÉVE prodban.** A Definition of Done M2 óta megköveteli az „N+1 ellenőrizve a listázó
+végpontokon" pontot — és ellenőrizve is volt: kézzel, aki épp eszébe jutott. Ettől a következő
+elfelejtett eager load a **teszten bukik el**, nem egy oldal formájában, ami valamikor lassabb
+lett, és senki nem tudja megmondani, mikor.
+
+⚠️ **Prodban szándékosan nincs bekapcsolva.** Egy elfelejtett reláció ott lassú oldal; ugyanaz
+kivételként **500-as hiba egy foglalási űrlapon**. A védelem oda való, ahol ember látja — a
+fejlesztői gépre és a CI-ba —, nem a vendég elé.
+
+⚠️ **A Laravel csak 2+ soros lekérdezésnél fegyverzi fel a modelt** (`Builder::hydrate`,
+`count($items) > 1`). Ez nem hiányosság: egy darab lusta betöltés nem N+1, hanem egy plusz
+query. A védelem pont azt az **alakzatot** fogja meg, ami számít — végigiterálni egy
+kollekción, és minden körben visszamenni az adatbázishoz.
+
+**Ha egy service-nek olyan reláció kell, amit a hívó nem töltött be:** `loadMissing()`, ott,
+ahol a relációt olvassa (l. `CustomerNotifier::sendToContact`). A védelem a **véletlent**
+tiltja, nem a késői betöltést.
+
 ## Mappastruktúra (lényegi részek)
 
 ```

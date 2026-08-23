@@ -29,7 +29,6 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Queue;
 use Illuminate\Support\Facades\Storage;
-use RuntimeException;
 use Spatie\Permission\PermissionRegistrar;
 
 /*
