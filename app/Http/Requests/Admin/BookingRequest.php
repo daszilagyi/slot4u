@@ -70,6 +70,8 @@ class BookingRequest extends FormRequest
                 return;
             }
 
+            $this->limitSpan($validator);
+
             match ($service->booking_mode) {
                 BookingMode::EventBased => $this->requireEvent($validator),
                 BookingMode::DurationBased, BookingMode::ResourceRental => $this->requireSlot($validator, $service),
@@ -80,6 +82,38 @@ class BookingRequest extends FormRequest
                 default => null,
             };
         });
+    }
+
+    /**
+     * Nothing may span longer than `booking.max_span_hours` (SLO-176).
+     *
+     * ⚠️ This is not tidiness, it is the guarantee the availability query rests
+     * on. That query finds the bookings overlapping a day, and to be indexable at
+     * all it needs a floor under `starts_at` — without one the database reads
+     * every booking the tenant ever made (measured: a 54,475-row full table scan
+     * on the busiest public endpoint). The floor is only safe while nothing can
+     * be longer than it: a booking that began earlier and is still running would
+     * be invisible to availability, and an invisible booking is a slot offered
+     * twice.
+     *
+     * ⚠️ It is also the one duration in the system that had no ceiling. Service
+     * durations, rental bounds and both buffers are all validated `max:1440`
+     * minutes; an admin-entered `ends_at` only had to be `after:starts_at`.
+     */
+    private function limitSpan(Validator $validator): void
+    {
+        $start = $this->input('starts_at');
+        $end = $this->input('ends_at');
+
+        if (! is_string($start) || ! is_string($end)) {
+            return;
+        }
+
+        $hours = (int) config('booking.max_span_hours', 24);
+
+        if (Carbon::parse($start)->diffInHours(Carbon::parse($end), absolute: true) > $hours) {
+            $validator->errors()->add('ends_at', __('app.admin.bookings.error.span_too_long', ['hours' => $hours]));
+        }
     }
 
     private function requireEvent(Validator $validator): void
