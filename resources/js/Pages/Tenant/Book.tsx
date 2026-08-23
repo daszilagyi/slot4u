@@ -1,7 +1,7 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { motion } from 'framer-motion';
 import { ArrowLeftIcon, ClockIcon } from 'lucide-react';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 
 import PublicLayout from '@/Layouts/PublicLayout';
 import { Button } from '@/components/ui/button';
@@ -13,6 +13,7 @@ import { BillingFields } from '@/components/BillingFields';
 import { LegalConsent } from '@/components/LegalConsent';
 import { useBillingFields } from '@/lib/billing';
 import { useFeatures } from '@/lib/features';
+import { trackBeginCheckout, trackViewItem } from '@/lib/analytics';
 import { useTranslations } from '@/lib/i18n';
 import { useLegalConsentFields } from '@/lib/legal';
 import type {
@@ -74,6 +75,25 @@ export default function Book(props: BookProps) {
     const t = useTranslations();
     const page = usePage();
     const [navigating, setNavigating] = useState(false);
+
+    // A service was opened — the funnel's first measurable step (SLO-56). Keyed
+    // on the id, so switching service reports again but filtering the day, the
+    // staff member or the week (all partial reloads of the same service) does
+    // not. A no-op unless the tenant configured measurement and the visitor
+    // agreed to it.
+    useEffect(() => {
+        if (service === null) {
+            return;
+        }
+
+        trackViewItem({
+            id: service.id,
+            name: service.name,
+            priceMinor: service.price_minor,
+            currency: service.currency,
+        });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [service?.id]);
 
     const selectedStart = selectedStartFrom(page.url);
     const filters = props.filters ?? {
@@ -263,6 +283,12 @@ export default function Book(props: BookProps) {
                 ? { duration_minutes: chosenDuration }
                 : {}),
         }));
+        trackBeginCheckout({
+            id: service.id,
+            name: service.name,
+            priceMinor: service.price_minor,
+            currency: service.currency,
+        });
         // On success the server PRG-redirects to /booked/{code} (Inertia follows).
         form.post('/book', { preserveScroll: true });
     }
@@ -363,6 +389,12 @@ export default function Book(props: BookProps) {
             return;
         }
         form.transform((data) => ({ ...data, service_id: service.id }));
+        trackBeginCheckout({
+            id: service.id,
+            name: service.name,
+            priceMinor: service.price_minor,
+            currency: service.currency,
+        });
         form.post('/order', { preserveScroll: true });
     }
 

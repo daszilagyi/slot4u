@@ -5,6 +5,7 @@ import {
     CalendarPlusIcon,
     CalendarRangeIcon,
     ChartColumnIcon,
+    ChartLineIcon,
     ContactIcon,
     GlobeIcon,
     LayoutDashboardIcon,
@@ -172,6 +173,17 @@ export const navItems: NavItem[] = [
         icon: ReceiptTextIcon,
         permission: 'settings.edit',
         feature: 'feature_invoicing',
+        ready: true,
+    },
+    {
+        // The tenant's own measurement ids (SLO-56). Feature-gated like invoicing
+        // above, so a tenant without it never sees a link that would 403.
+        key: 'analytics',
+        labelKey: 'admin.nav.analytics',
+        href: '/settings/analytics',
+        icon: ChartLineIcon,
+        permission: 'settings.edit',
+        feature: 'feature_analytics',
         ready: true,
     },
     {

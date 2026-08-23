@@ -29,12 +29,12 @@ final class ContentSecurityPolicy
      * @param  string|null  $websocket  Realtime origin the browser connects to (Reverb).
      * @param  string|null  $errorReporting  Origin the browser posts JS errors to (Sentry ingest).
      * @param  array{script?: string, connect?: string, img?: string, frame?: string}  $extra
-     * @param  array{script?: list<string>, connect?: list<string>, img?: list<string>}  $analytics
-     *                                                                                               Origins a measurement tag needs — but only on a request that
-     *                                                                                               actually emits one (SLO-172). Separate from `$extra` because
-     *                                                                                               `$extra` is a deployment-wide widening read from the
-     *                                                                                               environment, while this varies per request: a visitor who
-     *                                                                                               declined analytics gets the narrow policy back.
+     * @param  array<string, list<string>>  $analytics
+     *                                                  Origins a measurement tag needs — but only on a request that
+     *                                                  actually emits one (SLO-172). Separate from `$extra` because
+     *                                                  `$extra` is a deployment-wide widening read from the
+     *                                                  environment, while this varies per request: a visitor who
+     *                                                  declined analytics gets the narrow policy back.
      */
     public function __construct(
         private readonly ?string $nonce = null,
