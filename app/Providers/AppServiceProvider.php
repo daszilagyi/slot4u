@@ -40,6 +40,7 @@ use App\Tenancy\TenantManager;
 use App\Tenancy\TenantPublicUrl;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\View\View as ViewContract;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Foundation\Events\DiagnosingHealth;
 use Illuminate\Http\Request;
@@ -145,6 +146,19 @@ class AppServiceProvider extends ServiceProvider
         // cannot be made must never lock a legitimate user out, so the verifier
         // fails open (that is Laravel's own behaviour on a network error).
         Password::defaults(fn () => Password::min(12)->uncompromised());
+
+        // Lazy loading is an exception outside production (SLO-155).
+        //
+        // The Definition of Done has demanded "N+1 checked on listing endpoints"
+        // since M2, and it was checked — by hand, by whoever remembered. This
+        // makes the next one fail in the test suite instead of arriving as a page
+        // that got slower in a way nobody can date.
+        //
+        // ⚠️ Not in production, deliberately. A relation somebody forgot to eager
+        // load is a slow page; the same relation throwing is a 500 on a booking
+        // form. The guard belongs where a human sees it — the developer's machine
+        // and CI — not in front of a customer.
+        Model::preventLazyLoading(! $this->app->isProduction());
 
         $this->definePublicRateLimiters();
 

@@ -84,6 +84,12 @@ class CustomerNotifier
         RecordsDelivery $notification,
     ): ?NotificationLog {
         if (! $record->isGuest()) {
+            // Loaded here rather than in each of the five listeners that call
+            // this: the requirement belongs where the relation is read. One query
+            // when the caller did not eager-load it, none when it did — and never
+            // a lazy load, which is now an exception outside production (SLO-155).
+            $record->loadMissing('customer');
+
             return $this->sendToCustomer($tenant, $type, $dedupeKey, $record->customer, $notification);
         }
 
