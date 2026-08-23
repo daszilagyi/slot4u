@@ -151,11 +151,11 @@ az a riasztás, ami ezt észrevenné; **csak a rendszeres újramérés**.
 
 | Mi | Érték | Miért így |
 |---|---|---|
-| Feladó | `no-reply@slot4u.hu` | **Minden** tenant erről a címről küld, a tenant neve a display name-ben, a tenant címe `Reply-To`-ban (docs/11 §8). Tenant saját domainjéről küldeni tilos: azon nincs se SPF-felhatalmazásunk, se DKIM-kulcsunk. |
-| SMTP | `mail.slot4u.hu:465` (SSL) | A tárhely saját levelezője (cPanel). |
+| Feladó | `From: slot4u <no-reply@slot4u.hu>` | **Minden** tenant erről a címről küld. Tenant saját domainjéről küldeni tilos: azon nincs se SPF-felhatalmazásunk, se DKIM-kulcsunk. ⚠️ A docs/11 §8 a tenant nevét kérné display name-ként és a tenant címét `Reply-To`-ban — **ez ma nincs bekötve** (a 2026-08-23-i mérés fejlécei), l. **SLO-171**. |
+| SMTP | `tbfiftyseven.tarhely.eu:465` (`MAIL_SCHEME=smtps`) | ⚠️ A prod `.env`-ben **a gép neve** áll, nem `mail.slot4u.hu` — ugyanaz a `178.238.222.57`, ezért az SPF (`+a +mx`, IP-alapú) így is átmegy. A HELO viszont `tbfiftyseven.tarhely.eu`, aminek nincs saját SPF-je (`SPF_HELO_NONE`, 0.0 pont) — a hoster gépneve, nem a miénk, nem javítható és nem is számít. |
 | MX-cél | `mail.slot4u.hu` → `178.238.222.57` | **Nem Cloudflare-proxyzott** — az MX-célnak az origin IP-t kell adnia, különben a bejövő levél a proxyn akad el. |
 
-### 8.2 A négy rekord — mérés 2026-08-23
+### 8.2 A négy rekord — DNS-igazolás (2026-08-23)
 
 ```
 $ dig +short slot4u.hu TXT @1.1.1.1
@@ -182,14 +182,37 @@ $ dig +short slot4u.hu MX @1.1.1.1
   Cloudflare DNS-ben; szigorítás (`p=quarantine`) csak azután, hogy pár hét jelentése
   megmutatta, mi küld még a domainről.
 
-### 8.3 Újramérés — hogyan
+### 8.3 A mérés — 2026-08-23, **9.5/10**
+
+Az éles rendszerből kiküldött valódi foglalás-visszaigazoló mail-tester eredménye:
+**9.5/10 — „Wow! Perfect, you can send."** (SpamAssassin `-0.2/5.0`).
+
+```
+Authentication-Results: dmarc=pass (p=none dis=none) header.from=slot4u.hu
+Authentication-Results: dkim=pass (2048-bit key) header.d=slot4u.hu header.s=default
+Received-SPF: Pass (mailfrom) client-ip=178.238.222.57; helo=tbfiftyseven.tarhely.eu
+X-Spam-Test-Scores: DKIM_SIGNED=0.1, DKIM_VALID=-0.1, DKIM_VALID_AU=-0.1,
+                    DKIM_VALID_EF=-0.1, SPF_PASS=-0.001, HTML_MESSAGE=0.001
+```
+
+A `DKIM_VALID_AU` a lényeg: az aláírás a **szerző domainjével** egyezik, nem csak
+valamilyen kulccsal van aláírva — ez az, amit a Gmail és a DMARC néz.
+
+**A hiányzó 0.5 pont a `List-Unsubscribe` fejléc**, és ez így helyes: ez tranzakciós
+levél, a saját foglalásod visszaigazolásáról nem lehet „leiratkozni". A Gmail/Yahoo
+tömeges-küldő szabálya a marketing levelekre vonatkozik, nem erre. **Ne „javítsd" —
+9.5 ennél a levéltípusnál a plafon.**
+
+### 8.4 Újramérés — hogyan
 
 Éles gépen, egyetlen paranccsal, **prod-adat írása nélkül**:
 
 ```bash
 # 1. Kérj egy eldobható címet a https://www.mail-tester.com oldalon.
-php artisan mail:deliverability-test <cím>@srv1.mail-tester.com
-# 2. Töltsd újra a mail-tester oldalt → pontszám. Cél: ≥ 9/10.
+# 2. Éles gépen (a CLI default PHP-ja 8.2, ezért a teljes útvonal kell):
+cd ~/slot4u && /opt/cpanel/ea-php84/root/usr/bin/php \
+  artisan mail:deliverability-test <cím>@srv1.mail-tester.com
+# 3. Töltsd újra a mail-tester oldalt → pontszám. Cél: ≥ 9/10.
 ```
 
 A parancs a **valódi** foglalás-visszaigazolót küldi (ugyanaz a mailer, feladó, HTML és
@@ -205,7 +228,7 @@ curl -s -H 'accept: application/dns-json' \
   'https://cloudflare-dns.com/dns-query?name=_dmarc.slot4u.hu&type=TXT'
 ```
 
-### 8.4 Újramérés — mikor kötelező
+### 8.5 Újramérés — mikor kötelező
 
 Bármelyik teljesül → új mérés, és az eredmény ide:
 
@@ -218,7 +241,7 @@ Bármelyik teljesül → új mérés, és az eredmény ide:
 * **Új levéltípus, ami tömegesen megy ki** (emlékeztető-hullám, marketing) — más a tartalom,
   más a spam-pontszám.
 
-### 8.5 Analytics — mi mér a launchkor
+### 8.6 Analytics — mi mér a launchkor
 
 **Nincs GA4 és nincs Meta Pixel.** A docs/08 ezeket Phase 2-be sorolja, és a launchhoz nem
 kell: a „működik-e" kérdésre a Sentry + a watchdog válaszol (§3–§4), a „hányan foglalnak"
