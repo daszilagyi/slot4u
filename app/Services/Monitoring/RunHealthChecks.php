@@ -28,6 +28,7 @@ class RunHealthChecks
             $this->queue(),
             $this->failedJobs(),
             $this->scheduler(),
+            $this->logs(),
         ];
 
         // Appended rather than filtered out: the backup check does not exist at
@@ -40,6 +41,51 @@ class RunHealthChecks
         }
 
         return new HealthReport($checks);
+    }
+
+    /**
+     * How much disk the log directory is holding (SLO-175).
+     *
+     * Rotation bounds the logs by TIME — fourteen dated files, then the oldest
+     * goes. This is the other axis: one afternoon of a stack trace in a loop can
+     * outgrow a fortnight of ordinary traffic, and rotation will faithfully keep
+     * all fourteen of those days.
+     *
+     * It is a health check rather than a config setting because of what running
+     * out of disk does on this hosting profile: the booking flow, the queue
+     * worker and the nightly backup stop at the same moment, and the file that
+     * filled the disk is one nobody was looking at. This makes it something
+     * somebody is looking at.
+     *
+     * Cheap by construction: a directory listing and a stat per file. Under
+     * `daily` that is fourteen files; under a runaway `single` log it is one very
+     * large one, which is exactly the case worth catching.
+     */
+    private function logs(): HealthCheck
+    {
+        $limit = (int) config('monitoring.logs.max_megabytes');
+        $directory = storage_path('logs');
+
+        if (! is_dir($directory)) {
+            // No directory, no logs, nothing to be wrong about. A host that
+            // cannot write logs at all is a different problem, and one the first
+            // failed write reports far more clearly than a size check could.
+            return HealthCheck::ok('logs', 'no log directory on this host');
+        }
+
+        $bytes = 0;
+
+        foreach ((array) glob($directory.'/*.log') as $file) {
+            if (is_string($file) && is_file($file)) {
+                $bytes += (int) filesize($file);
+            }
+        }
+
+        $megabytes = intdiv($bytes, 1024 * 1024);
+
+        return $megabytes > $limit
+            ? HealthCheck::failing('logs', "the log directory holds {$megabytes} MB (limit {$limit})")
+            : HealthCheck::ok('logs', "{$megabytes} MB of logs");
     }
 
     /**

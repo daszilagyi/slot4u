@@ -63,10 +63,21 @@ második vonal.
 | `failed_jobs` | legalább 1 sor a `failed_jobs`-ban | egy failed job = egy ügyfél, aki nem kapott visszaigazolást |
 | `scheduler` | a scheduler 15 percnél régebben futott | lejáró trial, várólista, dunning, számlazárás mind áll |
 | `backup` | az utolsó **sikeres** offsite mentés `BACKUP_STALE_AFTER_HOURS`-nál (36) régebbi, **vagy soha nem volt** | egy mentés, ami csendben abbahagyta a futást, a szükség napján derül ki (SLO-154, docs/18) |
+| `logs` | a `storage/logs` `MONITORING_LOG_MAX_MB`-nál (512) többet foglal | a lemez betelése osztott tárhelyen **egyszerre** viszi el a foglalást, a queue workert és az éjszakai mentést (SLO-175) |
 
 A `backup` check **csak ott fut, ahol a mentés be van állítva** — dev és CI nem kap riasztást
 arról, hogy nincs offsite bucketje. Az életjelet a `backup:run` a **feltöltés után** írja,
 tehát egy hetek óta visszautasított feltöltés nem tud egészségesnek látszani.
+
+A `logs` check **két különböző korlát közül a másodikat** őrzi. A rotáció (`daily`, 14 fájl)
+**időben** korlátoz; ez **méretben**. Egy délutánnyi, hurokban pörgő stack trace kinő egy
+kéthetnyi normál forgalmat — és a rotáció azt a 14 napot is hűségesen megtartja. Ezért nem
+elég a `config/logging.php` beállítása: az egyik a növekedés ütemét fogja meg, a másik a
+tényleges méretet.
+
+⚠️ **Miért check, és nem csak konfig:** a „nem nőhet korlátlanul" beállításként remény,
+health checkként megfigyelt tény. A fájl, ami betölti a lemezt, definíció szerint olyan,
+amit senki nem néz.
 
 A queue-életjelet **maga a worker** írja: minden `Looping` eseménynél (nem feldolgozott
 jobnál — a cron-worker üres sorral azonnal kilép, így egy csendes éjszaka is „élő"). Az
@@ -134,6 +145,8 @@ frissítené, amit értékel, és egy halott scheduler élőnek látszana annak,
 | prod `.env` | `VITE_SENTRY_DSN` | frontend projekt — **a CSP miatt** kell a szerverre is |
 | prod `.env` | `MONITORING_HEARTBEAT_URL` | dead man's switch; üresen nincs kimenő hívás |
 | prod `.env` | `MONITORING_QUEUE_STALE_MINUTES`, `MONITORING_FAILED_JOBS_THRESHOLD` | opcionális hangolás |
+| prod `.env` | `MONITORING_LOG_MAX_MB` | opcionális; alapból 512 MB (SLO-175) |
+| prod `.env` | `LOG_STACK=daily`, `LOG_LEVEL=info` | ⚠️ **a `daily` mostantól a kód alapértelmezése is**, tehát a `.env` hiánya sem okoz korlátlan növekedést. A `LOG_LEVEL` viszont **csak** env-ből jön: prodban `info` vagy magasabb |
 | prod `.env` | `AWS_*`, `BACKUP_PASSPHRASE` | offsite mentés (SLO-154) — a teljes lista **docs/18 §2** |
 | GitHub variables | `VITE_SENTRY_DSN`, `VITE_SENTRY_ENVIRONMENT` | build-time égnek a bundle-be (docs/16 §3.3) |
 
