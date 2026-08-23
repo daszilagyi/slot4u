@@ -177,6 +177,13 @@ analytics_conversions id, tenant_id, booking_id, provider, event_name, event_id,
                    -- Hozzájárulás nélkül NINCS sor — a sor hiánya a „nem" tartós rögzítése.
                    -- Az fbp/fbc a sikeres küldés után törlődik: utána cél nélküli személyes adat.
 
+commission_invoices -- ÚJ oszlopok (SLO-143): number, provider_error, storno_ref, storno_pdf_path.
+                   -- A külső BIZONYLAT állapota, ami NEM a számla státusza: az a tartozásról szól
+                   -- (kiállítva/fizetve/lejárt, ezt olvassa a dunning), ez arról, készült-e papír.
+                   -- Ezért nincs új CommissionInvoiceStatus érték: egy elbukott bizonylat nem
+                   -- tehet úgy, mintha a tartozás lenne fura állapotban. `provider_error` nem null
+                   -- = az utolsó próbálkozást elutasították, újrapróbálható.
+
 tenants.analytics  -- titkosított (encrypted:array) oszlop (SLO-56): a tenant SAJÁT mérőkódjai
                    -- (ga4_measurement_id, meta_pixel_id) + a Conversions API hitelesítése
                    -- (meta_access_token, meta_test_event_code). Az azonosítók publikusak, a

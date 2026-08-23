@@ -11,6 +11,7 @@ use App\Services\Invoicing\Billingo\BillingoClient;
 use App\Services\Invoicing\InvoiceIssuerManager;
 use App\Services\Invoicing\InvoiceRequest;
 use App\Services\Invoicing\Issuers\BillingoInvoiceIssuer;
+use App\Services\Invoicing\StornoRequest;
 use App\Settings\TenantInvoicingSettings;
 use App\Tenancy\TenantManager;
 use Illuminate\Http\Client\Request;
@@ -323,7 +324,13 @@ it('voids through the cancel endpoint and returns the cancellation document', fu
     $invoice->provider_ref = '134638151';
     $invoice->number = '2026-1';
 
-    $storno = app(BillingoInvoiceIssuer::class)->storno($invoice, billingoSeller($tenant));
+    $storno = app(BillingoInvoiceIssuer::class)->storno(new StornoRequest(
+        seller: billingoSeller($tenant),
+        providerRef: $invoice->provider_ref,
+        number: $invoice->number,
+        amountMinor: $invoice->amount_minor,
+        currency: $invoice->currency,
+    ));
 
     expect($storno->number)->toBe('2026-2')
         ->and($storno->providerRef)->toBe('134638184');

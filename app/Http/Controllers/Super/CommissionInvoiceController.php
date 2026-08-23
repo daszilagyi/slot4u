@@ -11,7 +11,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Super\CommissionInvoiceFilterRequest;
 use App\Http\Requests\Super\MarkCommissionInvoicePaidRequest;
 use App\Http\Requests\Super\VoidCommissionInvoiceRequest;
+use App\Jobs\IssueCommissionInvoiceDocument;
 use App\Models\CommissionInvoice;
+use App\Services\Invoicing\PlatformInvoicing;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
@@ -58,6 +60,11 @@ class CommissionInvoiceController extends Controller
             'filters' => ['status' => $status, 'period' => $period, 'tenant_id' => $tenantId],
             'statuses' => array_map(fn (CommissionInvoiceStatus $s) => $s->value, CommissionInvoiceStatus::cases()),
             'grace_days' => DunningSweep::GRACE_DAYS,
+            // Whether slot4u's own invoicing channel is actually live (SLO-143).
+            // Surfaced rather than assumed: under the sandbox the documents are
+            // real files with no legal standing, and a screen that showed them
+            // without saying so would be the most expensive kind of quiet.
+            'invoicing_live' => app(PlatformInvoicing::class)->isLive(),
         ]);
     }
 
@@ -107,6 +114,27 @@ class CommissionInvoiceController extends Controller
     }
 
     /**
+     * Ask the invoicing provider for the document again (SLO-143).
+     *
+     * Only for an invoice that has none. The job is idempotent anyway, but
+     * refusing here means the button is never offered for an invoice that has
+     * one — a numbering series has no gaps to give back, and "retry" is the one
+     * word that should never be able to produce a second document for one debt.
+     */
+    public function retryDocument(CommissionInvoice $invoice): RedirectResponse
+    {
+        Gate::authorize('manage', $invoice);
+
+        if ($invoice->provider_ref !== null || $invoice->status === CommissionInvoiceStatus::Void) {
+            return back()->withErrors(['invoice' => __('super.commission_invoices.error.document_not_retryable')]);
+        }
+
+        IssueCommissionInvoiceDocument::dispatch($invoice->getKey());
+
+        return back();
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function invoiceRow(CommissionInvoice $invoice, Carbon $now): array
@@ -132,6 +160,19 @@ class CommissionInvoiceController extends Controller
             'paid_method' => $invoice->paid_method,
             // Actions apply only while the invoice is still outstanding.
             'can_manage' => $outstanding,
+            // The external DOCUMENT's state, which is not the invoice's status
+            // (SLO-143): the debt can be perfectly normal while the paperwork
+            // failed, and only one of those two is what dunning acts on.
+            'document' => [
+                'number' => $invoice->number,
+                'issued' => $invoice->provider_ref !== null,
+                'stornoed' => $invoice->storno_ref !== null,
+                'error' => $invoice->provider_error,
+                // Retryable exactly while nothing has been issued: a second
+                // attempt after success would mint a second number for one debt.
+                'can_retry' => $invoice->provider_ref === null
+                    && $invoice->status !== CommissionInvoiceStatus::Void,
+            ],
             // Dunning countdown, computed server-side so the view stays a pure
             // render (no Date.now() during render — react-hooks/purity).
             'dunning' => $this->dunning($invoice, $now),

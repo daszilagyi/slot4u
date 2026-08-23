@@ -662,7 +662,20 @@ return [
                 'mark_paid' => 'Fizetettnek jelöl',
                 'void' => 'Storno',
                 'resend' => 'Újraküldés',
+                'retry_document' => 'Bizonylat újra',
             ],
+            // A külső bizonylat állapota (SLO-143). Külön a számla STÁTUSZÁTÓL:
+            // az a tartozásról szól (kiállítva / fizetve / lejárt), ez arról,
+            // hogy készült-e róla papír a slot4u számlázójában.
+            'document' => [
+                'label' => 'Bizonylat',
+                'issued' => 'Kiállítva: :number',
+                'missing' => 'Nincs bizonylat',
+                'failed' => 'A számlázó elutasította',
+                'stornoed' => 'Stornó bizonylat is kész',
+                'sandbox_note' => '⚠️ A jutalékszámlák jelenleg TESZT számlázóval készülnek — a bizonylatoknak nincs joghatásuk. Éles kiállításhoz a platform számlázó-fiókjának adatai kellenek a prod környezetbe.',
+            ],
+            'retry_document_confirm' => 'Újra megpróbáljuk kiállítani a bizonylatot a slot4u számlázójában. Ha közben mégis elkészült, ez nem csinál semmit — egy tartozásról soha nem készül két bizonylat.',
             'mark_paid_dialog' => [
                 'title' => 'Fizetettnek jelölés',
                 'description' => ':tenant — :period időszak jutalékszámlája. A period is „fizetve" lesz, és ha a tenant nemfizetés miatt fel volt függesztve, feloldódik (ha nincs több nyitott számlája).',
@@ -685,6 +698,7 @@ return [
             'cancel' => 'Mégse',
             'error' => [
                 'not_outstanding' => 'Ez a művelet csak kiállított vagy lejárt számlán végezhető el.',
+                'document_not_retryable' => 'Ehhez a számlához már készült bizonylat (vagy a számla stornózva van) — egy tartozásról nem állítunk ki két bizonylatot.',
             ],
         ],
         'tenants' => [
@@ -2317,6 +2331,14 @@ return [
 
     // Számlázó szolgáltató beállításai (SLO-167). A tenant választ, mert ő
     // szerződik a számlázóval — a slot4u csak a gépezetet adja.
+    // A slot4u SAJÁT jutalékszámlájának tétele (SLO-143). A tenant ezt a sort
+    // látja a költségszámláján, tehát megnevezi a szolgáltatást és az időszakot.
+    'commission' => [
+        'invoice' => [
+            'item' => 'slot4u foglalási rendszer — jutalék (:period)',
+        ],
+    ],
+
     'invoicing' => [
         'provider' => [
             'billingo' => 'Billingo',

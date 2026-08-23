@@ -23,7 +23,7 @@ use App\Services\Invoicing\InvoiceRequest;
 use App\Services\Invoicing\IssuedInvoice;
 use App\Services\Invoicing\Issuers\BillingoInvoiceIssuer;
 use App\Services\Invoicing\Issuers\SandboxInvoiceIssuer;
-use App\Settings\TenantInvoicingSettings;
+use App\Services\Invoicing\StornoRequest;
 use App\Tenancy\TenantManager;
 use Database\Seeders\BasePlanSeeder;
 use Database\Seeders\PermissionSeeder;
@@ -128,7 +128,7 @@ function failingIssuer(string $message = 'agent kulcs érvénytelen'): void
                     throw new RuntimeException($this->message);
                 }
 
-                public function storno(Invoice $invoice, TenantInvoicingSettings $seller): IssuedInvoice
+                public function storno(StornoRequest $request): IssuedInvoice
                 {
                     throw new RuntimeException($this->message);
                 }

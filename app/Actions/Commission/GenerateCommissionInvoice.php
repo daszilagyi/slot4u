@@ -9,6 +9,7 @@ use App\Enums\CommissionCorrectionType;
 use App\Enums\CommissionInvoiceStatus;
 use App\Enums\CommissionItemState;
 use App\Events\CommissionInvoiceIssued;
+use App\Jobs\IssueCommissionInvoiceDocument;
 use App\Models\BookingCommissionItem;
 use App\Models\CommissionCorrection;
 use App\Models\CommissionInvoice;
@@ -23,8 +24,9 @@ use Illuminate\Support\Carbon;
  *
  * Steps: finalise the aggregate (RecomputeTenantPeriod), net off any credits
  * carried in from an already-invoiced period (§8.2), then — if anything is owed —
- * insert the invoice, freeze the period as `invoiced`, and raise
- * CommissionInvoiceIssued (tenant email; external provider is a later slice).
+ * insert the invoice, freeze the period as `invoiced`, queue slot4u's own
+ * document at its invoicing provider (SLO-143), and raise
+ * CommissionInvoiceIssued (tenant email).
  * A period with nothing owed is voided with no invoice; a credit it could not
  * absorb carries on to the next period.
  *
@@ -113,6 +115,17 @@ final class GenerateCommissionInvoice
         $aggregate->status = BillingPeriodStatus::Invoiced;
         $aggregate->invoice_id = $invoice->getKey();
         $aggregate->save();
+
+        // slot4u's own document, at slot4u's own provider (docs/10 §6.5 step 4,
+        // §15.1). Queued and deliberately downstream of everything above: the
+        // debt, the closed period and the tenant's email must not wait on — or
+        // be undone by — an invoicing provider having a bad morning.
+        //
+        // Dispatched here rather than from a listener on the event below. The
+        // document is part of the invoicing act, not a notification about it,
+        // and one caller is easier to reason about for something that must
+        // happen exactly once against a numbering series.
+        IssueCommissionInvoiceDocument::dispatch($invoice->getKey());
 
         CommissionInvoiceIssued::dispatch($invoice);
 
