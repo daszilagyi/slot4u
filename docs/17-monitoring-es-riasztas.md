@@ -140,7 +140,123 @@ frissítené, amit értékel, és egy halott scheduler élőnek látszana annak,
 Semmi nem kötelező: minden kulcs nélkül az app pontosan úgy működik, mint eddig, csak nem
 szól, ha baj van.
 
-## 8. Ami tudatosan kimaradt
+## 8. E-mail-kézbesíthetőség (SLO-169)
+
+Ez azért van a monitoring-doksiban, és nem a deploy-listában: a rossz kézbesíthetőség
+**néma hiba**. Semmi nem dob kivételt, a `notifications_log` `sent`-et ír, a queue üres — az
+ügyfél viszont nem kapja meg a visszaigazolást, és azt hiszi, a foglalás nem sikerült. Nincs
+az a riasztás, ami ezt észrevenné; **csak a rendszeres újramérés**.
+
+### 8.1 A küldési út
+
+| Mi | Érték | Miért így |
+|---|---|---|
+| Feladó | `From: slot4u <no-reply@slot4u.hu>` | **Minden** tenant erről a címről küld. Tenant saját domainjéről küldeni tilos: azon nincs se SPF-felhatalmazásunk, se DKIM-kulcsunk. ⚠️ A docs/11 §8 a tenant nevét kérné display name-ként és a tenant címét `Reply-To`-ban — **ez ma nincs bekötve** (a 2026-08-23-i mérés fejlécei), l. **SLO-171**. |
+| SMTP | `tbfiftyseven.tarhely.eu:465` (`MAIL_SCHEME=smtps`) | ⚠️ A prod `.env`-ben **a gép neve** áll, nem `mail.slot4u.hu` — ugyanaz a `178.238.222.57`, ezért az SPF (`+a +mx`, IP-alapú) így is átmegy. A HELO viszont `tbfiftyseven.tarhely.eu`, aminek nincs saját SPF-je (`SPF_HELO_NONE`, 0.0 pont) — a hoster gépneve, nem a miénk, nem javítható és nem is számít. |
+| MX-cél | `mail.slot4u.hu` → `178.238.222.57` | **Nem Cloudflare-proxyzott** — az MX-célnak az origin IP-t kell adnia, különben a bejövő levél a proxyn akad el. |
+
+### 8.2 A négy rekord — DNS-igazolás (2026-08-23)
+
+```
+$ dig +short slot4u.hu TXT @1.1.1.1
+"v=spf1 +a +mx +exists:%{i}.spfcheck.eu ~all"
+
+$ dig +short default._domainkey.slot4u.hu TXT @1.1.1.1
+"v=DKIM1; k=rsa; p=MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA0nqGbRqilp+Ix..." (2048 bit)
+
+$ dig +short _dmarc.slot4u.hu TXT @1.1.1.1
+"v=DMARC1; p=none; sp=none; rua=mailto:14087cf7a60d48abaa2d02adb901f25a@dmarc-reports.cloudflare.net;"
+
+$ dig +short slot4u.hu MX @1.1.1.1
+0 mail.slot4u.hu.
+```
+
+* **SPF ✅** — a `+a +mx` pont azt a gépet hatalmazza fel, amelyik küld (`mail.slot4u.hu` =
+  a web-origin IP-je). A `~all` softfail indulásra helyes.
+* **DKIM ✅** — a `default` selectoron 2048 bites RSA kulcs. ⚠️ Ez **változás**: a docs/11 §8
+  2026-07-19-i mérése még `DKIM ❌`-et írt; a cPanel „Email Deliverability → Repair" azóta
+  felvette. A régi mérésre hivatkozó jegyzet elavult.
+* **DMARC ✅** — `p=none`, és **2026-08-23 óta `rua=`-val**: a Cloudflare **DMARC
+  Management** kezeli, a jelentések a saját gyűjtőcímére mennek
+  (`…@dmarc-reports.cloudflare.net`). Ez azért jobb a saját postafióknál, mint amit
+  eredetileg terveztünk (`dmarc@slot4u.hu`): az aggregált jelentés **napi XML** minden
+  fogadó szolgáltatótól, ami egy postaládában olvashatatlan — pont az nem derülne ki
+  belőle, amiért bekapcsoltuk. A Cloudflare feldolgozza és forrásonként mutatja, hol megy
+  át a DKIM/SPF.
+  ⚠️ **A `p=none` szándékosan marad egyelőre.** A szigorítás (`p=quarantine`) csak akkor
+  megalapozott, ha pár hét jelentése megmutatta, mi küld még a domain nevében — vakon
+  szigorítani annyi, mint találomra eldobni a saját leveleinket. **A Cloudflare DMARC
+  Management felületén kell megnézni**, mielőtt hozzányúlunk.
+
+### 8.3 A mérés — 2026-08-23, **9.5/10**
+
+Az éles rendszerből kiküldött valódi foglalás-visszaigazoló mail-tester eredménye:
+**9.5/10 — „Wow! Perfect, you can send."** (SpamAssassin `-0.2/5.0`).
+
+```
+Authentication-Results: dmarc=pass (p=none dis=none) header.from=slot4u.hu
+Authentication-Results: dkim=pass (2048-bit key) header.d=slot4u.hu header.s=default
+Received-SPF: Pass (mailfrom) client-ip=178.238.222.57; helo=tbfiftyseven.tarhely.eu
+X-Spam-Test-Scores: DKIM_SIGNED=0.1, DKIM_VALID=-0.1, DKIM_VALID_AU=-0.1,
+                    DKIM_VALID_EF=-0.1, SPF_PASS=-0.001, HTML_MESSAGE=0.001
+```
+
+A `DKIM_VALID_AU` a lényeg: az aláírás a **szerző domainjével** egyezik, nem csak
+valamilyen kulccsal van aláírva — ez az, amit a Gmail és a DMARC néz.
+
+**A hiányzó 0.5 pont a `List-Unsubscribe` fejléc**, és ez így helyes: ez tranzakciós
+levél, a saját foglalásod visszaigazolásáról nem lehet „leiratkozni". A Gmail/Yahoo
+tömeges-küldő szabálya a marketing levelekre vonatkozik, nem erre. **Ne „javítsd" —
+9.5 ennél a levéltípusnál a plafon.**
+
+### 8.4 Újramérés — hogyan
+
+Éles gépen, egyetlen paranccsal, **prod-adat írása nélkül**:
+
+```bash
+# 1. Kérj egy eldobható címet a https://www.mail-tester.com oldalon.
+# 2. Éles gépen (a CLI default PHP-ja 8.2, ezért a teljes útvonal kell):
+cd ~/slot4u && /opt/cpanel/ea-php84/root/usr/bin/php \
+  artisan mail:deliverability-test <cím>@srv1.mail-tester.com
+# 3. Töltsd újra a mail-tester oldalt → pontszám. Cél: ≥ 9/10.
+```
+
+A parancs a **valódi** foglalás-visszaigazolót küldi (ugyanaz a mailer, feladó, HTML és
+tenant-sablon), de **nem menteni** semmit: a `Booking` mentetlen példány, és a
+`notifications_log` claim (ami a `Notifier`-ben keletkezne) kimarad. Azért `sendNow`, mert a
+queue-t percenkénti cron üríti — egy sorba tett kézbesítési teszt eredménye egy perccel
+később egy worker-logban jelenne meg, nem a parancs kilépési kódjában.
+
+A DNS-oldal ellenőrzése `dig` nélküli gépről (DoH):
+
+```bash
+curl -s -H 'accept: application/dns-json' \
+  'https://cloudflare-dns.com/dns-query?name=_dmarc.slot4u.hu&type=TXT'
+```
+
+### 8.5 Újramérés — mikor kötelező
+
+Bármelyik teljesül → új mérés, és az eredmény ide:
+
+* **A küldő infrastruktúra változik.** Tranzakciós szolgáltatóra állunk (Resend / Postmark /
+  SES — a docs/11 §8 szerint a 3000/óra kvóta miatt ez idő kérdése): **új** SPF-include és
+  **új** DKIM-selector kell, a mostani rekordok nem hordozzák át magukat.
+* **Változik a feladó cím vagy a domain** (`MAIL_FROM_ADDRESS`, új küldő aldomain).
+* **Szerverköltözés / új origin IP** — az SPF `+a +mx` az IP-re mutat.
+* **DMARC-szigorítás** (`p=none` → `quarantine`/`reject`): előtte mérés, utána mérés.
+* **Új levéltípus, ami tömegesen megy ki** (emlékeztető-hullám, marketing) — más a tartalom,
+  más a spam-pontszám.
+
+### 8.6 Analytics — mi mér a launchkor
+
+**Nincs GA4 és nincs Meta Pixel.** A docs/08 ezeket Phase 2-be sorolja, és a launchhoz nem
+kell: a „működik-e" kérdésre a Sentry + a watchdog válaszol (§3–§4), a „hányan foglalnak"
+kérdésre pedig a saját adatbázis — a foglalások és a jutalék-periódusok ott vannak, tenant
+szerint bontva. Egy külső mérő ma csak annyit adna hozzá, hogy a látogató forrását is látnánk
+— cserébe consent-menedzsmentet és adatfeldolgozói kitettséget hozna. A consent-kapu (SLO-165)
+**készen áll**, tehát ha a mérés később kell, a bekötése nem blokkolt.
+
+## 9. Ami tudatosan kimaradt
 
 * **Performance tracing és session replay.** A Sentry drága fele — kvótában és abban is,
   amit gyűjt (span-ek URL-lel és SQL-lel, replay az ügyfél gépeléséről). A kérdés itt az,

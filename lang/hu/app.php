@@ -2073,6 +2073,12 @@ return [
     'mail' => [
         // Shared greeting used when a tenant email template override is rendered.
         'greeting' => 'Szia :name!',
+        // A kézbesíthetőségi próbaküldés címzettneve (mail:deliverability-test,
+        // SLO-169) — a levél valódi rendszer-email, tehát a megszólítása is
+        // fordított szöveg, nem beégetett angol placeholder.
+        'deliverability_test' => [
+            'recipient_name' => 'Kézbesíthetőségi teszt',
+        ],
         'staff_invitation' => [
             'subject' => 'Meghívás – :tenant',
             'greeting' => 'Szia :name!',
