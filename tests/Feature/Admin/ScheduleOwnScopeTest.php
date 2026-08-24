@@ -9,9 +9,9 @@ use App\Models\Staff;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Tenancy\TenantManager;
-use Illuminate\Support\Facades\DB;
 use Database\Seeders\BasePlanSeeder;
 use Database\Seeders\PermissionSeeder;
+use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Permission\PermissionRegistrar;
 
