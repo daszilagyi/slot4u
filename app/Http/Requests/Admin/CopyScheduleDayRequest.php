@@ -3,7 +3,9 @@
 namespace App\Http\Requests\Admin;
 
 use App\Enums\Permission;
+use App\Http\Requests\Concerns\ScopesSchedulable;
 use App\Tenancy\TenantManager;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -14,6 +16,8 @@ use Illuminate\Validation\Rule;
  */
 class CopyScheduleDayRequest extends FormRequest
 {
+    use ScopesSchedulable;
+
     public function authorize(): bool
     {
         return (bool) $this->user()?->can(Permission::ScheduleManage->value);
@@ -38,5 +42,16 @@ class CopyScheduleDayRequest extends FormRequest
             'target_days' => ['required', 'array', 'min:1'],
             'target_days.*' => ['integer', 'between:1,7', 'different:source_day', 'distinct'],
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
+            $this->validateSchedulableScope($validator);
+        });
     }
 }

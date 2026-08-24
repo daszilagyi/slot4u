@@ -113,6 +113,7 @@ enum Role: string
                 Permission::CustomerViewAll,
                 Permission::CustomerEdit,
                 Permission::ScheduleManage,
+                Permission::ScheduleManageAll,
                 Permission::ReportView,
                 Permission::MessageSend,
             ],

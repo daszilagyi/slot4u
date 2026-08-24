@@ -3,6 +3,7 @@
 namespace App\Enums;
 
 use App\Support\CustomerVisibility;
+use App\Support\ScheduleVisibility;
 
 /**
  * Tenant-scoped permission codes (docs/03 permission matrix). These are the
@@ -34,6 +35,17 @@ enum Permission: string
     case StaffManage = 'staff.manage';
     case LocationManage = 'location.manage';
     case ScheduleManage = 'schedule.manage';
+    /**
+     * Widens `schedule.manage` from the holder's own linked staff to every
+     * resource of the tenant ({@see ScheduleVisibility}). Without it the grant
+     * is the matrix's employee "saját" cell: an employee may keep their own
+     * working hours, and only their own — before SLO-177 the code was
+     * all-or-nothing and the employee role held it in full, so anyone could
+     * rewrite a colleague's or a room's schedule. Rooms have no ownership axis
+     * at all, so they are visible only with this code. Without `schedule.manage`
+     * it grants nothing.
+     */
+    case ScheduleManageAll = 'schedule.manage_all';
     case ReportView = 'report.view';
     case MessageSend = 'message.send';
     case TemplateManage = 'template.manage';
@@ -69,7 +81,7 @@ enum Permission: string
             self::BookingCancel, self::BookingApprove => PermissionGroup::Bookings,
             self::CustomerView, self::CustomerViewAll, self::CustomerEdit => PermissionGroup::Customers,
             self::ServiceManage, self::StaffManage, self::LocationManage => PermissionGroup::Catalog,
-            self::ScheduleManage => PermissionGroup::Schedule,
+            self::ScheduleManage, self::ScheduleManageAll => PermissionGroup::Schedule,
             self::ReportView => PermissionGroup::Insights,
             self::MessageSend, self::TemplateManage => PermissionGroup::Communication,
             self::BillingView, self::BillingEdit,
