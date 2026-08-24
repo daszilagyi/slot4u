@@ -4,6 +4,7 @@ namespace App\Http\Requests\Admin;
 
 use App\Enums\Permission;
 use App\Enums\ScheduleExceptionType;
+use App\Http\Requests\Concerns\ScopesSchedulable;
 use App\Tenancy\TenantManager;
 use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
@@ -17,6 +18,8 @@ use Illuminate\Validation\Rule;
  */
 class ScheduleExceptionRequest extends FormRequest
 {
+    use ScopesSchedulable;
+
     public function authorize(): bool
     {
         return (bool) $this->user()?->can(Permission::ScheduleManage->value);
@@ -55,6 +58,8 @@ class ScheduleExceptionRequest extends FormRequest
             if ($validator->errors()->isNotEmpty()) {
                 return;
             }
+
+            $this->validateSchedulableScope($validator);
 
             if ($this->input('type') === ScheduleExceptionType::Extra->value
                 && $this->input('start_time') === null) {

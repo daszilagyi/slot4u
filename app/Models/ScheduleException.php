@@ -4,11 +4,13 @@ namespace App\Models;
 
 use App\Enums\ScheduleExceptionType;
 use App\Models\Concerns\BelongsToTenant;
+use App\Support\ScheduleVisibility;
 use Database\Factories\ScheduleExceptionFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
 
 /**
  * A date-specific override to a resource's weekly schedule (docs/02, SLO-19):
@@ -60,5 +62,25 @@ class ScheduleException extends Model
     public function schedulable(): MorphTo
     {
         return $this->morphTo();
+    }
+
+    /**
+     * Bind {exception} route params through the actor's schedule scope so a
+     * colleague's (or a room's) record 404s rather than 403s — the ownership
+     * scope hides existence, exactly like a cross-tenant id (docs/01). The
+     * BelongsToTenant global scope still supplies the tenant filter;
+     * ScheduleVisibility adds the ownership one. The permission itself
+     * (`schedule.manage`) is gated at the route and the policy.
+     */
+    public function resolveRouteBinding($value, $field = null): ScheduleException
+    {
+        $query = self::query()->where($field ?? $this->getRouteKeyName(), $value);
+
+        $actor = Auth::user();
+        if ($actor !== null) {
+            ScheduleVisibility::apply($query, $actor);
+        }
+
+        return $query->firstOrFail();
     }
 }

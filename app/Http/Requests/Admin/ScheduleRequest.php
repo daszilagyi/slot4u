@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Admin;
 
 use App\Enums\Permission;
+use App\Http\Requests\Concerns\ScopesSchedulable;
 use App\Models\Room;
 use App\Models\Schedule;
 use App\Models\Staff;
@@ -21,6 +22,8 @@ use Illuminate\Validation\Rule;
  */
 class ScheduleRequest extends FormRequest
 {
+    use ScopesSchedulable;
+
     public function authorize(): bool
     {
         return (bool) $this->user()?->can(Permission::ScheduleManage->value);
@@ -59,10 +62,20 @@ class ScheduleRequest extends FormRequest
     /**
      * Reject a band that overlaps an existing one for the same resource on the
      * same weekday while their validity windows also overlap.
+     *
+     * The scope check runs first and on the SUBMITTED schedulable, not only the
+     * bound one: an update names its target in the body, so without it an actor
+     * could take a band they legitimately own and move it onto a colleague
+     * (SLO-177).
      */
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
+            $this->validateSchedulableScope($validator);
             if ($validator->errors()->isNotEmpty()) {
                 return;
             }

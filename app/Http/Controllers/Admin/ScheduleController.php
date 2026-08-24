@@ -15,8 +15,12 @@ use App\Models\Room;
 use App\Models\Schedule;
 use App\Models\ScheduleException;
 use App\Models\Staff;
+use App\Models\User;
 use App\Services\Schedule\FutureScheduleConflicts;
+use App\Support\ScheduleVisibility;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -24,31 +28,48 @@ use Inertia\Response;
 /**
  * Weekly schedule + exception management (SLO-19). Lives behind auth +
  * ensure.user.tenant + can:schedule.manage (routes/tenant.php). The page loads
- * every schedulable resource (staff + rooms) with all of the tenant's bands and
+ * the schedulable resources the actor may manage, with their bands and
  * exceptions; timing/overlap validation is in ScheduleRequest, the polymorphic
  * writes in the Action layer.
+ *
+ * Every list here is narrowed by {@see ScheduleVisibility} (SLO-177): an actor
+ * without `schedule.manage_all` manages only the staff records they are linked
+ * to, per the docs/03 matrix's employee "saját" cell. The narrowing is not
+ * cosmetic — the same scope binds {schedule}/{exception} (404 on a colleague's
+ * record) and rejects a foreign schedulable in the Form Requests, so hiding a
+ * resource here also means the write paths refuse it.
  */
 class ScheduleController extends Controller
 {
-    public function index(): Response
+    public function index(Request $request): Response
     {
         Gate::authorize('viewAny', Schedule::class);
 
+        $actor = $request->user();
+
         $schedules = Schedule::query()
+            ->tap(fn ($query) => ScheduleVisibility::apply($query, $actor))
             ->orderBy('day_of_week')
             ->orderBy('start_time')
             ->get();
 
         $exceptions = ScheduleException::query()
+            ->tap(fn ($query) => ScheduleVisibility::apply($query, $actor))
             ->orderBy('date')
             ->get();
 
         return Inertia::render('Admin/Schedule/Index', [
-            'schedulables' => $this->schedulables(),
+            'schedulables' => $this->schedulables($actor),
             'locations' => Location::query()->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
             'schedules' => $schedules->map(fn (Schedule $schedule) => $this->scheduleData($schedule))->values(),
             'exceptions' => $exceptions->map(fn (ScheduleException $exception) => $this->exceptionData($exception))->values(),
             'exceptionTypes' => ScheduleExceptionType::values(),
+            // Whether the page is showing the actor's own resources only (SLO-177).
+            // The lists above are already narrowed; this only lets the UI say the
+            // right thing when they come back empty — "ask an admin to link you to
+            // a staff record", not "add a staff member first", which is advice an
+            // employee cannot act on (staff.manage is admin-only).
+            'restricted' => ! ScheduleVisibility::unrestricted($actor),
             // Future-booking conflicts flashed by the last mutation (docs/04): a
             // warning list, shown once, never an automatic deletion. Empty until M3.
             'conflicts' => session('scheduleConflicts', []),
@@ -96,15 +117,23 @@ class ScheduleController extends Controller
     }
 
     /**
-     * Every bookable resource that can carry a schedule (staff + rooms), tagged
-     * with its morph alias so the UI groups bands under it. Ordered for a stable
+     * The bookable resources the actor may schedule (staff + rooms), tagged with
+     * their morph alias so the UI groups bands under them. Ordered for a stable
      * picker; N+1-free (rooms eager-load their location name).
+     *
+     * A restricted actor gets only their own linked staff records and NO rooms:
+     * a room has no owner to be linked to, so "saját" cannot include one
+     * ({@see ScheduleVisibility}).
      *
      * @return list<array<string, mixed>>
      */
-    private function schedulables(): array
+    private function schedulables(User $actor): array
     {
-        $staff = Staff::query()->with('locations:id')->orderBy('name')->get(['id', 'name'])
+        $unrestricted = ScheduleVisibility::unrestricted($actor);
+
+        $staff = Staff::query()
+            ->unless($unrestricted, fn (Builder $query) => $query->whereIn('id', ScheduleVisibility::actorStaffIds($actor)))
+            ->with('locations:id')->orderBy('name')->get(['id', 'name'])
             ->map(fn (Staff $member) => [
                 'type' => 'staff',
                 'id' => $member->id,
@@ -113,6 +142,10 @@ class ScheduleController extends Controller
                 // Assigned locations bound a staff band's location choice (SLO-51).
                 'location_ids' => $member->locations->pluck('id')->values(),
             ]);
+
+        if (! $unrestricted) {
+            return $staff->values()->all();
+        }
 
         $rooms = Room::query()->with('location:id,name')->orderBy('name')->get()
             ->map(fn (Room $room) => [

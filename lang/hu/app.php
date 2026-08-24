@@ -1381,6 +1381,11 @@ return [
             'group_rooms' => 'Helyiségek',
             'empty_title' => 'Nincs beállítható erőforrás',
             'empty_body' => 'Előbb vegyél fel dolgozót vagy helyiséget, hogy munkarendet állíthass be.',
+            // Ugyanaz az üres állapot a „saját" scope-ban (SLO-177). Külön szöveg,
+            // mert a fentit egy dolgozó nem tudja végrehajtani: a `staff.manage`
+            // admin-jog, tehát nem vehet fel magának dolgozói rekordot.
+            'empty_scoped_title' => 'Nincs hozzád rendelt dolgozói profil',
+            'empty_scoped_body' => 'A munkarended akkor jelenik meg itt, ha egy adminisztrátor dolgozóként hozzárendel a csapathoz.',
             'weekly_title' => 'Heti munkarend',
             'weekly_subtitle' => 'Add meg, mikor érhető el ez az erőforrás.',
             'add_band' => 'Sáv hozzáadása',
@@ -1450,6 +1455,10 @@ return [
                 'extra_needs_time' => 'Az extra nyitáshoz idősávot kell megadni.',
                 'location_unassigned' => 'A dolgozó nincs ehhez a telephelyhez rendelve.',
                 'room_location' => 'A helyiség csak a saját telephelyéhez köthető.',
+                // A „saját" scope (SLO-177): dolgozóként csak a saját munkarended
+                // szerkesztheted. Szándékosan nem árulja el, hogy a megadott
+                // erőforrás létezik-e — csak azt, hogy nem a tiéd.
+                'out_of_scope' => 'Ehhez az erőforráshoz nincs jogosultságod — csak a saját munkarendedet szerkesztheted.',
             ],
         ],
         'events' => [
@@ -2059,7 +2068,10 @@ return [
         'service' => ['manage' => 'Szolgáltatások kezelése'],
         'staff' => ['manage' => 'Dolgozók kezelése és meghívása'],
         'location' => ['manage' => 'Helyszínek és helyiségek kezelése'],
-        'schedule' => ['manage' => 'Munkarend, kivételek és események kezelése'],
+        'schedule' => [
+            'manage' => 'Munkarend, kivételek és események kezelése',
+            'manage_all' => 'Mindenki munkarendjének kezelése (nem csak a sajátja)',
+        ],
         'report' => ['view' => 'Kimutatások megtekintése'],
         'message' => ['send' => 'Üzenetküldés ügyfeleknek'],
         'template' => ['manage' => 'Email sablonok szerkesztése'],

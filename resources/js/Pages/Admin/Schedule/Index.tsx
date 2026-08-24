@@ -38,6 +38,8 @@ type IndexProps = {
     exceptions: ScheduleExceptionEntry[];
     exceptionTypes: ScheduleExceptionTypeValue[];
     conflicts: ScheduleConflict[];
+    /** The lists hold the actor's own resources only (SLO-177, employee "saját"). */
+    restricted: boolean;
 };
 
 const emptyBand = {
@@ -70,6 +72,7 @@ export default function ScheduleIndex({
     exceptions,
     exceptionTypes,
     conflicts,
+    restricted,
 }: IndexProps) {
     const t = useTranslations();
 
@@ -281,8 +284,16 @@ export default function ScheduleIndex({
                 <div className="mt-6">
                     <EmptyState
                         icon={CalendarClockIcon}
-                        title={t('admin.schedule.empty_title')}
-                        description={t('admin.schedule.empty_body')}
+                        title={t(
+                            restricted
+                                ? 'admin.schedule.empty_scoped_title'
+                                : 'admin.schedule.empty_title',
+                        )}
+                        description={t(
+                            restricted
+                                ? 'admin.schedule.empty_scoped_body'
+                                : 'admin.schedule.empty_body',
+                        )}
                     />
                 </div>
             </AdminLayout>
@@ -308,22 +319,29 @@ export default function ScheduleIndex({
                                 onChange={(e) => setSelectedKey(e.target.value)}
                                 className="h-9 min-w-56 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
                             >
-                                <optgroup label={t('admin.schedule.group_staff')}>
-                                    {staffOptions.map((s) => (
-                                        <option key={keyOf(s)} value={keyOf(s)}>
-                                            {s.name}
-                                        </option>
-                                    ))}
-                                </optgroup>
-                                <optgroup label={t('admin.schedule.group_rooms')}>
-                                    {roomOptions.map((s) => (
-                                        <option key={keyOf(s)} value={keyOf(s)}>
-                                            {s.location_name
-                                                ? `${s.name} · ${s.location_name}`
-                                                : s.name}
-                                        </option>
-                                    ))}
-                                </optgroup>
+                                {/* An empty optgroup still renders its label, so a
+                                    scoped actor would read a "Rooms" heading with
+                                    nothing under it (SLO-177). */}
+                                {staffOptions.length > 0 ? (
+                                    <optgroup label={t('admin.schedule.group_staff')}>
+                                        {staffOptions.map((s) => (
+                                            <option key={keyOf(s)} value={keyOf(s)}>
+                                                {s.name}
+                                            </option>
+                                        ))}
+                                    </optgroup>
+                                ) : null}
+                                {roomOptions.length > 0 ? (
+                                    <optgroup label={t('admin.schedule.group_rooms')}>
+                                        {roomOptions.map((s) => (
+                                            <option key={keyOf(s)} value={keyOf(s)}>
+                                                {s.location_name
+                                                    ? `${s.name} · ${s.location_name}`
+                                                    : s.name}
+                                            </option>
+                                        ))}
+                                    </optgroup>
+                                ) : null}
                             </select>
                         </div>
                     }

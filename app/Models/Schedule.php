@@ -3,12 +3,14 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToTenant;
+use App\Support\ScheduleVisibility;
 use Database\Factories\ScheduleFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Auth;
 
 /**
  * A recurring weekly availability band for a bookable resource (docs/02, SLO-19):
@@ -80,5 +82,25 @@ class Schedule extends Model
     public function location(): BelongsTo
     {
         return $this->belongsTo(Location::class);
+    }
+
+    /**
+     * Bind {schedule} route params through the actor's schedule scope so a
+     * colleague's (or a room's) record 404s rather than 403s — the ownership
+     * scope hides existence, exactly like a cross-tenant id (docs/01). The
+     * BelongsToTenant global scope still supplies the tenant filter;
+     * ScheduleVisibility adds the ownership one. The permission itself
+     * (`schedule.manage`) is gated at the route and the policy.
+     */
+    public function resolveRouteBinding($value, $field = null): Schedule
+    {
+        $query = self::query()->where($field ?? $this->getRouteKeyName(), $value);
+
+        $actor = Auth::user();
+        if ($actor !== null) {
+            ScheduleVisibility::apply($query, $actor);
+        }
+
+        return $query->firstOrFail();
     }
 }
