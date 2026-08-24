@@ -38,6 +38,25 @@ final class BookingVisibility
             ->pluck('id')->all();
     }
 
+    /**
+     * Whether a staff calendar is one the actor may book into — the write-side
+     * counterpart of {@see owns}, for the matrix's `booking.create` "saját
+     * naptárba" cell (SLO-178). Used where there is no booking to inspect yet,
+     * or where the SUBMITTED resource differs from the stored one.
+     *
+     * A null staff id is not "unrestricted", it is out of scope: a booking with
+     * no staff falls outside {@see owns} too, so a restricted actor creating one
+     * would create a booking they instantly cannot see, cancel, or find again.
+     */
+    public static function ownsStaffId(User $actor, ?int $staffId): bool
+    {
+        if (self::unrestricted($actor)) {
+            return true;
+        }
+
+        return $staffId !== null && in_array($staffId, self::actorStaffIds($actor), true);
+    }
+
     /** Whether the actor may see this specific booking. */
     public static function owns(User $actor, Booking $booking): bool
     {

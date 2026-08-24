@@ -4,7 +4,9 @@ namespace App\Http\Requests\Admin;
 
 use App\Actions\Booking\RescheduleBooking;
 use App\Enums\Permission;
+use App\Http\Requests\Concerns\ScopesBookingCalendar;
 use App\Tenancy\TenantManager;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
@@ -25,6 +27,8 @@ use Illuminate\Validation\Rule;
  */
 class RescheduleBookingRequest extends FormRequest
 {
+    use ScopesBookingCalendar;
+
     public function authorize(): bool
     {
         return (bool) $this->user()?->can(Permission::BookingEdit->value);
@@ -59,5 +63,21 @@ class RescheduleBookingRequest extends FormRequest
             // Absent = notify, so an older client keeps today's behaviour.
             'notify' => ['nullable', 'boolean'],
         ];
+    }
+
+    /**
+     * A restricted actor may not move a booking into someone else's calendar
+     * (SLO-178). Optional: an absent staff_id keeps the resource the booking
+     * already has, and that booking was ownership-checked before this ran.
+     */
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
+            $this->validateOwnCalendar($validator, required: false);
+        });
     }
 }

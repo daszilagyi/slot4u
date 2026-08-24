@@ -3,7 +3,9 @@
 namespace App\Http\Requests\Admin;
 
 use App\Enums\Permission;
+use App\Http\Requests\Concerns\ScopesBookingCalendar;
 use App\Tenancy\TenantManager;
+use Illuminate\Contracts\Validation\Validator;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
@@ -16,6 +18,8 @@ use Illuminate\Validation\Rule;
  */
 class ProposeBookingRequest extends FormRequest
 {
+    use ScopesBookingCalendar;
+
     public function authorize(): bool
     {
         return (bool) $this->user()?->can(Permission::BookingApprove->value);
@@ -48,5 +52,21 @@ class ProposeBookingRequest extends FormRequest
             'ends_at' => ['required', 'date', 'after:starts_at'],
             'reason' => ['nullable', 'string', 'max:500'],
         ];
+    }
+
+    /**
+     * A restricted actor may not move a booking into someone else's calendar
+     * (SLO-178). Optional: an absent staff_id keeps the resource the booking
+     * already has, and that booking was ownership-checked before this ran.
+     */
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator): void {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
+            $this->validateOwnCalendar($validator, required: false);
+        });
     }
 }

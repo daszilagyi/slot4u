@@ -4,6 +4,7 @@ namespace App\Http\Requests\Admin;
 
 use App\Enums\BookingMode;
 use App\Enums\Permission;
+use App\Http\Requests\Concerns\ScopesBookingCalendar;
 use App\Models\Service;
 use App\Tenancy\TenantManager;
 use Illuminate\Contracts\Validation\Validator;
@@ -20,6 +21,8 @@ use Illuminate\Validation\Rule;
  */
 class BookingRequest extends FormRequest
 {
+    use ScopesBookingCalendar;
+
     public function authorize(): bool
     {
         return (bool) $this->user()?->can(Permission::BookingCreate->value);
@@ -61,6 +64,13 @@ class BookingRequest extends FormRequest
     public function withValidator(Validator $validator): void
     {
         $validator->after(function (Validator $validator): void {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
+            // Before anything about the slot: a restricted actor books into their
+            // OWN calendar or not at all (docs/03, SLO-178).
+            $this->validateOwnCalendar($validator, required: true);
             if ($validator->errors()->isNotEmpty()) {
                 return;
             }
