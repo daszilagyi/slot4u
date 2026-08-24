@@ -2119,6 +2119,10 @@ return [
             'event_full' => 'Erre az eseményre már nincs szabad hely.',
             'invalid_transition' => 'Ez a művelet a foglalás jelenlegi állapotában nem végezhető el.',
             'complete_mode_only' => 'Csak időpont nélküli szolgáltatás zárható le ezen a módon.',
+            // A „saját naptárba" scope (SLO-178). Két külön tény, ezért két üzenet:
+            // a „nem a tiéd" és a „nem adtál meg naptárat" más teendőt jelent.
+            'foreign_calendar' => 'Csak a saját naptáradba rögzíthetsz foglalást.',
+            'own_calendar_required' => 'Válaszd ki a saját naptáradat — enélkül a foglalás nem kerülne a listádra.',
         ],
     ],
     'quote' => [
