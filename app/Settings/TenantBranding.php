@@ -48,6 +48,51 @@ final class TenantBranding
         ];
     }
 
+    /**
+     * Black or white — whichever stays readable as text ON `$hex` (`#rrggbb`).
+     *
+     * A tenant chooses `primary_color` and nothing else, so the token that sits
+     * on top of it has to be derived rather than asked for. The default indigo
+     * happens to want white, which is why a fixed near-white went unnoticed —
+     * but the picker accepts any hex, and white on a tenant's yellow is
+     * unreadable.
+     *
+     * The switch is at a relative luminance of 0.3, not at the 0.179 point where
+     * black and white contrast equally. This colour lands on button labels and
+     * badges, so the bar to clear is WCAG's 3:1 for UI text, and 0.3 is where
+     * white stops clearing it. The mathematical crossover would flip the default
+     * indigo (luminance 0.186, white at 4.45:1) to black text — a change to how
+     * every unbranded tenant already looks, bought for contrast nobody was short
+     * of.
+     */
+    public static function readableForeground(string $hex): string
+    {
+        $value = ltrim($hex, '#');
+
+        if (preg_match('/^[0-9a-fA-F]{6}$/', $value) !== 1) {
+            return '#ffffff';
+        }
+
+        // WCAG relative luminance: each sRGB channel linearised, then weighted.
+        $channel = static function (int $offset) use ($value): float {
+            $srgb = hexdec(substr($value, $offset, 2)) / 255;
+
+            return $srgb <= 0.03928
+                ? $srgb / 12.92
+                : ((($srgb + 0.055) / 1.055) ** 2.4);
+        };
+
+        $luminance = 0.2126 * $channel(0) + 0.7152 * $channel(2) + 0.0722 * $channel(4);
+
+        return $luminance > 0.3 ? '#000000' : '#ffffff';
+    }
+
+    /** The readable text colour for this tenant's own brand colour. */
+    public function primaryForeground(): string
+    {
+        return self::readableForeground($this->primaryColor);
+    }
+
     public function logoUrl(): ?string
     {
         return $this->logoPath !== null ? Storage::disk('public')->url($this->logoPath) : null;

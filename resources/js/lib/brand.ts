@@ -1,3 +1,5 @@
+import type { CSSProperties } from 'react';
+
 /**
  * The product name, as one constant.
  *
@@ -22,3 +24,17 @@ export const PLATFORM_ACCENT = '#22DECB';
 
 /** Readable against the accent — it is a light teal, so the text on it is dark. */
 export const PLATFORM_ACCENT_FOREGROUND = '#091020';
+
+/**
+ * The accent as inline custom properties, ready to hang on a layout root.
+ *
+ * Shared by the two shells that are slot4u's own surface — the marketing pages
+ * and the superadmin panel — so the platform has one place where its colour is
+ * decided. Deliberately an inline style rather than a stylesheet rule: a tenant
+ * public page sets the very same variable to the tenant's colour, and the only
+ * thing keeping the two apart is that each is scoped to its own subtree.
+ */
+export const PLATFORM_ACCENT_STYLE = {
+    ['--primary']: PLATFORM_ACCENT,
+    ['--primary-foreground']: PLATFORM_ACCENT_FOREGROUND,
+} as CSSProperties;

@@ -39,7 +39,7 @@ export default function TenantsIndex({ tenants, filters, statuses }: IndexProps)
     }
 
     return (
-        <AppLayout>
+        <AppLayout platformAccent>
             <Head title={t('super.tenants.title')} />
 
             <div className="w-full max-w-6xl">

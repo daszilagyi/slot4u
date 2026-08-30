@@ -2,10 +2,7 @@ import { Link, usePage } from '@inertiajs/react';
 import { motion } from 'framer-motion';
 import type { CSSProperties, PropsWithChildren } from 'react';
 
-import {
-    CookieConsent,
-    CookieSettingsLink,
-} from '@/components/CookieConsent';
+import { CookieConsent, CookieSettingsLink } from '@/components/CookieConsent';
 import ImpersonationBanner from '@/components/ImpersonationBanner';
 import ThemeToggle from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
@@ -23,8 +20,14 @@ export default function PublicLayout({ children }: PropsWithChildren) {
     const feature = useFeatures();
     const { tenant, auth } = usePage().props;
 
+    // Both halves of the token, not just the colour: `--primary-foreground` is
+    // what sits ON the brand colour, and leaving it at the near-white default
+    // puts white text on a tenant who picked a pale brand.
     const brandStyle = tenant
-        ? ({ ['--primary']: tenant.primary_color } as CSSProperties)
+        ? ({
+              ['--primary']: tenant.primary_color,
+              ['--primary-foreground']: tenant.primary_foreground,
+          } as CSSProperties)
         : undefined;
 
     // A guest is offered login; a signed-in customer (never staff — they belong
@@ -84,7 +87,7 @@ export default function PublicLayout({ children }: PropsWithChildren) {
         >
             <a
                 href="#content"
-                className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground"
+                className="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 focus:z-50 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-primary-foreground"
             >
                 {t('admin.topbar.skip_to_content')}
             </a>
@@ -138,9 +141,7 @@ export default function PublicLayout({ children }: PropsWithChildren) {
 
             <footer className="border-t border-border">
                 <div className="mx-auto flex w-full max-w-5xl flex-col items-center justify-between gap-2 px-4 py-6 text-sm text-muted-foreground sm:flex-row sm:px-6">
-                    <span>
-                        © {tenant?.name}
-                    </span>
+                    <span>© {tenant?.name}</span>
                     <span className="flex items-center gap-3 text-xs">
                         <CookieSettingsLink />
                         {t('tenant.home.powered_by')}

@@ -91,7 +91,7 @@ export default function SuperDashboard({ statistics, filters }: DashboardProps) 
             : '—';
 
     return (
-        <AppLayout>
+        <AppLayout platformAccent>
             <Head title={t('super.dashboard.title')} />
 
             <div className="mx-auto w-full max-w-6xl">
