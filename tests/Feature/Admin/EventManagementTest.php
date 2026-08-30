@@ -13,6 +13,7 @@ use App\Models\User;
 use App\Tenancy\TenantManager;
 use Database\Seeders\BasePlanSeeder;
 use Database\Seeders\PermissionSeeder;
+use Illuminate\Support\Facades\DB;
 use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -456,4 +457,215 @@ it('rejects an invalid edit scope', function () {
     $this->actingAs($admin)
         ->put(tenantHost('acme', "/events/{$event->id}"), eventPayload($service, ['scope' => 'bogus']))
         ->assertSessionHasErrors('scope');
+});
+
+/*
+|--------------------------------------------------------------------------
+| Per-occurrence clash checking in a weekly series (SLO-82)
+|--------------------------------------------------------------------------
+|
+| The base check only ever looked at the occurrence that was submitted. Every
+| later week of the series went in unchecked — so a staff member or a room could
+| be booked onto two overlapping events on any week but the first, and nothing
+| said so. The failure is invisible at announce time and only shows up when
+| somebody reads the calendar, which is why it needs tests rather than care.
+|
+*/
+
+it('rejects a series whose later occurrence clashes with an existing event', function () {
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
+    $admin = eventUser($tenant, Role::TenantAdmin);
+    $service = eventService($tenant);
+    $staff = Staff::factory()->forTenant($tenant)->create();
+
+    // The clash is on the THIRD week — the submitted occurrence (Sep 1) is clear,
+    // which is exactly the case the old check waved through.
+    Event::factory()->forTenant($tenant)->create([
+        'service_id' => $service->id,
+        'staff_id' => $staff->id,
+        'starts_at' => '2026-09-15 08:00:00',
+        'ends_at' => '2026-09-15 09:00:00',
+        'status' => EventStatus::Scheduled,
+    ]);
+
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', '/events'), eventPayload($service, [
+            'staff_id' => $staff->id,
+            'repeat_weekly' => true,
+            'repeat_until' => '2026-09-29',
+        ]))
+        ->assertSessionHasErrors('repeat_until');
+
+    // Nothing partially written: the whole series is refused, not trimmed.
+    expect(Event::where('series_id', '!=', null)->count())->toBe(0);
+});
+
+it('names the clashing occurrences so the admin can see which weeks are taken', function () {
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme', 'timezone' => 'Europe/Budapest']);
+    $admin = eventUser($tenant, Role::TenantAdmin);
+    $service = eventService($tenant);
+    $staff = Staff::factory()->forTenant($tenant)->create();
+
+    Event::factory()->forTenant($tenant)->create([
+        'service_id' => $service->id,
+        'staff_id' => $staff->id,
+        'starts_at' => '2026-09-15 08:00:00', // 10:00 Europe/Budapest
+        'ends_at' => '2026-09-15 09:00:00',
+        'status' => EventStatus::Scheduled,
+    ]);
+
+    $response = $this->actingAs($admin)
+        ->post(tenantHost('acme', '/events'), eventPayload($service, [
+            'staff_id' => $staff->id,
+            'repeat_weekly' => true,
+            'repeat_until' => '2026-09-29',
+        ]));
+
+    // Tenant-local wall clock, not UTC: the admin picked 10:00 and has to read
+    // 10:00 back, or the message points at an hour they never chose.
+    $message = session('errors')->first('repeat_until');
+    expect($message)->toContain('2026. 09. 15. 10:00');
+});
+
+it('lets a series through when the clashing event is on a different resource', function () {
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
+    $admin = eventUser($tenant, Role::TenantAdmin);
+    $service = eventService($tenant);
+    $staff = Staff::factory()->forTenant($tenant)->create();
+    $other = Staff::factory()->forTenant($tenant)->create();
+
+    Event::factory()->forTenant($tenant)->create([
+        'service_id' => $service->id,
+        'staff_id' => $other->id,
+        'starts_at' => '2026-09-15 08:00:00',
+        'ends_at' => '2026-09-15 09:00:00',
+        'status' => EventStatus::Scheduled,
+    ]);
+
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', '/events'), eventPayload($service, [
+            'staff_id' => $staff->id,
+            'repeat_weekly' => true,
+            'repeat_until' => '2026-09-29',
+        ]))
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    expect(Event::where('staff_id', $staff->id)->count())->toBe(5);
+});
+
+it('ignores a cancelled event when checking the later occurrences', function () {
+    // A cancelled event does not hold its resource — the base check already says
+    // so, and the series check must not be stricter than the rule it extends.
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
+    $admin = eventUser($tenant, Role::TenantAdmin);
+    $service = eventService($tenant);
+    $staff = Staff::factory()->forTenant($tenant)->create();
+
+    Event::factory()->forTenant($tenant)->create([
+        'service_id' => $service->id,
+        'staff_id' => $staff->id,
+        'starts_at' => '2026-09-15 08:00:00',
+        'ends_at' => '2026-09-15 09:00:00',
+        'status' => EventStatus::Canceled,
+    ]);
+
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', '/events'), eventPayload($service, [
+            'staff_id' => $staff->id,
+            'repeat_weekly' => true,
+            'repeat_until' => '2026-09-29',
+        ]))
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+});
+
+it('does not let another tenant\'s event block a series', function () {
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
+    $stranger = Tenant::factory()->active()->create(['slug' => 'other']);
+    $admin = eventUser($tenant, Role::TenantAdmin);
+    $service = eventService($tenant);
+    $staff = Staff::factory()->forTenant($tenant)->create();
+
+    // Same staff id space, different tenant: the query must not see it at all.
+    $strangerService = eventService($stranger);
+    Event::factory()->forTenant($stranger)->create([
+        'service_id' => $strangerService->id,
+        'staff_id' => Staff::factory()->forTenant($stranger)->create()->id,
+        'starts_at' => '2026-09-15 08:00:00',
+        'ends_at' => '2026-09-15 09:00:00',
+        'status' => EventStatus::Scheduled,
+    ]);
+
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', '/events'), eventPayload($service, [
+            'staff_id' => $staff->id,
+            'repeat_weekly' => true,
+            'repeat_until' => '2026-09-29',
+        ]))
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+});
+
+it('rejects a weekly series whose occurrence is a week or longer', function () {
+    // Week 2 would start before week 1 finished — the series collides with
+    // itself, on its own staff and room, and no existing event is involved.
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
+    $admin = eventUser($tenant, Role::TenantAdmin);
+    $service = eventService($tenant);
+
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', '/events'), eventPayload($service, [
+            'ends_at' => '2026-09-09T10:00', // 8 days long
+            'repeat_weekly' => true,
+            'repeat_until' => '2026-10-01',
+        ]))
+        ->assertSessionHasErrors('ends_at');
+
+    expect(Event::count())->toBe(0);
+});
+
+it('allows a multi-day event that still fits inside the week', function () {
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
+    $admin = eventUser($tenant, Role::TenantAdmin);
+    $service = eventService($tenant);
+
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', '/events'), eventPayload($service, [
+            'ends_at' => '2026-09-03T18:00', // a 2.5-day workshop
+            'repeat_weekly' => true,
+            'repeat_until' => '2026-09-22',
+        ]))
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    expect(Event::count())->toBe(4);
+});
+
+it('runs one query for the whole series, not one per occurrence', function () {
+    // A 260-occurrence series behind a form submit is exactly what the N+1 guard
+    // exists to stop; the candidate events load once for the whole span.
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
+    $admin = eventUser($tenant, Role::TenantAdmin);
+    $service = eventService($tenant);
+    $staff = Staff::factory()->forTenant($tenant)->create();
+
+    $queries = 0;
+    DB::listen(function ($query) use (&$queries): void {
+        if (str_contains($query->sql, 'from `events`') && str_contains($query->sql, 'scheduled')) {
+            $queries++;
+        }
+    });
+
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', '/events'), eventPayload($service, [
+            'staff_id' => $staff->id,
+            'repeat_weekly' => true,
+            'repeat_until' => '2027-08-25', // ~52 occurrences
+        ]))
+        ->assertRedirect()
+        ->assertSessionHasNoErrors();
+
+    // One for the base occurrence (validateNoResourceClash), one for the rest.
+    expect($queries)->toBeLessThanOrEqual(2);
 });
