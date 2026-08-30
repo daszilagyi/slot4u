@@ -10,7 +10,7 @@
 @custom-variant dark (&:is(.dark *));
 
 /*
- * `inline` is load-bearing, not decoration.
+ * `inline` is load-bearing, not decoration (SLO-179).
  *
  * A plain `@theme` emits `--color-primary: var(--primary)` into `:root`, where
  * the `var()` resolves once and the *resolved* colour inherits downwards. A

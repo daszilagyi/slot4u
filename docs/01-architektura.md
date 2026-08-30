@@ -420,7 +420,7 @@ Fortify útvonalai host-függetlenek, így a `tenant` prop a tenant login oldal�
 az Ő márkája, nem a miénk, és minden színt nem választó tenantot átfesteni annyi lenne, mint a
 platform kiszolgálja magát mások kirakatából (ugyanaz a határvonal, mint `docs/19` §2).
 
-⚠️⚠️ **A felülírás csak `@theme inline` mellett működik** (`resources/css/app.css`). Sima
+⚠️⚠️ **A felülírás csak `@theme inline` mellett működik** (`resources/css/app.css`, SLO-179). Sima
 `@theme`-mel a Tailwind a `--color-primary: var(--primary)`-t a `:root`-ba írja, ott **egyszer
 feloldja**, és a kész színt örökítteti lefelé — ilyenkor egy alfán elhelyezett `--primary`
 felülírás **semmit nem csinál**, miközben a kód, a docs és a review is úgy olvasódik, mintha

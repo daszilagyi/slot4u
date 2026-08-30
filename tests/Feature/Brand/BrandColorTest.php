@@ -9,7 +9,7 @@ use Inertia\Testing\AssertableInertia as Assert;
 
 /*
 |--------------------------------------------------------------------------
-| Brand colour tokens (SLO-21 / SLO-170)
+| Brand colour tokens (SLO-179; the tokens themselves are SLO-21 / SLO-170)
 |--------------------------------------------------------------------------
 |
 | A tenant picks one colour and the shell has to produce two: the brand colour
