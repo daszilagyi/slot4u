@@ -1509,6 +1509,8 @@ return [
                 'repeat_too_far' => 'A sorozat legfeljebb 260 alkalmat tartalmazhat — válassz közelebbi végdátumot.',
                 'capacity_below_booked' => 'A kapacitás nem lehet kevesebb a jelentkezők számánál (:count).',
                 'resource_clash' => 'A dolgozó vagy a helyiség ekkor már egy másik eseményen van.',
+                'series_resource_clash' => 'A sorozat :count alkalma ütközik a dolgozó vagy a helyiség másik eseményével — például :dates. Válassz másik időpontot, dolgozót vagy helyiséget, vagy zárd le korábban a sorozatot.',
+                'series_self_overlap' => 'Egy hétnél hosszabb esemény nem ismételhető hetente: az alkalmak átfednék egymást, és ugyanaz a dolgozó vagy helyiség kétszer lenne lefoglalva.',
                 'delete_has_bookings' => 'Az eseménynek jelentkezői vannak — mondd le helyette (értesítést kapnak).',
             ],
         ],

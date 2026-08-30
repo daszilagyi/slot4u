@@ -3,6 +3,7 @@
 namespace App\Actions\Event;
 
 use App\Models\Event;
+use App\Services\Event\WeeklyEventSeries;
 use App\Tenancy\TenantManager;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -14,16 +15,12 @@ use Illuminate\Support\Str;
  * series can be edited/cancelled together. tenant_id is stamped by
  * BelongsToTenant; booked_count/status default at the DB level.
  *
- * Recurrence is stepped in the tenant timezone so every occurrence keeps the same
- * local wall-clock time across a DST changeover (docs/01 §7); the per-occurrence
- * UTC instant is derived after the local step, not by adding fixed hours to a UTC
- * instant.
+ * The occurrence list comes from {@see WeeklyEventSeries} rather than a loop of
+ * its own, because EventRequest checks the very same list for resource clashes
+ * (SLO-82). Two loops that had to stay in step would eventually not be.
  */
 class CreateEvent
 {
-    /** Hard cap on generated occurrences, guarding against a runaway until-date. */
-    private const MAX_OCCURRENCES = 260; // ~5 years of weekly events
-
     public function __construct(private readonly TenantManager $tenants) {}
 
     /**
@@ -56,18 +53,15 @@ class CreateEvent
         $seriesId = (string) Str::uuid();
         $rule = ['freq' => 'weekly', 'until' => $until->toDateString()];
 
-        return DB::transaction(function () use ($base, $startLocal, $endLocal, $until, $seriesId, $rule): array {
+        // The same list EventRequest checked for clashes — one generator, so a
+        // conflict cleared at validation is the occurrence actually written.
+        $occurrences = WeeklyEventSeries::occurrences($startLocal, $endLocal, $until, $timezone);
+
+        return DB::transaction(function () use ($base, $occurrences, $seriesId, $rule): array {
             $ids = [];
 
-            for ($i = 0; $i < self::MAX_OCCURRENCES; $i++) {
-                // addWeeks on a tz-aware instance preserves the local wall-clock
-                // time across DST (calendar step, not a fixed 168h).
-                $occurrenceStart = $startLocal->copy()->addWeeks($i);
-                if ($occurrenceStart->gt($until)) {
-                    break;
-                }
-
-                $ids[] = $this->make($base, $occurrenceStart, $endLocal->copy()->addWeeks($i), $seriesId, $rule)->id;
+            foreach ($occurrences as $occurrence) {
+                $ids[] = $this->make($base, $occurrence['starts_at'], $occurrence['ends_at'], $seriesId, $rule)->id;
             }
 
             return $ids;
