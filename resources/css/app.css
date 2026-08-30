@@ -9,9 +9,25 @@
 
 @custom-variant dark (&:is(.dark *));
 
-@theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+/*
+ * `inline` is load-bearing, not decoration.
+ *
+ * A plain `@theme` emits `--color-primary: var(--primary)` into `:root`, where
+ * the `var()` resolves once and the *resolved* colour inherits downwards. A
+ * component that overrides `--primary` on a subtree — the tenant public shell
+ * painting its brand colour (SLO-29), the marketing shell and superadmin panel
+ * painting slot4u's own accent (SLO-170) — then changes nothing, because
+ * `bg-primary` reads `--color-primary`, which was already settled at the root.
+ *
+ * With `inline`, the utilities emit `var(--primary)` directly, so the nearest
+ * override wins and the design tokens behave the way every layout doc-comment
+ * in this repo says they do.
+ */
+@theme inline {
+    --font-sans:
+        'Instrument Sans', ui-sans-serif, system-ui, sans-serif,
+        'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+        'Noto Color Emoji';
 
     --color-background: var(--background);
     --color-foreground: var(--foreground);
@@ -85,11 +101,11 @@
 
 @layer base {
     * {
-        border-color: var(--color-border);
+        border-color: var(--border);
     }
 
     body {
-        background-color: var(--color-background);
-        color: var(--color-foreground);
+        background-color: var(--background);
+        color: var(--foreground);
     }
 }

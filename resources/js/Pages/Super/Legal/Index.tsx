@@ -22,7 +22,7 @@ export default function SuperLegalIndex({ documents }: IndexProps) {
     const t = useTranslations();
 
     return (
-        <AppLayout>
+        <AppLayout platformAccent>
             <Head title={t('legal.super.title')} />
 
             <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-8 sm:px-6">

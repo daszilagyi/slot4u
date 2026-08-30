@@ -33,7 +33,7 @@ export default function AuditLogsIndex({ logs, filters, actions }: IndexProps) {
     }
 
     return (
-        <AppLayout>
+        <AppLayout platformAccent>
             <Head title={t('super.audit.title')} />
 
             <div className="w-full max-w-6xl">

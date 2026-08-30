@@ -81,7 +81,7 @@ export default function SuperStatistics({ statistics, filters, month_options }: 
     }
 
     return (
-        <AppLayout>
+        <AppLayout platformAccent>
             <Head title={t('super.statistics.title')} />
 
             <div className="mx-auto w-full max-w-6xl">

@@ -27,6 +27,8 @@ export type TenantIdentity = {
     slug: string;
     logo_url: string | null;
     primary_color: string;
+    /** Readable text colour for `primary_color` (TenantBranding::readableForeground). */
+    primary_foreground: string;
 };
 
 export type RoomTypeValue = 'room' | 'equipment';

@@ -1,15 +1,11 @@
 import { Link, usePage } from '@inertiajs/react';
-import type { CSSProperties, PropsWithChildren } from 'react';
+import type { PropsWithChildren } from 'react';
 
 import BrandLockup from '@/components/BrandLockup';
 import { CookieConsent, CookieSettingsLink } from '@/components/CookieConsent';
 import ThemeToggle from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
-import {
-    BRAND_NAME,
-    PLATFORM_ACCENT,
-    PLATFORM_ACCENT_FOREGROUND,
-} from '@/lib/brand';
+import { BRAND_NAME, PLATFORM_ACCENT_STYLE } from '@/lib/brand';
 import { useTranslations } from '@/lib/i18n';
 
 /**
@@ -29,18 +25,9 @@ export default function MarketingLayout({ children }: PropsWithChildren) {
     const { auth, legal } = usePage().props;
     const documents = legal?.documents ?? [];
 
-    // The platform's own accent, scoped to this layout (SLO-170). Overriding the
-    // token here rather than in the stylesheet is what keeps it OFF a tenant's
-    // pages: the tenant public shell sets the same variable to the tenant's own
-    // colour, and neither can reach the other.
-    const accent = {
-        ['--primary']: PLATFORM_ACCENT,
-        ['--primary-foreground']: PLATFORM_ACCENT_FOREGROUND,
-    } as CSSProperties;
-
     return (
         <div
-            style={accent}
+            style={PLATFORM_ACCENT_STYLE}
             className="flex min-h-screen flex-col bg-background text-foreground"
         >
             <header className="border-b border-border">

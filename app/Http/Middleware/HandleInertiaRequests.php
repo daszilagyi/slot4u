@@ -187,7 +187,7 @@ class HandleInertiaRequests extends Middleware
      * to no logo + the default colour, matching the cover gate in HomeController
      * and the locked branding editor in SettingsController (SLO-90).
      *
-     * @return array{name: string, slug: string, logo_url: string|null, primary_color: string}|null
+     * @return array{name: string, slug: string, logo_url: string|null, primary_color: string, primary_foreground: string}|null
      */
     private function tenantIdentity(): ?array
     {
@@ -202,6 +202,10 @@ class HandleInertiaRequests extends Middleware
         // query — the `features` shared prop already resolves it this request.
         $branded = in_array(Feature::Branding->value, $this->enabledFeatures(), true);
 
+        $primaryColor = $branded
+            ? $branding->primaryColor
+            : TenantBranding::DEFAULT_PRIMARY_COLOR;
+
         return [
             // Numeric id for the private realtime channel (`tenant.{id}.bookings`,
             // SLO-118); name/slug/branding drive the sidebar identity.
@@ -209,9 +213,11 @@ class HandleInertiaRequests extends Middleware
             'name' => $tenant->name,
             'slug' => $tenant->slug,
             'logo_url' => $branded ? $branding->logoUrl() : null,
-            'primary_color' => $branded
-                ? $branding->primaryColor
-                : TenantBranding::DEFAULT_PRIMARY_COLOR,
+            'primary_color' => $primaryColor,
+            // Both halves of the token, because the public shell overrides both:
+            // `--primary` alone would leave the near-white default sitting on a
+            // tenant who picked a pale brand colour.
+            'primary_foreground' => TenantBranding::readableForeground($primaryColor),
         ];
     }
 

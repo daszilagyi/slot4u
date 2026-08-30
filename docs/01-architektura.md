@@ -408,12 +408,33 @@ csíkkal, a csempe viszont 20 px-en is arcként olvasható. Az egyik illusztrác
 egy fejléc ikont kér. Ez oldja meg a világos téma problémáját is: a szabadon álló jel krém
 színe fehéren majdnem láthatatlan, a csempe viszont hozza a saját sötét alapját.
 
-⚠️ **A platform akcentusa (teal, `#22DECB`) CSAK a marketing-felületre vonatkozik.** A
-`MarketingLayout` felülírja a `--primary` tokent — pontosan azzal a mechanizmussal, amivel a
-tenant publikus shellje a saját márkaszínét állítja, tehát a kettő nem tud egymáshoz érni. A
+⚠️ **A platform akcentusa (teal, `#22DECB`) CSAK a slot4u saját felületeire vonatkozik:** a
+marketing-oldalakra (`MarketingLayout`) és a superadmin panelre (`AppLayout` a
+`platformAccent` proppal, `Super/*` oldalak). Mindkettő felülírja a `--primary` tokent —
+pontosan azzal a mechanizmussal, amivel a tenant publikus shellje a saját márkaszínét állítja,
+tehát a kettő nem tud egymáshoz érni. Az `AppLayout`-on **prop és nem alapértelmezés**, mert
+ugyanez a shell viszi a belépőkártyákat is: a `{tenant}.slot4u.hu/login` egy cég dolgozója,
+akinek a bejelentkezője az Ő márkája, és megosztott propból sem lehet szétválasztani — a
+Fortify útvonalai host-függetlenek, így a `tenant` prop a tenant login oldalán is `null`. A
 `TenantBranding::DEFAULT_PRIMARY_COLOR` **szándékosan indigó marad**: a tenant foglalóoldala
 az Ő márkája, nem a miénk, és minden színt nem választó tenantot átfesteni annyi lenne, mint a
 platform kiszolgálja magát mások kirakatából (ugyanaz a határvonal, mint `docs/19` §2).
+
+⚠️⚠️ **A felülírás csak `@theme inline` mellett működik** (`resources/css/app.css`). Sima
+`@theme`-mel a Tailwind a `--color-primary: var(--primary)`-t a `:root`-ba írja, ott **egyszer
+feloldja**, és a kész színt örökítteti lefelé — ilyenkor egy alfán elhelyezett `--primary`
+felülírás **semmit nem csinál**, miközben a kód, a docs és a review is úgy olvasódik, mintha
+működne. Pontosan ez történt: a tenant márkaszíne (SLO-29) és a platform akcentusa (SLO-170)
+egyaránt hatástalan volt, amíg a váltás meg nem történt. Az `inline` mellett viszont a
+`--color-*` nevek **nem kerülnek ki** a `:root`-ba, ezért a `@layer base` a nyers tokeneket
+(`var(--background)`, `var(--foreground)`, `var(--border)`) használja — egy ottfelejtett
+`var(--color-*)` némán semmivé oldódik. Mindkettőt teszt őrzi (`tests/Feature/Brand/`).
+
+A tenant shellje a token **mindkét felét** állítja: a `tenant` shared prop a `primary_color`
+mellett `primary_foreground`-ot is hoz (`TenantBranding::readableForeground()`). A tenant csak
+egy színt választ, a rajta olvasható szövegszínt tehát származtatni kell — a váltás 0,3-as
+relatív luminanciánál van (WCAG 3:1 UI-szövegre), nem a 0,179-es matematikai metszéspontnál,
+mert az az alapértelmezett indigót is feketére fordítaná.
 
 ## N+1 védelem (SLO-155)
 
