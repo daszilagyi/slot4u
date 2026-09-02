@@ -6,6 +6,7 @@ use App\Enums\NotificationType;
 use App\Models\MessageTemplate;
 use App\Models\Tenant;
 use App\Notifications\Concerns\RecordsDelivery;
+use App\Notifications\Concerns\SuppressedForDemoTenant;
 use App\Notifications\Concerns\TracksDelivery;
 use App\Services\Notification\MessageTemplateRenderer;
 use App\Settings\TenantSettings;
@@ -25,7 +26,7 @@ use Illuminate\Support\Number;
  */
 abstract class TenantMailNotification extends Notification implements RecordsDelivery, ShouldQueue
 {
-    use Queueable, TracksDelivery;
+    use Queueable, SuppressedForDemoTenant, TracksDelivery;
 
     /**
      * The tenant this mail speaks for. Held explicitly (rather than re-read off the
@@ -93,7 +94,9 @@ abstract class TenantMailNotification extends Notification implements RecordsDel
             ? $this->defaultMail($notifiable)
             : $this->renderFromTemplate($override, $notifiable);
 
-        return $this->addressAsTenant($mail);
+        // The demo diversion goes last, so it applies to the tenant's own
+        // template override exactly as it does to the built-in body (SLO-182).
+        return $this->suppressWhenDemo($this->addressAsTenant($mail), $this->tenant);
     }
 
     /**

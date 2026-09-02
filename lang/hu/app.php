@@ -726,6 +726,10 @@ return [
             'search_button' => 'Keresés',
             'filter_all' => 'Összes státusz',
             'empty' => 'Nincs a szűrésnek megfelelő tenant.',
+            'demo' => [
+                'badge' => 'DEMO',
+                'hint' => 'Sales-demo tenant: nem küld valós emailt, nem indít valós fizetést, nem állít ki valós számlát, és kimarad a platform-statisztikákból.',
+            ],
             'col' => [
                 'name' => 'Név',
                 'slug' => 'Aldomén',

@@ -30,6 +30,11 @@ use Illuminate\Support\Carbon;
  * Revenue is reported net of the credits a closed period's later change produced
  * (§8.2, SLO-127): the accrual is the gross figure, the billable net is what the
  * invoice would actually charge.
+ *
+ * ⚠️ **Demo tenants are excluded from every figure** (SLO-182, docs/20 §3.1).
+ * Their turnover is seeded to look impressive on a sales screenshot, so counting
+ * it would put fabricated money in the one number slot4u reads as revenue — and
+ * would park a demo persona at the top of the "top tenants" table for good.
  */
 final class BuildCommissionStatistics
 {
@@ -138,6 +143,7 @@ final class BuildCommissionStatistics
 
         $row = TenantBillingPeriod::query()
             ->withoutGlobalScopes()
+            ->whereNotIn('tenant_id', Tenant::demoIdQuery())
             ->where('period', $period)
             ->selectRaw(<<<SQL
                 COALESCE(SUM(turnover_minor), 0) as turnover_total,
@@ -185,6 +191,7 @@ final class BuildCommissionStatistics
     {
         return TenantBillingPeriod::query()
             ->withoutGlobalScopes()
+            ->whereNotIn('tenant_id', Tenant::demoIdQuery())
             ->where('period', $period)
             ->where('turnover_minor', '>', 0)
             ->with('tenant:id,name,slug,status')
@@ -235,6 +242,7 @@ final class BuildCommissionStatistics
 
         return CommissionInvoice::query()
             ->withoutGlobalScopes()
+            ->whereNotIn('tenant_id', Tenant::demoIdQuery())
             ->where('status', CommissionInvoiceStatus::Overdue->value)
             ->whereNotNull('due_at')
             ->with('tenant:id,name,slug')
@@ -267,6 +275,7 @@ final class BuildCommissionStatistics
     private function operationalTenantCount(): int
     {
         return Tenant::query()
+            ->excludingDemo()
             ->whereIn('status', [TenantStatus::Trial->value, TenantStatus::Active->value])
             ->count();
     }

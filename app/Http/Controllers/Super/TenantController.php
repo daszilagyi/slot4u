@@ -241,6 +241,9 @@ class TenantController extends Controller
             'name' => $tenant->name,
             'slug' => $tenant->slug,
             'status' => $tenant->status->value,
+            // Both the list and the detail page render from here, so the DEMO
+            // badge shows up in both from one line (SLO-182).
+            'is_demo' => $tenant->is_demo,
             'trial_ends_at' => $tenant->trial_ends_at?->toIso8601String(),
             'users_count' => $tenant->users_count,
             'archived' => $tenant->trashed(),

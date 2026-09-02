@@ -9,7 +9,7 @@ import CommissionOverrideSection, {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { formatDate, statusBadgeClass } from '@/lib/format';
+import { DEMO_BADGE_CLASS, formatDate, statusBadgeClass } from '@/lib/format';
 import { useTranslations } from '@/lib/i18n';
 import type { TenantSummary } from '@/types';
 
@@ -86,6 +86,14 @@ export default function TenantsShow({
                         >
                             {t(`tenant_status.${tenant.status}`)}
                         </span>
+                        {tenant.is_demo && (
+                            <span
+                                className={`rounded-full px-2 py-0.5 text-xs font-medium ${DEMO_BADGE_CLASS}`}
+                                title={t('super.tenants.demo.hint')}
+                            >
+                                {t('super.tenants.demo.badge')}
+                            </span>
+                        )}
                     </div>
                     <Link
                         href="/tenants"

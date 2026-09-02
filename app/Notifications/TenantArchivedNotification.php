@@ -6,6 +6,7 @@ namespace App\Notifications;
 
 use App\Http\Controllers\Super\TenantController;
 use App\Models\Tenant;
+use App\Notifications\Concerns\SuppressedForDemoTenant;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -28,7 +29,7 @@ use Illuminate\Support\Carbon;
  */
 class TenantArchivedNotification extends Notification
 {
-    use Queueable;
+    use Queueable, SuppressedForDemoTenant;
 
     public function __construct(
         private readonly Tenant $tenant,
@@ -47,13 +48,15 @@ class TenantArchivedNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        return (new MailMessage)
+        $mail = (new MailMessage)
             ->subject(__('app.mail.tenant_archived.subject', ['tenant' => $this->tenant->name]))
             ->greeting(__('app.mail.tenant_archived.greeting', ['name' => $notifiable->name]))
             ->line(__('app.mail.tenant_archived.intro', ['tenant' => $this->tenant->name]))
             ->line(__('app.mail.tenant_archived.deadline', ['date' => $this->deadline()]))
             ->line(__('app.mail.tenant_archived.kept'))
             ->line(__('app.mail.tenant_archived.export'));
+
+        return $this->suppressWhenDemo($mail, $this->tenant);
     }
 
     /** The purge date rendered in the tenant's own timezone. */

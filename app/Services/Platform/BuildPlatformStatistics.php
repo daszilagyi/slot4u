@@ -24,6 +24,14 @@ use Illuminate\Support\Collection;
  * archiving a tenant soft-deletes it (see ChangeTenantStatus) and an archived
  * tenant is precisely what churn is made of.
  *
+ * ⚠️ **Demo tenants are excluded from every number here** (SLO-182, docs/20
+ * §3.1). Four seeded sales-demo workspaces carry ~180 days of fabricated
+ * bookings each, sized for a dashboard screenshot rather than for truth. Left
+ * in, they would be the largest tenants on the platform on launch day and would
+ * quietly become the growth curve slot4u steers by. The exclusion covers the
+ * tenants, their bookings and their billing periods — the three tables a demo
+ * tenant writes to that this class reads.
+ *
  * ⚠️ **Churn is reconstructed from `deleted_at`, not from a status journal.**
  * The platform has no per-transition history table, and archiving is the only
  * terminal exit, so "the tenants archived during month M" is the honest measure
@@ -169,6 +177,7 @@ final class BuildPlatformStatistics
     {
         return Tenant::query()
             ->withTrashed()
+            ->excludingDemo()
             ->get(['id', 'status', 'created_at', 'deleted_at']);
     }
 
@@ -250,6 +259,7 @@ final class BuildPlatformStatistics
 
         $row = Booking::query()
             ->withoutGlobalScopes()
+            ->whereNotIn('tenant_id', Tenant::demoIdQuery())
             ->where('created_at', '>=', $window[0]['start'])
             ->where('created_at', '<', $window[array_key_last($window)]['end'])
             ->selectRaw(implode(', ', $expressions), $bindings)
@@ -396,6 +406,7 @@ final class BuildPlatformStatistics
 
         $row = TenantBillingPeriod::query()
             ->withoutGlobalScopes()
+            ->whereNotIn('tenant_id', Tenant::demoIdQuery())
             ->where('period', $period)
             ->selectRaw(implode(', ', $expressions), $bindings)
             ->toBase()
@@ -422,6 +433,7 @@ final class BuildPlatformStatistics
     {
         return TenantBillingPeriod::query()
             ->withoutGlobalScopes()
+            ->whereNotIn('tenant_id', Tenant::demoIdQuery())
             ->where('period', $period)
             ->where('turnover_minor', '>', 0)
             ->count();

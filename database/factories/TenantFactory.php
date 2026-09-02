@@ -53,4 +53,18 @@ class TenantFactory extends Factory
     {
         return $this->state(fn () => ['status' => TenantStatus::Archived]);
     }
+
+    /**
+     * A sales-demo workspace (SLO-182, docs/20 §3.1). Active rather than trial:
+     * a demo that expires is a demo that is broken the week nobody looked at it,
+     * and the demo tenants are exempt from the billing close that would otherwise
+     * make "active without paying" a contradiction.
+     */
+    public function demo(): static
+    {
+        return $this->state(fn () => [
+            'is_demo' => true,
+            'status' => TenantStatus::Active,
+        ]);
+    }
 }

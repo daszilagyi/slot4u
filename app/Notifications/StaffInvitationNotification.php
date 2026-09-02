@@ -3,6 +3,7 @@
 namespace App\Notifications;
 
 use App\Models\Tenant;
+use App\Notifications\Concerns\SuppressedForDemoTenant;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -14,7 +15,7 @@ use Illuminate\Notifications\Notification;
  */
 class StaffInvitationNotification extends Notification
 {
-    use Queueable;
+    use Queueable, SuppressedForDemoTenant;
 
     public function __construct(
         private readonly Tenant $tenant,
@@ -34,12 +35,14 @@ class StaffInvitationNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        return (new MailMessage)
+        $mail = (new MailMessage)
             ->subject(__('app.mail.staff_invitation.subject', ['tenant' => $this->tenant->name]))
             ->greeting(__('app.mail.staff_invitation.greeting', ['name' => $notifiable->name]))
             ->line(__('app.mail.staff_invitation.intro', ['tenant' => $this->tenant->name]))
             ->action(__('app.mail.staff_invitation.action'), $this->invitationUrl($notifiable))
             ->line(__('app.mail.staff_invitation.outro'));
+
+        return $this->suppressWhenDemo($mail, $this->tenant);
     }
 
     /**
