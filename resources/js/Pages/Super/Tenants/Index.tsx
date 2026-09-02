@@ -4,7 +4,7 @@ import { type FormEvent, useState } from 'react';
 import AppLayout from '@/Layouts/AppLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { formatDate, statusBadgeClass } from '@/lib/format';
+import { DEMO_BADGE_CLASS, formatDate, statusBadgeClass } from '@/lib/format';
 import { useTranslations } from '@/lib/i18n';
 import type { Paginator, TenantSummary } from '@/types';
 
@@ -105,9 +105,19 @@ export default function TenantsIndex({ tenants, filters, statuses }: IndexProps)
                                             </div>
                                         </td>
                                         <td className="px-4 py-3">
-                                            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusBadgeClass(tenant.status)}`}>
-                                                {t(`tenant_status.${tenant.status}`)}
-                                            </span>
+                                            <div className="flex flex-wrap items-center gap-1.5">
+                                                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusBadgeClass(tenant.status)}`}>
+                                                    {t(`tenant_status.${tenant.status}`)}
+                                                </span>
+                                                {tenant.is_demo && (
+                                                    <span
+                                                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${DEMO_BADGE_CLASS}`}
+                                                        title={t('super.tenants.demo.hint')}
+                                                    >
+                                                        {t('super.tenants.demo.badge')}
+                                                    </span>
+                                                )}
+                                            </div>
                                         </td>
                                         <td className="px-4 py-3 text-muted-foreground">
                                             {tenant.users_count}

@@ -43,6 +43,20 @@ class CloseBillingPeriods extends Command
                         continue;
                     }
 
+                    // A demo tenant is never billed (SLO-182, docs/20 §3.1). Its
+                    // turnover is fabricated, so a commission invoice raised on it
+                    // would be a real debt against an imaginary month — and eight
+                    // days later the dunning sweep would suspend the tenant, which
+                    // is to say the sales demo would go dark on its own.
+                    //
+                    // Skipped rather than voided: the period is left open and
+                    // simply passed over on every run, so nothing has to be
+                    // written to keep a demo tenant unbilled, and flipping the
+                    // flag off makes its months billable again with no repair.
+                    if ($tenant->is_demo) {
+                        continue;
+                    }
+
                     if ($this->graceHasPassed($period->period, $tenant->timezone, $now)) {
                         ($generate)($period->tenant_id, $period->period);
                         $closed++;

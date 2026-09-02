@@ -43,9 +43,23 @@ class InvoiceIssuerManager
         return $this->for($configured);
     }
 
-    /** The issuer this tenant invoices through. */
+    /**
+     * The issuer this tenant invoices through.
+     *
+     * ⚠️ A demo tenant is pinned to the sandbox before its own choice is even
+     * read (SLO-182, docs/20 §3.1). The seeded demo data contains paid bookings,
+     * and an invoice is raised off a settled payment — against a real Billingo
+     * account that would number those documents into slot4u's own block and file
+     * them with the tax authority. A fabricated customer's invoice is not
+     * something a storno makes fully undone, so the branch is closed here rather
+     * than guarded at each call site.
+     */
     public function forTenant(Tenant $tenant): InvoiceIssuer
     {
+        if ($tenant->is_demo) {
+            return $this->sandbox;
+        }
+
         $chosen = TenantInvoicingSettings::fromArray($tenant->invoicing)->provider;
 
         return $chosen === null ? $this->default() : $this->for($chosen);

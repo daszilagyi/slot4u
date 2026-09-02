@@ -203,6 +203,8 @@ export type TenantSummary = {
     name: string;
     slug: string;
     status: TenantStatusValue;
+    /** A sales-demo workspace: sends no real mail, takes no real payment (SLO-182). */
+    is_demo: boolean;
     trial_ends_at: string | null;
     users_count: number;
     archived: boolean;

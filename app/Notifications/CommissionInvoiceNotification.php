@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Models\CommissionInvoice;
 use App\Models\Tenant;
+use App\Notifications\Concerns\SuppressedForDemoTenant;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -18,7 +19,7 @@ use Illuminate\Support\Number;
  */
 class CommissionInvoiceNotification extends Notification
 {
-    use Queueable;
+    use Queueable, SuppressedForDemoTenant;
 
     public const string ISSUED = 'issued';
 
@@ -46,7 +47,7 @@ class CommissionInvoiceNotification extends Notification
     {
         $variant = $this->variant;
 
-        return (new MailMessage)
+        $mail = (new MailMessage)
             ->subject(__("app.mail.commission_invoice.{$variant}.subject", ['period' => $this->invoice->period]))
             ->greeting(__("app.mail.commission_invoice.{$variant}.greeting", ['name' => $notifiable->name]))
             ->line(__("app.mail.commission_invoice.{$variant}.intro", [
@@ -59,6 +60,8 @@ class CommissionInvoiceNotification extends Notification
             ]))
             ->action(__('app.mail.commission_invoice.action'), $this->billingUrl())
             ->line(__("app.mail.commission_invoice.{$variant}.outro"));
+
+        return $this->suppressWhenDemo($mail, $this->tenant);
     }
 
     /** Gross amount formatted in the tenant's locale + currency (display only). */

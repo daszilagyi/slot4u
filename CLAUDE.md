@@ -82,6 +82,7 @@ Az issue acceptance criteriája teljesül, ÉS: tesztek zöldek, Pint/Larastan/E
 | `docs/17-monitoring-es-riasztas.md` | Sentry (PII-szabályok), queue/scheduler watchdog, uptime, riasztási runbook |
 | `docs/18-backup-es-restore.md` | Napi offsite mentés, retention, titkosítás, restore-eljárás + jegyzőkönyv |
 | `docs/19-adatvedelem-es-erintetti-jogok.md` | GDPR: adatexport, törlés/anonimizálás, a két jogi kivétel, adatkezelő ≠ adatfeldolgozó |
+| `docs/20-demo-tenantok-es-seed.md` | M9: a 4 demo persona, az `is_demo` guardrailek és a `demo:seed`/`demo:reset` keretrendszer |
 
 A docs az igazság forrása. Viselkedésbeli változás = docs-frissítés ugyanabban a PR-ben.
 

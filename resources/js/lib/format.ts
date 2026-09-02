@@ -89,3 +89,12 @@ export function statusBadgeClass(status: string): string {
 
     return map[status] ?? 'bg-muted text-muted-foreground';
 }
+
+/**
+ * The DEMO marker's badge classes (SLO-182).
+ *
+ * Deliberately outside the lifecycle palette above: demo is orthogonal to
+ * status — a demo tenant is *also* trial or active — so the two badges sit side
+ * by side and must not read as alternatives to each other.
+ */
+export const DEMO_BADGE_CLASS = 'bg-purple-500/15 text-purple-400';

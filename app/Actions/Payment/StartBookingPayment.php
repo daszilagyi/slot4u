@@ -7,7 +7,9 @@ namespace App\Actions\Payment;
 use App\Enums\BookingStatus;
 use App\Models\Booking;
 use App\Models\Payment;
+use App\Models\Tenant;
 use App\Services\Payment\CheckoutSession;
+use App\Services\Payment\Contracts\PaymentGateway;
 use App\Services\Payment\PaymentGatewayManager;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
@@ -38,7 +40,7 @@ final class StartBookingPayment
             throw new RuntimeException('Only a pending_payment booking can start a payment (SLO-130).');
         }
 
-        $gateway = $this->gateways->default();
+        $gateway = $this->gatewayFor($booking);
         $amount = self::chargeableMinor($booking);
 
         return DB::transaction(function () use ($booking, $gateway, $returnUrl, $amount): CheckoutSession {
@@ -61,6 +63,26 @@ final class StartBookingPayment
 
             return $session;
         });
+    }
+
+    /**
+     * The gateway this booking's tenant pays through — the sandbox for a demo
+     * tenant, the configured default for everyone else (SLO-182).
+     *
+     * The tenant is looked up by key rather than through `$booking->tenant`, and
+     * `withTrashed()` is the reason: archiving soft-deletes the tenant, so the
+     * relation would resolve to null exactly then and the null branch would fall
+     * back to the real gateway. A demo tenant does not stop being one when it is
+     * archived. The lookup is a primary-key read on the way into a gateway HTTP
+     * round-trip, so its cost is not measurable here.
+     */
+    private function gatewayFor(Booking $booking): PaymentGateway
+    {
+        $tenant = Tenant::withTrashed()->find($booking->tenant_id);
+
+        return $tenant === null
+            ? $this->gateways->default()
+            : $this->gateways->forTenant($tenant);
     }
 
     /**

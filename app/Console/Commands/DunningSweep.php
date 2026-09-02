@@ -20,6 +20,12 @@ use Illuminate\Support\Carbon;
  * tenant whose invoice has stayed overdue beyond the grace window (§15.3 — 14 days
  * after the 8-day due date). A suspended tenant's public surface is already blocked
  * by EnsureTenantActive; paying up (MarkCommissionInvoicePaid) reactivates it.
+ *
+ * Demo tenants are excluded from both halves (SLO-182, docs/20 §3.1). They are
+ * never billed in the first place — CloseBillingPeriods skips them — so this is
+ * the belt to that braces: a tenant flipped to demo after its invoices already
+ * existed must not be chased for them, and above all must not be suspended.
+ * Suspension blocks the public surface, which for a demo tenant IS the product.
  */
 class DunningSweep extends Command
 {
@@ -54,6 +60,7 @@ class DunningSweep extends Command
             ->where('status', CommissionInvoiceStatus::Issued->value)
             ->whereNotNull('due_at')
             ->where('due_at', '<', $now)
+            ->whereNotIn('tenant_id', Tenant::demoIdQuery())
             ->with('tenant')
             ->get();
 
@@ -89,6 +96,7 @@ class DunningSweep extends Command
             ->where('status', CommissionInvoiceStatus::Overdue->value)
             ->whereNotNull('due_at')
             ->where('due_at', '<', $cutoff)
+            ->whereNotIn('tenant_id', Tenant::demoIdQuery())
             ->with('tenant')
             ->get();
 
