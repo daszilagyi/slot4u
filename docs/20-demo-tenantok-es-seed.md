@@ -98,11 +98,12 @@ A magas kosárértékű, ajánlat-alapú üzlet demója — és annak bizonyít�
 
 ## 3. Technikai specifikáció
 
-> **Megvalósítási megjegyzés (SLO-182, 2026-09-02).** A spec eredetileg `docs/16` néven készült,
+> **Megvalósítási megjegyzés (SLO-182 / SLO-183, 2026-09-02).** A spec eredetileg `docs/16` néven készült,
 > de a repóban a 16-os számot már a `docs/16-deploy-pipeline.md` viszi (a CLAUDE.md doksi-táblája
 > hivatkozik rá), ezért ez a fájl **20-as sorszámmal** került be. Az `is_demo` flag és az alábbi
-> guardrailek készen vannak; a `demo:seed` / `demo:reset` keretrendszer (3.2) és a personák még
-> nem — azok az SLO-183 és az SLO-184..190 issue-k.
+> guardrailek (SLO-182) és a `demo:seed` / `demo:reset` keretrendszer (3.2–3.3, SLO-183) készen
+> vannak. A keretrendszert egyelőre egy minimális **smoke persona** (`demo-smoke`) igazolja; a négy
+> valódi persona (2. fejezet) az SLO-184..190 issue-kben készül.
 
 
 ### 3.1 `is_demo` flag és guardrailek
@@ -116,6 +117,22 @@ A magas kosárértékű, ajánlat-alapú üzlet demója — és annak bizonyít�
   - ~~Demo tenant `subscriptions` rekordja `active`, de fizetési provider nélkül~~ → **a megvalósításban másképp** (SLO-182): `subscriptions` tábla nincs, a lépcsős csomagmodell megszűnt (CLAUDE.md, docs/10). A mai megfelelője a **jutalék-számlázásból való kizárás**: a `billing:close-periods` átugorja a demo tenant nyitott időszakait (nem zárja, nem állít ki jutalékszámlát), a `billing:dunning-sweep` pedig sem nem sürget, sem nem függeszt fel. Ez utóbbi a lényeg: a felfüggesztés a publikus felületet zárja le, ami egy demo tenantnál maga a termék — enélkül a sales-demo 22 nap után magától elsötétülne.
 
 ### 3.2 Parancsok
+
+> **⚠️ Megvalósítási megjegyzés (SLO-183) — a bontás sorrendje biztonsági kérdés.**
+> A `users.tenant_id` idegen kulcsa `nullOnDelete`, és ebben a kódbázisban a
+> `tenant_id === null` **maga a platform-superadmin definíciója** (`User::isSuperAdmin()`).
+> A kézenfekvő bontás — „töröljük a tenantot, a cascade elintézi a többit" — ezért nem
+> árvává tenné a demo fiókokat, hanem **superadminná léptetné elő őket**: minden éjszakai
+> `demo:reset` egy friss adag platform-adminnal, amelyek jelszava ebben a dokumentumban
+> publikált, e-mail címe pedig az aldoménből kitalálható. A `PurgeDemoTenant` ezért a
+> usereket **explicit, a tenant előtt** törli, és erre teszt van. Persona-seeder írásakor
+> semmilyen körülmények között ne kerüld meg ezt a szolgáltatást.
+>
+> A többi tenant-tábla a `cascadeOnDelete` idegen kulcsokon megy (31 `tenant_id` oszlopból
+> 29 ilyen), tehát egy később hozzáadott, szokásos cascade-del ellátott tábla magától
+> rendben lesz. A két kivétel a `users` (fent) és az `audit_logs` (nincs rajta constraint,
+> ezért szintén explicit törlődik).
+
 
 ```
 php artisan demo:seed {--tenant=slug : csak egy persona} {--fresh : törlés + újraépítés}
@@ -133,7 +150,7 @@ A múltbeli foglalásokat NEM nyers inserttel, hanem a meglévő Action/Service 
 
 - a `booking_status_history` minden foglalásnál konzisztens legyen (requested→approved→confirmed→completed lánc),
 - az ütközésvédelem érvényesüljön (a demo adat garantáltan ütközésmentes),
-- a `daily_stats` aggregátum a seed végén lefuttatott aggregáló jobbal töltődjön (ne kézzel).
+- ~~a `daily_stats` aggregátum a seed végén lefuttatott aggregáló jobbal töltődjön~~ → **tárgytalan** (SLO-183): `daily_stats` tábla nincs, és nem is kell — a tenant dashboard (`BuildTenantDashboard`) és a riportok (`BuildTenantReport`) élőben számolnak a `bookings`-ból. A seedelt foglalások tehát azonnal és aggregálás nélkül megjelennek; egy külön aggregáló lépés csak egy második igazságforrás lenne.
 
 Múltbeli foglalásoknál az időbélyegek (created_at, history) visszadátumozása megengedett — erre a seeder kapjon dedikált helpert, ne ad-hoc `timestamps = false` hackeket.
 
