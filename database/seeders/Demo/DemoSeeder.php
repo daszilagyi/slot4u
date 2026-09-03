@@ -24,13 +24,14 @@ final class DemoSeeder
      *
      * A literal list rather than a directory scan: adding a persona should be a
      * reviewed line in a diff, not a file appearing. The remaining sales personas
-     * (docs/20 §2.2–2.4) join this list in SLO-185 to SLO-190.
+     * (docs/20 §2.3–2.4) join this list in SLO-186 and SLO-187.
      *
      * @var list<class-string<DemoPersona>>
      */
     public const PERSONAS = [
         SmokeDemoPersona::class,
         PsychologistDemoPersona::class,
+        SalonDemoPersona::class,
     ];
 
     public function __construct(private readonly PurgeDemoTenant $purge) {}

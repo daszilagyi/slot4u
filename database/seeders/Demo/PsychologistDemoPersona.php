@@ -632,6 +632,11 @@ final class PsychologistDemoPersona extends DemoPersona
                 // flow is the whole reason this persona exists.
                 'source' => BookingSource::Online->value,
             ],
+            actor: null,
+            rescheduledFrom: null,
+            // Deep history is seeded silently: a confirmation for an appointment
+            // three months ago belongs in nobody's inbox or notification log.
+            notifyCustomer: $data->notifiable($bookedAt),
         ));
     }
 

@@ -146,26 +146,39 @@ abstract class DemoPersona
     /** The persona's tenant-admin login. */
     protected function createAdmin(Tenant $tenant): User
     {
-        $admin = new User([
-            'name' => $this->adminName(),
-            'email' => $this->adminEmail(),
+        return $this->createStaffUser($tenant, $this->adminName(), $this->adminEmail(), Role::TenantAdmin);
+    }
+
+    /**
+     * A staff-side login for the persona, in the given tenant role.
+     *
+     * Personas with more than one person behind the counter use this for the
+     * rest of them — a receptionist on `manager`, a trainer on `employee`. The
+     * role is half the demo: what a Manager cannot reach (settings, billing) is
+     * only visible if somebody is actually logged in as one.
+     */
+    protected function createStaffUser(Tenant $tenant, string $name, string $email, Role $role): User
+    {
+        $user = new User([
+            'name' => $name,
+            'email' => $email,
             'password' => Hash::make(self::PASSWORD),
         ]);
-        $admin->tenant_id = $tenant->getKey();
-        $admin->email_verified_at = now();
-        $admin->save();
+        $user->tenant_id = $tenant->getKey();
+        $user->email_verified_at = now();
+        $user->save();
 
         $registrar = app(PermissionRegistrar::class);
         $registrar->setPermissionsTeamId($tenant->getKey());
 
         try {
-            $admin->syncRoles([Role::TenantAdmin->value]);
+            $user->syncRoles([$role->value]);
         } finally {
             // Leaving the team id set would silently scope every later
             // permission check in the process — including the next persona's.
             $registrar->setPermissionsTeamId(null);
         }
 
-        return $admin;
+        return $user;
     }
 }

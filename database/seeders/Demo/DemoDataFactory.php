@@ -36,6 +36,24 @@ final class DemoDataFactory
      */
     private const LOCALE = 'hu_HU';
 
+    /**
+     * How recently a booking must have been made for the seed to actually send
+     * its notification.
+     *
+     * Everything older is created silently, and that is a statement about the
+     * demo rather than an optimisation that happens to help. A booking
+     * confirmation for an appointment six months ago is not something anybody
+     * wants rendered, logged, or — the day the SLO-182 mail guardrail is ever
+     * relaxed — sent. What the notification screen is for in a demo is showing
+     * recent traffic; a log stuffed with half a year of dead confirmations
+     * buries exactly that.
+     *
+     * It is also the single biggest cost in the nightly reset. Rendering the
+     * mail roughly doubles what a seeded booking costs, so on a persona with
+     * half a year of history behind it (docs/20 §2.2) this is minutes.
+     */
+    public const NOTIFY_WINDOW_DAYS = 21;
+
     private readonly Generator $faker;
 
     private readonly Carbon $today;
@@ -134,6 +152,16 @@ final class DemoDataFactory
         } finally {
             Carbon::setTestNow($previous);
         }
+    }
+
+    /**
+     * Whether a booking made at `$bookedAt` is recent enough to notify about.
+     *
+     * @see self::NOTIFY_WINDOW_DAYS
+     */
+    public function notifiable(Carbon $bookedAt): bool
+    {
+        return $bookedAt->gte($this->today->copy()->subDays(self::NOTIFY_WINDOW_DAYS));
     }
 
     /**
