@@ -117,7 +117,7 @@ Itt van minden: csoportórák várólistával, személyi edzés, teremfoglalás,
 - **Ügyfelek:** 60 · **Előzmény:** ~180 nap sűrű forgalom → dashboard „wow-állapot": bevétel-görbe, kihasználtság, élő bento grid
 - **Állapot-lefedettség:** `pending_payment`, `no_show`, `canceled`, várólista `waiting/offered/converted` — minden státusz megtalálható
 
-### 2.4 „Pelso Rendezvényház" — rendezvényhelyszín · **Közepes csomag**
+### 2.4 „Pelso Rendezvényház" — rendezvényhelyszín · **Közepes csomag** ✅ *(SLO-186, kész)*
 
 A magas kosárértékű, ajánlat-alapú üzlet demója — és annak bizonyítéka, hogy a rendszer nem csak „időpontfoglaló".
 
@@ -128,6 +128,24 @@ A magas kosárértékű, ajánlat-alapú üzlet demója — és annak bizonyít�
   - *Tárgyalóbérlés* — `resource_rental`, óradíj 15 000 Ft, `requires_approval = true` (erőforrás + jóváhagyás kombináció)
   - *Helyszínbejárás* — 45 perc, ingyenes (0 Ft), `duration_based` a szervezővel
 - **Előzmény:** kevés, de nagy értékű tétel (~90 nap, heti 2–4 esemény) — a „kevés foglalás, nagy bevétel" statisztika-mintázat
+
+> **Megvalósítási megjegyzések (SLO-186, 2026-09-03).**
+>
+> * **A tárgyalóbérlés fix egyórás, nem szabad időtartamú.** A `price_minor` lapos, foglalásonkénti
+>   pillanatkép (`CreateBooking`), tehát egy szabad hosszúságú szolgáltatásnál egy négyórás bérlés is
+>   15 000 Ft-ot számlázna. Az „óradíj" csak akkor igaz, ha a foglalás **maga egy óra**. Az
+>   időtartam-arányos árazás az **SLO-193** (PriceResolver) terepe; a szabad időtartamú
+>   `resource_rental` demója a fitnesz PT-boxa lesz (§2.3).
+> * **A három szolgáltatás soha nem versenyez ugyanazért az erőforrásért**, és ettől ütközésmentes a
+>   seed tervező nélkül: a helyszínbejárás a szervezőt foglalja helyiség nélkül, a tárgyalóbérlés a
+>   helyiséget dolgozó nélkül (tárgyalót nem „kezel" senki), az elfogadott ajánlatból generált
+>   foglalás pedig **egyiket sem** — a `quote_request` foglalásnak nincs `starts_at`-ja (docs/04 §6),
+>   ezért a riportokban `created_at` szerint helyeződik el.
+> * **A legfrissebb hét fixen 3 ajánlatkérést kap**, stagenként egyet (`new` / `in_progress` /
+>   `quoted`). Véletlen darabszámmal egy 2-es hét nem termelt `quoted` kérelmet, és a pipeline-demóból
+>   kiesett egy státusz.
+> * **Az elfogadott, 30 napnál régebbi megbízás `completed`** — a quote-foglalásnak nincs saját
+>   dátuma, így az elfogadás öregíti. Enélkül harminc aláírt esemény állt volna örökre `confirmed`-en.
 
 ### Lefedettségi mátrix (ellenőrzőlista a seedhez)
 
@@ -145,7 +163,7 @@ A magas kosárértékű, ajánlat-alapú üzlet demója — és annak bizonyít�
 | Branding testreszabás | — | ✔ | ✔ | — |
 | Statisztika „wow" | — | ✔ | ✔✔ | ✔ |
 | Manager/Employee szerep demó | — | ✔ | ✔ | — |
-| Üzenetküldés | — | ✔ | — | ✔ (quote-on) |
+| Üzenetküldés | — | ✘ (SLO-36) | — | ✔ (quote-on, SLO-186) |
 
 ---
 
