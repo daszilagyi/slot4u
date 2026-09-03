@@ -40,8 +40,8 @@ A legkisebb életképes használat: egyszemélyes praxis, diszkrét működés. 
 
 > **Megvalósítási megjegyzés (SLO-184, 2026-09-03) — a „csomag" itt már nem csomag.**
 > A lépcsős csomagmodell (Alap/Közepes/Max) azóta **megszűnt** (CLAUDE.md, `docs/10`): egyetlen
-> ingyenes `base` plan van, platformszintű mennyiségi limitekkel (3 dolgozó / 1 helyszín /
-> 3 helyiség), és a monetizáció forgalom-alapú jutalék. Az „Alap csomag" cimke ezért ennél a
+> ingyenes `base` plan van, platformszintű mennyiségi limitekkel (l. lentebb), és a monetizáció
+> forgalom-alapú jutalék. Az „Alap csomag" cimke ezért ennél a
 > personánál **a méretet jelenti, nem egy megvásárolható szintet** — a solo praxis bőven belefér
 > a `base` limitekbe, és ezt teszt őrzi.
 >
@@ -50,6 +50,12 @@ A legkisebb életképes használat: egyszemélyes praxis, diszkrét működés. 
 > él — a `feature_branding` alapból kikapcsolt a `base` planen, és a beállítások képernyő ezért
 > mutat zárolt szekciót (SLO-21) —, csak ez superadmin-kapcsoló, nem vásárlás. Ha a demóban mégis
 > kell egy értékesítési ajtó, az termékdöntés (Daniel), nem hiányzó UI-elem.
+>
+> **Limit-emelés (SLO-195, 2026-09-03).** A fenti personák közül három nem fért bele az akkori
+> base limitekbe (3 dolgozó / 1 helyszín / 3 helyiség), és a lefedettségi mátrix **multi-location ✔**
+> cellája egyenesen lehetetlen volt. Daniel döntése nyomán a base plan limitjei
+> **8 dolgozó / 3 helyszín / 8 helyiség** (`docs/10` §15.2) — így mind a négy persona
+> plan-konzisztensen épül, tartalékkal, és a látogató a saját fiókjában újra tudja építeni, amit lát.
 >
 > Két további, implementáció közben rögzített részlet: a szolgáltatás `staff`/`rooms` pivotja
 > **kötelező**, különben az `AvailabilityService` nem talál erőforrást és a publikus oldal egyetlen

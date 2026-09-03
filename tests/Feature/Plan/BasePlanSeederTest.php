@@ -20,15 +20,18 @@ it('seeds exactly one free, active base plan', function () {
         ->and($plan->is_active)->toBeTrue();
 });
 
-it('seeds the decided base limits (3 employees, 1 location, 3 rooms)', function () {
+it('seeds the decided base limits (8 employees, 3 locations, 8 rooms)', function () {
     $limits = Plan::sole()->limits
         ->mapWithKeys(fn ($limit) => [$limit->key->value => $limit->value])
         ->all();
 
+    // Pinned literally on purpose: this is the one place the decision of
+    // docs/10 §15.2 is written down as a number, so changing it should have to
+    // pass through a test that says so (raised from 3 / 1 / 3 in SLO-195).
     expect($limits)->toBe([
-        PlanLimitKey::MaxEmployees->value => 3,
-        PlanLimitKey::MaxLocations->value => 1,
-        PlanLimitKey::MaxRooms->value => 3,
+        PlanLimitKey::MaxEmployees->value => 8,
+        PlanLimitKey::MaxLocations->value => 3,
+        PlanLimitKey::MaxRooms->value => 8,
     ]);
 });
 

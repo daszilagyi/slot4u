@@ -1,11 +1,13 @@
 <?php
 
+use App\Enums\PlanLimitKey;
 use App\Enums\Role;
 use App\Models\Location;
 use App\Models\Staff;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Notifications\StaffInvitationNotification;
+use App\Services\Plan\PlanLimitService;
 use App\Tenancy\TenantManager;
 use Database\Seeders\BasePlanSeeder;
 use Database\Seeders\PermissionSeeder;
@@ -18,7 +20,9 @@ use Spatie\Permission\PermissionRegistrar;
 
 beforeEach(function () {
     $this->seed(PermissionSeeder::class);
-    // Base plan limit: max_employees=3 (docs/10 §15.2).
+    // Base plan limit: max_employees (docs/10 §15.2). Filled up to whatever the
+    // cap currently is, so raising it (SLO-195) does not turn this into a test
+    // of a number nobody meant to pin.
     $this->seed(BasePlanSeeder::class);
 });
 
@@ -48,7 +52,9 @@ it('lists staff with plan limits', function () {
             ->component('Admin/Staff/Index')
             ->has('staff', 1)
             ->where('staff.0.name', 'Anna')
-            ->where('limits.employees.max', 3));
+            // What is asserted is that the screen shows the REAL ceiling, not
+            // that the ceiling is any particular number.
+            ->where('limits.employees.max', app(PlanLimitService::class)->limitFor(PlanLimitKey::MaxEmployees)));
 });
 
 it('creates a staff member stamped with the current tenant', function () {
@@ -136,13 +142,31 @@ it('updates a staff member', function () {
 it('enforces the max_employees plan limit', function () {
     $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
     $admin = staffAdmin($tenant);
-    Staff::factory()->count(3)->forTenant($tenant)->create(); // reaches the limit of 3
+
+    $cap = app(PlanLimitService::class)->limitFor(PlanLimitKey::MaxEmployees);
+    Staff::factory()->count($cap)->forTenant($tenant)->create(); // exactly at the cap
 
     $this->actingAs($admin)
-        ->post(tenantHost('acme', '/staff'), ['name' => 'Fourth', 'color' => '#123456', 'active' => true])
+        ->post(tenantHost('acme', '/staff'), ['name' => 'One too many', 'color' => '#123456', 'active' => true])
         ->assertSessionHasErrors('name');
 
-    expect(Staff::count())->toBe(3);
+    expect(Staff::count())->toBe($cap);
+});
+
+it('still allows a staff member while there is headroom under the cap', function () {
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
+    $admin = staffAdmin($tenant);
+
+    $cap = app(PlanLimitService::class)->limitFor(PlanLimitKey::MaxEmployees);
+    Staff::factory()->count($cap - 1)->forTenant($tenant)->create();
+
+    // The other half of the guard: a raised limit has to actually admit the
+    // extra staff, not merely refuse later than before.
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', '/staff'), ['name' => 'Last one that fits', 'color' => '#123456', 'active' => true])
+        ->assertRedirect();
+
+    expect(Staff::count())->toBe($cap);
 });
 
 it('deletes a staff member with no bookings', function () {

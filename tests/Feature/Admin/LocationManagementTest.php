@@ -1,10 +1,12 @@
 <?php
 
+use App\Enums\PlanLimitKey;
 use App\Enums\Role;
 use App\Models\Location;
 use App\Models\Room;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\Plan\PlanLimitService;
 use Database\Seeders\BasePlanSeeder;
 use Database\Seeders\PermissionSeeder;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -14,7 +16,10 @@ use Spatie\Permission\PermissionRegistrar;
 
 beforeEach(function () {
     $this->seed(PermissionSeeder::class);
-    // Base plan limits: max_locations=1, max_rooms=3 (docs/10 §15.2).
+    // Base plan limits: max_locations and max_rooms (docs/10 §15.2). The
+    // enforcement tests below fill up to whatever the cap currently is rather
+    // than restating it, so raising it (SLO-195) moves the ceiling without
+    // turning these into tests of a number nobody meant to pin.
     $this->seed(BasePlanSeeder::class);
 });
 
@@ -46,8 +51,10 @@ it('lists locations with their rooms and plan limits', function () {
             ->has('locations', 1)
             ->where('locations.0.name', 'Main')
             ->has('locations.0.rooms', 1)
-            ->where('limits.locations.max', 1)
-            ->where('limits.rooms.max', 3));
+            // What is asserted is that the screen shows the REAL ceilings, not
+            // that they are any particular numbers.
+            ->where('limits.locations.max', app(PlanLimitService::class)->limitFor(PlanLimitKey::MaxLocations))
+            ->where('limits.rooms.max', app(PlanLimitService::class)->limitFor(PlanLimitKey::MaxRooms)));
 });
 
 it('creates a location stamped with the current tenant', function () {
@@ -81,13 +88,31 @@ it('updates a location', function () {
 it('enforces the max_locations plan limit', function () {
     $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
     $admin = locationAdmin($tenant);
-    Location::factory()->forTenant($tenant)->create(); // reaches the limit of 1
+
+    $cap = app(PlanLimitService::class)->limitFor(PlanLimitKey::MaxLocations);
+    Location::factory()->count($cap)->forTenant($tenant)->create(); // exactly at the cap
 
     $this->actingAs($admin)
-        ->post(tenantHost('acme', '/locations'), ['name' => 'Second', 'active' => true])
+        ->post(tenantHost('acme', '/locations'), ['name' => 'One too many', 'active' => true])
         ->assertSessionHasErrors('name');
 
-    expect(Location::count())->toBe(1);
+    expect(Location::count())->toBe($cap);
+});
+
+it('still allows a location while there is headroom under the cap', function () {
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
+    $admin = locationAdmin($tenant);
+
+    $cap = app(PlanLimitService::class)->limitFor(PlanLimitKey::MaxLocations);
+    Location::factory()->count($cap - 1)->forTenant($tenant)->create();
+
+    // The other half of the guard: raising a limit must actually raise it. A
+    // cap-only test would still pass against a plan that allowed nothing.
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', '/locations'), ['name' => 'Last one that fits', 'active' => true])
+        ->assertRedirect();
+
+    expect(Location::count())->toBe($cap);
 });
 
 it('creates a room under a location', function () {
@@ -117,18 +142,20 @@ it('enforces the max_rooms plan limit', function () {
     $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
     $admin = locationAdmin($tenant);
     $location = Location::factory()->forTenant($tenant)->create();
-    Room::factory()->count(3)->forLocation($location)->create(); // reaches the limit of 3
+
+    $cap = app(PlanLimitService::class)->limitFor(PlanLimitKey::MaxRooms);
+    Room::factory()->count($cap)->forLocation($location)->create(); // exactly at the cap
 
     $this->actingAs($admin)
         ->post(tenantHost('acme', "/locations/{$location->id}/rooms"), [
-            'name' => 'Extra',
+            'name' => 'One too many',
             'type' => 'room',
             'capacity' => 1,
             'active' => true,
         ])
         ->assertSessionHasErrors('name');
 
-    expect(Room::count())->toBe(3);
+    expect(Room::count())->toBe($cap);
 });
 
 it('deletes a room that has no bookings', function () {
