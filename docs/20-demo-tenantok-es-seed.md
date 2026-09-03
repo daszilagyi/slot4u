@@ -62,7 +62,7 @@ A legkisebb életképes használat: egyszemélyes praxis, diszkrét működés. 
 > szabad idősávot sem kínál; a `fulfillment_type` pedig nem oszlop, hanem a `services.settings`
 > JSON kulcsa.
 
-### 2.2 „GlamZone Szépségszalon" — több dolgozós szalon · **Közepes csomag**
+### 2.2 „GlamZone Szépségszalon" — több dolgozós szalon · **Közepes csomag** ✅ *(SLO-185, kész)*
 
 A klasszikus KKV-ügyfél: fodrász, kozmetikus, körmös egy fedél alatt. Itt látszik a staff-választás, a branding-testreszabás és a statisztika modul.
 
@@ -72,6 +72,35 @@ A klasszikus KKV-ügyfél: fodrász, kozmetikus, körmös egy fedél alatt. Itt 
 - **Munkarend:** staffonként ELTÉRŐ (váltott műszak, szombati nyitás egy staffnál) — a naptárszűrés (helyiség/dolgozó) így mutat valamit
 - **Ügyfelek:** 35 · **Előzmény:** ~180 nap, napi 6–10 foglalás → a statisztika modul (ügyfélköltés, dolgozói aktivitás, kihasználtság) értelmes görbéket mutat; visszatérő ügyfelek (top ügyfélnek 15+ foglalása)
 - **Extra:** 1 testreszabott `message_template` (visszaigazoló email szalon-hangnemben) + néhány tenant↔ügyfél üzenetváltás (M5 demó)
+
+> **Megvalósítási megjegyzések (SLO-185, 2026-09-03).** Három ponton tér el a megvalósítás
+> az adatlaptól, mindhárom kényszerből:
+>
+> 1. **4 helyiség, nem 3.** Az adatlap közös „Fodrász tér"-t ír két fodrásszal — a foglalási motor
+>    ezt nem tudja kifejezni: a helyiség **kizárólagos erőforrás** (a `CreateBooking` ütközés-
+>    vizsgálata `staff_id OR room_id`-ra illeszt), így két egyszerre dolgozó fodrász ugyanabban a
+>    helyiségben dupla foglalás lenne, és a szalon minden második időpontja elutasításra kerülne.
+>    A közös tér ezért két székre (két helyiségre) bomlik; a három funkcionális zóna a nevekben él
+>    tovább. Az alternatíva — `room_id` nélküli fodrász-foglalások — a helyiség-kihasználtsági
+>    riportból pont a szalon legforgalmasabb felét hagyta volna ki.
+> 2. **180 ügyfél, nem 35.** Az adatlap két száma nem lehet egyszerre igaz: fél év napi 6–10
+>    foglalással ~1200 időpont, ami 35 emberre osztva **négynaponkénti** fodrászlátogatás fejenként.
+>    Szó szerint seedelve a top ügyfélnek 135 foglalása lett. A napi volumen a megtartandó fél
+>    (ebből lesz a statisztika hat hónapos görbéje, §2.2 AC), ezért a névsor nőtt a volumenhez —
+>    így a „törzsvendég" havi rendszerességet jelent, nem képtelenséget. Teszt őrzi mindkét irányban.
+> 3. **Az üzenetváltás kimaradt.** A testreszabott `message_template` megvan; az általános
+>    tenant↔ügyfél üzenetszál viszont **nincs megépítve** (csak `quote_request_messages` létezik,
+>    ajánlatkéréshez kötve) — a hiányzó darab az **SLO-36** (M5). A lefedettségi mátrix
+>    „Üzenetküldés ✔" cellája a szalonnál addig nem pipálható.
+>
+> **A branding nem a `branding` jsontól látszik:** a `feature_branding` a `base` planen alapból
+> kikapcsolt, ezért a persona a superadmin per-tenant felülírását (`tenant_features`) is megírja —
+> így az az útvonal is demózódik.
+>
+> **Seed-költség:** a mély előzmény értesítés nélkül készül (`DemoDataFactory::NOTIFY_WINDOW_DAYS`,
+> 21 nap) — egy fél éve volt időpont visszaigazoló levele sem az inboxban, sem a
+> `notifications_log`-ban nem kívánatos, és a levélrenderelés a seed legdrágább lépése volt.
+> Ezzel együtt a szalon seedje **10 perc → 1 perc 49 mp** (MariaDB).
 
 ### 2.3 „Premium Fitness Studio" — fitnesz/edzőterem · **Max csomag** ⭐ a sales-demo zászlóshajója
 
