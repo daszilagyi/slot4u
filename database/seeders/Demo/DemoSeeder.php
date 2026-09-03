@@ -24,7 +24,8 @@ final class DemoSeeder
      *
      * A literal list rather than a directory scan: adding a persona should be a
      * reviewed line in a diff, not a file appearing. The remaining sales personas
-     * (docs/20 §2.3) joins this list in SLO-187.
+     * All four sales personas are in. The fitness one grows in place: its
+     * timetable (SLO-189) and payment history (SLO-190) extend the same class.
      *
      * @var list<class-string<DemoPersona>>
      */
@@ -33,6 +34,7 @@ final class DemoSeeder
         PsychologistDemoPersona::class,
         SalonDemoPersona::class,
         VenueDemoPersona::class,
+        FitnessDemoPersona::class,
     ];
 
     public function __construct(private readonly PurgeDemoTenant $purge) {}
