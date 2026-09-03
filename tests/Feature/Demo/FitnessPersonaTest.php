@@ -5,7 +5,9 @@ use App\Enums\BookingStatus;
 use App\Enums\Feature;
 use App\Enums\PlanLimitKey;
 use App\Enums\Role;
+use App\Enums\WaitlistStatus;
 use App\Models\Booking;
+use App\Models\Event;
 use App\Models\Location;
 use App\Models\Room;
 use App\Models\Schedule;
@@ -13,6 +15,7 @@ use App\Models\Service;
 use App\Models\Staff;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Models\WaitlistEntry;
 use App\Services\Booking\AvailabilityService;
 use App\Services\Feature\FeatureResolver;
 use App\Services\Plan\PlanLimitService;
@@ -41,8 +44,11 @@ use Spatie\Permission\PermissionRegistrar;
 | offered when the visitor asked for its site OR asked for none — never when
 | they asked for the other one.
 |
-| Three tests, each asserting a lot: the seed is ~850 bookings and
-| RefreshDatabase pays for it per test.
+| Three tests, each asserting a lot — and STILL three after SLO-189 added the
+| timetable. The seed is ~2,300 bookings and RefreshDatabase pays for it per
+| test, so a fourth would cost a minute of CI for assertions that fit perfectly
+| well inside the existing three: what exists, where it is, and whether it hangs
+| together.
 |
 */
 
@@ -130,7 +136,9 @@ it('builds two studios, a team of six and three roles behind the desk', function
     // --- the catalogue -----------------------------------------------------
     $services = Service::withoutGlobalScopes()->where('tenant_id', $id)->get()->keyBy('name');
 
-    expect($services)->toHaveCount(3);
+    // Three from SLO-188 (training, sauna, PT box) plus the six kinds of class
+    // the timetable needs (SLO-189).
+    expect($services)->toHaveCount(9);
 
     $personal = $services['Személyi edzés'];
 
@@ -154,6 +162,55 @@ it('builds two studios, a team of six and three roles behind the desk', function
         ->and($box->price_minor)->toBe(1_800_000);
 
     expect($services['Szaunabérlés']->duration_minutes)->toBe(60);
+
+    // --- the weekly timetable (SLO-189) ------------------------------------
+    // An Event has no name of its own, so each kind of class has to BE a
+    // service — which is also how the public page lists them.
+    $classes = Service::withoutGlobalScopes()
+        ->where('tenant_id', $id)
+        ->where('booking_mode', BookingMode::EventBased)
+        ->get();
+
+    expect($classes)->toHaveCount(6)
+        ->and($classes->pluck('name')->all())->toContain('Spinning', 'Hatha jóga', 'Funkcionális edzés')
+        ->and($classes->every(fn (Service $c): bool => $c->waitlist_enabled))->toBeTrue()
+        ->and($classes->pluck('price_minor')->unique()->all())->toBe([390_000]);
+
+    $events = Event::withoutGlobalScopes()->where('tenant_id', $id)->get();
+
+    // Fifteen classes a week (docs/20 §2.3), published as real weekly series
+    // rather than a few hundred unrelated rows that merely look like one.
+    expect($events->pluck('series_id')->filter()->unique())->toHaveCount(15)
+        ->and($events->count())->toBeGreaterThan(150)
+        ->and($events->every(fn (Event $e): bool => $e->capacity >= 10 && $e->capacity <= 16))->toBeTrue()
+        // Both rooms are in use, and the timetable runs behind AND ahead.
+        ->and($events->pluck('room_id')->unique())->toHaveCount(2)
+        ->and($events->filter(fn (Event $e): bool => $e->starts_at->isPast()))->not->toBeEmpty()
+        ->and($events->filter(fn (Event $e): bool => $e->starts_at->isFuture()))->not->toBeEmpty();
+
+    // ⚠️ Every class sits inside its instructor's own shift. Nothing enforces
+    // this — an event is announced, not generated from availability — so a
+    // timetable with the yoga teacher on the floor at an hour her diary says
+    // she is off is a mistake only a test catches.
+    $bands = Schedule::withoutGlobalScopes()
+        ->where('tenant_id', $id)
+        ->where('schedulable_type', 'staff')
+        ->get()
+        ->groupBy('schedulable_id');
+
+    foreach ($events as $event) {
+        $local = $event->starts_at->copy()->timezone($tenant->timezone);
+        $endsLocal = $event->ends_at->copy()->timezone($tenant->timezone);
+
+        $covered = ($bands[$event->staff_id] ?? collect())
+            ->where('day_of_week', $local->dayOfWeekIso)
+            ->contains(fn (Schedule $band): bool => substr((string) $band->start_time, 0, 5) <= $local->format('H:i')
+                && substr((string) $band->end_time, 0, 5) >= $endsLocal->format('H:i'));
+
+        expect($covered)->toBeTrue(
+            "Class at {$local->format('D H:i')} falls outside its instructor's shift"
+        );
+    }
 });
 
 // --- Multi-location --------------------------------------------------------
@@ -299,4 +356,75 @@ it('offers both rentals publicly and never double-books a resource', function ()
     expect($limits->withinLimit(PlanLimitKey::MaxLocations, Location::withoutGlobalScopes()->where('tenant_id', $id)->count() - 1))->toBeTrue()
         ->and($limits->withinLimit(PlanLimitKey::MaxRooms, Room::withoutGlobalScopes()->where('tenant_id', $id)->count() - 1))->toBeTrue()
         ->and($limits->withinLimit(PlanLimitKey::MaxEmployees, Staff::withoutGlobalScopes()->where('tenant_id', $id)->count() - 1))->toBeTrue();
+
+    // --- classes, capacity and the queue behind them (SLO-189) -------------
+    $events = Event::withoutGlobalScopes()->where('tenant_id', $id)->get();
+
+    // ⚠️ The invariant the atomic capacity claim exists to hold (docs/04 §3).
+    // Nothing else in the seed could catch an off-by-one here.
+    expect($events->every(fn (Event $e): bool => $e->booked_count <= $e->capacity))->toBeTrue()
+        // …and it is a real count, not a number nobody wrote to.
+        ->and($events->sum('booked_count'))->toBeGreaterThan(0);
+
+    foreach ($events as $event) {
+        $seats = fitnessBookings($tenant)
+            ->where('event_id', $event->getKey())
+            ->whereIn('status', BookingStatus::occupyingValues())
+            ->sum('party_size');
+
+        expect((int) $seats)->toBe($event->booked_count, "Event {$event->getKey()} booked_count disagrees with its sign-ups");
+    }
+
+    // Somebody brought a friend: the claim takes two seats in one go.
+    expect(fitnessBookings($tenant)->where('party_size', '>', 1)->count())->toBeGreaterThan(0);
+
+    // Every waitlist state on screen at once (docs/20 §2.3) — the persona's
+    // best moment in a sales call, and four states that only appear if the
+    // whole flow was actually driven.
+    $entries = WaitlistEntry::withoutGlobalScopes()->where('tenant_id', $id)->get();
+
+    foreach (WaitlistStatus::cases() as $status) {
+        expect($entries->where('status', $status)->count())
+            ->toBeGreaterThan(0, "No waitlist entry left in state {$status->value}");
+    }
+
+    // ⚠️ One offer must still be OPEN. An offer only stands for the tenant's
+    // window (24h), so `offered_until` in the past is not something anyone can
+    // accept — the expiry sweep would clear it and the demo would lose the
+    // state overnight (SLO-25).
+    expect($entries->where('status', WaitlistStatus::Offered)
+        ->contains(fn (WaitlistEntry $e): bool => $e->offered_until !== null && $e->offered_until->isFuture()))
+        ->toBeTrue('No live waitlist offer — the demo would show only lapsed ones');
+
+    // Queue positions are FIFO and distinct per event.
+    foreach ($entries->groupBy('event_id') as $eventId => $queue) {
+        $positions = $queue->pluck('position');
+        expect($positions->unique()->count())->toBe($positions->count(), "Duplicate queue position on event {$eventId}");
+    }
+
+    // --- the public page offers the queue on a full class ------------------
+    $full = $events->first(fn (Event $e): bool => $e->starts_at->isFuture() && $e->booked_count >= $e->capacity);
+
+    expect($full)->not->toBeNull('No sold-out class ahead — nothing to demo the waitlist on');
+
+    $response = $this->get(tenantHost($slug, '/book?service='.$full->service_id));
+    $response->assertOk();
+
+    $offered = collect($response->viewData('page')['props']['events'] ?? [])
+        ->firstWhere('id', $full->getKey());
+
+    expect($offered)->not->toBeNull()
+        ->and($offered['is_full'])->toBeTrue()
+        ->and($offered['remaining'])->toBe(0)
+        // The whole point: a full class is not a dead end.
+        ->and($offered['waitlist_available'])->toBeTrue();
+
+    // And the admin can browse the timetable filtered by room and instructor
+    // (docs/20 §2.3 AC).
+    $owner = User::withoutGlobalScopes()->where('email', 'admin@'.$slug.'.demo.slot4u.hu')->sole();
+    app(PermissionRegistrar::class)->setPermissionsTeamId($id);
+
+    $this->actingAs($owner)
+        ->get(tenantHost($slug, '/calendar?view=week&room_id='.$full->room_id.'&staff_id='.$full->staff_id))
+        ->assertOk();
 });

@@ -8,6 +8,8 @@ use App\Actions\Booking\CancelBooking;
 use App\Actions\Booking\ChangeBookingStatus;
 use App\Actions\Booking\CreateBooking;
 use App\Actions\Customer\CreateCustomer;
+use App\Actions\Event\CreateEvent;
+use App\Actions\Waitlist\JoinWaitlist;
 use App\Enums\BookingMode;
 use App\Enums\BookingSource;
 use App\Enums\BookingStatus;
@@ -15,6 +17,7 @@ use App\Enums\Feature;
 use App\Enums\Role;
 use App\Models\Booking;
 use App\Models\Customer;
+use App\Models\Event;
 use App\Models\Location;
 use App\Models\Room;
 use App\Models\Schedule;
@@ -24,8 +27,11 @@ use App\Models\Staff;
 use App\Models\Tenant;
 use App\Models\TenantFeature;
 use App\Models\User;
+use App\Services\Booking\WaitlistService;
 use App\Settings\TenantBranding;
 use App\Tenancy\TenantManager;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 /**
@@ -63,6 +69,29 @@ final class FitnessDemoPersona extends DemoPersona
 
     private const FUTURE_DAYS = 21;
 
+    /** How far the published timetable reaches ahead (docs/20 §2.3). */
+    private const CLASS_FUTURE_DAYS = 14;
+
+    /**
+     * How far back the timetable runs.
+     *
+     * Shorter than the 180 days of personal training and rentals above, and
+     * deliberately: a class is one row per attendee, so six months of a
+     * fifteen-a-week timetable is ~3,400 sign-ups — each created AND settled
+     * through the real actions (docs/20 §3.3). The nightly reset and every test
+     * that seeds this persona pay for all of them. The dashboard's six-month
+     * curve comes from the 1/3 services either way; the classes make the recent
+     * months busy, which is where anyone actually looks.
+     */
+    private const CLASS_HISTORY_DAYS = 90;
+
+    /**
+     * How far back the classes are busy. Older occurrences are seeded lightly —
+     * see {@see self::seedAttendance()} for why that is the story as well as the
+     * budget.
+     */
+    private const BUSY_WINDOW_DAYS = 45;
+
     private const CUSTOMER_COUNT = 60;
 
     private const PT_MINUTES = 60;
@@ -75,6 +104,58 @@ final class FitnessDemoPersona extends DemoPersona
     private const BOX_MAX_MINUTES = 180;
 
     private const PRIMARY_COLOR = '#e0592a';
+
+    /** Every class costs the same — a gym sells a drop-in, not a price list. */
+    private const CLASS_PRICE_HUF = 3_900;
+
+    /**
+     * The weekly timetable (docs/20 §2.3: ~15 a week), as
+     * `[service key, instructor key, room key, ISO weekday, start, minutes, capacity]`.
+     *
+     * ⚠️ Every class sits inside its instructor's shift from
+     * {@see self::SHIFTS}. Nothing enforces that — an event is announced, not
+     * generated from availability — which is exactly why it has to be got right
+     * here: a timetable that has the yoga teacher on the floor at an hour her
+     * own diary says she is not working reads as broken to anyone who opens
+     * both screens.
+     *
+     * @var list<array{string, string, string, int, string, int, int}>
+     */
+    private const CLASSES = [
+        // Buda, the big floor.
+        ['functional', 'adam', 'nagyterem', 1, '06:30', 50, 16],
+        ['functional', 'petra', 'nagyterem', 1, '18:00', 45, 16],
+        ['functional', 'nora', 'nagyterem', 2, '09:00', 50, 14],
+        ['spinning', 'gergo', 'nagyterem', 2, '18:00', 45, 14],
+        ['functional', 'adam', 'nagyterem', 3, '06:30', 50, 16],
+        ['core', 'petra', 'nagyterem', 3, '18:30', 50, 12],
+        ['spinning', 'gergo', 'nagyterem', 4, '18:00', 45, 14],
+        ['functional', 'adam', 'nagyterem', 5, '06:30', 50, 16],
+        ['functional', 'petra', 'nagyterem', 5, '17:00', 45, 16],
+        ['spinning', 'gergo', 'nagyterem', 6, '09:30', 45, 14],
+        // Pest, the studio.
+        ['hatha', 'lena', 'kisterem', 1, '17:30', 60, 12],
+        ['pilates', 'marcell', 'kisterem', 2, '12:15', 50, 10],
+        ['hatha', 'lena', 'kisterem', 3, '17:30', 60, 12],
+        ['vinyasa', 'lena', 'kisterem', 3, '19:00', 60, 12],
+        ['hatha', 'lena', 'kisterem', 6, '10:00', 60, 12],
+    ];
+
+    /**
+     * The class catalogue. An `Event` carries no name of its own — it points at
+     * a service — so "Spinning" and "Hatha jóga" are separate services, which
+     * is also how the public page lists them.
+     *
+     * @var array<string, string>
+     */
+    private const CLASS_SERVICES = [
+        'functional' => 'Funkcionális edzés',
+        'spinning' => 'Spinning',
+        'hatha' => 'Hatha jóga',
+        'vinyasa' => 'Vinyásza jóga',
+        'pilates' => 'Pilates',
+        'core' => 'Core & Stretch',
+    ];
 
     /**
      * Per-trainer hours as `[location key, ISO weekday, open, close]`.
@@ -109,6 +190,17 @@ final class FitnessDemoPersona extends DemoPersona
 
     /** Who takes personal training bookings. */
     private const TRAINERS = ['adam', 'petra', 'marcell'];
+
+    /** How many people at the tail of the roster are kept for waitlist queues. */
+    private const QUEUE_POOL = 12;
+
+    /**
+     * Occurrences the waitlist scenarios have already dealt with, so the bulk
+     * attendance pass leaves them exactly as it found them.
+     *
+     * @var array<int, true>
+     */
+    private array $claimedEvents = [];
 
     public function slug(): string
     {
@@ -204,6 +296,483 @@ final class FitnessDemoPersona extends DemoPersona
         $this->seedPersonalTraining($personal, $team, $customers, $data);
         $this->seedRental($sauna, $rooms['szauna'], $customers, $data, self::SAUNA_MINUTES);
         $this->seedBoxRentals($box, $rooms['ptbox'], $customers, $data);
+
+        // SLO-189: the timetable and everything that hangs off a full class.
+        $classes = $this->seedClassCatalogue();
+        $this->seedTimetable($classes, $team, $rooms, $data);
+        // Order matters: the waitlist scenarios need classes whose sign-ups have
+        // NOT been settled yet — a booking already walked to `completed` cannot
+        // be cancelled, and cancelling is what frees the seat the queue is for.
+        $this->seedWaitlists($customers, $data);
+        $this->seedAttendance($customers, $data);
+    }
+
+    /**
+     * One `event_based` service per kind of class.
+     *
+     * An {@see Event} has no name of its own — it points at a service — so
+     * "Spinning" and "Hatha jóga" have to BE services. That is also how the
+     * public page lists them, which is the right answer anyway.
+     *
+     * @return array<string, Service>
+     */
+    private function seedClassCatalogue(): array
+    {
+        $category = ServiceCategory::query()->create(['name' => 'Csoportórák', 'sort_order' => 0]);
+        $services = [];
+
+        foreach (self::CLASS_SERVICES as $key => $name) {
+            $services[$key] = Service::query()->create([
+                'category_id' => $category->getKey(),
+                'name' => $name,
+                'description' => 'Csoportóra a heti órarend szerint. Ha betelt, felkerülhetsz a '
+                    .'várólistára — ha valaki lemondja, e-mailben szólunk és tiéd a hely.',
+                'booking_mode' => BookingMode::EventBased,
+                // The default advertised size; each occurrence carries its own.
+                'capacity' => 14,
+                'price_minor' => self::CLASS_PRICE_HUF * 100,
+                'currency' => 'HUF',
+                'requires_staff' => true,
+                // ⚠️ Without this the waitlist cannot be joined at all
+                // (JoinWaitlist refuses), and the full classes below would be a
+                // dead end rather than the demo's best moment.
+                'waitlist_enabled' => true,
+                'active' => true,
+            ]);
+        }
+
+        return $services;
+    }
+
+    /**
+     * The recurring weekly timetable, published as real series.
+     *
+     * Each line of {@see self::CLASSES} becomes ONE call to {@see CreateEvent}
+     * with weekly recurrence, so the occurrences share a `series_id` and a
+     * recurrence rule exactly as an admin announcing a term would produce —
+     * rather than a few hundred unrelated rows that merely look like a
+     * timetable.
+     *
+     * Announced on the clock of the day the term started: a studio publishes its
+     * timetable in advance, and `created_at` on six months of classes all
+     * reading "today" is the tell that data was generated.
+     *
+     * @param  array<string, Service>  $classes
+     * @param  array<string, Staff>  $team
+     * @param  array<string, Room>  $rooms
+     */
+    private function seedTimetable(array $classes, array $team, array $rooms, DemoDataFactory $data): void
+    {
+        $create = app(CreateEvent::class);
+        $publishedAt = $data->at(-self::CLASS_HISTORY_DAYS - 7, '10:00');
+        $until = $data->today()->addDays(self::CLASS_FUTURE_DAYS);
+
+        foreach (self::CLASSES as [$serviceKey, $staffKey, $roomKey, $weekday, $time, $minutes, $capacity]) {
+            $first = $this->firstOccurrence($weekday, $time, $data);
+            $ends = $first->copy()->addMinutes($minutes);
+
+            $data->asOf($publishedAt, fn () => $create([
+                'service_id' => $classes[$serviceKey]->getKey(),
+                'staff_id' => $team[$staffKey]->getKey(),
+                'room_id' => $rooms[$roomKey]->getKey(),
+                // CreateEvent parses these as UTC and works in tenant-local time
+                // from there, which is what keeps a 06:30 class at 06:30 across
+                // the October clock change.
+                'starts_at' => $first->toDateTimeString(),
+                'ends_at' => $ends->toDateTimeString(),
+                'capacity' => $capacity,
+                'waitlist_enabled' => true,
+                'repeat_weekly' => true,
+                'repeat_until' => $until->toDateString(),
+            ]));
+        }
+    }
+
+    /**
+     * The first occurrence of a weekly class: the earliest date on `$weekday` at
+     * or after the start of the history window.
+     */
+    private function firstOccurrence(int $weekday, string $time, DemoDataFactory $data): Carbon
+    {
+        $offset = -self::CLASS_HISTORY_DAYS;
+
+        while ($data->today()->addDays($offset)->dayOfWeekIso !== $weekday) {
+            $offset++;
+        }
+
+        return $data->at($offset, $time);
+    }
+
+    /**
+     * Sign-ups for every class that has already happened, plus a partly filled
+     * fortnight ahead.
+     *
+     * @param  list<Customer>  $customers
+     */
+    private function seedAttendance(array $customers, DemoDataFactory $data): void
+    {
+        $busyFrom = $data->today()->subDays(self::BUSY_WINDOW_DAYS);
+
+        foreach ($this->classOccurrences() as $event) {
+            if (isset($this->claimedEvents[$event->getKey()])) {
+                // A waitlist scenario already staged this one down to the seat.
+                continue;
+            }
+
+            // A studio that filled up over the last few months, rather than one
+            // that has been equally busy since the beginning of time. Two
+            // reasons, and the second is the honest one:
+            //
+            // 1. It is a better story. "The classes have been filling up" is
+            //    what a growing gym looks like, and the dashboard's default
+            //    thirty-day window — the first thing anyone opens — sits
+            //    squarely in the busy part.
+            // 2. It is what makes the seed affordable. Six months of full
+            //    classes is ~3,400 sign-ups, every one of them created AND
+            //    settled through the real actions (docs/20 §3.3); the nightly
+            //    reset and the test suite both pay for each one.
+            $band = $event->starts_at->gte($busyFrom)
+                ? [40, 85]   // recent: half full to nearly sold out
+                : [15, 35];  // the early months: a handful of regulars
+
+            $seats = max(1, (int) round($event->capacity * $data->between(...$band) / 100));
+
+            $this->fill($event, $seats, $customers, $data);
+        }
+    }
+
+    /**
+     * Put `$seats` people into an event, and settle the past ones.
+     *
+     * @param  list<Customer>  $customers
+     * @return list<Booking>
+     */
+    private function fill(Event $event, int $seats, array $customers, DemoDataFactory $data, int $partySize = 1, bool $settle = true): array
+    {
+        $create = app(CreateBooking::class);
+        $changeStatus = app(ChangeBookingStatus::class);
+        $service = $event->service;
+        $made = [];
+
+        // ⚠️ Draw WITHOUT replacement rather than skipping duplicates. One place
+        // per person is right — a second sign-up is refused on the public page —
+        // but skipping a repeat draw silently produced fewer sign-ups than asked
+        // for, so a class told to sell out never actually reached capacity and
+        // every waitlist in the persona came out empty.
+        $pool = $customers;
+
+        for ($i = 0; $i < $seats && $pool !== []; $i++) {
+            $index = $data->between(0, count($pool) - 1);
+            $customer = $pool[$index];
+            array_splice($pool, $index, 1);
+
+            $bookedAt = $event->starts_at->copy()->subDays($data->between(1, 10))->setTime(21, 5);
+
+            $booking = $data->asOf($bookedAt, fn (): Booking => $create($service, [
+                'customer_id' => $customer->getKey(),
+                'event_id' => $event->getKey(),
+                'party_size' => $partySize,
+                'source' => BookingSource::Online->value,
+            ], null, null, $data->notifiable($bookedAt)));
+
+            $made[] = $booking;
+
+            if (! $settle || $event->ends_at->isFuture()) {
+                continue;
+            }
+
+            // Attended, or did not turn up — the two things that happen to a
+            // class booking once the class is over.
+            $data->asOf(
+                $event->ends_at,
+                fn () => $changeStatus($booking, $data->between(1, 12) === 1 ? BookingStatus::NoShow : BookingStatus::Completed),
+            );
+        }
+
+        return $made;
+    }
+
+    /**
+     * The full classes and the queues behind them (docs/20 §2.3, docs/04 §3).
+     *
+     * This is the persona's best moment in a sales call, and it needs every
+     * waitlist state on screen at once — which means driving them the way the
+     * product drives them rather than writing the rows:
+     *
+     * - `waiting`   — joined a class that is genuinely at capacity;
+     * - `offered`   — somebody cancelled and the seat was handed to the next in
+     *                 the queue, with the offer window still open;
+     * - `converted` — the person who was offered a seat took it;
+     * - `expired`   — the window lapsed and the offer rolled on.
+     *
+     * ⚠️ The offer window is the reason the cancellation that creates it happens
+     * a couple of hours ago rather than last week. An offer only stands for the
+     * tenant's `waitlist_offer_hours` (24 by default), and `offered_until` in
+     * the past is not an offer anybody can accept — the nightly expiry sweep
+     * would clear it, and the demo would lose the state overnight (SLO-25).
+     *
+     * @param  list<Customer>  $customers
+     */
+    private function seedWaitlists(array $customers, DemoDataFactory $data): void
+    {
+        $join = app(JoinWaitlist::class);
+        $cancel = app(CancelBooking::class);
+        $waitlist = app(WaitlistService::class);
+
+        $upcoming = $this->classOccurrences()
+            ->filter(fn (Event $e): bool => $e->starts_at->isFuture())
+            ->values();
+
+        // --- two future classes, sold out, with people waiting --------------
+        foreach ([0, 1] as $nth) {
+            $event = $upcoming->get($nth);
+
+            if ($event === null) {
+                continue;
+            }
+
+            $this->sellOut($event, $customers, $data);
+            $this->queue($join, $event, $customers, $data, $data->between(2, 4));
+        }
+
+        // --- a live offer ----------------------------------------------------
+        $offerEvent = $upcoming->get(2);
+
+        if ($offerEvent !== null) {
+            $this->sellOut($offerEvent, $customers, $data);
+            $this->queue($join, $offerEvent, $customers, $data, 3);
+
+            // A seat frees a couple of hours ago; ChangeBookingStatus hands it
+            // to the head of the queue, so the offer window is still open now.
+            $seat = Booking::query()
+                ->where('event_id', $offerEvent->getKey())
+                ->whereIn('status', BookingStatus::occupyingValues())
+                ->first();
+
+            if ($seat !== null) {
+                $data->asOf(Carbon::now()->subHours(2), fn () => $cancel($seat, null, 'Közbejött, sajnos nem tudok menni.'));
+            }
+        }
+
+        // --- one that was taken, and one that lapsed ------------------------
+        $past = $this->classOccurrences()
+            ->filter(fn (Event $e): bool => $e->starts_at->isPast() && $e->starts_at->gt($data->today()->subDays(30)))
+            ->values();
+
+        $this->seedConvertedOffer($past->get(0), $join, $cancel, $customers, $data);
+        $this->seedExpiredOffer($past->get(1), $join, $cancel, $waitlist, $customers, $data);
+
+        // --- somebody bringing a friend --------------------------------------
+        $pair = $upcoming->get(3);
+
+        if ($pair !== null) {
+            // party_size 2 on a class with room for it: the atomic capacity
+            // claim takes two seats at once (docs/04 §3). Not claimed — the
+            // bulk pass should still fill the rest of this class normally.
+            $this->fill($pair, 1, $customers, $data, partySize: 2);
+        }
+    }
+
+    /**
+     * Book a class right up to its capacity, whatever it already holds.
+     *
+     * @param  list<Customer>  $customers
+     */
+    private function sellOut(Event $event, array $customers, DemoDataFactory $data, bool $settle = true): void
+    {
+        $this->claimedEvents[$event->getKey()] = true;
+
+        $event->refresh();
+        $remaining = $event->capacity - $event->booked_count;
+
+        if ($remaining > 0) {
+            // Seats come from the front of the roster, queue places from the
+            // back (see self::queue) — so nobody is ever asked to wait for a
+            // class they are already booked on, which JoinWaitlist refuses.
+            $this->fill($event, $remaining, $this->seatPool($customers), $data, settle: $settle);
+        }
+
+        $event->refresh();
+    }
+
+    /**
+     * The part of the roster that takes seats on a sold-out class.
+     *
+     * @param  list<Customer>  $customers
+     * @return list<Customer>
+     */
+    private function seatPool(array $customers): array
+    {
+        return array_slice($customers, 0, max(1, count($customers) - self::QUEUE_POOL));
+    }
+
+    /**
+     * Close out a class that has already happened: everyone still holding a
+     * seat either attended or did not turn up.
+     *
+     * Used by the two past waitlist scenarios, which have to leave their
+     * sign-ups open long enough to cancel one of them.
+     */
+    private function settleEvent(Event $event, DemoDataFactory $data): void
+    {
+        if ($event->ends_at->isFuture()) {
+            return;
+        }
+
+        $changeStatus = app(ChangeBookingStatus::class);
+
+        $open = Booking::query()
+            ->where('event_id', $event->getKey())
+            ->whereIn('status', BookingStatus::occupyingValues())
+            ->get();
+
+        foreach ($open as $booking) {
+            $data->asOf(
+                $event->ends_at,
+                fn () => $changeStatus($booking, $data->between(1, 12) === 1 ? BookingStatus::NoShow : BookingStatus::Completed),
+            );
+        }
+    }
+
+    /**
+     * Put `$count` people in the queue for a class that is already full.
+     *
+     * @param  list<Customer>  $customers
+     * @return list<int> the customer ids queued, in order
+     */
+    private function queue(JoinWaitlist $join, Event $event, array $customers, DemoDataFactory $data, int $count): array
+    {
+        $event->refresh();
+
+        if ($event->booked_count < $event->capacity) {
+            // JoinWaitlist refuses a class that is not full, and rightly so.
+            return [];
+        }
+
+        $queued = [];
+        // The tail of the roster, which self::seatPool() deliberately never
+        // hands a seat to.
+        $waiters = array_slice($customers, -self::QUEUE_POOL);
+
+        for ($i = 0; $i < $count && $i < count($waiters); $i++) {
+            $customer = $waiters[$i];
+
+            if (Booking::query()
+                ->where('event_id', $event->getKey())
+                ->where('customer_id', $customer->getKey())
+                ->whereIn('status', BookingStatus::occupyingValues())
+                ->exists()) {
+                continue;
+            }
+
+            $joinedAt = $event->starts_at->copy()->subDays($data->between(1, 4))->setTime(8, 30);
+            $entry = $data->asOf($joinedAt, fn () => $join($event, $customer->getKey()));
+            $queued[] = (int) $entry->customer_id;
+        }
+
+        return $queued;
+    }
+
+    /**
+     * A queue that ended the way everyone hopes: a seat freed, the next person
+     * was offered it, and they took it.
+     *
+     * @param  list<Customer>  $customers
+     */
+    private function seedConvertedOffer(?Event $event, JoinWaitlist $join, CancelBooking $cancel, array $customers, DemoDataFactory $data): void
+    {
+        if ($event === null) {
+            return;
+        }
+
+        $this->sellOut($event, $customers, $data, settle: false);
+        $queued = $this->queue($join, $event, $customers, $data, 2);
+
+        if ($queued === []) {
+            $this->settleEvent($event, $data);
+
+            return;
+        }
+
+        $seat = Booking::query()
+            ->where('event_id', $event->getKey())
+            ->whereIn('status', BookingStatus::occupyingValues())
+            ->first();
+
+        if ($seat === null) {
+            return;
+        }
+
+        $freedAt = $event->starts_at->copy()->subDays(2)->setTime(12, 0);
+        $data->asOf($freedAt, fn () => $cancel($seat, null, 'Lemondta, a hely a várólistára ment.'));
+
+        // The person at the head of the queue takes the seat. CreateBooking's
+        // event path closes their waitlist entry as `converted` on the way
+        // through (docs/04 §3) — the seed does not touch the status itself.
+        $data->asOf($freedAt->copy()->addHours(3), fn () => app(CreateBooking::class)($event->service, [
+            'customer_id' => $queued[0],
+            'event_id' => $event->getKey(),
+            'party_size' => 1,
+            'source' => BookingSource::Online->value,
+        ], null, null, false));
+
+        $this->settleEvent($event, $data);
+    }
+
+    /**
+     * And a queue that did not: the offer sat unanswered until its window
+     * closed, and rolled on to the next person.
+     *
+     * @param  list<Customer>  $customers
+     */
+    private function seedExpiredOffer(?Event $event, JoinWaitlist $join, CancelBooking $cancel, WaitlistService $waitlist, array $customers, DemoDataFactory $data): void
+    {
+        if ($event === null) {
+            return;
+        }
+
+        $this->sellOut($event, $customers, $data, settle: false);
+        $queued = $this->queue($join, $event, $customers, $data, 2);
+
+        if (count($queued) < 2) {
+            $this->settleEvent($event, $data);
+
+            return;
+        }
+
+        $seat = Booking::query()
+            ->where('event_id', $event->getKey())
+            ->whereIn('status', BookingStatus::occupyingValues())
+            ->first();
+
+        if ($seat === null) {
+            return;
+        }
+
+        $freedAt = $event->starts_at->copy()->subDays(4)->setTime(9, 0);
+        $data->asOf($freedAt, fn () => $cancel($seat, null, 'Lemondta, a hely a várólistára ment.'));
+
+        // Nobody answered. The sweep that runs hourly in production closes the
+        // window and chains to the next waiter — run here on the clock of the
+        // day it would have fired, so the history reads correctly.
+        $data->asOf(
+            $freedAt->copy()->addHours(30),
+            fn () => $waitlist->expireDueOffers(Carbon::now()),
+        );
+
+        $this->settleEvent($event, $data);
+    }
+
+    /**
+     * Every occurrence of the timetable, oldest first.
+     *
+     * @return Collection<int, Event>
+     */
+    private function classOccurrences()
+    {
+        // Eager: the seed reads `$event->service` for every occurrence, and
+        // lazy loading is disabled in this application (Model::preventLazyLoading).
+        return Event::query()->with('service')->orderBy('starts_at')->get();
     }
 
     /**
