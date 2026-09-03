@@ -102,7 +102,7 @@ A klasszikus KKV-ügyfél: fodrász, kozmetikus, körmös egy fedél alatt. Itt 
 > `notifications_log`-ban nem kívánatos, és a levélrenderelés a seed legdrágább lépése volt.
 > Ezzel együtt a szalon seedje **10 perc → 1 perc 49 mp** (MariaDB).
 
-### 2.3 „Premium Fitness Studio" — fitnesz/edzőterem · **Max csomag** ⭐ a sales-demo zászlóshajója
+### 2.3 „Premium Fitness Studio" — fitnesz/edzőterem · **Max csomag** ⭐ a sales-demo zászlóshajója · *(SLO-188 kész; SLO-189/190 hátra)*
 
 Itt van minden: csoportórák várólistával, személyi edzés, teremfoglalás, online fizetés, számlázás, két telephely.
 
@@ -116,6 +116,29 @@ Itt van minden: csoportórák várólistával, személyi edzés, teremfoglalás,
 - **Fizetés + számla:** online fizetés kötelező a csoportórákra és PT-re; `payments` előzmények (paid/failed/refunded vegyesen), `invoices` rekordok, 1-2 `refund` (lemondott esemény) — MINDEN sandbox/fake provider_ref-fel (lásd 4.4)
 - **Ügyfelek:** 60 · **Előzmény:** ~180 nap sűrű forgalom → dashboard „wow-állapot": bevétel-görbe, kihasználtság, élő bento grid
 - **Állapot-lefedettség:** `pending_payment`, `no_show`, `canceled`, várólista `waiting/offered/converted` — minden státusz megtalálható
+
+> **Megvalósítási megjegyzések (SLO-188, 2026-09-03) — a persona 1/3 része kész.**
+> A `FitnessDemoPersona` a törzsadatot, a multi-locationt és a két bérlést tartalmazza; a heti
+> órarend + várólista az SLO-189, a fizetés/számla-előzmény az SLO-190 — **ugyanezt az osztályt**
+> bővítik.
+>
+> * **A „minden feature bekapcsolva" nem szó szerint teljesült.** Bekapcsolva a négy alapból
+>   kikapcsolt, de **megépített** feature: `feature_branding`, `feature_online_payment`,
+>   `feature_invoicing`, `feature_custom_domain`. Kikapcsolva maradt a `feature_sms`,
+>   `feature_api`, `feature_nlp_booking`, `feature_google_meet` — ezeknek **nulla hivatkozásuk van**
+>   a kódban, tehát bekapcsolva olyan ajtókat tennénk a sales-demóba, amik a semmibe nyílnak.
+>   (A `feature_documents` ugyanilyen üres, de **alapból be van kapcsolva minden tenantnak** — ez
+>   nem a personán múlik, külön issue: **SLO-196**.)
+> * **A személyi edzés NEM foglal helyiséget.** Ez nem lustaság: az `event_based` jelentkezés
+>   kapacitást igényel, nem zárolja a termet (`CreateBooking::createEventBooking`), tehát egy
+>   nagyterembe pinelt PT-óra ráfoglalható lenne az SLO-189 spinning órájára, és a motor ezt
+>   **nem venné észre**. Az edzőterem-padló amúgy is közös tér.
+> * **A PT-box alkalmi díjas, nem óradíjas.** Szabad időtartam (60–180 perc) + lapos `price_minor`
+>   együtt azt jelentené, hogy három óra ugyanannyi, mint egy — a látogatónak hibának látszana.
+>   Egy „alkalmi díj, te választod a hosszát" viszont valós árazási modell, és a motor pontosan ezt
+>   tudja. Óra-arányos ár = **SLO-193**.
+> * **A múltba kerülés az ÓRÁTÓL függ, nem a nap-offsettől:** a ma reggel 7-re seedelt edzés egy
+>   délutáni `demo:reset` idejére már lezajlott. A terminális állapotot ezért `ends_at` dönti el.
 
 ### 2.4 „Fényliget Rendezvényház" — rendezvényhelyszín · **Közepes csomag** ✅ *(SLO-186, kész)*
 
