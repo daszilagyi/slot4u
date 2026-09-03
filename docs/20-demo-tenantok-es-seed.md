@@ -102,7 +102,7 @@ A klasszikus KKV-ügyfél: fodrász, kozmetikus, körmös egy fedél alatt. Itt 
 > `notifications_log`-ban nem kívánatos, és a levélrenderelés a seed legdrágább lépése volt.
 > Ezzel együtt a szalon seedje **10 perc → 1 perc 49 mp** (MariaDB).
 
-### 2.3 „Premium Fitness Studio" — fitnesz/edzőterem · **Max csomag** ⭐ a sales-demo zászlóshajója · *(SLO-188 kész; SLO-189/190 hátra)*
+### 2.3 „Premium Fitness Studio" — fitnesz/edzőterem · **Max csomag** ⭐ a sales-demo zászlóshajója · *(SLO-188 + SLO-189 kész; SLO-190 hátra)*
 
 Itt van minden: csoportórák várólistával, személyi edzés, teremfoglalás, online fizetés, számlázás, két telephely.
 
@@ -137,6 +137,24 @@ Itt van minden: csoportórák várólistával, személyi edzés, teremfoglalás,
 >   együtt azt jelentené, hogy három óra ugyanannyi, mint egy — a látogatónak hibának látszana.
 >   Egy „alkalmi díj, te választod a hosszát" viszont valós árazási modell, és a motor pontosan ezt
 >   tudja. Óra-arányos ár = **SLO-193**.
+> * **Az órarend valódi heti sorozatként készül** (SLO-189): a 15 heti óra mindegyike EGY
+>   `CreateEvent` hívás heti ismétléssel, tehát az occurrence-ök közös `series_id`-t és
+>   `recurrence_rule`-t kapnak — nem néhány száz független sor, ami csak úgy néz ki, mint egy órarend.
+>   Az `Event`-nek **nincs saját neve**, ezért minden óratípus külön `event_based` szolgáltatás
+>   (Spinning, Hatha jóga, …) — a publikus oldal is így listázza.
+> * **Az óráknak csak 90 napos előzményük van** a PT/bérlés 180 napja helyett, és az utolsó
+>   45 nap a „forgalmas" sáv (40–85% telítettség), előtte 15–35%. Ez egyszerre költség-döntés
+>   (egy óra soronként EGY résztvevő, mind a valódi Actionökön át: fél év 15 órás héttel ~3400
+>   jelentkezés) és jobb történet: a „mostanában telnek meg az órák" egy növekvő stúdió képe, és
+>   a dashboard alapértelmezett 30 napos ablaka pont a forgalmas részbe esik. A hat hónapos
+>   bevételgörbét az 1/3 szolgáltatásai adják.
+> * **A várólista-állapotokat a rendszer hajtja, nem a seed írja:** a `waiting` telt órára való
+>   jelentkezésből, az `offered` egy lemondás felszabadította helyből, a `converted` abból, hogy a
+>   sorban álló lefoglalta, az `expired` a lejárt ajánlati ablakból (a `WaitlistService` sweepje).
+>   ⚠️ Az élő ajánlathoz a lemondás **néhány órája** történik — 24 órás ablak mellett egy múltbeli
+>   `offered_until` nem elfogadható ajánlat, és az éjszakai sweep amúgy is törölné.
+> * **A várólista-jelenetek a tömeges jelentkeztetés ELŐTT futnak.** Egy már `completed` foglalás
+>   nem mondható le, a lemondás viszont pont az, ami a helyet a sorba engedi.
 > * **A múltba kerülés az ÓRÁTÓL függ, nem a nap-offsettől:** a ma reggel 7-re seedelt edzés egy
 >   délutáni `demo:reset` idejére már lezajlott. A terminális állapotot ezért `ends_at` dönti el.
 

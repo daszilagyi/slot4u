@@ -363,11 +363,17 @@ final class VenueDemoPersona extends DemoPersona
             $count = $week === 0 ? 3 : $data->between(2, 4);
 
             foreach (range(1, $count) as $nth) {
-                $askedAt = $data->at(-($week * 7) - $data->between(0, 6), sprintf('%02d:%02d', $data->between(8, 17), $data->oneOf([5, 20, 40])));
-
-                if ($askedAt->isFuture()) {
-                    continue;
-                }
+                // ⚠️ At least one whole day back, never "earlier today".
+                //
+                // An office-hours instant on today's date is in the FUTURE when
+                // the clock says 03:00 — which is precisely when the nightly
+                // `demo:reset` runs (SLO-191). The enquiry was previously
+                // skipped in that case, and since the freshest week supplies one
+                // request per open stage, a skip silently cost the demo a whole
+                // pipeline status. It failed roughly one run in three, on a
+                // schedule nobody watches.
+                $daysBack = ($week * 7) + $data->between(1, 6);
+                $askedAt = $data->at(-$daysBack, sprintf('%02d:%02d', $data->between(8, 17), $data->oneOf([5, 20, 40])));
 
                 $client = $clients[$data->between(0, count($clients) - 1)];
                 $request = $data->asOf($askedAt, fn (): QuoteRequest => $create($enquiry, [
@@ -519,9 +525,9 @@ final class VenueDemoPersona extends DemoPersona
         $approve = app(ApproveBooking::class);
         $changeStatus = app(ChangeBookingStatus::class);
 
-        $let = function (int $dayOffset, int $hour) use ($create, $meeting, $room, $clients, $data) {
+        $let = function (int $dayOffset, int $hour, ?Carbon $bookedAt = null) use ($create, $meeting, $room, $clients, $data) {
             $startsAt = $data->at($dayOffset, sprintf('%02d:00', $hour));
-            $bookedAt = $startsAt->copy()->subDays($data->between(1, 6))->setTime(10, 10);
+            $bookedAt ??= $startsAt->copy()->subDays($data->between(1, 6))->setTime(10, 10);
 
             return [$data->asOf($bookedAt, fn () => $create($meeting, [
                 'customer_id' => $clients[$data->between(0, count($clients) - 1)]->getKey(),
@@ -564,8 +570,14 @@ final class VenueDemoPersona extends DemoPersona
             $data->asOf($bookedAt->copy()->addHours(3), fn () => $approve($booking, $admin));
         }
 
+        // ⚠️ Booked YESTERDAY, explicitly — not "a few days before a let that is
+        // itself days away". A `requested` booking holds its slot only for the
+        // tenant's approval window (48h), so a randomly drawn lead time can put
+        // `hold_expires_at` in the past before the seed has even finished: the
+        // request is then one sweep away from cancelling itself, and the demo
+        // loses the pending decision it exists to show (SLO-26).
         $pendingDay = $this->nextWeekday(4, $data);
-        [$pending] = $let($pendingDay, 17);
+        [$pending] = $let($pendingDay, 17, $data->at(-1, '09:20'));
         // Left `requested`: this is the soft hold the AC asks to see.
         unset($pending);
     }
