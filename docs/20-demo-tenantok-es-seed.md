@@ -23,7 +23,7 @@
 
 Belépési adatok egységesen: minden demo user jelszava `Slot4uDemo!2026`. Email minta: `{szerep}@{slug}.demo.slot4u.hu` (nem kézbesíthető domain — szándékosan).
 
-### 2.1 „Lélekút Pszichológiai Rendelő" — solo pszichológus · **Alap csomag**
+### 2.1 „Lélekút Pszichológiai Rendelő" — solo pszichológus · **Alap csomag** ✅ *(SLO-184, kész)*
 
 A legkisebb életképes használat: egyszemélyes praxis, diszkrét működés. Ezt látja az egyéni szolgáltató (pszichológus, coach, dietetikus, masszőr) érdeklődő.
 
@@ -37,6 +37,24 @@ A legkisebb életképes használat: egyszemélyes praxis, diszkrét működés. 
 - **Munkarend:** H–Cs 9:00–17:00, P 9:00–13:00; 1 jövőbeli szabadnap `schedule_exceptions`-ben (kivételkezelés látszódjon a naptáron)
 - **Ügyfelek:** 10 · **Előzmény:** ~90 nap, heti 8–12 foglalás; jövőben 2 hét részben foglalt naptár + legalább 1 `requested` (jóváhagyásra váró) és 1 `rejected` kérés
 - **⚠ Tartalmi szabály:** a jegyzet/megjegyzés mezőkben SEMMI egészségügyi-jellegű tartalom (fiktíven sem — különleges adatkategória, rossz üzenet demóban). Csak semleges szövegek: „Kapucsengő: 12", „Első alkalom", „Átütemezést kért".
+
+> **Megvalósítási megjegyzés (SLO-184, 2026-09-03) — a „csomag" itt már nem csomag.**
+> A lépcsős csomagmodell (Alap/Közepes/Max) azóta **megszűnt** (CLAUDE.md, `docs/10`): egyetlen
+> ingyenes `base` plan van, platformszintű mennyiségi limitekkel (3 dolgozó / 1 helyszín /
+> 3 helyiség), és a monetizáció forgalom-alapú jutalék. Az „Alap csomag" cimke ezért ennél a
+> personánál **a méretet jelenti, nem egy megvásárolható szintet** — a solo praxis bőven belefér
+> a `base` limitekbe, és ezt teszt őrzi.
+>
+> Ebből következik, hogy a §5.3 szerinti **upsell-demó („Válts Közepes csomagra" ajtó) tárgytalan**:
+> nincs nagyobb csomag, amire váltani lehetne. A „lezárt funkció + bekapcsolási CTA" minta viszont
+> él — a `feature_branding` alapból kikapcsolt a `base` planen, és a beállítások képernyő ezért
+> mutat zárolt szekciót (SLO-21) —, csak ez superadmin-kapcsoló, nem vásárlás. Ha a demóban mégis
+> kell egy értékesítési ajtó, az termékdöntés (Daniel), nem hiányzó UI-elem.
+>
+> Két további, implementáció közben rögzített részlet: a szolgáltatás `staff`/`rooms` pivotja
+> **kötelező**, különben az `AvailabilityService` nem talál erőforrást és a publikus oldal egyetlen
+> szabad idősávot sem kínál; a `fulfillment_type` pedig nem oszlop, hanem a `services.settings`
+> JSON kulcsa.
 
 ### 2.2 „GlamZone Szépségszalon" — több dolgozós szalon · **Közepes csomag**
 
@@ -102,8 +120,9 @@ A magas kosárértékű, ajánlat-alapú üzlet demója — és annak bizonyít�
 > de a repóban a 16-os számot már a `docs/16-deploy-pipeline.md` viszi (a CLAUDE.md doksi-táblája
 > hivatkozik rá), ezért ez a fájl **20-as sorszámmal** került be. Az `is_demo` flag és az alábbi
 > guardrailek (SLO-182) és a `demo:seed` / `demo:reset` keretrendszer (3.2–3.3, SLO-183) készen
-> vannak. A keretrendszert egyelőre egy minimális **smoke persona** (`demo-smoke`) igazolja; a négy
-> valódi persona (2. fejezet) az SLO-184..190 issue-kben készül.
+> vannak. A keretrendszert egy minimális **smoke persona** (`demo-smoke`) és — az SLO-184 óta — az
+> első valódi persona (`demo-pszichologus`, §2.1) igazolja; a maradék három (§2.2–2.4) az
+> SLO-185..190 issue-kben készül.
 
 
 ### 3.1 `is_demo` flag és guardrailek

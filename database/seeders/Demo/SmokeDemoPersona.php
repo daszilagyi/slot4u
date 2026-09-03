@@ -16,6 +16,7 @@ use App\Models\Service;
 use App\Models\ServiceCategory;
 use App\Models\Staff;
 use App\Models\Tenant;
+use App\Models\User;
 use App\Tenancy\TenantManager;
 
 /**
@@ -46,7 +47,7 @@ final class SmokeDemoPersona extends DemoPersona
         return 'Slot4u Demo Stúdió';
     }
 
-    protected function build(Tenant $tenant, DemoDataFactory $data): void
+    protected function build(Tenant $tenant, User $admin, DemoDataFactory $data): void
     {
         // The models below are tenant-scoped; bind the tenant so BelongsToTenant
         // stamps and scopes them without every call passing an id.
@@ -63,7 +64,7 @@ final class SmokeDemoPersona extends DemoPersona
     {
         $location = Location::query()->create([
             'name' => 'Belvárosi stúdió',
-            'address' => '1052 Budapest, Váci utca 1.',
+            'address' => ['line' => 'Váci utca 1.', 'city' => 'Budapest', 'postal_code' => '1052'],
             'active' => true,
         ]);
 

@@ -47,8 +47,13 @@ abstract class DemoPersona
     /**
      * Fill the tenant with this persona's world. Called inside the seed
      * transaction, with the tenant already created, marked demo and role-seeded.
+     *
+     * `$admin` is handed over rather than looked up: a persona routinely needs
+     * it as more than a login — the solo practitioner IS the tenant admin and
+     * her `staff.user_id` points at this row (docs/20 §2.1), and admin-side
+     * transitions read better in the demo's history when they name an actor.
      */
-    abstract protected function build(Tenant $tenant, DemoDataFactory $data): void;
+    abstract protected function build(Tenant $tenant, User $admin, DemoDataFactory $data): void;
 
     /** The tenant's timezone; personas are Hungarian businesses unless they say otherwise. */
     public function timezone(): string
@@ -59,6 +64,36 @@ abstract class DemoPersona
     public function locale(): string
     {
         return 'hu';
+    }
+
+    /**
+     * The person behind the admin login.
+     *
+     * Defaults to a functional label, which is right for a business whose owner
+     * the demo never names. A persona built around one practitioner overrides
+     * it, because "Lélekút Pszichológiai Rendelő Admin" would be a stranger
+     * signing the appointments her own calendar is made of.
+     */
+    public function adminName(): string
+    {
+        return $this->name().' Admin';
+    }
+
+    /**
+     * The tenant's `settings` JSON — the public profile (description, contact,
+     * address, opening hours) and any booking rule the persona wants to differ
+     * from the platform default.
+     *
+     * Empty by default. It matters more than it looks: the public homepage
+     * renders this and nothing else as the company profile, so a persona that
+     * skips it is a business with no address and no phone number — the least
+     * convincing thing a sales demo can be.
+     *
+     * @return array<string, mixed>
+     */
+    public function profileSettings(): array
+    {
+        return [];
     }
 
     /**
@@ -87,6 +122,7 @@ abstract class DemoPersona
             'status' => TenantStatus::Active,
             'timezone' => $this->timezone(),
             'locale' => $this->locale(),
+            'settings' => $this->profileSettings(),
         ]);
 
         // `is_demo` is deliberately not fillable (SLO-182) — it lifts
@@ -100,9 +136,9 @@ abstract class DemoPersona
         // does, so this works either way.
         app(TenantRoleSeeder::class)->seed($tenant);
 
-        $this->createAdmin($tenant);
+        $admin = $this->createAdmin($tenant);
 
-        $this->build($tenant, new DemoDataFactory($this->slug(), $this->timezone()));
+        $this->build($tenant, $admin, new DemoDataFactory($this->slug(), $this->timezone()));
 
         return $tenant;
     }
@@ -111,7 +147,7 @@ abstract class DemoPersona
     protected function createAdmin(Tenant $tenant): User
     {
         $admin = new User([
-            'name' => $this->name().' Admin',
+            'name' => $this->adminName(),
             'email' => $this->adminEmail(),
             'password' => Hash::make(self::PASSWORD),
         ]);
