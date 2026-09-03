@@ -278,8 +278,23 @@ it('builds on whatever weekday the nightly reset happens to run', function (stri
 
     expect($pending->hold_expires_at->isFuture())->toBeTrue()
         ->and($pending->starts_at->isFuture())->toBeTrue();
+
+    // The cause, not just the symptom: no enquiry may be dated in the future.
+    // One that is gets dropped by the pipeline builder, and the missing status
+    // above is only how that shows up.
+    expect(venueQuotes($tenant)->get()->every(fn ($q): bool => $q->created_at->isPast()))
+        ->toBeTrue('An enquiry was dated in the future and would have been skipped');
 })->with([
+    // A whole week, and every one of them at 03:00 — the hour the nightly reset
+    // actually runs (SLO-191). Four sampled days used to be enough to pass and
+    // not enough to catch: the freshest week's enquiries were drawn anywhere
+    // from 0 to 6 days back, and an "earlier today" instant is in the FUTURE at
+    // 03:00, so the enquiry was dropped and the pipeline lost a status. It hit
+    // about one run in three and got through review on a green local suite.
     'Monday' => '2026-09-07',
+    'Tuesday' => '2026-09-08',
+    'Wednesday' => '2026-09-09',
+    'Thursday' => '2026-09-10',
     'Friday' => '2026-09-11',
     'Saturday' => '2026-09-12',
     'Sunday' => '2026-09-13',
