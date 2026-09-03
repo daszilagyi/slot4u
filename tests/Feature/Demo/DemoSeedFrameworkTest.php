@@ -14,6 +14,7 @@ use Database\Seeders\Demo\SmokeDemoPersona;
 use Database\Seeders\PermissionSeeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Testing\PendingCommand;
 use Spatie\Permission\PermissionRegistrar;
 
 /*
@@ -43,6 +44,20 @@ afterEach(function () {
     app(PermissionRegistrar::class)->setPermissionsTeamId(null);
     Carbon::setTestNow();
 });
+
+/**
+ * Seed the smoke persona and nothing else.
+ *
+ * These tests are about the framework, not about any persona's content, so they
+ * have no reason to rebuild the sales personas too — and every reason not to:
+ * SLO-184 to SLO-190 add four businesses with up to 180 days of history each, so
+ * an unscoped `demo:seed` here would grow this file's runtime with every one of
+ * them, for assertions that only ever look at `demo-smoke`.
+ */
+function seedSmokePersona(array $options = []): PendingCommand
+{
+    return test()->artisan('demo:seed', ['--tenant' => (new SmokeDemoPersona)->slug()] + $options);
+}
 
 /** The smoke persona's tenant, however many scopes are in the way. */
 function demoFrameworkTenant(?string $slug = null): ?Tenant
@@ -79,7 +94,7 @@ function demoFrameworkFingerprint(Tenant $tenant): string
 // --- It builds something ---------------------------------------------------
 
 it('seeds a demo tenant that is flagged, active and has an admin', function () {
-    $this->artisan('demo:seed')->assertSuccessful();
+    seedSmokePersona()->assertSuccessful();
 
     $tenant = demoFrameworkTenant();
 
@@ -103,7 +118,7 @@ it('seeds a demo tenant that is flagged, active and has an admin', function () {
 });
 
 it('serves the seeded tenant on its own subdomain', function () {
-    $this->artisan('demo:seed')->assertSuccessful();
+    seedSmokePersona()->assertSuccessful();
 
     // docs/20 acceptance: the demo has to be reachable where the sales link
     // points, not merely present in the database.
@@ -113,7 +128,7 @@ it('serves the seeded tenant on its own subdomain', function () {
 // --- Relative dates and backdated history ----------------------------------
 
 it('leaves history behind it and a bookable calendar ahead of it', function () {
-    $this->artisan('demo:seed')->assertSuccessful();
+    seedSmokePersona()->assertSuccessful();
 
     $bookings = demoFrameworkBookings(demoFrameworkTenant());
     $past = $bookings->filter(fn (Booking $b): bool => $b->starts_at->isPast());
@@ -129,7 +144,7 @@ it('leaves history behind it and a bookable calendar ahead of it', function () {
 });
 
 it('writes a past booking as if it had happened then', function () {
-    $this->artisan('demo:seed')->assertSuccessful();
+    seedSmokePersona()->assertSuccessful();
 
     $booking = demoFrameworkBookings(demoFrameworkTenant())
         ->first(fn (Booking $b): bool => $b->starts_at->isPast());
@@ -156,10 +171,10 @@ it('writes a past booking as if it had happened then', function () {
 // --- Determinism and idempotency -------------------------------------------
 
 it('produces identical data on every rebuild', function () {
-    $this->artisan('demo:seed')->assertSuccessful();
+    seedSmokePersona()->assertSuccessful();
     $first = demoFrameworkFingerprint(demoFrameworkTenant());
 
-    $this->artisan('demo:seed', ['--fresh' => true])->assertSuccessful();
+    seedSmokePersona(['--fresh' => true])->assertSuccessful();
     $second = demoFrameworkFingerprint(demoFrameworkTenant());
 
     // Screenshots, docs and the personas' own tests all rest on this (§1.4).
@@ -167,11 +182,11 @@ it('produces identical data on every rebuild', function () {
 });
 
 it('leaves an existing demo tenant untouched without --fresh', function () {
-    $this->artisan('demo:seed')->assertSuccessful();
+    seedSmokePersona()->assertSuccessful();
     $before = demoFrameworkTenant();
     $bookingIds = demoFrameworkBookings($before)->modelKeys();
 
-    $this->artisan('demo:seed')
+    seedSmokePersona()
         ->expectsOutputToContain('Nothing to seed')
         ->assertSuccessful();
 
@@ -184,10 +199,10 @@ it('leaves an existing demo tenant untouched without --fresh', function () {
 });
 
 it('rebuilds from nothing with --fresh', function () {
-    $this->artisan('demo:seed')->assertSuccessful();
+    seedSmokePersona()->assertSuccessful();
     $firstId = demoFrameworkTenant()->getKey();
 
-    $this->artisan('demo:seed', ['--fresh' => true])->assertSuccessful();
+    seedSmokePersona(['--fresh' => true])->assertSuccessful();
     $tenant = demoFrameworkTenant();
 
     // A new tenant row — the old one was deleted, not updated in place...
@@ -197,7 +212,7 @@ it('rebuilds from nothing with --fresh', function () {
 });
 
 it('rebuilds every demo tenant with demo:reset', function () {
-    $this->artisan('demo:seed')->assertSuccessful();
+    seedSmokePersona()->assertSuccessful();
     $firstId = demoFrameworkTenant()->getKey();
 
     $this->artisan('demo:reset')->assertSuccessful();
@@ -208,7 +223,7 @@ it('rebuilds every demo tenant with demo:reset', function () {
 // --- Guardrails ------------------------------------------------------------
 
 it('⚠️ never leaves a demo account behind as a platform super-admin', function () {
-    $this->artisan('demo:seed')->assertSuccessful();
+    seedSmokePersona()->assertSuccessful();
 
     $tenant = demoFrameworkTenant();
     $demoEmails = User::withoutGlobalScopes()
@@ -275,7 +290,7 @@ it('seeds only the named persona', function () {
 });
 
 it('purges the demo tenant audit trail, which no foreign key would', function () {
-    $this->artisan('demo:seed')->assertSuccessful();
+    seedSmokePersona()->assertSuccessful();
     $tenant = demoFrameworkTenant();
 
     // `audit_logs.tenant_id` carries no constraint on purpose — the trail is
