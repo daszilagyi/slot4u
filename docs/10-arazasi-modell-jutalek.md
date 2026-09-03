@@ -482,7 +482,13 @@ Acceptance criteria + : Pest zöld, Pint/Larastan/ESLint tiszta, i18n betartva (
 > Mind a 7 pont eldöntve. Az alábbi értékek a kötelező defaultok az implementációhoz.
 
 1. **ÁFA a jutalékon: ✅ NETTÓ + 27% ÁFA.** A `commission_minor` a nettó szolgáltatási díj; a 10 000 / 50 000 Ft küszöb/plafon **nettó** értékek; a havi jutalékszámla erre számít rá 27% ÁFÁ-t (`vat_bps=2700`, `vat_minor`, `total_gross_minor` integer).
-2. **Base-tier limitek: ✅ 3 dolgozó / 1 helyszín / 3 helyiség** az ingyenes `base` planen, efelett későbbi limit-emelés/add-on. (A `PlanLimitService` és a J3 base-plan seed ezt használja.)
+2. **Base-tier limitek: ✅ 8 dolgozó / 3 helyszín / 8 helyiség** az ingyenes `base` planen, efelett későbbi limit-emelés/add-on. (A `PlanLimitService` és a J3 base-plan seed ezt használja.)
+
+   > **Emelve 2026-09-03-án (SLO-195, Daniel döntése).** Az eredeti érték **3 dolgozó / 1 helyszín / 3 helyiség** volt (2026-06-27). Az M9 demo-personák (`docs/20` §2) voltak az első valódi üzletek, amiken a szám kipróbálódott — és a négyből **három nem fért bele**: a szalon 4 dolgozóval, a fitnesz 6 dolgozóval / 2 helyszínnel / 4 helyiséggel, a rendezvényház pedig pont a helyiség-plafonon ült. A `docs/20` lefedettségi mátrixában szereplő **multi-location ✔** az 1 helyszínes limit mellett egyszerűen nem létezhetett.
+   >
+   > Az érvelés viszont nem a demóé. Jutalékmodellben a limit **visszaélés-védelem, nem árlista**: a slot4u a tenant forgalmának egy részét kapja, így egy növekvő szalont 3 széknél megállítani a slot4u saját bevételét is megállítja. A §14/J3 maga is „egyetlen `base` plan **nagyvonalú** limitekkel"-t ír elő — a régi értékek ennél szűkebbek voltak.
+   >
+   > **Migráció nem kell:** a `ProductionSeeder` minden deploynál futtatja a `BasePlanSeeder`-t, az pedig `updateOrCreate` — a meglévő `plan_limits` sorok a következő deploykor átíródnak. A limit **véges marad** (nem „unlimited"), mert a dolgozó- és helyszín-képernyők a maradék keretet mutatják, és mert kell valami egy normál tenant és egy elszabadult import között.
 3. **Fizetési határidő + dunning: ✅ 8 nap határidő + 14 nap türelem,** majd felfüggesztés (J6 dunning).
 4. **Period-zárási türelmi idő: ✅ a következő hónap 2. napján** zárjuk a period-ot (a hónap végi foglalások állapota addigra véglegesül).
 5. **Lezárt period korrekciója: ✅ negatív korrekciós tétel az aktuális (nyitott) period-ban;** a lezárt period változatlan marad (jóváírás a következő számlán).
