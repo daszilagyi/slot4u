@@ -50,6 +50,22 @@ final class PaymentGatewayManager
     }
 
     /**
+     * Whether the sandbox's own checkout screen may be served for this tenant.
+     *
+     * ⚠️ The other half of {@see self::forTenant()}, and it has to exist, or the
+     * guardrail is only half a rule: pinning a demo tenant to the sandbox so its
+     * visitors can pay buys nothing while the sandbox's checkout page 404s under
+     * them. `payments.sandbox.enabled` is off in production for a good reason —
+     * a screen that confirms a payment nobody made must never be reachable on an
+     * account that takes real money — but a demo tenant takes none by
+     * construction (docs/20 §3.1), and walking the payment step IS the demo.
+     */
+    public function sandboxCheckoutEnabled(Tenant $tenant): bool
+    {
+        return $tenant->is_demo || (bool) config('payments.sandbox.enabled');
+    }
+
+    /**
      * The gateway for an existing payment / incoming webhook. Throws for a provider
      * with no adapter yet — a payment row can outlive the driver it was made with.
      */

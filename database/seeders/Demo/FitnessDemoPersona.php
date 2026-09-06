@@ -9,16 +9,21 @@ use App\Actions\Booking\ChangeBookingStatus;
 use App\Actions\Booking\CreateBooking;
 use App\Actions\Customer\CreateCustomer;
 use App\Actions\Event\CreateEvent;
+use App\Actions\Payment\FailBookingPayment;
+use App\Actions\Payment\SettleBookingPayment;
+use App\Actions\Payment\StartBookingPayment;
 use App\Actions\Waitlist\JoinWaitlist;
 use App\Enums\BookingMode;
 use App\Enums\BookingSource;
 use App\Enums\BookingStatus;
 use App\Enums\Feature;
+use App\Enums\PaymentStatus;
 use App\Enums\Role;
 use App\Models\Booking;
 use App\Models\Customer;
 use App\Models\Event;
 use App\Models\Location;
+use App\Models\Payment;
 use App\Models\Room;
 use App\Models\Schedule;
 use App\Models\Service;
@@ -91,6 +96,19 @@ final class FitnessDemoPersona extends DemoPersona
      * budget.
      */
     private const BUSY_WINDOW_DAYS = 45;
+
+    /**
+     * How far back bookings were paid for online. Shorter than the busy window
+     * on purpose.
+     *
+     * Every paid booking costs two more transactions than an unpaid one —
+     * opening the checkout and settling it — and both the nightly reset and
+     * every test that seeds this persona pay for each. Three weeks still gives
+     * several hundred payments, invoices, a failed card and a refund: everything
+     * the money screens need to look real. Older sign-ups are desk sales, which
+     * is what a studio's back catalogue honestly looks like anyway.
+     */
+    private const PAID_WINDOW_DAYS = 21;
 
     private const CUSTOMER_COUNT = 60;
 
@@ -195,6 +213,146 @@ final class FitnessDemoPersona extends DemoPersona
     private const QUEUE_POOL = 12;
 
     /**
+     * How a booking of a given age was taken, and therefore whether it carries a
+     * payment (SLO-190).
+     *
+     * Anything older than the busy window is booked at the desk
+     * (`BookingSource::Admin`), which skips the online payment gate exactly as
+     * `CreateBooking::initialStatus` says an admin booking does. Recent and
+     * future bookings come through the public page and pay.
+     *
+     * That is a choice about the story AND the budget, and both point the same
+     * way. A studio that has been taking card payments online only recently is
+     * an ordinary business; and driving every one of ~2,300 historical sign-ups
+     * through checkout + settlement would add two more transactions each to a
+     * seed the nightly reset already pays four minutes for. The payment history
+     * a demo needs is the recent, visible one.
+     */
+    private function paidOnline(Carbon $startsAt, DemoDataFactory $data): bool
+    {
+        return $startsAt->gte($data->today()->subDays(self::PAID_WINDOW_DAYS));
+    }
+
+    /**
+     * Walk a `pending_payment` booking through the checkout the way the public
+     * page does (SLO-130), so the money is real data rather than written rows.
+     *
+     * The gateway is the in-app sandbox: a demo tenant is pinned to it by
+     * `PaymentGatewayManager::forTenant()` (SLO-182), so no external call is
+     * possible from here even if a live provider were configured. Settling also
+     * records the invoice on its own, because `feature_invoicing` is on for this
+     * tenant — the seed never writes an invoice by hand.
+     */
+    private function takePayment(Booking $booking, Carbon $paidAt, DemoDataFactory $data, bool $mustPay = false): void
+    {
+        if ($booking->status !== BookingStatus::PendingPayment) {
+            return;
+        }
+
+        // ⚠️ `$mustPay` for the sold-out classes. An abandoned checkout is
+        // released, which drops `booked_count` back below capacity — and a class
+        // that is not full cannot be queued for (JoinWaitlist refuses), so a
+        // single unlucky draw silently emptied a waitlist scenario.
+        // One in twenty checkouts is abandoned outright.
+        if (! $mustPay && $data->between(1, 20) === 1) {
+            $this->releaseUnpaid($booking, $paidAt, $data);
+
+            return;
+        }
+
+        $payment = $data->asOf($paidAt, function () use ($booking) {
+            app(StartBookingPayment::class)($booking, '/payments/return');
+
+            return Payment::query()
+                ->where('booking_id', $booking->getKey())
+                ->orderByDesc('id')
+                ->first();
+        });
+
+        if ($payment === null) {
+            return;
+        }
+
+        // A card that bounced, then the customer gave up.
+        if (! $mustPay && $data->between(1, 14) === 1) {
+            $data->asOf($paidAt->copy()->addMinutes(2), fn () => app(FailBookingPayment::class)($payment));
+            $this->releaseUnpaid($booking, $paidAt, $data);
+
+            return;
+        }
+
+        $data->asOf($paidAt->copy()->addMinutes(3), fn () => app(SettleBookingPayment::class)($payment));
+        $booking->refresh();
+    }
+
+    /**
+     * End a checkout that never completed, the way production ends it.
+     *
+     * ⚠️ Only in the past. A `pending_payment` booking holds its slot until
+     * `hold_expires_at`, and `ExpirePendingPayments` then cancels it — so a
+     * three-month-old booking still waiting for money is a state the running
+     * system would never leave behind, and seeding a hundred of them would say
+     * the opposite of what the payment flow actually does. Ahead of today the
+     * booking is genuinely still waiting, and it stays that way: that is the
+     * live `pending_payment` the dashboard has a tile for.
+     */
+    private function releaseUnpaid(Booking $booking, Carbon $abandonedAt, DemoDataFactory $data): void
+    {
+        $booking->refresh();
+
+        if ($booking->status !== BookingStatus::PendingPayment || $booking->hold_expires_at?->isFuture() !== false) {
+            return;
+        }
+
+        $data->asOf(
+            $booking->hold_expires_at ?? $abandonedAt->copy()->addHour(),
+            fn () => app(ChangeBookingStatus::class)(
+                $booking,
+                BookingStatus::Canceled,
+                null,
+                __('app.booking.reason.payment_expired'),
+            ),
+        );
+    }
+
+    /**
+     * Two cancellations refunded in full, by an admin's decision rather than the
+     * tenant's policy (SLO-131).
+     *
+     * The studio's published policy gives half back, which is what every other
+     * cancellation here does — but a payment only reaches `refunded` when the
+     * whole amount goes back, so without an override the demo would show that
+     * status nowhere. A goodwill full refund is also the more interesting thing
+     * to have on screen: it is the case a receptionist actually has to decide.
+     */
+    private function seedFullRefunds(DemoDataFactory $data): void
+    {
+        $paid = Payment::query()
+            // Eager: lazy loading is disabled application-wide.
+            ->with('booking')
+            ->where('status', PaymentStatus::Paid->value)
+            ->whereHas('booking', fn ($q) => $q->where('status', BookingStatus::Confirmed->value))
+            ->orderByDesc('id')
+            ->limit(2)
+            ->get();
+
+        foreach ($paid as $payment) {
+            $booking = $payment->booking;
+
+            if ($booking === null) {
+                continue;
+            }
+
+            $data->asOf(Carbon::now()->subDays(2), fn () => app(CancelBooking::class)(
+                $booking,
+                null,
+                'Az óra elmaradt, a teljes díjat visszatérítettük.',
+                refundMinor: (int) $payment->amount_minor,
+            ));
+        }
+    }
+
+    /**
      * Occurrences the waitlist scenarios have already dealt with, so the bulk
      * attendance pass leaves them exactly as it found them.
      *
@@ -238,6 +396,12 @@ final class FitnessDemoPersona extends DemoPersona
             ],
             // A gym's diary is worked in half hours.
             'slot_interval_minutes' => 30,
+            // Half back if you cancel — a real policy a studio would publish,
+            // and the reason the seeded cancellations produce actual `refunded`
+            // payments instead of the platform default of refunding nothing
+            // (SLO-131). CancelBooking applies it without the seed asking.
+            'refund_policy' => 'partial',
+            'refund_percent_bps' => 5_000,
         ];
     }
 
@@ -305,6 +469,7 @@ final class FitnessDemoPersona extends DemoPersona
         // be cancelled, and cancelling is what frees the seat the queue is for.
         $this->seedWaitlists($customers, $data);
         $this->seedAttendance($customers, $data);
+        $this->seedFullRefunds($data);
     }
 
     /**
@@ -337,6 +502,10 @@ final class FitnessDemoPersona extends DemoPersona
                 // (JoinWaitlist refuses), and the full classes below would be a
                 // dead end rather than the demo's best moment.
                 'waitlist_enabled' => true,
+                // Pay to hold the place (docs/20 §2.3). This is what puts a
+                // booking into `pending_payment` in the first place, and what
+                // the visitor walks through on the public page.
+                'online_payment_required' => true,
                 'active' => true,
             ]);
         }
@@ -447,7 +616,7 @@ final class FitnessDemoPersona extends DemoPersona
      * @param  list<Customer>  $customers
      * @return list<Booking>
      */
-    private function fill(Event $event, int $seats, array $customers, DemoDataFactory $data, int $partySize = 1, bool $settle = true): array
+    private function fill(Event $event, int $seats, array $customers, DemoDataFactory $data, int $partySize = 1, bool $settle = true, bool $mustPay = false): array
     {
         $create = app(CreateBooking::class);
         $changeStatus = app(ChangeBookingStatus::class);
@@ -467,17 +636,26 @@ final class FitnessDemoPersona extends DemoPersona
             array_splice($pool, $index, 1);
 
             $bookedAt = $event->starts_at->copy()->subDays($data->between(1, 10))->setTime(21, 5);
+            $online = $this->paidOnline($event->starts_at, $data);
 
             $booking = $data->asOf($bookedAt, fn (): Booking => $create($service, [
                 'customer_id' => $customer->getKey(),
                 'event_id' => $event->getKey(),
                 'party_size' => $partySize,
-                'source' => BookingSource::Online->value,
+                // Online = pays now; admin = sold at the desk, which skips the
+                // payment gate the way CreateBooking::initialStatus says it does.
+                'source' => ($online ? BookingSource::Online : BookingSource::Admin)->value,
             ], null, null, $data->notifiable($bookedAt)));
+
+            if ($online) {
+                $this->takePayment($booking, $bookedAt->copy()->addMinutes(4), $data, $mustPay);
+            }
 
             $made[] = $booking;
 
-            if (! $settle || $event->ends_at->isFuture()) {
+            // An abandoned or failed checkout never became an attendance — it is
+            // still waiting for money, and the hold sweep is what ends it.
+            if (! $settle || $event->ends_at->isFuture() || $booking->status !== BookingStatus::Confirmed) {
                 continue;
             }
 
@@ -589,7 +767,7 @@ final class FitnessDemoPersona extends DemoPersona
             // Seats come from the front of the roster, queue places from the
             // back (see self::queue) — so nobody is ever asked to wait for a
             // class they are already booked on, which JoinWaitlist refuses.
-            $this->fill($event, $remaining, $this->seatPool($customers), $data, settle: $settle);
+            $this->fill($event, $remaining, $this->seatPool($customers), $data, settle: $settle, mustPay: true);
         }
 
         $event->refresh();
@@ -621,9 +799,13 @@ final class FitnessDemoPersona extends DemoPersona
 
         $changeStatus = app(ChangeBookingStatus::class);
 
+        // ⚠️ Confirmed only, not "occupying". A `pending_payment` booking still
+        // holds its seat — that is what makes the waitlist work — but it never
+        // became an attendance, and the state machine rightly refuses to walk it
+        // to `completed`. The payment-hold sweep is what ends those (SLO-130).
         $open = Booking::query()
             ->where('event_id', $event->getKey())
-            ->whereIn('status', BookingStatus::occupyingValues())
+            ->where('status', BookingStatus::Confirmed->value)
             ->get();
 
         foreach ($open as $booking) {
@@ -709,12 +891,24 @@ final class FitnessDemoPersona extends DemoPersona
         // The person at the head of the queue takes the seat. CreateBooking's
         // event path closes their waitlist entry as `converted` on the way
         // through (docs/04 §3) — the seed does not touch the status itself.
-        $data->asOf($freedAt->copy()->addHours(3), fn () => app(CreateBooking::class)($event->service, [
+        $claimedAt = $freedAt->copy()->addHours(3);
+
+        $claim = $data->asOf($claimedAt, fn (): Booking => app(CreateBooking::class)($event->service, [
             'customer_id' => $queued[0],
             'event_id' => $event->getKey(),
             'party_size' => 1,
             'source' => BookingSource::Online->value,
         ], null, null, false));
+
+        // ⚠️ ...and they pay for it. Classes charge online since SLO-190, so a
+        // claimed seat is born `pending_payment` exactly like a public sign-up.
+        // Without this the scene left one unpaid seat on a class that has
+        // already happened — a state the hold sweep never leaves behind, and the
+        // one thing the `pending_payment` assertion exists to forbid.
+        //
+        // `mustPay`, because the conversion IS the scene: an abandoned checkout
+        // here releases the seat again and the queue converts into nothing.
+        $this->takePayment($claim, $claimedAt->copy()->addMinutes(4), $data, mustPay: true);
 
         $this->settleEvent($event, $data);
     }
@@ -906,6 +1100,7 @@ final class FitnessDemoPersona extends DemoPersona
             'price_minor' => 14_000 * 100,
             'currency' => 'HUF',
             'requires_staff' => true,
+            'online_payment_required' => true,
             'active' => true,
         ]);
         $personal->staff()->sync(array_map(
@@ -1075,20 +1270,31 @@ final class FitnessDemoPersona extends DemoPersona
         $endsAt = $startsAt->copy()->addMinutes($minutes);
         $bookedAt = $startsAt->copy()->subDays($data->between(1, 9))->setTime(19, 40);
 
+        $online = $service->online_payment_required && $this->paidOnline($startsAt, $data);
+
         $booking = $data->asOf($bookedAt, fn (): Booking => app(CreateBooking::class)($service, [
             'customer_id' => $customers[$data->between(0, count($customers) - 1)]->getKey(),
             'staff_id' => $staff?->getKey(),
             'room_id' => $room?->getKey(),
             'starts_at' => $startsAt,
             'ends_at' => $endsAt,
-            'source' => BookingSource::Online->value,
+            // Only personal training charges online; the two rentals are settled
+            // at the desk, so they stay on the admin path.
+            'source' => (($service->online_payment_required && ! $online) ? BookingSource::Admin : BookingSource::Online)->value,
         ], null, null, $data->notifiable($bookedAt)));
+
+        if ($online) {
+            $this->takePayment($booking, $bookedAt->copy()->addMinutes(4), $data);
+        }
 
         // Terminality is decided by the clock, not by the day offset: a session
         // seeded for 07:00 today is already over by the time an afternoon
         // `demo:reset` finishes, and would otherwise sit at `confirmed` in the
         // past — the exact state every other persona is careful not to leave.
-        if ($endsAt->isFuture()) {
+        //
+        // A booking still waiting for money is left alone: it never became an
+        // appointment, and the payment-hold sweep is what ends it (SLO-130).
+        if ($endsAt->isFuture() || $booking->status !== BookingStatus::Confirmed) {
             return;
         }
 
