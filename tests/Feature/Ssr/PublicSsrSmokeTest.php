@@ -132,6 +132,50 @@ it('server-renders the marketing hero, headline and widget included', function (
         ->toContain('Magyar fejlesztés');
 });
 
+it('server-renders the middle of the landing page too', function () {
+    // The sections below the fold are the ones a crawler reads and a visitor
+    // scrolls to (SLO-204). They animate on scroll, which is exactly the shape
+    // of change that can leave markup empty until JavaScript runs — so they are
+    // asserted against prop-stripped HTML like everything else here.
+    $this->seed(CommissionSettingSeeder::class);
+
+    $content = $this->get('http://'.config('tenancy.central_domain'))->assertOk()->getContent();
+    $rendered = renderedMarkupOnly($content);
+
+    expect($rendered)
+        // The assurance strip — and ⚠️ specifically NOT a customer count or a
+        // tenant logo. Every claim here is one that holds with zero customers.
+        ->toContain('Adataid az EU-ban')
+        ->toContain('Nincs havidíj')
+        // Three steps, and the product showcase behind them.
+        ->toContain('Három lépés')
+        ->toContain('Kiteszed a linked')
+        ->toContain('A naptár, ami helyetted figyel')
+        // Two of the six feature blocks, including one of the pair added to
+        // reach the 2×3 grid — both are shipped features, not promises.
+        ->toContain('Ütközésmentes naptár')
+        ->toContain('Online fizetés');
+});
+
+it('⚠️ never claims customers it does not have', function () {
+    // The guard for a decision, not a bug (docs/21, the box under §2's table):
+    // the trust strip and the testimonials were both cut because inventing a
+    // customer count — or borrowing the demo tenants' names as if they were
+    // references — costs exactly the trust those sections exist to build.
+    //
+    // This fails the moment somebody reinstates the logo wall.
+    $this->seed(CommissionSettingSeeder::class);
+
+    $content = $this->get('http://'.config('tenancy.central_domain'))->assertOk()->getContent();
+
+    foreach (['GlamZone', 'Premium Fitness', 'Lélekút', 'Fényliget', 'Csavarkulcs'] as $fixture) {
+        expect($content)->not->toContain($fixture);
+    }
+
+    // No SLA figure either: docs/17 is monitoring, not a contractual promise.
+    expect($content)->not->toContain('99,9%')->not->toContain('99.9%');
+});
+
 it('server-renders an authenticated admin page without breaking (global SSR)', function () {
     $tenant = Tenant::factory()->active()->create(['slug' => 'acme', 'name' => 'Acme']);
 

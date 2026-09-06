@@ -1,6 +1,10 @@
 import { Head } from '@inertiajs/react';
 
 import HeroSlotPreview from '@/components/HeroSlotPreview';
+import AssuranceStrip from '@/components/landing/AssuranceStrip';
+import HowItWorks from '@/components/landing/HowItWorks';
+import FeatureGrid from '@/components/landing/FeatureGrid';
+import ProductShowcase from '@/components/landing/ProductShowcase';
 import MarketingLayout from '@/Layouts/MarketingLayout';
 import { Button } from '@/components/ui/button';
 import { useTranslations } from '@/lib/i18n';
@@ -192,6 +196,13 @@ export default function Welcome({ commission, demo_url, og_image }: Props) {
                 </div>
             </section>
 
+            {/* docs/21 §2 row 2 — assurance, not customer logos (see the
+                component's own note on why). */}
+            <AssuranceStrip />
+
+            {/* row 3 */}
+            <HowItWorks />
+
             {/* Pricing — the reason this page exists */}
             <Section
                 id="arazas"
@@ -326,18 +337,13 @@ export default function Welcome({ commission, demo_url, og_image }: Props) {
                 </div>
             </Section>
 
-            {/* What every tenant gets */}
-            <Section title={t('welcome.trust_title')}>
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    {['domain', 'privacy', 'notify', 'reports'].map((item) => (
-                        <Tile
-                            key={item}
-                            title={t(`welcome.trust.${item}`)}
-                            hint={t(`welcome.trust.${item}_hint`)}
-                        />
-                    ))}
-                </div>
-            </Section>
+            {/* docs/21 §2 row 4 — the feature grid, on its own brand-100 band.
+                Six blocks in 2×3, grown from the four this section already had:
+                the two additions are shipped features, not promises. */}
+            <FeatureGrid />
+
+            {/* row 5 */}
+            <ProductShowcase />
 
             {/* Closing call to action */}
             <section className="border-t border-border">
