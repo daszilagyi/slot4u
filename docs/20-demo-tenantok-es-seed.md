@@ -184,6 +184,10 @@ Itt van minden: csoportórák várólistával, személyi edzés, teremfoglalás,
 >   valóságban soha nem hagyna ott.
 > * ⚠️ **`pending_payment` foglalás CSAK a jövőben létezik a seedben** — a múltbeliek fizetési
 >   határideje lejárt, tehát a rendszer lemondta volna őket. Erre teszt-invariáns van.
+> * **Seed-költség, mérve (dev MariaDB, `--fresh`): 4 perc 42 mp**, a fizetés előtti 4:15-ről.
+>   739 fizetés és 685 számla +11%-ért — ennyibe fér, mert csak az utolsó 21 nap fizet online.
+>   A `demo:reset` ezt minden éjjel kifizeti, tehát a `PAID_WINDOW_DAYS` az a csavar, amivel ez
+>   állítható, ha egyszer szűk lesz.
 > * **A dashboard „mai bevétel" kártyája a `bookings.price_minor`-ból számol, nem a `payments`
 >   táblából** (`BuildTenantDashboard::REVENUE_STATUSES`) — az AC szövege ezen a ponton nem fedi a
 >   megépült rendszert. A tervezés helyes (a pulton eladott óra is bevétel), de a következménye az,
