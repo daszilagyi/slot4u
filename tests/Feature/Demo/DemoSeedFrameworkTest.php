@@ -14,6 +14,7 @@ use Database\Seeders\Demo\SmokeDemoPersona;
 use Database\Seeders\PermissionSeeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Testing\PendingCommand;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -215,9 +216,24 @@ it('rebuilds every demo tenant with demo:reset', function () {
     seedSmokePersona()->assertSuccessful();
     $firstId = demoFrameworkTenant()->getKey();
 
+    Log::spy();
+
     $this->artisan('demo:reset')->assertSuccessful();
 
     expect(demoFrameworkTenant()->getKey())->not->toBe($firstId);
+
+    // A successful run is logged too (SLO-191), and the assertion lives here
+    // rather than in DemoResetScheduleTest because this is the one test that
+    // already pays for a full five-persona rebuild — the reporting is worth a
+    // line, not another few minutes of suite.
+    //
+    // Success is logged at all because it is the only record that the nightly
+    // reset still happens, and the only place its runtime can be watched as it
+    // grows with each persona.
+    Log::shouldHaveReceived('info')
+        ->withArgs(fn (string $message, array $context): bool => str_contains($message, 'demo reset')
+            && is_float($context['seconds']))
+        ->once();
 });
 
 // --- Guardrails ------------------------------------------------------------

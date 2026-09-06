@@ -318,6 +318,40 @@ mind a legfrissebb majoron van: `checkout@v7`, `setup-node@v7`, `cache@v6`,
 A `setup-node@v5` óta van automatikus cache, ha a `package.json`-ben van `packageManager`
 mező — nálunk **nincs**, tehát az explicit `cache: npm` marad az egyetlen utasítás.
 
+### 6.5 A demo tenantok üzemeltetése (SLO-191)
+
+A négy sales-persona (`docs/20`) **nem a deploy része**, és szándékosan nem az: a
+`ProductionSeeder` kizárólag katalógus-adatot tesz ki (6.3), demo adatot soha. A demo külön
+életciklust követ.
+
+**Először, kézzel, egyszer:**
+
+```
+php artisan demo:seed          # mind a 4 persona + a smoke tenant
+php artisan demo:seed --tenant=demo-fitnesz --fresh   # egy persona újraépítése
+```
+
+A parancs **bármely környezeten futtatható**, mert a destruktív útja csak `is_demo` tenantot
+érhet el: a `DemoSeeder` visszautasítja a valós tenant tulajdonában lévő slugot, a
+`PurgeDemoTenant` pedig a nem jelölt tenant törlését (`docs/20` §3.1). Egy éles telepítésen,
+ahol soha nem futtatták, egyszerűen nincs demo tenant.
+
+**Utána magától, minden éjjel 03:00-kor** (Europe/Budapest) a `demo:reset` — `demo:seed --fresh`
+mind az 5 tenantra. A demo **írható**, tehát a látogatók összepiszkolják; ez teszi a piszkot
+ingyenessé. A scheduler-bejegyzés `when` feltétele miatt **ahol nincs demo tenant, ott nem fut**.
+
+⚠️ **Amit tudni kell róla üzemeltetőként:**
+
+* **7 perc 40 mp** (mérve, dev MariaDB) — osztott tárhelyen több. Ez idő alatt a demo tenantok
+  adatai **törlődnek és újraépülnek**; a többi tenant nem érintett.
+* **Télen szűk az ablak:** 03:00 CET = 02:00 UTC, a napi backup 02:10 UTC. Ha a reset elhúzódik,
+  belelóghat a mysqldumpba. Részletek és a lehetséges megoldások: `docs/20` §3.2.
+* **Hibára riaszt** — `Log::error` + Sentry (`monitor: demo-reset` tag) + nem-nulla exit kód. Ha
+  ilyen riasztás jön, a demo **félig felépülve** maradhatott: a `DemoSeeder` personánként külön
+  tranzakciót használ, tehát a hiba előttiek megvannak, az utániak hiányoznak. A javítás mindig
+  ugyanaz: `php artisan demo:reset` kézzel, a hibaüzenettel a kezedben.
+* **A rollback nem érinti** — ahogy a migrációt sem (5. fejezet).
+
 ## 7. Karbantartási ablak
 
 `artisan down` és `artisan up` között csak ez van: checkout → (composer, ha a lock változott)
@@ -332,5 +366,6 @@ Ami **nem** része ennek a megoldásnak: valódi zero-downtime. Ahhoz release-k�
 
 * `docs/13` — a kézi deploy elődje és a hosting-sajátosságok (gitignore-olt).
 * `docs/18` — backup és restore: mit ment a napi futás, és hogyan áll vissza egy adatvesztés.
+* `docs/20` — a demo tenantok és az éjszakai `demo:reset` (6.5).
 * **SLO-156** — staging + zero-downtime release-könyvtárak.
 * **SLO-148** — `composer audit` / `npm audit` a CI-ban.

@@ -293,6 +293,36 @@ php artisan demo:reset                  # = demo:seed --fresh minden demo tenant
 - Determinizmus: personánként fix faker seed; MINDEN dátum `Carbon::today()`-hoz relatív (pl. „-90 nap … +14 nap"). Kivétel: a napon belüli időpontok a munkarend-rácsra esnek.
 - Staging: éjszakai ütemezett `demo:reset` (scheduler, pl. 03:00 Europe/Budapest) — a látogatók által összepiszkált demo minden reggel tiszta. A scheduler-bejegyzés csak akkor fut, ha van demo tenant.
 
+> **Megvalósítási megjegyzés (SLO-191, 2026-09-06) — az éjszakai újraépítés.**
+>
+> A bejegyzés a `routes/console.php`-ban:
+> `Schedule::command('demo:reset')->dailyAt('03:00')->timezone('Europe/Budapest')->withoutOverlapping()->when(...)`.
+>
+> * ⚠️ **A 03:00 nem preferencia, hanem szerződés.** Mind a négy persona-seeder úgy helyezi
+>   el a „nemrég történt" adatait, hogy azok **ebben az órában is** a múltban legyenek, az élő
+>   soft-holdjai pedig **ebben az órában is** éljenek (§2.3). Ha ez a sor elmozdul, négy seeder
+>   kezd el csendben hazudni — bizonyos napokon, másokon nem. Két hiba már ezen bukott (#148,
+>   #149), ezért a `DemoResetScheduleTest` **kikötözi az órát és a timezone-t**, az indoklással
+>   együtt.
+> * **`when(van demo tenant)` és nem környezet-ellenőrzés.** A demo hol van, hol nincs; maguk a
+>   tenantok az őszinte válasz arra, van-e mit visszaállítani. Ahol nincs — CI, fejlesztői gép,
+>   egy éles telepítés a demo felseedelése előtt — a bejegyzés napi egy query árán no-op.
+>   Archivált (soft-deleted) demo tenant is számít: az is takarítandó, és a slugját fogja.
+> * **A `demo:reset` magának riaszt** (`Log::error` + Sentry, `monitor: demo-reset` taggel), és
+>   nem-nulla exit kóddal áll le. Ez az egyetlen ütemezett parancs, amelynek a néma hibája
+>   **láthatatlan**: a félig felépült demo nem elromlottnak látszik, hanem egy hiányos terméknek,
+>   és az veszi észre, aki épp értékesítési beszélgetést tart. Sikerkor is logol — csak ez a
+>   nyoma annak, hogy a futás még egyáltalán megtörténik, és csak itt figyelhető a futásideje.
+>
+> **⚠️ Mért futásidő: `demo:reset` = 7 perc 40 mp** (dev MariaDB, mind az 5 persona; ebből a
+> fitnesz maga 4:42). **Ez szűk ablakot ad télen:** a 03:00 Europe/Budapest nyáron 01:00 UTC,
+> télen viszont **02:00 UTC**, a napi offsite backup pedig **02:10 UTC**-kor indul (`docs/18`).
+> Télen tehát ~2 perc a tartalék, és osztott tárhelyen a 7:40 könnyen lehet 12–15 perc — akkor a
+> reset **belelógna a mysqldumpba**. A backup elmozdítása nem megoldás: a retention sweep (03:30
+> UTC) szándékosan a backup UTÁN fut (`docs/19` §7), tehát a lánc egyben mozdulna. A csökkentés
+> csavarja a `FitnessDemoPersona::PAID_WINDOW_DAYS` és a 90 napos órarend. **Döntést igényel —
+> l. az SLO-191 Linear-kommentjét.**
+
 ### 3.3 Előzmény-generálás — állapot-korrekt módon
 
 A múltbeli foglalásokat NEM nyers inserttel, hanem a meglévő Action/Service rétegen keresztül (vagy azzal ekvivalens, állapotgépet tisztelő factory state-ekkel) kell létrehozni, hogy:
