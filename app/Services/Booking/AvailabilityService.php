@@ -5,6 +5,7 @@ namespace App\Services\Booking;
 use App\Enums\BookingMode;
 use App\Enums\BookingStatus;
 use App\Models\Booking;
+use App\Models\Room;
 use App\Models\Schedule;
 use App\Models\ScheduleException;
 use App\Models\Service;
@@ -437,15 +438,27 @@ class AvailabilityService
             return [];
         }
 
-        // Ordered by id, and the same order CreateBooking assigns in — so what the
-        // grid found free is the room the booking actually takes, unless somebody
-        // else got there first.
-        return $service->rooms
+        // ⚠️ Queried, not filtered from the loaded relation.
+        //
+        // A caller may have loaded `rooms` with a narrowed column list — the
+        // public booking page does exactly that (`rooms:id,name,location_id`) —
+        // and an `active` attribute that was never selected reads as null. A
+        // `where('active', true)` over that collection quietly removes EVERY
+        // room, and a service with three bays then offers no slots at all, on
+        // the one page a customer actually uses.
+        //
+        // Ordered by id, and the same order CreateBooking assigns in, so what the
+        // grid found free is the room the booking takes unless somebody else got
+        // there first.
+        return Room::query()
+            // Explicit tenant anchor: the ambient scope is a no-op for queue
+            // jobs and the Phase-2 API.
+            ->where('tenant_id', $service->tenant_id)
+            ->whereIn('id', $service->rooms->pluck('id'))
             ->where('active', true)
+            ->orderBy('id')
             ->pluck('id')
             ->map(fn ($id): int => (int) $id)
-            ->sort()
-            ->values()
             ->all();
     }
 

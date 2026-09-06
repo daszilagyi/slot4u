@@ -35,6 +35,7 @@ final class DemoSeeder
         SalonDemoPersona::class,
         VenueDemoPersona::class,
         FitnessDemoPersona::class,
+        AutoServiceDemoPersona::class,
     ];
 
     public function __construct(private readonly PurgeDemoTenant $purge) {}

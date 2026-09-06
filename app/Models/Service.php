@@ -201,6 +201,22 @@ class Service extends Model
     }
 
     /**
+     * The service-specific hint shown above the notes field on the public booking
+     * form (SLO-197).
+     *
+     * A garage needs a registration number, a groomer needs the dog's breed, a
+     * removals firm needs a floor number — all the same field, all a different
+     * question. Structured custom fields are the real answer (SLO-199); this is
+     * the one line of help that makes the free-text box usable until then.
+     */
+    public function notesHint(): ?string
+    {
+        $hint = $this->settings['notes_hint'] ?? null;
+
+        return is_string($hint) && trim($hint) !== '' ? trim($hint) : null;
+    }
+
+    /**
      * Whether the service has upcoming bookings that block hard deletion (it must
      * be inactivated instead). The bookings table arrives with the booking engine
      * (M3); until then a service can never have a booking, so this is false.

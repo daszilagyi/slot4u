@@ -73,6 +73,8 @@ class ServiceRequest extends FormRequest
             'settings.min_duration_minutes' => ['nullable', 'integer', 'min:1', 'max:1440'],
             'settings.max_duration_minutes' => ['nullable', 'integer', 'min:1', 'max:1440'],
             'settings.deposit_minor' => ['nullable', 'integer', 'min:0'],
+            // What to ask for in the notes field on the public form (SLO-197).
+            'settings.notes_hint' => ['nullable', 'string', 'max:255'],
             'settings.quote_fields' => ['nullable', 'array'],
             // The labels are the keys of the public form's answers (`parameters`,
             // SLO-102), so a duplicate would silently overwrite an answer.

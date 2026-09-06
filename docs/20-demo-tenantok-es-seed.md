@@ -224,23 +224,75 @@ A magas kosárértékű, ajánlat-alapú üzlet demója — és annak bizonyít�
 > * **Az elfogadott, 30 napnál régebbi megbízás `completed`** — a quote-foglalásnak nincs saját
 >   dátuma, így az elfogadás öregíti. Enélkül harminc aláírt esemény állt volna örökre `confirmed`-en.
 
+### 2.5 „Csavarkulcs Autószerviz" — kis független szerviz · **több dolgozós** ✅ *(SLO-197, kész)*
+
+> **A teljes üzleti spec a `docs/22-autoszerviz-persona-es-vertikalis-landing.md` §2-ben van** (szolgáltatás-tábla,
+> árak, munkarend, tartalmi szabályok). Itt csak az, ami a demo-keretrendszerhez tartozik.
+
+Az első **nem-wellness** vertikális, és a bizonyíték, hogy a foglalási motor nem egy szépségszalon-termék
+általános névvel. `demo-autoszerviz` · 1 helyszín · **3 állás** · 3 szerelő · 40 ügyfél · 180 nap előzmény.
+
+**Amit ez demóz, amit a másik négy nem:**
+
+1. ⚠️ **`duration_based` + `requires_room` + `requires_staff` EGYSZERRE.** A szűk erőforrás az **emelő**,
+   nem a szerelő — és a látogató egyiket sem választja: a motor oszt ki egy szabad állást lock alatt
+   (SLO-200). **Ez a persona találta meg azt a hiányt**, és utána még egyet: a publikus foglalóoldal
+   szűkített oszlophalmazzal tölti a `rooms` relációt, amitől az `active` szűrés minden állást kidobott.
+2. **Szombat, ahol a két munkarend nem egyezik:** csak a gumis dolgozik, és csak a gumis állás van nyitva.
+   Kerékcserére van sáv, olajcserére nincs — ugyanabból a naptárból. Egyik felével sem működne: staff-only
+   szűréssel maradna a hely nélküli sáv, room-only szűréssel a szerelő nélküli.
+3. **Egész napos (480 perces) „leadás"** — az egyetlen szolgáltatás a demo-készletben, ami egy állást
+   egy teljes napra lefoglal.
+4. **Approval + quote + sima foglalás EGY tenanton belül** (a rendezvényház quote-fókuszú, a pszichológus
+   approval-fókuszú).
+5. **Szezonalitás a statisztikában:** a gumiszezon-csúcs a seed napjához képest fix ablakban van, tehát a
+   hat hónapos görbén mindig ugyanott látszik — naptári hónaptól függetlenül.
+
+> **Megvalósítási megjegyzések (SLO-197, 2026-09-06).**
+>
+> * **Két, egymástól független sáv adja az ütközésmentességet.** A műhely-sávban Gábor és Attila halad
+>   külön napi kurzorral az 1-es/2-es álláson (két ember, két állás — pontosan elég), a gumis sávban
+>   Balogh egyedül. A **Kerékcserét a seed csak Baloghhoz** rendeli, noha Attila is jogosult rá: két
+>   ember egy gumis állásban az egyetlen ütközés, amit ez az elrendezés elő tudna állítani. Attila
+>   rajta marad a szolgáltatáson, tehát a publikus oldalon a „bárki" valódi választás marad.
+> * ⚠️ **A seed NEM ad `room_id`-t** — a `CreateBooking` oszt ki (SLO-200). Szándékosan: egy demó, ami
+>   megkerüli a valódi utat, nem bizonyít semmit. Teszt-invariáns, hogy **egyetlen időpontos foglalás
+>   sem maradhat állás nélkül**.
+> * **A jóváhagyás-köteles múltbeli munkákat a seed jóváhagyja.** Enélkül a fél év vezérműszíj-cseréje
+>   `requested`-ben ragad — az nem szerviz, hanem egy szerviz, ami sosem olvassa az e-mailjét. A demóban
+>   **pontosan egy** függő kérés van (a műszaki vizsga), és az szándékos.
+> * ⚠️ **A jövőbeli foglalás leadási ideje sem lehet a jövőben.** Egy két hét múlvai munka „jövő heti"
+>   `created_at`-et kapott volna — olyan foglalás, ami 03:00-kor még nem létezik. A múltba tolva, nem
+>   kihagyva (a kihagyás vitt el csendben egész jeleneteket más personákból).
+> * **Az „állás" a névben és a leírásban él, nem a `rooms.type`-ban.** Egy harmadik `RoomType` case
+>   elérné az admin UI-t, a validációt és az i18n címkéket is — az nem ennek az issue-nak a scope-ja.
+>   A `docs/22` §2 kifejezetten megengedi a leírásos jelölést.
+> * **Seed-költség: ~90 mp** (dev MariaDB), 1020 foglalás. A `demo:reset` így ~9 percre nőtt — l. a téli
+>   backup-ablak figyelmeztetését a §3.2-ben.
+
 ### Lefedettségi mátrix (ellenőrzőlista a seedhez)
 
-| Képesség | Pszichológus | Szalon | Fitnesz | Rendezvényház |
-|---|---|---|---|---|
-| Csomag | Alap | Közepes | **Max** | Közepes |
-| duration_based | ✔ (core) | ✔ (multi-staff) | ✔ | ✔ |
-| no_time_slot | ✔ | — | — | — |
-| event_based + várólista | — | — | ✔ | — |
-| resource_rental | — | — | ✔ | ✔ |
-| manual_approval | ✔ | — | — | ✔ |
-| quote_request | — | — | — | ✔ |
-| Multi-location | — | — | ✔ | — |
-| Online fizetés + számla | — | — | ✔ | — |
-| Branding testreszabás | — | ✔ | ✔ | — |
-| Statisztika „wow" | — | ✔ | ✔✔ | ✔ |
-| Manager/Employee szerep demó | — | ✔ | ✔ | — |
-| Üzenetküldés | — | ✘ (SLO-36) | — | ✔ (quote-on, SLO-186) |
+| Képesség | Pszichológus | Szalon | Fitnesz | Rendezvényház | **Autószerviz** |
+|---|---|---|---|---|---|
+| Méret-címke | Egyszemélyes | Több dolgozós | **Teljes** | Ajánlat-alapú | Több dolgozós |
+| duration_based | ✔ (core) | ✔ (multi-staff) | ✔ | ✔ | ✔ (**staff ∩ room**, egész napos leadás) |
+| no_time_slot | ✔ | — | — | — | — |
+| event_based + várólista | — | — | ✔ | — | — |
+| resource_rental | — | — | ✔ | ✔ | — |
+| manual_approval | ✔ | — | — | ✔ | ✔ (vizsga, vezérműszíj) |
+| quote_request | — | — | — | ✔ | ✔ (hibaleírás, üzenetváltással) |
+| Multi-location | — | — | ✔ | — | — |
+| Online fizetés + számla | — | — | ✔ | — | — |
+| Branding testreszabás | — | ✔ | ✔ | — | ✔ (**nem-wellness** arculat) |
+| Statisztika „wow" | — | ✔ | ✔✔ | ✔ | ✔ (szezonalitás, állás-kihasználtság) |
+| Manager/Employee szerep demó | — | ✔ | ✔ | — | ✔ (szervizfogadó) |
+| Üzenetküldés | — | ✘ (SLO-36) | — | ✔ (quote-on, SLO-186) | ✔ (quote-on) |
+| **Automatikus erőforrás-kiosztás** | — | — | — | — | ✔ (SLO-200) |
+| **Szolgáltatás-szintű notes súgó** | — | — | — | — | ✔ (SLO-197) |
+
+> ⚠️ **A „Csomag" sor „Méret-címke" lett** (2026-09-06): a lépcsős Alap/Közepes/Max modell megszűnt
+> (CLAUDE.md, `docs/10`), a monetizáció forgalom-alapú jutalék. A címke innentől a demózott vállalkozás
+> méretét jelenti, nem funkció-bundle-t — mind az öt persona ugyanazon az egyetlen `base` planen fut.
 
 ---
 
@@ -314,8 +366,9 @@ php artisan demo:reset                  # = demo:seed --fresh minden demo tenant
 >   és az veszi észre, aki épp értékesítési beszélgetést tart. Sikerkor is logol — csak ez a
 >   nyoma annak, hogy a futás még egyáltalán megtörténik, és csak itt figyelhető a futásideje.
 >
-> **⚠️ Mért futásidő: `demo:reset` = 7 perc 40 mp** (dev MariaDB, mind az 5 persona; ebből a
-> fitnesz maga 4:42). **Ez szűk ablakot ad télen:** a 03:00 Europe/Budapest nyáron 01:00 UTC,
+> **⚠️ Mért futásidő: `demo:reset` = 7 perc 47 mp** (dev MariaDB, mind az **5** persona; a fitnesz
+> maga 4:42, az autószerviz ~1:30). ⚠️ **A mérés zajos:** ugyanez a parancs a teszt-suite mellett futva
+> 10 percnek adódott — versengő méréssel ne dönts, de a felső becslés is valós üzemi eset. **Ez szűk ablakot ad télen:** a 03:00 Europe/Budapest nyáron 01:00 UTC,
 > télen viszont **02:00 UTC**, a napi offsite backup pedig **02:10 UTC**-kor indul (`docs/18`).
 > Télen tehát ~2 perc a tartalék, és osztott tárhelyen a 7:40 könnyen lehet 12–15 perc — akkor a
 > reset **belelógna a mysqldumpba**. A backup elmozdítása nem megoldás: a retention sweep (03:30

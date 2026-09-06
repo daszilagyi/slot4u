@@ -353,7 +353,17 @@ export default function Book(props: BookProps) {
                         id={`${prefix}-notes`}
                         value={form.data.notes}
                         onChange={(e) => form.setData('notes', e.target.value)}
+                        aria-describedby={`${prefix}-notes-hint`}
                     />
+                    {/* The service asks for what it actually needs (SLO-197) — a
+                        registration number at a garage — and falls back to a
+                        generic line, so the field is never unexplained. */}
+                    <p
+                        id={`${prefix}-notes-hint`}
+                        className="text-muted-foreground text-xs"
+                    >
+                        {service?.notes_hint ?? t('tenant.book.form.notes_hint')}
+                    </p>
                 </div>
             </div>
 

@@ -121,6 +121,9 @@ class BookingController extends Controller
                 'fulfillment_type' => $service->booking_mode === BookingMode::NoTimeSlot
                     ? $service->fulfillmentType()
                     : null,
+                // What this particular service wants in the notes box (SLO-197):
+                // a registration number at a garage, a floor number for a removal.
+                'notes_hint' => $service->notesHint(),
             ],
             'timezone' => $timezone,
             'filters' => [

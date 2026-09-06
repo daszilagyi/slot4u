@@ -363,3 +363,28 @@ it('loads the room data once for the range, not once per day', function () {
         ->and($loads('schedule_exceptions'))->toBe(2)
         ->and($loads('bookings'))->toBe(2);
 });
+
+it('⚠️ still finds the rooms when the caller loaded them without every column', function () {
+    [, $service, $staff] = roomAssignWorld(rooms: 2, staff: 1);
+    $tenant = Tenant::withoutGlobalScopes()->find($service->tenant_id);
+
+    roomAssignHours($tenant, $staff[0]);
+    foreach (Room::withoutGlobalScopes()->where('tenant_id', $tenant->getKey())->get() as $room) {
+        roomAssignHours($tenant, $room);
+    }
+
+    // ⚠️ Exactly how the public booking page loads a service
+    // (BookingController::resolveService): the rooms relation is narrowed to the
+    // columns the picker needs, and `active` is NOT among them.
+    //
+    // Filtering `$service->rooms->where('active', true)` over that collection
+    // compares against a null nobody selected, drops every room, and a service
+    // with two bays offers an empty day. The auto-service persona found this on
+    // its first public page load — which is the entire reason it was built.
+    $narrow = Service::withoutGlobalScopes()
+        ->with(['staff:id,name', 'rooms:id,name,location_id'])
+        ->findOrFail($service->getKey());
+
+    expect(app(AvailabilityService::class)->slotsForDay($narrow, roomAssignDay()))
+        ->not->toBeEmpty('A narrowed rooms relation made every room look inactive');
+});
