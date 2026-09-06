@@ -83,6 +83,8 @@ Az issue acceptance criteriája teljesül, ÉS: tesztek zöldek, Pint/Larastan/E
 | `docs/18-backup-es-restore.md` | Napi offsite mentés, retention, titkosítás, restore-eljárás + jegyzőkönyv |
 | `docs/19-adatvedelem-es-erintetti-jogok.md` | GDPR: adatexport, törlés/anonimizálás, a két jogi kivétel, adatkezelő ≠ adatfeldolgozó |
 | `docs/20-demo-tenantok-es-seed.md` | M9: a 4 demo persona, az `is_demo` guardrailek és a `demo:seed`/`demo:reset` keretrendszer |
+| `docs/21-foldal-design-terv.md` | Arculati tokenek (navy/sárga), a főoldal 11 szekciója, animációk, kabala-pózok — a landing-redesign forrása |
+| `docs/22-autoszerviz-persona-es-vertikalis-landing.md` | Az 5. demo persona (autószerviz) és a vertikális landing-sablon (`/autoszerviz`) |
 
 A docs az igazság forrása. Viselkedésbeli változás = docs-frissítés ugyanabban a PR-ben.
 
