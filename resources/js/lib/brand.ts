@@ -8,6 +8,20 @@
  */
 export const BRAND_NAME = 'slot4u';
 
+/**
+ * The example subdomain shown in landing illustrations.
+ *
+ * ⚠️ A constant rather than a translation key, for the same reason
+ * {@see BRAND_NAME} is: it is not prose. Nothing about it changes per locale,
+ * and putting it in `lang/hu` would invite somebody to "translate" a hostname.
+ * Here it has one source, and the i18n lint rule — which is right to forbid
+ * literal text in JSX — is satisfied without a disable comment.
+ *
+ * Deliberately NOT built from `tenancy.central_domain`: that is the real host,
+ * and a made-up tenant on it would read as a link somebody could visit.
+ */
+export const EXAMPLE_HOST = 'sajat-nevem.slot4u.hu';
+
 /*
  * ⚠️ The platform accent used to live here (SLO-170) — a teal, applied by
  * overriding `--primary` on the marketing and superadmin shells.

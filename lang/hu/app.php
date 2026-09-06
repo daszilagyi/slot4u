@@ -102,6 +102,48 @@ return [
         ],
 
         'trust_title' => 'Amit alapból kapsz',
+        // ⚠️ Bizalmi sáv (docs/21 §2, 2. sor) — a jóváhagyott, ÜGYFÉL NÉLKÜLI
+        // változat. Az eredeti terv „Már X szolgáltató használja" + tenant-logók
+        // volt; ügyfelek nélkül a szám és a logók is kitaláltak lennének, a
+        // demo tenantok logói pedig kifejezetten félrevezetők (azok a MI
+        // fixture-jeink). Minden állítás alá van támasztva:
+        //   magyar fejlesztés — tény · EU-s adat — docs/19 · nincs havidíj —
+        //   docs/10 · bankkártya nélkül — a regisztrációs flow
+        // ⚠️ SLA-szám (pl. „99,9%") NEM kerülhet ide, amíg nincs mögötte vállalás.
+        'assurance' => [
+            'local' => 'Magyar fejlesztés',
+            'local_hint' => 'Magyarul beszélő ügyfélszolgálat, magyar számlázással.',
+            'eu' => 'Adataid az EU-ban',
+            'eu_hint' => 'GDPR-konform működés, adatexporttal és törlési kérelemmel.',
+            'no_fee' => 'Nincs havidíj',
+            'no_fee_hint' => 'Jutalékot csak a valódi forgalmad után számolunk.',
+            'no_card' => 'Bankkártya nélkül',
+            'no_card_hint' => 'A regisztrációhoz és a kipróbáláshoz nem kérünk kártyát.',
+        ],
+
+        // Hogyan működik (docs/21 §2, 3. sor) — három lépés, a szolgáltató
+        // szemszögéből, nem a rendszerében.
+        'steps_title' => 'Három lépés, és fogadod a foglalásokat',
+        'steps_lead' => 'Nincs bevezetési projekt és nincs betanulás. Ami kell, az a nyitvatartásod és egy link.',
+        'steps' => [
+            'setup' => 'Felviszed, amit kínálsz',
+            'setup_hint' => 'Szolgáltatások, munkarend, kollégák. Egy délelőtt alatt megvan.',
+            'share' => 'Kiteszed a linked',
+            'share_hint' => 'A Google-cégprofilodba, a Facebookra, a névjegyedre. Ennyi a marketing.',
+            'run' => 'Csak a naptárat nézed',
+            'run_hint' => 'Az ügyfél éjjel is foglal, a rendszer emlékeztet, te dolgozol.',
+        ],
+
+        // Termékbemutató (docs/21 §2, 5. sor).
+        'showcase_title' => 'A naptár, ami helyetted figyel',
+        'showcase_lead' => 'Minden foglalás egy helyen: ki, mikor, mennyiért — és mi maradt szabadon.',
+        'showcase' => [
+            'revenue' => 'Mai bevétel',
+            'bookings' => 'Mai foglalások',
+            'utilisation' => 'Kihasználtság',
+            'chart_label' => 'Az elmúlt hét foglalásai',
+        ],
+
         'trust' => [
             'domain' => 'Saját foglalóoldal',
             'domain_hint' => 'A saját aldoménod az első perctől, később egyedi domainnel is.',
@@ -111,6 +153,12 @@ return [
             'notify_hint' => 'Visszaigazoló és emlékeztető emailek, a te szövegeddel, a te nevedben.',
             'reports' => 'Kimutatások',
             'reports_hint' => 'Bevétel, kihasználtság, no-show — abból, ami a rendszerben történik.',
+            // A 2×3 rácshoz (docs/21 §2, 4. sor) két további blokk: mindkettő
+            // megépült funkció, nem ígéret.
+            'calendar' => 'Ütközésmentes naptár',
+            'calendar_hint' => 'Dolgozó és helyiség egyszerre — a rendszer nem enged két autót egy emelőre.',
+            'payment' => 'Online fizetés',
+            'payment_hint' => 'Kérheted előre a díjat, számlával együtt — vagy hagyhatod a pultra.',
         ],
 
         'closing_title' => 'A regisztráció ingyenes, és két percbe telik',
