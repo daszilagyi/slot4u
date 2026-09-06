@@ -155,6 +155,10 @@ return [
                 'email' => 'Email',
                 'phone' => 'Telefon',
                 'notes' => 'Megjegyzés',
+                // Alapértelmezett súgó a megjegyzés mezőhöz. A szolgáltatás
+                // felülírhatja a sajátjával (`settings.notes_hint`, SLO-197) —
+                // egy autószerviznek a rendszám kell, egy költöztetőnek az emelet.
+                'notes_hint' => 'Bármi, amit tudnunk érdemes.',
             ],
         ],
         'booked' => [

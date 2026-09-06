@@ -619,6 +619,8 @@ export type BookServiceDetail = {
     max_duration_minutes: number | null;
     /** no_time_slot only (SLO-101): digital / manual / downloadable, or null. */
     fulfillment_type: FulfillmentTypeValue | null;
+    /** Service-specific help for the notes field (SLO-197); null falls back to the generic line. */
+    notes_hint: string | null;
 };
 
 export type BookSlot = {
