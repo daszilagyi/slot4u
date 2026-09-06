@@ -1,5 +1,6 @@
 <?php
 
+use Database\Seeders\Demo\DemoSeeder;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
@@ -77,3 +78,29 @@ Schedule::command('privacy:retention-sweep')->dailyAt('03:30')->withoutOverlappi
 // with a lifetime measured in minutes, and nothing else prunes them — the table
 // otherwise keeps every address that ever asked for a reset.
 Schedule::command('auth:clear-resets')->daily();
+
+// Rebuild the public demo tenants every night (SLO-191, docs/20 §3.2). The demo
+// is writable on purpose — a prospect who cannot make a booking has not seen the
+// product — so it needs something that makes the resulting mess free.
+//
+// ⚠️ 03:00 Europe/Budapest is not a preference, it is the contract every persona
+// seeder is written and tested against: each one places its "recently happened"
+// data so that it is still in the past, and its live holds still live, AT THIS
+// HOUR (docs/20 §2.3). Moving this line silently changes the boundary condition
+// four seeders depend on, and the symptom would be a demo that looks subtly
+// wrong on some days and not others.
+//
+// `when` rather than an environment check: the demo may or may not exist on a
+// given host, and the tenants themselves are the honest answer to whether there
+// is anything to reset. On a host with none — CI, a developer's machine, a
+// production install before the demo is seeded — this is a no-op that costs one
+// query a day.
+//
+// withoutOverlapping because the rebuild takes minutes and grows with each
+// persona: a run that overran its window must never have a second one, holding
+// its own purge, started on top of it.
+Schedule::command('demo:reset')
+    ->dailyAt('03:00')
+    ->timezone('Europe/Budapest')
+    ->withoutOverlapping()
+    ->when(fn (): bool => app(DemoSeeder::class)->existingDemoSlugs() !== []);
