@@ -161,6 +161,24 @@ return [
             'payment_hint' => 'Kérheted előre a díjat, számlával együtt — vagy hagyhatod a pultra.',
         ],
 
+        // GYIK (docs/21 §2, 9. sor). ⚠️ MINDEN válasz ellenőrzött tény, és a
+        // kényelmetlenek is bent vannak — a lemondási szabály azért, mert egy
+        // meglepetés-jutalék a számlán rosszabb, mint egy őszinte sor itt.
+        // Források: 1–3. docs/10 · 4. Feature::CustomDomain · 5. docs/19
+        'faq_title' => 'Amit a legtöbben megkérdeznek',
+        'faq' => [
+            'cost' => 'Mennyibe kerül valójában?',
+            'cost_answer' => 'Havidíj nincs. A havi forgalmad egy megadott összegig jutalékmentes, és csak a fölötte lévő részre számolunk jutalékot — nem a teljes forgalomra. A pontos értékek fentebb, az árazásnál láthatók.',
+            'card' => 'Kell bankkártya a regisztrációhoz?',
+            'card_answer' => 'Nem. A fiók létrehozásához és a rendszer kipróbálásához nem kérünk kártyaadatot, és a foglalások pénzét sem mi kezeljük — az közvetlenül hozzád fut.',
+            'cancel' => 'Mi történik, ha az ügyfél lemondja a foglalást?',
+            'cancel_answer' => 'A kezdés előtt több mint 24 órával lemondott foglalás jutalékmentes — amiért nem kaptál pénzt, azért nem kérünk. A no-show és a 24 órán belüli lemondás viszont beleszámít a forgalomba, mert ilyenkor jellemzően te is felszámítod a saját lemondási díjadat.',
+            'domain' => 'Lehet saját domainem?',
+            'domain_answer' => 'A saját aldomained (például sajat-nevem.slot4u.hu) az első perctől jár. Egyedi domain bekötése is lehetséges, azt külön kérésre kapcsoljuk be.',
+            'data' => 'Mi történik az adataimmal?',
+            'data_answer' => 'Az adatok az EU-ban maradnak. Az ügyfeleid önkiszolgálóan letölthetik a saját adataikat és kérhetik a törlésüket; a megőrzési időket a rendszer magától tartja be.',
+        ],
+
         'closing_title' => 'A regisztráció ingyenes, és két percbe telik',
         'closing_lead' => 'Nem kell bankkártya. A foglalóoldalad azonnal él.',
 

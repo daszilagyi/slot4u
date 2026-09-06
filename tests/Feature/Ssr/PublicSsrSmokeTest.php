@@ -157,6 +157,48 @@ it('server-renders the middle of the landing page too', function () {
         ->toContain('Online fizetés');
 });
 
+it('server-renders the closing block, FAQ answers included', function () {
+    // ⚠️ The answers, not just the questions. An accordion whose text lives only
+    // in React state is one a crawler never reads — and the FAQ is the part of
+    // this page with real search value. `<details>` renders its content either
+    // way, which is why it is a `<details>` and not a div with an onClick.
+    $this->seed(CommissionSettingSeeder::class);
+
+    $content = $this->get('http://'.config('tenancy.central_domain'))->assertOk()->getContent();
+    $rendered = renderedMarkupOnly($content);
+
+    expect($rendered)
+        ->toContain('Amit a legtöbben megkérdeznek')
+        ->toContain('Mennyibe kerül valójában?')
+        // ⚠️ The uncomfortable answer specifically: a no-show still counts
+        // towards turnover (docs/10 §3). A surprise line on the first invoice
+        // costs more trust than this sentence does.
+        ->toContain('no-show és a 24 órán belüli lemondás viszont beleszámít')
+        ->toContain('A regisztráció ingyenes');
+
+    // The structured data ships with the answers, so a search result can show
+    // them without a click.
+    expect($content)
+        ->toContain('"@type":"FAQPage"')
+        ->toContain('"@type":"Question"');
+});
+
+it('⚠️ leaves out the testimonials rather than inventing them', function () {
+    // Row 7 of docs/21 §2 is deliberately absent (Daniel's call): without real,
+    // quotable, permitted customers it could only hold invented ones. This is
+    // the guard against somebody adding a "placeholder" review — the kind
+    // nobody remembers to remove.
+    $this->seed(CommissionSettingSeeder::class);
+
+    $content = $this->get('http://'.config('tenancy.central_domain'))->assertOk()->getContent();
+
+    // The section's own heading key is not defined at all, which is the real
+    // guard; this asserts the shape it would take if somebody reintroduced it.
+    expect($content)
+        ->not->toContain('Vélemények')
+        ->not->toContain('ellenőrzött vélemény');
+});
+
 it('⚠️ never claims customers it does not have', function () {
     // The guard for a decision, not a bug (docs/21, the box under §2's table):
     // the trust strip and the testimonials were both cut because inventing a

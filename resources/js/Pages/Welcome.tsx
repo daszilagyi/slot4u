@@ -4,9 +4,9 @@ import HeroSlotPreview from '@/components/HeroSlotPreview';
 import AssuranceStrip from '@/components/landing/AssuranceStrip';
 import HowItWorks from '@/components/landing/HowItWorks';
 import FeatureGrid from '@/components/landing/FeatureGrid';
+import Faq from '@/components/landing/Faq';
 import ProductShowcase from '@/components/landing/ProductShowcase';
 import MarketingLayout from '@/Layouts/MarketingLayout';
-import { Button } from '@/components/ui/button';
 import { useTranslations } from '@/lib/i18n';
 import { formatMoney, formatRate } from '@/lib/format';
 
@@ -212,8 +212,8 @@ export default function Welcome({ commission, demo_url, og_image }: Props) {
                 {commission !== null && (
                     <>
                         <dl className="grid gap-4 sm:grid-cols-3">
-                            <div className="rounded-lg border border-border bg-card p-5">
-                                <dt className="text-sm text-muted-foreground">
+                            <div className="rounded-[14px] border border-line bg-card p-5">
+                                <dt className="text-sm text-ink-muted">
                                     {t('welcome.pricing_free', {
                                         amount: formatMoney(
                                             commission.free_threshold_minor,
@@ -221,21 +221,26 @@ export default function Welcome({ commission, demo_url, og_image }: Props) {
                                         ),
                                     })}
                                 </dt>
-                                <dd className="mt-2 text-2xl font-semibold">
+                                {/* Figures wear the mono face (docs/21 §1). */}
+                                <dd className="mt-2 font-mono text-2xl">
                                     {t('welcome.pricing_free_value')}
                                 </dd>
                             </div>
 
-                            <div className="rounded-lg border border-border bg-card p-5">
-                                <dt className="text-sm text-muted-foreground">
+                            {/* The rate is the number that decides whether
+                                somebody signs up, so it is the one card in navy
+                                — the emphasis docs/21 gives a highlighted tier,
+                                without a package to highlight. */}
+                            <div className="rounded-[14px] border border-navy bg-navy p-5 text-canvas">
+                                <dt className="text-sm text-canvas/70">
                                     {t('welcome.pricing_rate')}
                                 </dt>
-                                <dd className="mt-2 text-2xl font-semibold">
+                                <dd className="mt-2 font-mono text-2xl">
                                     {t('welcome.pricing_rate_value', {
                                         rate: formatRate(commission.rate_bps),
                                     })}
                                 </dd>
-                                <p className="mt-2 text-sm text-muted-foreground">
+                                <p className="mt-2 text-sm text-canvas/70">
                                     {t('welcome.pricing_rate_hint', {
                                         rate: formatRate(
                                             commission.rate_with_integration_bps,
@@ -245,11 +250,11 @@ export default function Welcome({ commission, demo_url, og_image }: Props) {
                             </div>
 
                             {commission.monthly_cap_minor !== null && (
-                                <div className="rounded-lg border border-border bg-card p-5">
-                                    <dt className="text-sm text-muted-foreground">
+                                <div className="rounded-[14px] border border-line bg-card p-5">
+                                    <dt className="text-sm text-ink-muted">
                                         {t('welcome.pricing_cap')}
                                     </dt>
-                                    <dd className="mt-2 text-2xl font-semibold">
+                                    <dd className="mt-2 font-mono text-2xl">
                                         {t('welcome.pricing_cap_value', {
                                             amount: formatMoney(
                                                 commission.monthly_cap_minor,
@@ -345,27 +350,67 @@ export default function Welcome({ commission, demo_url, og_image }: Props) {
             {/* row 5 */}
             <ProductShowcase />
 
-            {/* Closing call to action */}
-            <section className="border-t border-border">
-                <div className="mx-auto w-full max-w-5xl px-4 py-16 text-center sm:px-6 sm:py-20">
-                    <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">
+            {/* row 9 */}
+            <Faq />
+
+            {/*
+                Closing CTA (docs/21 §2 row 10) — navy, grid and glow, closing
+                the page on the same note the hero opened it.
+
+                ⚠️ Row 7 (testimonials) is deliberately absent. Without real,
+                quotable, permitted customers it could only be filled with
+                invented ones, and a fabricated review is worth less than the
+                gap it fills. It returns when there are references — the section
+                is not built here even as a placeholder, because a placeholder
+                testimonial is a fabricated one nobody remembers to remove.
+            */}
+            <section className="relative isolate overflow-hidden bg-navy text-canvas">
+                <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0 opacity-10"
+                    style={{
+                        backgroundImage:
+                            'linear-gradient(to right, var(--ice) 1px, transparent 1px), linear-gradient(to bottom, var(--ice) 1px, transparent 1px)',
+                        backgroundSize: '32px 32px',
+                    }}
+                />
+                <div
+                    aria-hidden
+                    className="pointer-events-none absolute -bottom-40 left-1/2 h-[24rem] w-[24rem] -translate-x-1/2 rounded-full opacity-20 blur-3xl"
+                    style={{
+                        background:
+                            'radial-gradient(circle, var(--ice) 0%, transparent 70%)',
+                    }}
+                />
+
+                <div className="relative mx-auto w-full max-w-5xl px-4 py-16 text-center sm:px-6 sm:py-24">
+                    <h2 className="text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
                         {t('welcome.closing_title')}
                     </h2>
-                    <p className="mt-3 text-muted-foreground">
+                    <p className="mt-3 text-canvas/75">
                         {t('welcome.closing_lead')}
                     </p>
                     <div className="mt-8 flex flex-wrap justify-center gap-3">
-                        <Button asChild size="lg">
-                            <a href="/register">{t('welcome.cta_primary')}</a>
-                        </Button>
+                        {/* The page's second and last yellow CTA — the hero's
+                            is the first. Nothing between them competes. */}
+                        <a
+                            href="/register"
+                            className="ease-brand rounded-[10px] bg-highlight px-6 py-3 font-medium text-highlight-foreground transition-transform duration-200 hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-ice focus-visible:outline-none"
+                        >
+                            {t('welcome.cta_primary')}
+                        </a>
                         {demo_url !== null && (
-                            <Button asChild size="lg" variant="ghost">
-                                <a href={demo_url}>
-                                    {t('welcome.footer_demo')}
-                                </a>
-                            </Button>
+                            <a
+                                href={demo_url}
+                                className="ease-brand rounded-[10px] border border-canvas/30 px-6 py-3 font-medium text-canvas transition-colors duration-200 hover:border-canvas/60 focus-visible:ring-2 focus-visible:ring-ice focus-visible:outline-none"
+                            >
+                                {t('welcome.footer_demo')}
+                            </a>
                         )}
                     </div>
+                    <p className="mt-4 text-sm text-canvas/60">
+                        {t('welcome.cta_caption')}
+                    </p>
                 </div>
             </section>
         </MarketingLayout>
