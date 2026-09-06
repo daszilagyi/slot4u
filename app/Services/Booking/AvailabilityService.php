@@ -77,6 +77,23 @@ class AvailabilityService
             return [];
         }
 
+        // The rooms a duration-based slot could be held in (SLO-200).
+        //
+        // Pinned: that one room. Not pinned, but the service needs a room: ALL of
+        // its rooms are candidates, and a slot survives only if at least one of
+        // them is both open and free — which is what makes `requires_room` mean
+        // anything for a visitor who never picks a room. Before this, the grid was
+        // built from the staff schedule alone and the room was checked only when
+        // the caller had already chosen one; a service with three treatment rooms
+        // and four therapists offered slots no room could host.
+        $candidateRoomIds = $this->candidateRooms($service, $type, $roomId);
+
+        // `requires_room` with nothing assigned is not "no constraint" — it is a
+        // service that cannot be delivered at all.
+        if ($type === 'staff' && $service->requires_room && $candidateRoomIds === []) {
+            return [];
+        }
+
         $tenantId = (int) $service->tenant_id;
         $firstDay = $from->copy()->timezone($timezone)->startOfDay();
         $lastDay = $to->copy()->timezone($timezone)->startOfDay();
@@ -92,12 +109,17 @@ class AvailabilityService
         $exceptions = $this->loadExceptions($tenantId, $type, $resourceIds, $firstDay, $lastDay);
         $bookings = $this->loadBookings($tenantId, $type, $resourceIds, $firstDay, $lastDay);
 
-        // For a duration-based service that also pins a room, the room must be free.
+        // ⚠️ Bookings too, not just opening hours. The pinned path used to load
+        // only the room's schedule, so a room already booked by ANOTHER staff
+        // member still looked free: the staff bookings loaded above are indexed by
+        // staff, and the room's own clash never entered the calculation.
         $roomSchedules = null;
         $roomExceptions = null;
-        if ($type === 'staff' && $roomId !== null) {
-            $roomSchedules = $this->loadSchedules($tenantId, 'room', [$roomId]);
-            $roomExceptions = $this->loadExceptions($tenantId, 'room', [$roomId], $firstDay, $lastDay);
+        $roomBookings = [];
+        if ($candidateRoomIds !== []) {
+            $roomSchedules = $this->loadSchedules($tenantId, 'room', $candidateRoomIds);
+            $roomExceptions = $this->loadExceptions($tenantId, 'room', $candidateRoomIds, $firstDay, $lastDay);
+            $roomBookings = $this->loadBookings($tenantId, 'room', $candidateRoomIds, $firstDay, $lastDay);
         }
 
         $slots = [];
@@ -107,7 +129,8 @@ class AvailabilityService
             array_push($slots, ...$this->slotsForLoadedDay(
                 $service, $cursor->copy(), $staffId, $roomId, $locationId,
                 $type, $resourceIds, $timezone, $settings->slotIntervalMinutes, $duration,
-                $schedules, $exceptions, $bookings, $roomSchedules, $roomExceptions,
+                $schedules, $exceptions, $bookings,
+                $candidateRoomIds, $roomSchedules, $roomExceptions, $roomBookings,
             ));
             $cursor->addDay();
         }
@@ -123,8 +146,10 @@ class AvailabilityService
      * @param  Collection<int, Schedule>  $schedules
      * @param  Collection<int, ScheduleException>  $exceptions
      * @param  array<int, Collection<int, Booking>>  $bookings
+     * @param  list<int>  $candidateRoomIds
      * @param  Collection<int, Schedule>|null  $roomSchedules
      * @param  Collection<int, ScheduleException>|null  $roomExceptions
+     * @param  array<int, Collection<int, Booking>>  $roomBookings
      * @return list<Slot>
      */
     private function slotsForLoadedDay(
@@ -141,12 +166,24 @@ class AvailabilityService
         Collection $schedules,
         Collection $exceptions,
         array $bookings,
+        array $candidateRoomIds,
         ?Collection $roomSchedules,
         ?Collection $roomExceptions,
+        array $roomBookings,
     ): array {
-        $roomWindows = null;
-        if ($roomSchedules !== null && $roomExceptions !== null && $roomId !== null) {
-            $roomWindows = $this->freeWindows('room', $roomId, $day, $timezone, $roomSchedules, $roomExceptions);
+        // One window list per candidate room, built once for the day rather than
+        // per slot — the inner loop below runs for every grid start.
+        $roomWindowsById = [];
+        $roomBookingsById = [];
+        if ($roomSchedules !== null && $roomExceptions !== null) {
+            foreach ($candidateRoomIds as $candidateRoomId) {
+                $roomWindowsById[$candidateRoomId] = $this->freeWindows(
+                    'room', $candidateRoomId, $day, $timezone, $roomSchedules, $roomExceptions,
+                );
+                $roomBookingsById[$candidateRoomId] = $this->bookingsTouchingDay(
+                    $roomBookings[$candidateRoomId] ?? collect(), $day,
+                );
+            }
         }
 
         $slots = [];
@@ -165,7 +202,15 @@ class AvailabilityService
                     continue;
                 }
 
-                if ($roomWindows !== null && ! $this->fitsWindows($startLocal, $endLocal, $roomWindows)) {
+                // A room has to be open AND free for the slot to exist. With one
+                // pinned it is that room or nothing; with none pinned any of the
+                // service's rooms will do, and which one is decided at booking
+                // time under a lock (CreateBooking), not here — the grid can only
+                // promise that one was available when it was drawn.
+                if ($candidateRoomIds !== [] && ! $this->hasFreeRoom(
+                    $candidateRoomIds, $startLocal, $endLocal, $startUtc, $endUtc,
+                    $roomWindowsById, $roomBookingsById, $service,
+                )) {
                     continue;
                 }
 
@@ -367,6 +412,75 @@ class AvailabilityService
         }
 
         return $starts;
+    }
+
+    /**
+     * The rooms a duration-based slot could be held in (SLO-200).
+     *
+     * Empty means "the room is not part of this calculation": a resource rental,
+     * where the room IS the primary resource and is already handled as such, or a
+     * duration-based service that needs no room at all.
+     *
+     * @return list<int>
+     */
+    private function candidateRooms(Service $service, string $type, ?int $roomId): array
+    {
+        if ($type !== 'staff') {
+            return [];
+        }
+
+        if ($roomId !== null) {
+            return [$roomId];
+        }
+
+        if (! $service->requires_room) {
+            return [];
+        }
+
+        // Ordered by id, and the same order CreateBooking assigns in — so what the
+        // grid found free is the room the booking actually takes, unless somebody
+        // else got there first.
+        return $service->rooms
+            ->where('active', true)
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->sort()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Whether at least one candidate room is both open and unbooked for the slot.
+     *
+     * @param  list<int>  $candidateRoomIds
+     * @param  array<int, list<array{0: Carbon, 1: Carbon}>>  $roomWindowsById
+     * @param  array<int, Collection<int, Booking>>  $roomBookingsById
+     */
+    private function hasFreeRoom(
+        array $candidateRoomIds,
+        Carbon $startLocal,
+        Carbon $endLocal,
+        Carbon $startUtc,
+        Carbon $endUtc,
+        array $roomWindowsById,
+        array $roomBookingsById,
+        Service $service,
+    ): bool {
+        foreach ($candidateRoomIds as $candidateRoomId) {
+            $windows = $roomWindowsById[$candidateRoomId] ?? [];
+
+            if (! $this->fitsWindows($startLocal, $endLocal, $windows)) {
+                continue;
+            }
+
+            if ($this->clashesWithBooking($startUtc, $endUtc, $roomBookingsById[$candidateRoomId] ?? collect(), $service)) {
+                continue;
+            }
+
+            return true;
+        }
+
+        return false;
     }
 
     /**
