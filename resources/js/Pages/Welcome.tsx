@@ -1,5 +1,6 @@
 import { Head } from '@inertiajs/react';
 
+import HeroSlotPreview from '@/components/HeroSlotPreview';
 import MarketingLayout from '@/Layouts/MarketingLayout';
 import { Button } from '@/components/ui/button';
 import { useTranslations } from '@/lib/i18n';
@@ -95,30 +96,101 @@ export default function Welcome({ commission, demo_url, og_image }: Props) {
                 <meta name="twitter:image" content={og_image} />
             </Head>
 
-            {/* Hero */}
-            <div className="mx-auto w-full max-w-5xl px-4 py-20 sm:px-6 sm:py-28">
-                <span className="inline-flex rounded-full border border-border px-3 py-1 text-xs text-muted-foreground">
-                    {t('welcome.badge')}
-                </span>
-                <h1 className="mt-6 max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl">
-                    {t('welcome.title')}
-                </h1>
-                <p className="mt-6 max-w-2xl text-lg text-muted-foreground">
-                    {t('welcome.subtitle')}
-                </p>
-                <div className="mt-10 flex flex-wrap gap-3">
-                    {/* Plain anchors, not Inertia <Link>: /register is a Fortify
-                        route outside the Inertia page graph on this host. */}
-                    <Button asChild size="lg">
-                        <a href="/register">{t('welcome.cta_primary')}</a>
-                    </Button>
-                    {demo_url !== null && (
-                        <Button asChild size="lg" variant="outline">
-                            <a href={demo_url}>{t('welcome.cta_secondary')}</a>
-                        </Button>
-                    )}
+            {/*
+                Hero (docs/21 §2 row 1). Navy, with a 32px grid and a glow in the
+                top right — the "high-tech" half of the identity, and the only
+                place on the page that gets a wow moment.
+
+                ⚠️ The LCP element is the H1, not an image: it is text the server
+                already rendered, so it paints with the document. Everything
+                decorative here is CSS — no image request stands between the
+                visitor and the headline.
+            */}
+            <section className="relative isolate overflow-hidden bg-navy text-canvas">
+                {/* 32px grid, ice at 10% (docs/21 §1: ice is a hairline, never a fill). */}
+                <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0 opacity-10"
+                    style={{
+                        backgroundImage:
+                            'linear-gradient(to right, var(--ice) 1px, transparent 1px), linear-gradient(to bottom, var(--ice) 1px, transparent 1px)',
+                        backgroundSize: '32px 32px',
+                    }}
+                />
+                <div
+                    aria-hidden
+                    className="pointer-events-none absolute -top-32 -right-24 h-[28rem] w-[28rem] rounded-full opacity-20 blur-3xl"
+                    style={{
+                        background:
+                            'radial-gradient(circle, var(--ice) 0%, transparent 70%)',
+                    }}
+                />
+
+                <div className="relative mx-auto grid w-full max-w-5xl gap-12 px-4 py-20 sm:px-6 sm:py-28 lg:grid-cols-[7fr_5fr] lg:items-center">
+                    <div>
+                        <span className="inline-flex rounded-full border border-canvas/25 px-3 py-1 text-xs text-canvas/80">
+                            {t('welcome.badge')}
+                        </span>
+
+                        {/*
+                            The headline keeps the message that is already tested
+                            and already true (WelcomeTest): this product costs
+                            nothing until it earns. docs/21 supplies the SHAPE —
+                            eyebrow, a headline with one word in the accent, lead,
+                            two buttons, a caption — and its own copy is a
+                            suggestion inside a Claude Design prompt, not the
+                            page's voice. Swapping in a softer line would have
+                            traded the differentiator for a slogan.
+
+                            The highlight sits on the phrase that IS the offer.
+                        */}
+                        <h1 className="mt-6 text-4xl font-semibold tracking-tight text-balance sm:text-5xl">
+                            {t('welcome.title_lead')}{' '}
+                            <span className="text-highlight">
+                                {t('welcome.title_accent')}
+                            </span>
+                        </h1>
+
+                        <p className="mt-6 max-w-xl text-lg text-canvas/75">
+                            {t('welcome.subtitle')}
+                        </p>
+
+                        <div className="mt-10 flex flex-wrap items-center gap-3">
+                            {/* Plain anchors, not Inertia <Link>: /register is a
+                                Fortify route outside the Inertia page graph. */}
+                            <a
+                                href="/register"
+                                className="ease-brand rounded-[10px] bg-highlight px-6 py-3 font-medium text-highlight-foreground transition-transform duration-200 hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-ice focus-visible:outline-none"
+                            >
+                                {t('welcome.cta_primary')}
+                            </a>
+                            {demo_url !== null && (
+                                <a
+                                    href={demo_url}
+                                    className="ease-brand rounded-[10px] border border-canvas/30 px-6 py-3 font-medium text-canvas transition-colors duration-200 hover:border-canvas/60 focus-visible:ring-2 focus-visible:ring-ice focus-visible:outline-none"
+                                >
+                                    {t('welcome.cta_secondary')}
+                                </a>
+                            )}
+                        </div>
+
+                        <p className="mt-4 text-sm text-canvas/60">
+                            {t('welcome.cta_caption')}
+                        </p>
+                    </div>
+
+                    {/*
+                        The widget, in the light, on the dark. ⚠️ The flying sloth
+                        belongs behind it (docs/21 §2) — that asset is SLO-202 and
+                        does not exist yet, so the column is built to take it
+                        without moving: the illustration will sit absolutely
+                        behind this card, which is why the wrapper is `relative`.
+                    */}
+                    <div className="relative flex justify-center lg:justify-end">
+                        <HeroSlotPreview />
+                    </div>
                 </div>
-            </div>
+            </section>
 
             {/* Pricing — the reason this page exists */}
             <Section

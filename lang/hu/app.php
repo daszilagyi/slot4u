@@ -13,10 +13,48 @@ return [
         'meta_description' => 'Ingyenes online foglalási rendszer szolgáltatóknak. Nincs havidíj és nincs csomagválasztás — jutalékot csak a havi 10 000 Ft forgalom feletti részre számolunk.',
         'badge' => 'Havidíj nélkül · fizetsz, ha már van forgalmad',
         'title' => 'Online foglalás, ami nem kerül semmibe, amíg nincs miből fizetned',
+        // A H1 két részben (docs/21 §2: „egy szó sárgán"). A kiemelés arra a
+        // tagmondatra esik, ami MAGA az ajánlat — nem díszítés, hanem a mondat
+        // súlypontja. A `title` fentebb marad: azt a meta/OG oldal használja,
+        // ahol nincs mit kiemelni.
+        'title_lead' => 'Online foglalás, ami nem kerül semmibe,',
+        'title_accent' => 'amíg nincs miből fizetned',
         'subtitle' => 'A slot4u foglalási motorja ingyenes: nincs belépő havidíj, nincs csomagválasztás. Jutalékot csak akkor számolunk, ha már van forgalmad — és akkor is csak a küszöb feletti részre.',
         'cta_primary' => 'Kezdd el ingyen',
         'cta_secondary' => 'Nézd meg működés közben',
         'login' => 'Belépés',
+        // A hero alatti apróbetűs (docs/21 §2): a legerősebb kifogást veszi el
+        // közvetlenül a gomb mellett, ahol az felmerül.
+        'cta_caption' => 'Nem kérünk bankkártyát.',
+
+        // Fejléc-navigáció (docs/21 §2, 0. sor). Horgonyok az oldalon belül —
+        // a szekciók sorrendben épülnek (SLO-204/205), a linkek addig is arra
+        // mutatnak, ami már létezik.
+        'nav' => [
+            'features' => 'Funkciók',
+            'pricing' => 'Árak',
+            'demo' => 'Demo',
+            'menu' => 'Menü',
+        ],
+
+        // A hero foglaló-widgetje: statikus illusztráció a VALÓDI slot-választó
+        // formájában (docs/21 §2 — „widget = valódi komponens, nem kép").
+        'widget' => [
+            'title' => 'Szabad időpontok',
+            'day' => 'csütörtök',
+            'taken' => 'Foglalt időpont',
+            'submit' => 'Foglalás :time-re',
+        ],
+
+        // Footer (docs/21 §2, 11. sor).
+        'footer' => [
+            'tagline' => 'Online foglalási rendszer szolgáltatóknak. Magyar fejlesztés.',
+            'product' => 'A termék',
+            'company' => 'A slot4u',
+            'legal' => 'Jogi',
+            'contact' => 'Kapcsolat',
+            'rights' => 'Minden jog fenntartva.',
+        ],
 
         'pricing_title' => 'Az árazás egy mondatban: fizetsz, ha keresel',
         'pricing_lead' => 'A slot4u nem ül be a pénzáramlásba. A foglalás ellenértéke közvetlenül hozzád fut — készpénzben, utalással vagy a saját fizetési integrációdon. Mi a havi forgalmad után számlázunk jutalékot.',

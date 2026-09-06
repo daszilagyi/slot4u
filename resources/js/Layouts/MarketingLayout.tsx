@@ -1,4 +1,5 @@
 import { Link, usePage } from '@inertiajs/react';
+import { useEffect, useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import BrandLockup from '@/components/BrandLockup';
@@ -25,13 +26,56 @@ export default function MarketingLayout({ children }: PropsWithChildren) {
     const { auth, legal } = usePage().props;
     const documents = legal?.documents ?? [];
 
+    // Transparent over the navy hero, solid once the page has moved (docs/21 §2
+    // row 0). Passive listener: this fires on every scroll frame, and the
+    // browser must not have to wait to find out whether we cancel the scroll.
+    const [scrolled, setScrolled] = useState(false);
+
+    useEffect(() => {
+        const onScroll = () => setScrolled(window.scrollY > 8);
+
+        onScroll();
+        window.addEventListener('scroll', onScroll, { passive: true });
+
+        return () => window.removeEventListener('scroll', onScroll);
+    }, []);
+
+    const navLinks = [
+        { href: '#funkciok', label: t('welcome.nav.features') },
+        { href: '#arazas', label: t('welcome.nav.pricing') },
+    ];
+
     return (
         <div className="flex min-h-screen flex-col bg-background text-foreground">
-            <header className="border-b border-border">
+            <header
+                className={`sticky top-0 z-40 transition-colors duration-200 ${
+                    scrolled
+                        ? 'border-b border-line bg-canvas/95 backdrop-blur'
+                        : 'border-b border-transparent'
+                }`}
+            >
                 <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
                     <Link href="/" aria-label={BRAND_NAME}>
                         <BrandLockup size={36} />
                     </Link>
+
+                    {/*
+                        Hidden below `sm` rather than folded into a hamburger:
+                        two anchors to sections of THIS page do not earn a menu,
+                        and the actions beside them stay reachable at every width.
+                        A drawer arrives with the sections that need one.
+                    */}
+                    <nav className="hidden items-center gap-6 text-sm sm:flex">
+                        {navLinks.map((link) => (
+                            <a
+                                key={link.href}
+                                href={link.href}
+                                className="text-ink-muted transition-colors hover:text-foreground"
+                            >
+                                {link.label}
+                            </a>
+                        ))}
+                    </nav>
 
                     <div className="flex items-center gap-2">
                         <ThemeToggle />
@@ -40,6 +84,15 @@ export default function MarketingLayout({ children }: PropsWithChildren) {
                                 <Button asChild variant="ghost" size="sm">
                                     <a href="/login">{t('welcome.login')}</a>
                                 </Button>
+                                {/*
+                                    ⚠️ Deliberately NOT the yellow. docs/21 allows
+                                    one highlight CTA per screen, and on the home
+                                    page that is the hero's primary button — the
+                                    one a visitor is actually looking at. A yellow
+                                    header button would compete with it on every
+                                    scroll position, and the rule would be a rule
+                                    nobody could point at.
+                                */}
                                 <Button asChild size="sm">
                                     <a href="/register">
                                         {t('welcome.cta_primary')}
@@ -57,30 +110,85 @@ export default function MarketingLayout({ children }: PropsWithChildren) {
 
             <main className="flex-1">{children}</main>
 
-            <footer className="border-t border-border">
-                <div className="mx-auto flex w-full max-w-5xl flex-col gap-3 px-4 py-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6">
-                    <span className="flex items-center gap-2">
-                        <BrandLockup size={20} markOnly />
+            {/*
+                Navy, closing the page the way the hero opens it (docs/21 §2 row
+                11) — with the ice hairline on top that separates it from the
+                canvas above without a hard border.
+            */}
+            <footer className="border-t border-ice/20 bg-navy text-canvas">
+                <div className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6">
+                    <div className="flex flex-col gap-8 sm:flex-row sm:justify-between">
+                        <div className="max-w-xs">
+                            <BrandLockup size={28} />
+                            <p className="mt-3 text-sm text-canvas/70">
+                                {t('welcome.footer.tagline')}
+                            </p>
+                        </div>
+
+                        <div className="flex flex-col gap-8 text-sm sm:flex-row sm:gap-12">
+                            <FooterColumn title={t('welcome.footer.product')}>
+                                <FooterLink href="#funkciok">
+                                    {t('welcome.nav.features')}
+                                </FooterLink>
+                                <FooterLink href="#arazas">
+                                    {t('welcome.nav.pricing')}
+                                </FooterLink>
+                                <FooterLink href="/register">
+                                    {t('welcome.cta_primary')}
+                                </FooterLink>
+                            </FooterColumn>
+
+                            <FooterColumn title={t('welcome.footer.legal')}>
+                                {/*
+                                    The platform's own documents, from the shared
+                                    `legal` prop (SLO-161) — the same versions a
+                                    company is asked to accept at sign-up, so they
+                                    can be read before rather than during.
+                                */}
+                                {documents.map((document) => (
+                                    <FooterLink
+                                        key={document.id}
+                                        href={document.href}
+                                    >
+                                        {document.title}
+                                    </FooterLink>
+                                ))}
+                                <CookieSettingsLink />
+                            </FooterColumn>
+                        </div>
+                    </div>
+
+                    <p className="mt-10 border-t border-canvas/10 pt-6 text-xs text-canvas/60">
                         {t('welcome.footer_rights', {
                             year: new Date().getFullYear(),
                         })}
-                    </span>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
-                        {documents.map((document) => (
-                            <a
-                                key={document.id}
-                                href={document.href}
-                                className="underline underline-offset-2 hover:text-foreground"
-                            >
-                                {document.title}
-                            </a>
-                        ))}
-                        <CookieSettingsLink />
-                    </div>
+                    </p>
                 </div>
             </footer>
 
             {auth.user === null && <CookieConsent />}
         </div>
+    );
+}
+
+function FooterColumn({ title, children }: PropsWithChildren<{ title: string }>) {
+    return (
+        <div className="flex flex-col gap-3">
+            <p className="text-xs font-semibold tracking-[0.12em] text-canvas/50 uppercase">
+                {title}
+            </p>
+            {children}
+        </div>
+    );
+}
+
+function FooterLink({ href, children }: PropsWithChildren<{ href: string }>) {
+    return (
+        <a
+            href={href}
+            className="text-canvas/80 transition-colors hover:text-canvas"
+        >
+            {children}
+        </a>
     );
 }

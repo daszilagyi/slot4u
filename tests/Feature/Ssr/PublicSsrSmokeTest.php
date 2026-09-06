@@ -101,6 +101,37 @@ it('leaves the public home root non-empty (SSR actually ran, not a client shell)
     expect($rendered)->toContain('Kapcsolat'); // tenant.home.contact_title, rendered
 });
 
+it('server-renders the marketing hero, headline and widget included', function () {
+    // ⚠️ The hero is the LCP element (SLO-203): the H1 has to arrive WITH the
+    // document, not after React boots, or the largest paint waits on JavaScript
+    // and the < 2s mobile budget is gone before a byte of it is measured. It is
+    // also the SEO surface — a headline that only exists after hydration is a
+    // headline a crawler may never see.
+    //
+    // Asserted against prop-stripped markup, so a serialized translation string
+    // cannot pass this on its own.
+    $this->seed(CommissionSettingSeeder::class);
+
+    $content = $this->get('http://'.config('tenancy.central_domain'))->assertOk()->getContent();
+    $rendered = renderedMarkupOnly($content);
+
+    expect($rendered)
+        // Both halves of the headline — the accent span is a separate node, and
+        // splitting it wrongly is exactly the kind of slip that renders as one
+        // run-on sentence nobody notices in a diff.
+        ->toContain('Online foglalás, ami nem kerül semmibe,')
+        ->toContain('amíg nincs miből fizetned')
+        // The caption that answers the objection next to the button.
+        ->toContain('Nem kérünk bankkártyát')
+        // The slot widget is a component, not a picture (docs/21 §2) — which is
+        // only worth anything if it actually renders on the server too.
+        ->toContain('Szabad időpontok')
+        ->toContain('11:15')
+        // Header nav and the footer's own copy: the shell around the hero.
+        ->toContain('Funkciók')
+        ->toContain('Magyar fejlesztés');
+});
+
 it('server-renders an authenticated admin page without breaking (global SSR)', function () {
     $tenant = Tenant::factory()->active()->create(['slug' => 'acme', 'name' => 'Acme']);
 
