@@ -23,7 +23,7 @@ Célszegmens: **1–3 szerelős, 2–4 állásos független autószerviz / gumis
 | Szerviz-igény | slot4u leképezés | Állapot |
 |---|---|---|
 | Fix hosszú munkák (olajcsere, gumicsere, fék, klíma, diagnosztika) | `duration_based`, szolgáltatásonként eltérő `duration` + `buffer` | MVP kész |
-| A fő erőforrás az **emelő/állás**, nem a szerelő | `rooms` = állások; `requires_room = true`, `requires_staff = true` (vagy „bárki") — a két elérhetőség metszete | ⚠️ **RÉSZBEN — l. a doboz alább.** Pinelt helyiségnél működik; „bárki" esetén NEM (SLO-200) |
+| A fő erőforrás az **emelő/állás**, nem a szerelő | `rooms` = állások; `requires_room = true`, `requires_staff = true` (vagy „bárki") — a két elérhetőség metszete | ✅ **KÉSZ (SLO-200)** — a rács a metszeten áll, a foglalás kioszt egy szabad állást |
 | Egész napos leadás (műszaki vizsga, vezérműszíj) | `duration_based` 240–480 perc, egy állást egész napra lefoglal | MVP kész |
 | „Nézze meg a szerelő, aztán mondjon időpontot" | `requires_approval = true` → `requested` → jóváhagy / elutasít / más időpontot ajánl | MVP kész |
 | Árajánlat nagyobb javításra hibaleírás alapján | `quote_request`, `parameters` json (rendszám, típus, évjárat, km, hibaleírás) | MVP kész |
@@ -48,7 +48,9 @@ Célszegmens: **1–3 szerelős, 2–4 állásos független autószerviz / gumis
 > alaphelyzet — a persona fő értékajánlata — **nem**. Ez nem demó-probléma, hanem termékhiány: bárkit
 > érint, akinek több azonos erőforrása van (2 kezelőágy, 3 emelő, 4 szolárium).
 >
-> **Megoldás: SLO-200** (automatikus erőforrás-kiosztás), ami **blokkolja az SLO-197-et**.
+> **Megoldva: SLO-200** (automatikus erőforrás-kiosztás) — a rács a staff- és helyiség-munkarend metszetén
+> áll, a `CreateBooking` pedig a lock alatt kioszt egy szabad állást. Az SLO-197 innentől nem blokkolt.
+> A részletek a `docs/04` 2. módjánál.
 
 **Pozicionálás (a landing és a demo hangneme ebből következik):** a slot4u a szerviznek *online időpontfoglaló + emlékeztető*, nem műhelyszoftver. Az üzenet: „a szerelő ne a telefont vegye fel szerelés közben; a vendég éjjel is foglaljon; senki ne felejtse el az időpontot". A DMS-funkciók hiányát nem szégyelljük, kimondjuk: „nem cseréljük le a munkalapot — a naptáradat cseréljük le".
 
@@ -152,7 +154,7 @@ Indok: sales-beszélgetésben a szerviz első kérdése a rendszám lesz; a note
 | Képesség | Autószerviz |
 |---|---|
 | Méret | több dolgozós |
-| duration_based | ✔ (egész napos leadás) · **staff + room metszet: SLO-200 után** |
+| duration_based | ✔ (egész napos leadás, **staff + room metszet** — SLO-200) |
 | no_time_slot | — |
 | event_based + várólista | — |
 | resource_rental | — (az állás nem bérelhető közvetlenül; a room a duration_based-en keresztül foglalódik) |

@@ -175,12 +175,84 @@ class CreateBooking
                 Room::query()->whereKey($attributes['room_id'])->lockForUpdate()->first();
             }
 
+            // Nobody picked a room, but the service needs one (SLO-200). Choose it
+            // here rather than earlier: inside the transaction, under the same lock
+            // that protects every other resource decision. A room chosen while
+            // drawing the availability grid could be taken by the time the visitor
+            // presses the button.
+            if ($attributes['room_id'] === null && $this->needsRoomAssignment($service)) {
+                $attributes['room_id'] = $this->assignFreeRoom($attributes, $service);
+
+                // Every room is busy. The same answer the visitor would get for a
+                // taken staff slot, and the same exception — from their side the
+                // slot simply went while they were deciding.
+                if ($attributes['room_id'] === null) {
+                    throw SlotUnavailableException::slotTaken();
+                }
+            }
+
             if ($this->hasResourceConflict($attributes, $service)) {
                 throw SlotUnavailableException::slotTaken();
             }
 
             return $this->persist($attributes, $status, $holdExpiresAt, $rescheduledFrom, $notifyCustomer);
         });
+    }
+
+    /**
+     * Whether this booking has to be given a room the caller did not choose.
+     *
+     * Duration-based only. In a `resource_rental` the room IS what is being
+     * booked and the caller always names it (docs/04 §4); assigning one there
+     * would be answering a question nobody asked.
+     */
+    private function needsRoomAssignment(Service $service): bool
+    {
+        return $service->booking_mode === BookingMode::DurationBased && $service->requires_room;
+    }
+
+    /**
+     * The first of the service's rooms that is free for this slot, or null when
+     * they all are busy.
+     *
+     * ⚠️ Locked in id order, and every caller does the same, which is what keeps
+     * two concurrent bookings from deadlocking on each other's rooms. The order
+     * also matches {@see AvailabilityService::candidateRooms()}, so a slot the
+     * grid offered is normally filled by the room the grid checked.
+     *
+     * Only clashes are considered, not opening hours — deliberately consistent
+     * with the rest of this action, which lets an admin book outside a staff
+     * member's schedule. The grid is what refuses a closed room to a visitor.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    private function assignFreeRoom(array $attributes, Service $service): ?int
+    {
+        $rooms = Room::query()
+            // Explicit tenant anchor, like every other query in this action: the
+            // ambient scope is a no-op for queue jobs and the Phase-2 API, and a
+            // room from another tenant must never be assignable.
+            ->where('tenant_id', $service->tenant_id)
+            ->whereIn('id', $service->rooms->pluck('id'))
+            ->where('active', true)
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get();
+
+        foreach ($rooms as $room) {
+            // Ask about the room alone: hasResourceConflict ORs the two resources
+            // together, so leaving the staff id in would report the staff member's
+            // own booking as this room being busy.
+            $probe = $attributes;
+            $probe['staff_id'] = null;
+            $probe['room_id'] = $room->getKey();
+
+            if (! $this->hasResourceConflict($probe, $service)) {
+                return (int) $room->getKey();
+            }
+        }
+
+        return null;
     }
 
     /**
