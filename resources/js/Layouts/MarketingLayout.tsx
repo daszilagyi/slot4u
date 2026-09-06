@@ -5,7 +5,7 @@ import BrandLockup from '@/components/BrandLockup';
 import { CookieConsent, CookieSettingsLink } from '@/components/CookieConsent';
 import ThemeToggle from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
-import { BRAND_NAME, PLATFORM_ACCENT_STYLE } from '@/lib/brand';
+import { BRAND_NAME } from '@/lib/brand';
 import { useTranslations } from '@/lib/i18n';
 
 /**
@@ -26,10 +26,7 @@ export default function MarketingLayout({ children }: PropsWithChildren) {
     const documents = legal?.documents ?? [];
 
     return (
-        <div
-            style={PLATFORM_ACCENT_STYLE}
-            className="flex min-h-screen flex-col bg-background text-foreground"
-        >
+        <div className="flex min-h-screen flex-col bg-background text-foreground">
             <header className="border-b border-border">
                 <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
                     <Link href="/" aria-label={BRAND_NAME}>

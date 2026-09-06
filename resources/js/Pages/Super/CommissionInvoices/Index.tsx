@@ -153,7 +153,7 @@ export default function CommissionInvoicesIndex({
     }
 
     return (
-        <AppLayout platformAccent>
+        <AppLayout>
             <Head title={t('super.commission_invoices.title')} />
 
             <div className="w-full max-w-6xl">

@@ -1,5 +1,3 @@
-import type { CSSProperties } from 'react';
-
 /**
  * The product name, as one constant.
  *
@@ -10,31 +8,16 @@ import type { CSSProperties } from 'react';
  */
 export const BRAND_NAME = 'slot4u';
 
-/**
- * The platform's own accent, taken from the sloth's branch (SLO-170).
+/*
+ * ⚠️ The platform accent used to live here (SLO-170) — a teal, applied by
+ * overriding `--primary` on the marketing and superadmin shells.
  *
- * ⚠️ Applied to the slot4u marketing surface ONLY, by overriding `--primary` on
- * the layout — the same mechanism a tenant's own brand colour uses on its public
- * pages. `TenantBranding::DEFAULT_PRIMARY_COLOR` stays indigo on purpose: a
- * tenant's booking page is THEIR brand, not ours, and repainting every tenant
- * who never chose a colour would be the platform helping itself to their shop
- * window. Same line the data-controller split follows (docs/19 §2).
- */
-export const PLATFORM_ACCENT = '#22DECB';
-
-/** Readable against the accent — it is a light teal, so the text on it is dark. */
-export const PLATFORM_ACCENT_FOREGROUND = '#091020';
-
-/**
- * The accent as inline custom properties, ready to hang on a layout root.
+ * It is gone, and its absence is the point (SLO-201, docs/21). The identity now
+ * lives in `:root` itself: navy IS the product's primary colour, so a shell that
+ * repaints the token is repainting it to the value it already had. Two places
+ * deciding one colour is how they drift apart.
  *
- * Shared by the two shells that are slot4u's own surface — the marketing pages
- * and the superadmin panel — so the platform has one place where its colour is
- * decided. Deliberately an inline style rather than a stylesheet rule: a tenant
- * public page sets the very same variable to the tenant's colour, and the only
- * thing keeping the two apart is that each is scoped to its own subtree.
+ * The tenant override in PublicLayout stays exactly as it was, and is now the
+ * ONLY override of `--primary` in the app: a tenant's booking page is their
+ * brand, not ours (docs/19 §2).
  */
-export const PLATFORM_ACCENT_STYLE = {
-    ['--primary']: PLATFORM_ACCENT,
-    ['--primary-foreground']: PLATFORM_ACCENT_FOREGROUND,
-} as CSSProperties;

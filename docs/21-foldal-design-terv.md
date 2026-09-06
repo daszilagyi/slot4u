@@ -193,6 +193,33 @@ Ne rajzolj bejelentkezett felhasználót, "Időpontjaim" menüt vagy szolgáltat
 Claude Code nem „látja” a Claude Design-vásznat, fájlokat lát. Ezért az átadás mindig a repón keresztül megy:
 
 1. **Export.** Claude Design-ból szekciónként exportáld PNG-be (desktop + mobil), és ha elérhető, a design HTML/„code” exportját is. Tedd ide: `docs/design/foldal/01-hero-desktop.png`, `01-hero-mobile.png`, … (a 2. pont sorszámai szerint).
+> ### ⚠️ Megvalósítási megjegyzés (SLO-201, 2026-09-06) — hol laknak valójában a tokenek
+>
+> A `@theme inline` **nem írja ki** a `--color-*` neveket a `:root`-ba: minden értéket közvetlenül
+> a generált utility-be fejt ki. Ezért a paletta **hex értékei a `:root`-ban laknak** saját néven
+> (`--navy`, `--brand`, `--ice`…), és az `@theme inline` ezekre hivatkozik
+> (`--color-navy: var(--navy)`). Ugyanaz az alak, amit a shadcn szerepek már használnak.
+>
+> **Miért nem mindegy:** ha egy szerep `var(--color-canvas)`-t írna, az futásidőben **nem létező**
+> névre mutatna, és **csendben semmivé oldódna** — stílustalan oldal, nem fordítási hiba. Ez a
+> `BrandColorTest` óta (SLO-170) őrzött csapda, és pontosan ezt a változtatást is elkapta.
+>
+> **Két eltérés a §1 nevezéktanától, mindkettő kényszer:**
+> * A sárga a kódban **`highlight`**, nem `accent` — a shadcn már birtokolja az `--accent`-et egy
+>   másik szerepre (a menüpont halvány hover-háttere), és minden komponense azt olvassa. Ha a
+>   sárgát tennénk oda, az admin fele sárga lenne — épp az, amit a „1 CTA / képernyő" szabály tilt.
+> * A **`--primary` navy**, nem sárga: az minden elsődleges gomb és aktív nav színe. A sárga a
+>   `--color-highlight`, amit szekciónként egyszer szabad elővenni.
+>
+> **A platform-accent megszűnt.** A `MarketingLayout` és az `AppLayout` korábban a slot4u tealjére
+> festette a `--primary`-t (SLO-170); erre nincs többé szükség, mert **az arculat maga az
+> alapértelmezés**. Így az app **egyetlen** futásidejű `--primary`-felülírása maradt: a `PublicLayout`,
+> ami a tenant saját színét teszi rá. Erre teszt van (`IdentityTokensTest`).
+>
+> ⚠️ **Amit ez érint:** a tenant admin és az auth képernyők eddig a semleges violetet kapták, most
+> navy-t. A **tenant publikus foglalóoldala változatlan** — azt a `TenantBranding` mindig felülírja
+> (alapból indigo), tehát a bolt kirakata az övék marad (`docs/19` §2).
+
 2. **Tokenek kódban.** ⚠️ **Nincs `tailwind.config`** — a projekt **Tailwind CSS 4**-et használ, ahol a tokenek a `resources/css/app.css` **`@theme inline`** blokkjában élnek, a meglévő shadcn változók (`--primary`, `--border`, …) mellett. Ez a *single source of truth*; a design-ban látott hex sosem kerül közvetlenül a komponensbe. ⚠️ A token-csere a **meglévő admin felületre is hat**, mert a shadcn komponensek ugyanezekből a változókból épülnek — a hatókört külön issue kezeli.
 3. **Assetek.** `public/brand/`: `logo-icon.svg`, `wordmark.svg`, `sloth-flying.svg`, `sloth-laptop.svg`, `sloth-wave.svg`, `favicon.svg`, `app-icon-512.png`. Vektor a kabalából kötelező (Illustrator Image Trace / Recraft / Vectorizer.ai).
 4. **CLAUDE.md sor.** `Arculat és főoldal-terv: docs/21-foldal-design-terv.md (kötelező), design exportok: docs/design/foldal/`.

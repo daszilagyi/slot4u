@@ -1,6 +1,23 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
+/*
+ * The three faces of the slot4u identity (docs/21 §1), self-hosted.
+ *
+ * ⚠️ Self-hosted rather than the Google Fonts CDN, and that is a privacy
+ * decision, not a performance one: a CDN request hands a visitor's IP to a
+ * third party on every page load, which is exactly the transfer docs/19 spends
+ * a chapter keeping deliberate. Bundled through Vite there is no third party.
+ *
+ * Variable files where they exist — one file covers every weight, so Inter and
+ * JetBrains Mono cost one request each. Poppins has no variable build, so only
+ * the two weights headings actually use are pulled in.
+ */
+@import '@fontsource-variable/inter';
+@import '@fontsource/poppins/600.css';
+@import '@fontsource/poppins/700.css';
+@import '@fontsource-variable/jetbrains-mono';
+
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
 @source '../**/*.blade.php';
@@ -24,10 +41,27 @@
  * in this repo says they do.
  */
 @theme inline {
+    /*
+     * Body and UI (docs/21 §1). The fallback is a real stack, not a formality:
+     * the face loads with `font-display: swap`, so this is what a visitor reads
+     * for the first few hundred milliseconds.
+     */
     --font-sans:
-        'Instrument Sans', ui-sans-serif, system-ui, sans-serif,
+        'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif,
         'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
         'Noto Color Emoji';
+
+    /* Headings only, 600/700 — never body text (docs/21 tiltólista). */
+    --font-display: var(--display-family);
+
+    /*
+     * Every time, price and number. Monospace here is not a style choice: a
+     * column of times that shifts sideways as the digits change is harder to
+     * scan, which is why `tabular-nums` travels with it (see @layer base).
+     */
+    --font-mono:
+        'JetBrains Mono Variable', 'JetBrains Mono', ui-monospace,
+        SFMono-Regular, Menlo, monospace;
 
     --color-background: var(--background);
     --color-foreground: var(--foreground);
@@ -52,51 +86,159 @@
     --radius-lg: var(--radius);
     --radius-md: calc(var(--radius) - 2px);
     --radius-sm: calc(var(--radius) - 4px);
+
+    /*
+     * The slot4u palette (docs/21 §1), alongside the shadcn roles above rather
+     * than instead of them.
+     *
+     * The two sets answer different questions. shadcn's tokens are ROLES — what
+     * is a surface, what is a border, what sits on what — and every component in
+     * the library reads them. These are the identity's own NAMED colours, for
+     * the places the marketing surface needs to say "navy" or "the yellow" and
+     * mean it. The roles below are wired to these, so changing a colour here
+     * moves both.
+     */
+    --color-navy: var(--navy);
+    --color-brand: var(--brand);
+    --color-brand-100: var(--brand-100);
+    --color-brand-200: var(--brand-200);
+    --color-ice: var(--ice);
+    --color-canvas: var(--canvas);
+    --color-line: var(--line);
+    --color-ink: var(--ink);
+    --color-ink-muted: var(--ink-muted);
+    --color-ok: var(--ok);
+    --color-warn: var(--warn);
+    --color-err: var(--err);
+
+    /*
+     * ⚠️ The yellow is `highlight`, not `accent`.
+     *
+     * docs/21 calls it the accent, but shadcn already owns `--accent` for a
+     * different job — the quiet hover background behind a menu item — and every
+     * component in the library reads it. Taking that name would repaint half the
+     * admin in yellow, which is the one thing the palette rule forbids: ONE
+     * yellow CTA per screen, and never as a text colour.
+     */
+    --color-highlight: var(--highlight);
+    --color-highlight-foreground: var(--highlight-foreground);
+
+    /*
+     * Motion (docs/21 §2). One easing and two durations, so a section does not
+     * get to invent its own feel — 150–250ms for a micro-interaction, 400–600ms
+     * for something entering the screen.
+     */
+    --ease-brand: var(--ease-signature);
+    --duration-micro: 200ms;
+    --duration-enter: 500ms;
+
+    /*
+     * Shadow only on something that floats. A card is a 1px line and nothing
+     * else (docs/21 §1) — the flat look IS the design.
+     */
+    --shadow-float: var(--float-shadow);
 }
 
+/*
+ * The shadcn roles, wired to the palette above (docs/21 §1).
+ *
+ * ⚠️ `--primary` is NAVY, not the yellow. It is the colour of every primary
+ * button, and docs/21 gives that job to navy on a light surface; the yellow is
+ * reserved for one CTA per screen and lives in `--color-highlight`. Wiring the
+ * yellow here would put it on every "Save" button in the admin.
+ *
+ * ⚠️ What this does NOT touch: a tenant's public booking page. PublicLayout
+ * always overrides `--primary` with the tenant's own colour, and TenantBranding
+ * always supplies one (indigo by default) — their shop window stays theirs,
+ * which is the same line the data-controller split follows (docs/19 §2).
+ */
 :root {
-    --radius: 0.65rem;
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --destructive-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.55 0.21 287);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.97 0 0);
-    --secondary-foreground: oklch(0.205 0 0);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    --accent: oklch(0.97 0 0);
-    --accent-foreground: oklch(0.205 0 0);
-    --border: oklch(0.922 0 0);
-    --input: oklch(0.922 0 0);
-    --ring: oklch(0.55 0.21 287);
+    /*
+     * ⚠️ The palette's hex values live HERE, not in `@theme inline`.
+     *
+     * `inline` does not write `--color-*` into `:root` at all — it expands the
+     * value straight into each utility. So a role below written as
+     * `var(--canvas)` would reference a name that exists nowhere at
+     * runtime and resolve to nothing: an unstyled body, not a compile error.
+     * BrandColorTest has guarded that trap for the base layer since SLO-170;
+     * this is the same trap one block higher, and it caught this change.
+     *
+     * The shape is the one the shadcn roles already use: raw values in `:root`,
+     * `@theme inline` pointing at them. One place owns each colour, and a
+     * subtree can still override it.
+     */
+    --navy: #0d1b2a;
+    --brand: #1b4f72;
+    --brand-100: #e6f0f8;
+    --brand-200: #c9dcec;
+    --ice: #7cc4f5;
+    --canvas: #f5f7fa;
+    --line: #dce4ec;
+    --ink: #14212f;
+    --ink-muted: #5b6b7c;
+    --ok: #1e9e6a;
+    --warn: #d9781e;
+    --err: #d33a3a;
+    --highlight: #f4b942;
+    --highlight-foreground: #14212f;
+
+    --display-family: 'Poppins', var(--font-sans);
+    --ease-signature: cubic-bezier(0.2, 0.8, 0.2, 1);
+    --float-shadow:
+        0 1px 2px rgb(13 27 42 / 0.06), 0 8px 24px rgb(13 27 42 / 0.08);
+
+    /* 10px button / 14px card, from the 16px root (docs/21 §1). */
+    --radius: 0.625rem;
+    --background: var(--canvas);
+    --foreground: var(--ink);
+    --card: #ffffff;
+    --card-foreground: var(--ink);
+    --popover: #ffffff;
+    --popover-foreground: var(--ink);
+    --destructive: var(--err);
+    --destructive-foreground: #ffffff;
+    --primary: var(--navy);
+    --primary-foreground: var(--canvas);
+    --secondary: var(--brand-100);
+    --secondary-foreground: var(--brand);
+    --muted: var(--brand-100);
+    --muted-foreground: var(--ink-muted);
+    --accent: var(--brand-100);
+    --accent-foreground: var(--brand);
+    --border: var(--line);
+    --input: var(--line);
+    /* Focus ring is ice, and ice is ONLY ever a ring or a hairline. */
+    --ring: var(--ice);
 }
 
+/*
+ * Dark is navy-tuned, not black (docs/21 §1) — and it is this project's DEFAULT
+ * (CLAUDE.md), so it is the branch most people actually see.
+ *
+ * ⚠️ `--primary` cannot stay navy here: a navy button on a near-navy surface is
+ * invisible. The brand blue lightened to `ice` takes over as the thing you can
+ * actually see and click.
+ */
 .dark {
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --destructive-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.65 0.2 287);
-    --primary-foreground: oklch(0.985 0 0);
-    --secondary: oklch(0.269 0 0);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --border: oklch(1 0 0 / 10%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.65 0.2 287);
+    --background: #0b1622;
+    --foreground: var(--canvas);
+    --card: #122234;
+    --card-foreground: var(--canvas);
+    --popover: #122234;
+    --popover-foreground: var(--canvas);
+    --destructive: #e05555;
+    --destructive-foreground: #0b1622;
+    --primary: var(--ice);
+    --primary-foreground: var(--navy);
+    --secondary: #1b2c40;
+    --secondary-foreground: var(--canvas);
+    --muted: #1b2c40;
+    --muted-foreground: #93a4b5;
+    --accent: #1b2c40;
+    --accent-foreground: var(--canvas);
+    --border: #23384d;
+    --input: #23384d;
+    --ring: var(--ice);
 }
 
 @layer base {
@@ -107,5 +249,49 @@
     body {
         background-color: var(--background);
         color: var(--foreground);
+    }
+
+    /*
+     * Headings wear the display face; body and UI do not (docs/21 tiltólista:
+     * "Poppins body-ra" is on it). Set here rather than per-component so a new
+     * page cannot forget — and so there is one place to look when it changes.
+     */
+    h1,
+    h2,
+    h3 {
+        font-family: var(--display-family);
+        letter-spacing: -0.02em;
+    }
+
+    /*
+     * Figures line up in a column. Without `tabular-nums` a monospace face still
+     * lets proportional digits through in some builds, and a price list that
+     * jitters as the numbers change is harder to read than one that does not.
+     */
+    .font-mono,
+    code,
+    kbd,
+    samp {
+        font-variant-numeric: tabular-nums;
+    }
+
+    /*
+     * ⚠️ The one place motion is switched off for the whole product.
+     *
+     * Every section built on top of this (SLO-203..205) is expected to respect
+     * the preference, but a section that forgets is a section that ignores an
+     * accessibility setting — so the floor is here, where nothing can miss it.
+     * `useReducedMotion` (resources/js/lib/motion.ts) is the JS half, for
+     * animation that CSS cannot reach.
+     */
+    @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
+        }
     }
 }

@@ -103,10 +103,15 @@ it('keeps the design tokens inlined, so a subtree override can reach them', func
     // The regression this guards is silent and was live for months: with a plain
     // `@theme`, Tailwind emits `--color-primary: var(--primary)` into `:root`,
     // the var resolves THERE, and the resolved colour inherits down. Every
-    // layout that overrides `--primary` on its own subtree — the tenant public
-    // shell with the tenant's brand colour, the marketing shell and the
-    // superadmin panel with slot4u's teal — then changed nothing at all, while
-    // the code, the docs and the review all read as if it worked.
+    // layout that overrides `--primary` on its own subtree then changed nothing
+    // at all, while the code, the docs and the review all read as if it worked.
+    //
+    // ⚠️ Since SLO-201 there is exactly ONE such override left — the tenant
+    // public shell painting the tenant's own colour. The marketing and
+    // superadmin shells used to override it too, with slot4u's teal; they no
+    // longer need to, because the identity IS the default now. That makes this
+    // guard MORE important, not less: one caller is easier to overlook when
+    // somebody reaches for a plain `@theme`.
     //
     // Asserting on the stylesheet rather than the rendered page because the
     // compiled CSS is a build artifact that no test environment produces.

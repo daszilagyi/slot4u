@@ -72,7 +72,7 @@ export default function CommissionIndex({ versions, effective_id }: IndexProps) 
     }
 
     return (
-        <AppLayout platformAccent>
+        <AppLayout>
             <Head title={t('super.commission.title')} />
 
             <div className="flex w-full max-w-4xl flex-col gap-6">
