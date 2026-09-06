@@ -3,33 +3,22 @@ import type { PropsWithChildren } from 'react';
 
 import { CookieConsent } from '@/components/CookieConsent';
 import ImpersonationBanner from '@/components/ImpersonationBanner';
-import { PLATFORM_ACCENT_STYLE } from '@/lib/brand';
-
-type AppLayoutProps = PropsWithChildren<{
-    /**
-     * Paint the subtree in slot4u's own accent (SLO-170).
-     *
-     * Opt-in per page rather than a property of this shell, because the shell
-     * carries screens with two different owners: the superadmin panel is ours,
-     * while the auth cards are a company's staff signing in to their own
-     * booking system, and their login is their brand, not ours. There is no
-     * shared prop that separates the two either — Fortify's routes are
-     * host-agnostic, so `tenant` is null on a tenant's login page as well.
-     */
-    platformAccent?: boolean;
-}>;
-
-export default function AppLayout({
-    platformAccent = false,
-    children,
-}: AppLayoutProps) {
+/*
+ * ⚠️ The `platformAccent` prop is gone (SLO-201).
+ *
+ * It existed to paint the superadmin panel in slot4u's own colour while leaving
+ * the auth cards on the neutral default — the shell carries screens with two
+ * different owners, and a company's staff signing in were not to be shown our
+ * brand. That distinction no longer has anything to express: the identity IS
+ * the default now, so both branches of the old condition resolve to the same
+ * colour. A prop that cannot change what you see is a prop that only misleads
+ * the next person to read it.
+ */
+export default function AppLayout({ children }: PropsWithChildren) {
     const { auth } = usePage().props;
 
     return (
-        <div
-            style={platformAccent ? PLATFORM_ACCENT_STYLE : undefined}
-            className="flex min-h-screen flex-col bg-background text-foreground"
-        >
+        <div className="flex min-h-screen flex-col bg-background text-foreground">
             <ImpersonationBanner />
             <main className="flex flex-1 items-center justify-center px-6 py-16">
                 {children}

@@ -72,7 +72,7 @@ export default function TenantsShow({
     }
 
     return (
-        <AppLayout platformAccent>
+        <AppLayout>
             <Head title={tenant.name} />
 
             <div className="flex w-full max-w-3xl flex-col gap-6">

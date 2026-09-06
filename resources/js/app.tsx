@@ -46,6 +46,12 @@ createInertiaApp({
         }
     },
     progress: {
-        color: '#6D5DF5',
+        // ⚠️ A literal, and it has to be: Inertia paints this bar into a bare
+        // <div> outside the React tree, before any stylesheet cascade reaches
+        // it, so a `var(--color-brand)` here would resolve to nothing and the
+        // bar would be invisible. Keep it in step with `--color-brand` in
+        // app.css (docs/21 §1) — it is the only colour in the app that cannot
+        // read the token it belongs to.
+        color: '#1B4F72',
     },
 });
