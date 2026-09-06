@@ -38,16 +38,37 @@ Elv: **egy nagy „wow”-pillanat a heroban, utána csendes, funkcionális mozg
 |---|---|---|---|---|---|
 | 0 | **Fejléc** (sticky) | átlátszó → scroll után `canvas` + alsó `line` | „4”-es ikon + `slot4u` wordmark balra; jobbra nav + sárga „Kipróbálom” gomb | scrollra 200 ms háttérváltás; gomb hover: −1 px emelés | `logo-icon.svg`, `wordmark.svg` |
 | 1 | **Hero** | navy, 32 px rácsháló `ice` 10 %, jobb felső radial glow | **Bal:** eyebrow + H1 (egy szó sárgán) + lead + 2 gomb. **Jobb:** a *repülő hős-lajhár* (átlátszó PNG/SVG, ~420 px) **mögötte** az élő foglaló-widget (idősávok mono betűvel) | (a) betöltéskor: szöveg 3 lépésben fade-up (0/80/160 ms); (b) lajhár 600 ms alatt jobb-lentről berepül, majd **lassú lebegés** (±6 px, 4 s loop); (c) widget slotjai 40 ms-onként jelennek meg, a kiválasztott 11:15 kap egy sárga „pulse”-t 1×; (d) egérre a glow 2–3 px-t követi a kurzort (parallax, csak desktop) | `hero-sloth-flying.svg` (vektor!), `widget` = valódi komponens, nem kép |
-| 2 | **Bizalmi sáv** | canvas | „Már X szolgáltató használja” + 5–6 tenant-logó szürkében (demo tenantok logói is jók) | logók végtelen, lassú vízszintes marquee (40 s, hoverre megáll) | tenant-logók 1-színű SVG, `ink-muted` |
+| 2 | **Bizalmi sáv** | canvas | ⚠️ **Nem ügyféllogó** (l. a táblázat alatti dobozt): 4–5 ikon + rövid állítás, amelyek ügyfélszám nélkül is igazak — magyar fejlesztés · EU-s adattárolás (GDPR) · nincs havidíj, csak forgalom után · bankkártya nélkül kipróbálható | statikus rács, scroll-into-view fade-up 80 ms lépcsőben — **nincs marquee** | Lucide ikonok inline SVG, `ink-muted` |
 | 3 | **Hogyan működik** (3 lépés) | canvas | 3 kártya, mindegyikben **egy-egy UI-részlet screenshot** (naptár nézet → ügyfél foglal → emlékeztető SMS/e-mail) 14 px sugárral, `line` kerettel | scroll-into-view: kártyák 80 ms lépcsőben fade-up; a képek belül **1 rövid, loopoló mikro-videó vagy Lottie** (pl. slot kiválasztás → pipa), max 3 s, hangtalan | 3× PNG @2x **vagy** 3× Lottie (`lottie-web` cdnjs) |
 | 4 | **Funkciók** (6 blokk, 2×3 rács) | `brand-100` finom szekció-háttér | vonalas ikon (Lucide) `brand-100` dobozban, cím, 1 mondat | ikon-doboz hoverre `brand-200`-ra vált, ikon 1.05× – ennyi, semmi több | Lucide ikonok inline SVG |
 | 5 | **Termék-bemutató** (nagy) | navy (2. sötét sáv – itt tér vissza a high-tech) | Egy **admin-dashboard mockup** böngésző-keretben, világos UI navy alapon, jobb oldalon a *laptopos lajhár* kis avatarként a sarokban | scrollra a mockup **kissé 3D-be dől** (rotateX 4° → 0°) és élesedik; a dashboard grafikonja **kirajzolódik** (SVG stroke-dashoffset, 900 ms) | `dashboard-mock.png @2x` (vagy élő komponens), `sloth-laptop.svg` |
 | 6 | **Próbáld ki élőben** (demo tenantok) | `brand-100` szekció-háttér, a szekció felső élén 1 px `ice` vonal | Bal: 4 persona-kártya (Pszichológus · Szépségszalon · Fitnesz · Rendezvényház). Jobb: **élő, kattintható demo** böngésző-keretben (iframe a demo tenant publikus foglalóoldalára), felette „Ügyfélként foglalok / Adminként nézem” kapcsoló | kártyaváltás: keret tartalma 250 ms crossfade + 8 px csúszás, a kártya bal szélén sárga jelölő csúszik; „élő” zöld pulzáló pont a keret fejlécében; iframe csak `IntersectionObserver` után tölt | élő iframe (nem kép) + 4 tenant-logó SVG; mobilon iframe helyett screenshot + „Megnyitom” gomb — részletes spec: 2.1 |
-| 7 | **Vélemények** | canvas | 3 kártya, valódi fotó (természetes fény, nem stock), név, szakma, 1–2 mondat, `ok` színű „ellenőrzött” pipa | nincs auto-forgás; nyíl/ swipe mobilon | 3× portré 96 px kör |
+| 7 | ~~**Vélemények**~~ | — | ⚠️ **KIMARAD** (l. a táblázat alatti dobozt): valós, engedélyezett ügyfél-idézet nélkül csak kitalált tartalom kerülhetne ide. Placeholderrel sem épül meg. Akkor tér vissza, ha vannak referenciák — akkor az eredeti terv áll vissza: 3 kártya, valódi fotó (természetes fény, nem stock), név, szakma, 1–2 mondat, `ok` színű „ellenőrzött” pipa, auto-forgás nélkül. | — | — |
 | 8 | **Árazás** | canvas, kiemelt csomag navy kártya sárga „Népszerű” címkével | havi/éves kapcsoló; árak **JetBrains Mono**-ban | kapcsolóra az árak számláló-animációval váltanak (300 ms) | – |
 | 9 | **GYIK** | canvas | accordion | nyitás 200 ms height + chevron 180° | – |
 | 10 | **Záró CTA** | navy, rácsháló, glow | Bal: „Kezdd el ma, 5 perc.” + sárga gomb + „Nem kérünk bankkártyát” caption. Jobb: **integető / hüvelykujjas lajhár** (3. póz) | lajhár enyhe lebegés (ugyanaz a loop, mint a heroban) | `sloth-wave.svg` |
 | 11 | **Footer** | navy, felül 1 px `ice` 20 % vonal | 4 oszlop, „4”-es ikon, jogi linkek | – | – |
+
+> ### ⚠️ Két szekció, ami ügyfelet állítana — döntés (2026-09-06, Daniel)
+>
+> A terv eredetileg két helyen támaszkodott olyan társadalmi bizonyítékra, ami **ma nem létezik**:
+> a **7. „Vélemények"** (3 valódi fotós ügyfél-idézet) és a **2. „Bizalmi sáv"** („Már X szolgáltató
+> használja" + tenant-logók). Ügyfelek nélkül mindkettő csak kitalált tartalommal épülhetne meg — a
+> bizalmi sáv esetében a doksi eredeti engedménye („a demo tenantok logói is jók") kifejezetten
+> félrevezető lenne: a GlamZone és a Premium Fitness Studio **nem ügyfelek, hanem az általunk írt
+> fixture-ök**, és aki felismeri őket a demóban, pont azt a bizalmat veszíti el, amiért a szekció készült.
+>
+> **Döntés:**
+>
+> * **A 7. szekció (Vélemények) kimarad** a főoldalról. Nem épül meg placeholderrel sem; akkor tér vissza,
+>   ha van valós, hivatkozható és engedélyezett ügyfél-idézet. (SLO-205 scope-jából kivéve.)
+> * **A 2. szekció megmarad, de ügyfél nélküli bizalmi jelzésre cserélve** — ugyanaz a vizuális hely és
+>   funkció, csak olyan állításokkal, amik **ma is igazak**, és nem avulnak el. A logósáv bármikor a
+>   helyükre léphet, ha lesznek referenciák. (SLO-204.)
+>
+> ⚠️ **SLA-számot (pl. „99,9% elérhetőség") NE írjunk ki**, amíg nincs mögötte vállalás — a `docs/17`
+> monitoring, nem szerződéses ígéret. Az „adataid az EU-ban / GDPR" állítás mögött viszont ott a
+> `docs/19`, a „nincs havidíj" mögött a `docs/10`, tehát ezek védhetők.
 
 ### 2.1 „Próbáld ki élőben” szekció — részletes spec (`docs/20`, publikus demo belépőpont → **SLO-192**)
 
