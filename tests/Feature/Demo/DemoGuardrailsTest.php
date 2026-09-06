@@ -5,10 +5,12 @@ use App\Enums\BillingPeriodStatus;
 use App\Enums\BookingMode;
 use App\Enums\BookingStatus;
 use App\Enums\CommissionInvoiceStatus;
+use App\Enums\Feature;
 use App\Enums\InvoiceProvider;
 use App\Enums\NotificationStatus;
 use App\Enums\NotificationType;
 use App\Enums\PaymentProvider;
+use App\Enums\PaymentStatus;
 use App\Enums\TenantStatus;
 use App\Models\Booking;
 use App\Models\CommissionInvoice;
@@ -18,6 +20,7 @@ use App\Models\Payment;
 use App\Models\Service;
 use App\Models\Tenant;
 use App\Models\TenantBillingPeriod;
+use App\Models\TenantFeature;
 use App\Models\User;
 use App\Notifications\BookingConfirmedNotification;
 use App\Notifications\CommissionInvoiceNotification;
@@ -182,6 +185,68 @@ it('pins a demo tenant to the sandbox gateway even when a real one is configured
 
     expect(fn () => $gateways->forTenant(Tenant::factory()->active()->create()))
         ->toThrow(RuntimeException::class);
+});
+
+it('serves the sandbox checkout on a demo tenant in production, and nowhere else', function () {
+    // ⚠️ The other half of the pin above (SLO-190). `payments.sandbox.enabled` is
+    // off in production, so pinning a demo tenant to the sandbox and then 404-ing
+    // the sandbox's own checkout page under it would leave the public demo with a
+    // payment step that dead-ends — the one flow docs/20 §3.4 promises a visitor
+    // can walk end to end without ever typing a card number.
+    config()->set('payments.sandbox.enabled', false);
+
+    foreach ([true, false] as $isDemo) {
+        $tenant = $isDemo
+            ? Tenant::factory()->demo()->create()
+            : Tenant::factory()->active()->create();
+
+        app(TenantManager::class)->set($tenant);
+
+        // The checkout routes sit behind feature_online_payment, which is off on
+        // the base plan. Switch it on for BOTH tenants so what the assertions
+        // below separate is the production gate alone, not the feature flag.
+        TenantFeature::query()->create([
+            'feature_code' => Feature::OnlinePayment->value,
+            'enabled' => true,
+        ]);
+
+        $booking = demoBookingFor($tenant);
+        $booking->status = BookingStatus::PendingPayment;
+        $booking->saveQuietly();
+
+        // Both tenants get a *sandbox* payment row here — the platform default is
+        // still the sandbox — so what separates them below is only the production
+        // gate, not which gateway they were handed.
+        $reference = app(StartBookingPayment::class)($booking, 'https://demo.test/back')->providerRef;
+
+        app(TenantManager::class)->forget();
+
+        $checkout = $this->get(tenantHost($tenant->slug, '/payments/sandbox/'.$reference));
+
+        if (! $isDemo) {
+            // A real tenant's customer must never reach a screen that can confirm
+            // a payment nobody made.
+            $checkout->assertNotFound();
+
+            $this->post(tenantHost($tenant->slug, '/payments/sandbox/'.$reference), ['outcome' => 'paid'])
+                ->assertNotFound();
+
+            expect($booking->refresh()->status)->toBe(BookingStatus::PendingPayment);
+
+            continue;
+        }
+
+        $checkout->assertOk();
+
+        // And the flow finishes: the visitor picks "paid" and the booking they
+        // were holding becomes a real one.
+        $this->post(tenantHost($tenant->slug, '/payments/sandbox/'.$reference), ['outcome' => 'paid'])
+            ->assertRedirect('/booked/'.$booking->code);
+
+        expect($booking->refresh()->status)->toBe(BookingStatus::Confirmed)
+            ->and(Payment::withoutGlobalScopes()->where('provider_ref', $reference)->sole()->status)
+            ->toBe(PaymentStatus::Paid);
+    }
 });
 
 it('keeps a demo tenant on the sandbox gateway after it is archived', function () {

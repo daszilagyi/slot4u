@@ -102,7 +102,7 @@ A klasszikus KKV-ügyfél: fodrász, kozmetikus, körmös egy fedél alatt. Itt 
 > `notifications_log`-ban nem kívánatos, és a levélrenderelés a seed legdrágább lépése volt.
 > Ezzel együtt a szalon seedje **10 perc → 1 perc 49 mp** (MariaDB).
 
-### 2.3 „Premium Fitness Studio" — fitnesz/edzőterem · **Max csomag** ⭐ a sales-demo zászlóshajója · *(SLO-188 + SLO-189 kész; SLO-190 hátra)*
+### 2.3 „Premium Fitness Studio" — fitnesz/edzőterem · **Max csomag** ⭐ a sales-demo zászlóshajója ✅ *(SLO-188 + SLO-189 + SLO-190 kész)*
 
 Itt van minden: csoportórák várólistával, személyi edzés, teremfoglalás, online fizetés, számlázás, két telephely.
 
@@ -157,6 +157,42 @@ Itt van minden: csoportórák várólistával, személyi edzés, teremfoglalás,
 >   nem mondható le, a lemondás viszont pont az, ami a helyet a sorba engedi.
 > * **A múltba kerülés az ÓRÁTÓL függ, nem a nap-offsettől:** a ma reggel 7-re seedelt edzés egy
 >   délutáni `demo:reset` idejére már lezajlott. A terminális állapotot ezért `ends_at` dönti el.
+
+> **Megvalósítási megjegyzések (SLO-190, 2026-09-06) — a persona 3/3, a pénz.**
+>
+> * **Nincs külön `FakePaymentProvider`.** A spec egy új osztályt kért, de az SLO-130-ban megépült
+>   `SandboxGateway` pontosan ez, és jobb: saját, appon belüli fizetőoldala van, HMAC-SHA256-tal
+>   aláírt webhookja, és a demo tenantot a `PaymentGatewayManager::forTenant()` **strukturálisan**
+>   rápinelí (SLO-182). Egy második fake provider csak egy második kódút lenne ugyanoda.
+> * ⚠️ **A `provider_ref` NEM `DEMO-…`, hanem `sbx_<32 véletlen karakter>`** (a számláké
+>   `SBX-<év>-<6>`). Ez tudatos eltérés a spectől: a `provider_ref` a **publikus fizetőoldal
+>   hozzáférési kulcsa** (`/payments/sandbox/{payment:provider_ref}`, session nélkül elérhető),
+>   tehát determinisztikussá tenni annyi lenne, mint idegenek elől kitalálhatóvá tenni valaki más
+>   fizetését. A spec valódi szándékát — „Számlázz.hu-hívás demo tenantból soha" — nem a prefix
+>   biztosítja, hanem a `forTenant()` pin, és arra van páros teszt.
+> * **Az online fizetés csak az utolsó 21 nap előzményén megy végig.** Ennél régebbi jelentkezés
+>   `BookingSource::Admin` (pultos eladás), ami a `CreateBooking::initialStatus` szerint kihagyja a
+>   fizetési kaput. Költség-döntés (foglalásonként +2 tranzakció ~2300 foglaláson, a `demo:reset`
+>   minden éjjel fizeti) ÉS jobb történet: egy stúdió, amelyik nemrég óta kártyáz online, hétköznapi.
+> * **A `refunded` fizetési státuszhoz teljes visszatérítés kell.** A stúdió publikált szabálya
+>   fele-visszatérítés (`refund_policy = partial`, 5000 bps), így a lemondások `refunds`
+>   sorokat adnak, a `payments` státusza viszont `paid` marad (nincs `partially_refunded` állapot);
+>   a `refunded` státuszt két **admin-döntésű, méltányossági teljes** visszatérítés hozza. Ez ráadásul a szemléletesebb eset: ezt kell egy recepciósnak eldöntenie.
+> * **A várólistáról helyet kapó ügyfél is FIZET.** Amint a csoportórák `online_payment_required`
+>   lettek, a jelenet `CreateBooking` hívása is `pending_payment`-et szült — enélkül egy már
+>   lezajlott órán maradt volna egy kifizetetlen hely, amit a `ExpirePendingPayments` sweep a
+>   valóságban soha nem hagyna ott.
+> * ⚠️ **`pending_payment` foglalás CSAK a jövőben létezik a seedben** — a múltbeliek fizetési
+>   határideje lejárt, tehát a rendszer lemondta volna őket. Erre teszt-invariáns van.
+> * **Seed-költség, mérve (dev MariaDB, `--fresh`): 4 perc 42 mp**, a fizetés előtti 4:15-ről.
+>   739 fizetés és 685 számla +11%-ért — ennyibe fér, mert csak az utolsó 21 nap fizet online.
+>   A `demo:reset` ezt minden éjjel kifizeti, tehát a `PAID_WINDOW_DAYS` az a csavar, amivel ez
+>   állítható, ha egyszer szűk lesz.
+> * **A dashboard „mai bevétel" kártyája a `bookings.price_minor`-ból számol, nem a `payments`
+>   táblából** (`BuildTenantDashboard::REVENUE_STATUSES`) — az AC szövege ezen a ponton nem fedi a
+>   megépült rendszert. A tervezés helyes (a pulton eladott óra is bevétel), de a következménye az,
+>   hogy a kártyát nem a fizetési előzmény tartja életben, hanem a **mai órarend**. Mindkettőre
+>   állítás van a persona-tesztben.
 
 ### 2.4 „Fényliget Rendezvényház" — rendezvényhelyszín · **Közepes csomag** ✅ *(SLO-186, kész)*
 
@@ -225,7 +261,7 @@ A magas kosárértékű, ajánlat-alapú üzlet demója — és annak bizonyít�
 - **Guardrailek** (mindegyikre Pest teszt):
   - `demo:seed` / `demo:reset` kizárólag `is_demo = true` tenantot törölhet/írhat felül; nem-demo tenant slug-ütközésnél a parancs hibával leáll.
   - Demo tenantnál minden kimenő értesítés (email/SMS) elnyomva: a notification réteg demo tenantnál `log` csatornára vált, de a `notifications_log`-ba ugyanúgy ír (a demóban látszódjon, MI ment volna ki — ez feature, nem hiány).
-  - Demo tenant fizetési szolgáltatója mindig sandbox/fake (lásd 3.4); Számlázz.hu hívás demo tenantból TILOS — fake invoice rekord készül `provider_ref = 'DEMO-...'`-val.
+  - Demo tenant fizetési szolgáltatója mindig sandbox/fake (lásd 3.4); Számlázz.hu hívás demo tenantból TILOS — fake invoice rekord készül. ⚠️ **A `provider_ref` a megvalósításban `sbx_…` / `SBX-…`, nem `DEMO-…`** (SLO-190): a fizetési referencia a publikus fizetőoldal hozzáférési kulcsa, ezért kitalálhatatlannak kell maradnia. A tiltást nem a prefix tartja be, hanem a `PaymentGatewayManager::forTenant()` és az `InvoiceIssuerManager::forTenant()` pin.
   - Superadmin felületen a demo tenant kap egy „DEMO" badge-et; a globális statisztikákból (MRR, aktív tenantok) a demo tenantok kiszűrve.
   - ~~Demo tenant `subscriptions` rekordja `active`, de fizetési provider nélkül~~ → **a megvalósításban másképp** (SLO-182): `subscriptions` tábla nincs, a lépcsős csomagmodell megszűnt (CLAUDE.md, docs/10). A mai megfelelője a **jutalék-számlázásból való kizárás**: a `billing:close-periods` átugorja a demo tenant nyitott időszakait (nem zárja, nem állít ki jutalékszámlát), a `billing:dunning-sweep` pedig sem nem sürget, sem nem függeszt fel. Ez utóbbi a lényeg: a felfüggesztés a publikus felületet zárja le, ami egy demo tenantnál maga a termék — enélkül a sales-demo 22 nap után magától elsötétülne.
 
@@ -269,8 +305,17 @@ Múltbeli foglalásoknál az időbélyegek (created_at, history) visszadátumoz�
 
 ### 3.4 Fizetés demo tenantnál
 
-- M6 provider-absztrakcióra építve: demo tenant `FakePaymentProvider`-t kap (azonnal `paid` státusz, determinisztikus `provider_ref`), VAGY ha a Barion/Stripe sandbox stagingen már bekötött, akkor sandbox kulcsokkal megy — de a seedelt ELŐZMÉNY mindig fake rekord.
-- A publikus demo fizetési lépése a látogatónak is végigjátszható legyen kártyaadat megadása nélkül (fake provider „Sikeres fizetés" képernyővel) — a sales-demo legfontosabb pillanata.
+- M6 provider-absztrakcióra építve: a demo tenant a beépített **`SandboxGateway`**-t kapja
+  (SLO-130), amire a `PaymentGatewayManager::forTenant()` strukturálisan rápineli — akkor is, ha a
+  platform élesben Barionra van állítva. A seedelt ELŐZMÉNY mindig ezen a valódi checkout-úton
+  keletkezik, nem kézzel írt sorokból.
+- A publikus demo fizetési lépése a látogatónak is végigjátszható kártyaadat megadása nélkül
+  („Sikeres fizetés" képernyő) — a sales-demo legfontosabb pillanata.
+- ⚠️ **Ehhez a `payments.sandbox.enabled` production-kapun lyuk kell** (SLO-190):
+  `PaymentGatewayManager::sandboxCheckoutEnabled()` a demo tenantnak élesben is kiszolgálja a
+  sandbox fizetőoldalt, valós tenantnak viszont továbbra sem. E nélkül a `forTenant()` pin csak fél
+  szabály volt: a demo tenantot a sandboxhoz kötöttük, aztán a sandbox fizetőoldala 404-elt alatta,
+  és a demó legfontosabb pillanata zsákutca lett volna. Páros teszt: `DemoGuardrailsTest`.
 
 ### 3.5 Tesztek (DoD)
 

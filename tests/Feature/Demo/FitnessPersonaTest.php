@@ -3,12 +3,17 @@
 use App\Enums\BookingMode;
 use App\Enums\BookingStatus;
 use App\Enums\Feature;
+use App\Enums\InvoiceStatus;
+use App\Enums\PaymentProvider;
+use App\Enums\PaymentStatus;
 use App\Enums\PlanLimitKey;
 use App\Enums\Role;
 use App\Enums\WaitlistStatus;
 use App\Models\Booking;
 use App\Models\Event;
+use App\Models\Invoice;
 use App\Models\Location;
+use App\Models\Payment;
 use App\Models\Room;
 use App\Models\Schedule;
 use App\Models\Service;
@@ -17,7 +22,11 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Models\WaitlistEntry;
 use App\Services\Booking\AvailabilityService;
+use App\Services\Dashboard\BuildTenantDashboard;
 use App\Services\Feature\FeatureResolver;
+use App\Services\Invoicing\InvoiceIssuerManager;
+use App\Services\Payment\Gateways\SandboxGateway;
+use App\Services\Payment\PaymentGatewayManager;
 use App\Services\Plan\PlanLimitService;
 use App\Tenancy\TenantManager;
 use Database\Seeders\BasePlanSeeder;
@@ -278,11 +287,51 @@ it('offers both rentals publicly and never double-books a resource', function ()
     $services = Service::withoutGlobalScopes()->where('tenant_id', $id)->get()->keyBy('name');
 
     // Both rentals are bookable from the public page (SLO-188 AC).
-    foreach (['Szaunabérlés', 'PT-box bérlés (alkalmi díj)'] as $name) {
-        $response = $this->get(tenantHost($slug, '/book?service='.$services[$name]->getKey()));
-        $response->assertOk();
+    //
+    // ⚠️ Deliberately NOT "today". The picker lands on today (BuildsSlotView)
+    // and the Pest box is closed on Sundays, so asking about the landing day was
+    // an assertion that held six days a week and failed on the seventh — sitting
+    // green on `main` until a Sunday ran it. Ask across a full week instead, and
+    // require the room's own schedule and the public slot grid to agree in BOTH
+    // directions: slots on the days it is open, none on the days it is not.
+    foreach (['Szaunabérlés' => 'Szauna', 'PT-box bérlés (alkalmi díj)' => 'PT-box'] as $name => $roomName) {
+        $room = Room::withoutGlobalScopes()->where('tenant_id', $id)->where('name', $roomName)->sole();
 
-        expect($response->viewData('page')['props']['slots'] ?? [])->not->toBeEmpty("{$name} offers no slots");
+        $openDays = Schedule::withoutGlobalScopes()
+            ->where('schedulable_type', $room->getMorphClass())
+            ->where('schedulable_id', $room->getKey())
+            ->pluck('day_of_week')
+            ->map(fn ($day): int => (int) $day)
+            ->all();
+
+        expect($openDays)->not->toBeEmpty("{$roomName} has no hours at all");
+
+        // From tomorrow: today's remaining hours can legitimately be used up.
+        $day = Carbon::today($tenant->timezone)->addDay();
+        $daysOffered = 0;
+
+        for ($i = 0; $i < 7; $i++, $day->addDay()) {
+            $response = $this->get(tenantHost(
+                $slug,
+                '/book?service='.$services[$name]->getKey().'&date='.$day->toDateString(),
+            ));
+            $response->assertOk();
+
+            $slots = $response->viewData('page')['props']['slots'] ?? [];
+
+            if (in_array($day->isoWeekday(), $openDays, true)) {
+                $daysOffered += $slots === [] ? 0 : 1;
+
+                continue;
+            }
+
+            expect($slots)->toBeEmpty("{$name} offers slots on {$day->toDateString()}, when {$roomName} is closed");
+        }
+
+        // A single open day can legitimately be sold out, so the week as a whole
+        // is what has to be bookable — but a rental offering nothing all week is
+        // the missing-`service_rooms`-pivot failure this assertion exists for.
+        expect($daysOffered)->toBeGreaterThan(0, "{$name} offers no slots on any open day of the coming week");
     }
 
     // The box advertises its duration picker; the sauna does not have one.
@@ -427,4 +476,76 @@ it('offers both rentals publicly and never double-books a resource', function ()
     $this->actingAs($owner)
         ->get(tenantHost($slug, '/calendar?view=week&room_id='.$full->room_id.'&staff_id='.$full->staff_id))
         ->assertOk();
+
+    // --- the money (SLO-190) -----------------------------------------------
+    // Classes and personal training are paid for online; the rentals are settled
+    // at the desk.
+    $classServices = Service::withoutGlobalScopes()
+        ->where('tenant_id', $id)
+        ->where('booking_mode', BookingMode::EventBased)
+        ->get();
+
+    expect($services['Személyi edzés']->online_payment_required)->toBeTrue()
+        ->and($classServices->every(fn (Service $c): bool => $c->online_payment_required))->toBeTrue()
+        ->and($services['Szaunabérlés']->online_payment_required)->toBeFalse();
+
+    $payments = Payment::withoutGlobalScopes()->where('tenant_id', $id)->get();
+
+    // Real money, taken through the real checkout — not rows written by the seed.
+    expect($payments)->not->toBeEmpty()
+        ->and($payments->where('status', PaymentStatus::Paid)->count())->toBeGreaterThan(100)
+        ->and($payments->where('status', PaymentStatus::Failed)->count())->toBeGreaterThan(0)
+        // Only a FULL refund flips a payment to `refunded`; the studio's policy
+        // gives half back, so these are the two admin goodwill refunds.
+        ->and($payments->where('status', PaymentStatus::Refunded)->count())->toBeGreaterThan(0);
+
+    // ⚠️ THE guardrail (docs/20 §3.1). Not one payment may have gone through
+    // anything but the sandbox, and the manager must refuse to hand a demo
+    // tenant a live gateway even when the platform is configured with one.
+    expect($payments->pluck('provider')->unique()->all())->toBe([PaymentProvider::Sandbox]);
+
+    config(['payments.default' => PaymentProvider::Barion->value]);
+    expect(app(PaymentGatewayManager::class)->forTenant($tenant))->toBeInstanceOf(SandboxGateway::class);
+
+    // Same for invoicing: a Számlázz.hu call from a demo tenant is structurally
+    // impossible, not merely unlikely.
+    $invoices = Invoice::withoutGlobalScopes()->where('tenant_id', $id)->get();
+
+    expect($invoices)->not->toBeEmpty()
+        ->and($invoices->where('status', InvoiceStatus::Issued)->count())->toBeGreaterThan(100)
+        // The full refunds reversed their invoices on the way through.
+        ->and($invoices->where('status', InvoiceStatus::Storno)->count())->toBeGreaterThan(0)
+        ->and($invoices->pluck('provider')->unique()->count())->toBe(1)
+        ->and(app(InvoiceIssuerManager::class)->forTenant($tenant)->provider())
+        ->toBe($invoices->first()->provider);
+
+    // Every settled payment produced exactly one invoice.
+    expect($invoices->count())->toBe(
+        $payments->whereIn('status', [PaymentStatus::Paid, PaymentStatus::Refunded])->count()
+    );
+
+    // The revenue tile is alive on whatever day the demo is opened (SLO-190 AC).
+    //
+    // ⚠️ Worth stating plainly, because the AC's wording does not match the
+    // build: the tile sums `bookings.price_minor`, NOT the payments table
+    // (BuildTenantDashboard::REVENUE_STATUSES). That is the right design — a
+    // class sold at the desk is revenue too — but it means the money history is
+    // NOT what keeps this card from reading zero. Today's timetable is. Both
+    // have to hold for the demo to open well, so both are asserted.
+    $dashboard = app(BuildTenantDashboard::class)($tenant, $owner);
+
+    expect($dashboard->revenueTodayMinor)->toBeGreaterThan(0)
+        ->and($dashboard->bookingsToday)->toBeGreaterThan(0)
+        // The unfinished-checkout tile has something to show, on any day.
+        ->and($dashboard->pendingPayment)->toBeGreaterThan(0);
+
+    // ⚠️ A booking still waiting for money only makes sense AHEAD of today.
+    // ExpirePendingPayments cancels the rest, so a months-old `pending_payment`
+    // is a state the running system never leaves — seeding a hundred of them
+    // would advertise the opposite of what the payment flow does.
+    $waiting = fitnessBookings($tenant)->where('status', BookingStatus::PendingPayment->value)->get();
+
+    expect($waiting)->not->toBeEmpty()
+        ->and($waiting->every(fn (Booking $b): bool => $b->starts_at === null || $b->starts_at->isFuture()))
+        ->toBeTrue('A booking is still waiting for money for an appointment that has already passed');
 });

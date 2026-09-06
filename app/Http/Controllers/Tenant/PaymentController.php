@@ -13,6 +13,7 @@ use App\Http\Requests\Tenant\SandboxPaymentRequest;
 use App\Models\Booking;
 use App\Models\Payment;
 use App\Services\Payment\PaymentGatewayManager;
+use App\Tenancy\TenantManager;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -55,12 +56,13 @@ class PaymentController extends Controller
 
     /**
      * The sandbox gateway's own checkout page (SLO-130) — the "pay / decline"
-     * screen that makes the flow demoable without a merchant account. Enabled by
-     * `payments.sandbox.enabled`, which is off in production.
+     * screen that makes the flow demoable without a merchant account. Off in
+     * production for a real tenant, but always open on a demo tenant, which takes
+     * no real money by construction (PaymentGatewayManager::sandboxCheckoutEnabled).
      */
-    public function sandbox(string $tenant, Payment $payment): Response|RedirectResponse
+    public function sandbox(string $tenant, Payment $payment, PaymentGatewayManager $gateways, TenantManager $tenants): Response|RedirectResponse
     {
-        abort_unless((bool) config('payments.sandbox.enabled'), 404);
+        abort_unless($gateways->sandboxCheckoutEnabled($tenants->current()), 404);
         abort_unless($payment->provider === PaymentProvider::Sandbox, 404);
 
         $payment->load('booking.service:id,name');
@@ -96,8 +98,10 @@ class PaymentController extends Controller
         Payment $payment,
         SettleBookingPayment $settlePayment,
         FailBookingPayment $failPayment,
+        PaymentGatewayManager $gateways,
+        TenantManager $tenants,
     ): RedirectResponse {
-        abort_unless((bool) config('payments.sandbox.enabled'), 404);
+        abort_unless($gateways->sandboxCheckoutEnabled($tenants->current()), 404);
         abort_unless($payment->provider === PaymentProvider::Sandbox, 404);
 
         $booking = $payment->booking;

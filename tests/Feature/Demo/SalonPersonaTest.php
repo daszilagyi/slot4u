@@ -184,27 +184,84 @@ it('lets a visitor pick a stylist or leave it to the salon', function () {
         ->where('name', 'Női hajvágás')
         ->sole();
 
-    // "Anyone": no staff pinned, so AvailabilityService offers the union of
-    // both stylists' free windows.
-    $anyone = $this->get(tenantHost($slug, '/book?service='.$women->getKey()));
-    $anyone->assertOk();
-    $anySlots = $anyone->viewData('page')['props']['slots'] ?? [];
-
-    expect($anySlots)->not->toBeEmpty();
-
-    // And with one stylist pinned, still bookable — but a strict subset, since
-    // one person cannot be free where neither was.
     $stylist = Staff::withoutGlobalScopes()
         ->where('tenant_id', $tenant->getKey())
         ->where('name', 'Kovács Réka')
         ->sole();
 
-    $pinned = $this->get(tenantHost($slug, '/book?service='.$women->getKey().'&staff='.$stylist->getKey()));
-    $pinned->assertOk();
-    $pinnedSlots = $pinned->viewData('page')['props']['slots'] ?? [];
+    // ⚠️ Deliberately NOT the dateless `/book`. The picker lands on today
+    // (BuildsSlotView) and nobody in this salon works a Sunday, so asking about
+    // the landing day was an assertion that held six days a week and failed on
+    // the seventh — it sat green on `main` until a Sunday CI run tripped over it.
+    // Ask across a full week instead, and require the public grid to agree with
+    // the rota in BOTH directions.
+    //
+    // The days are those of THIS service's own stylists, not the salon's — the
+    // salon is open on a Saturday, but only the nail specialist works it, so a
+    // women's haircut is legitimately unbookable that day. Scoping to the
+    // service's staff is also the sharper assertion: it fails if the
+    // `service_staff` pivot ever syncs somebody who is not rostered.
+    $openDays = Schedule::withoutGlobalScopes()
+        ->where('schedulable_type', (new Staff)->getMorphClass())
+        ->whereIn('schedulable_id', $women->staff()->pluck('staff.id'))
+        ->distinct()
+        ->pluck('day_of_week')
+        ->map(fn ($day): int => (int) $day)
+        ->all();
 
-    expect($pinnedSlots)->not->toBeEmpty()
-        ->and(count($pinnedSlots))->toBeLessThanOrEqual(count($anySlots));
+    // Réka's own days, which is where the pinned comparison below has to happen:
+    // on a day she is off, "anyone" is bookable and she is not, and that is the
+    // rota working rather than a bug.
+    $herDays = Schedule::withoutGlobalScopes()
+        ->where('schedulable_type', $stylist->getMorphClass())
+        ->where('schedulable_id', $stylist->getKey())
+        ->distinct()
+        ->pluck('day_of_week')
+        ->map(fn ($day): int => (int) $day)
+        ->all();
+
+    expect($openDays)->not->toBeEmpty('no stylist who cuts hair has any hours at all')
+        ->and($herDays)->not->toBeEmpty('the stylist has no shifts at all');
+
+    // From tomorrow: today's remaining hours can legitimately be used up.
+    $day = Carbon::today($tenant->timezone)->addDay();
+    $daysOffered = 0;
+    $compared = false;
+
+    for ($i = 0; $i < 7; $i++, $day->addDay()) {
+        $date = $day->toDateString();
+
+        // "Anyone": no staff pinned, so AvailabilityService offers the union of
+        // every stylist's free windows.
+        $anySlots = $this->get(tenantHost($slug, '/book?service='.$women->getKey().'&date='.$date))
+            ->assertOk()
+            ->viewData('page')['props']['slots'] ?? [];
+
+        if (! in_array($day->isoWeekday(), $openDays, true)) {
+            expect($anySlots)->toBeEmpty("a women's haircut is offered on {$date}, when no stylist who does one is rostered");
+
+            continue;
+        }
+
+        $daysOffered += $anySlots === [] ? 0 : 1;
+
+        if (! in_array($day->isoWeekday(), $herDays, true) || $anySlots === []) {
+            continue;
+        }
+
+        // With one stylist pinned, still bookable — but a subset, since one
+        // person cannot be free where nobody was.
+        $pinnedSlots = $this->get(tenantHost(
+            $slug,
+            '/book?service='.$women->getKey().'&staff='.$stylist->getKey().'&date='.$date,
+        ))->assertOk()->viewData('page')['props']['slots'] ?? [];
+
+        expect(count($pinnedSlots))->toBeLessThanOrEqual(count($anySlots));
+        $compared = true;
+    }
+
+    expect($daysOffered)->toBeGreaterThan(0, 'no women\'s haircut is bookable on any rostered day of the coming week')
+        ->and($compared)->toBeTrue('the stylist was never free on one of her own shifts all week');
 });
 
 // --- The numbers -----------------------------------------------------------

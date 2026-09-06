@@ -189,9 +189,43 @@ it('serves a public page a visitor can actually book on', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page->has('slots', fn (Assert $slots) => $slots->etc()));
 
-    $slots = $this->get(tenantHost($slug, '/book'))->viewData('page')['props']['slots'] ?? [];
+    // ⚠️ Deliberately NOT the dateless `/book`. The picker lands on today
+    // (BuildsSlotView) and the practice is shut at the weekend, so asking about
+    // the landing day was an assertion that held five days a week and failed on
+    // the other two — it sat green on `main` until a Sunday CI run tripped over
+    // it. Ask across a full week instead, and make the public grid agree with the
+    // practitioner's own hours in BOTH directions: slots when she is in, none
+    // when she is not.
+    $openDays = Schedule::withoutGlobalScopes()
+        ->where('schedulable_type', (new Staff)->getMorphClass())
+        ->distinct()
+        ->pluck('day_of_week')
+        ->map(fn ($day): int => (int) $day)
+        ->all();
 
-    expect($slots)->not->toBeEmpty();
+    expect($openDays)->not->toBeEmpty('the practitioner has no hours at all');
+
+    // From tomorrow: today's remaining hours can legitimately be used up.
+    $day = Carbon::today($tenant->timezone)->addDay();
+    $daysOffered = 0;
+
+    for ($i = 0; $i < 7; $i++, $day->addDay()) {
+        $slots = $this->get(tenantHost($slug, '/book?date='.$day->toDateString()))
+            ->assertOk()
+            ->viewData('page')['props']['slots'] ?? [];
+
+        if (in_array($day->isoWeekday(), $openDays, true)) {
+            $daysOffered += $slots === [] ? 0 : 1;
+
+            continue;
+        }
+
+        expect($slots)->toBeEmpty("the practice offers slots on {$day->toDateString()}, when it is closed");
+    }
+
+    // A single open day can legitimately be full — the seeded day off is one —
+    // so it is the week as a whole that has to be bookable.
+    expect($daysOffered)->toBeGreaterThan(0, 'the practice offers no slots on any open day of the coming week');
 });
 
 it('offers the document order as a service with no time slot', function () {
