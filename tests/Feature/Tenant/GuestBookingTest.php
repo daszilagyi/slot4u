@@ -39,11 +39,23 @@ use Spatie\Permission\PermissionRegistrar;
 // Notifications are faked globally (tests/Pest.php).
 
 beforeEach(function () {
+    // ⚠️ Every fixture in this file is pinned to Monday 2026-09-07 — the
+    // schedule band, the requested slot, the events. Without a pinned clock
+    // that date is only in the future until it isn't: on 2026-09-08 the two
+    // event tests below started 404ing, because `bookableEventService()` refuses
+    // an event whose `starts_at` is in the past, and the suite broke with no
+    // commit behind it.
+    //
+    // The sibling PublicEventViewTest — same event fixtures — has always frozen
+    // the clock this way; this file simply never did.
+    Carbon::setTestNow('2026-09-01 08:00:00');
+
     $this->seed(PermissionSeeder::class);
     $this->seed(BasePlanSeeder::class);
 });
 
 afterEach(function () {
+    Carbon::setTestNow();
     app(PermissionRegistrar::class)->setPermissionsTeamId(null);
     app(TenantManager::class)->forget();
 });
