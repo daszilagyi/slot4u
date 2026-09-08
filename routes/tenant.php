@@ -35,6 +35,7 @@ use App\Http\Controllers\SecurityController;
 use App\Http\Controllers\StaffProfileController;
 use App\Http\Controllers\Super\ImpersonationController;
 use App\Http\Controllers\Tenant\BookingController as TenantBookingController;
+use App\Http\Controllers\Tenant\DemoLoginController;
 use App\Http\Controllers\Tenant\HomeController as TenantHomeController;
 use App\Http\Controllers\Tenant\MyBookingController;
 use App\Http\Controllers\Tenant\MyInvoiceController;
@@ -57,6 +58,18 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
     Route::get('/', [TenantHomeController::class, 'index'])
         ->middleware('throttle:public')
         ->name('tenant.home');
+
+    // ⚠️ One-click sign-in to a DEMO tenant's admin panel (SLO-192).
+    //
+    // The only route in the application that hands a session to an anonymous
+    // visitor, so it is fenced on four sides: `signed` (the URL carries a
+    // signature over its own expiry), a 15-minute lifetime baked into that
+    // signature by whoever generated it, a rate limit, and — the one that
+    // actually matters — an `is_demo` check in the controller that 404s a real
+    // tenant no matter how valid the signature looks.
+    Route::get('/demo/login', DemoLoginController::class)
+        ->middleware(['signed', 'throttle:demo-login'])
+        ->name('tenant.demo.login');
 
     // Per-tenant SEO machine assets (SLO-89). Not Inertia. The branded OG PNG is
     // lazily rendered with GD and cached to the public disk; a light throttle caps

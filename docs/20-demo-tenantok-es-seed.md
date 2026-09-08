@@ -317,6 +317,8 @@ Az első **nem-wellness** vertikális, és a bizonyíték, hogy a foglalási mot
   - Superadmin felületen a demo tenant kap egy „DEMO" badge-et; a globális statisztikákból (MRR, aktív tenantok) a demo tenantok kiszűrve.
   - ~~Demo tenant `subscriptions` rekordja `active`, de fizetési provider nélkül~~ → **a megvalósításban másképp** (SLO-182): `subscriptions` tábla nincs, a lépcsős csomagmodell megszűnt (CLAUDE.md, docs/10). A mai megfelelője a **jutalék-számlázásból való kizárás**: a `billing:close-periods` átugorja a demo tenant nyitott időszakait (nem zárja, nem állít ki jutalékszámlát), a `billing:dunning-sweep` pedig sem nem sürget, sem nem függeszt fel. Ez utóbbi a lényeg: a felfüggesztés a publikus felületet zárja le, ami egy demo tenantnál maga a termék — enélkül a sales-demo 22 nap után magától elsötétülne.
 
+  - **Publikus demo-belépőpont** (SLO-192, `docs/21` §2.1): a `demo/login` útvonal aláírt, 15 perces, IP-nként percenként 10-szer hívható, és **kizárólag `is_demo = true` tenanton él** — másra 404 (nem 403: a téves tipp ne igazolja vissza, hogy a tenant létezik). A landing persona-listája ugyanebből a jelzőből épül, nem kódba írt névsorból. A demo tenant az egyetlen, amelynek oldalait `iframe`-be lehet tenni (`SecurityHeaders`: `X-Frame-Options` elhagyva + `frame-ancestors` a központi domainre); minden más tenant `DENY`-t kap. A demo minden oldalán — publikuson és adminon is — ott a „DEMO · fiktív adatok" sáv.
+
 ### 3.2 Parancsok
 
 > **⚠️ Megvalósítási megjegyzés (SLO-183) — a bontás sorrendje biztonsági kérdés.**

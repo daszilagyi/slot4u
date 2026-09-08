@@ -187,7 +187,7 @@ class HandleInertiaRequests extends Middleware
      * to no logo + the default colour, matching the cover gate in HomeController
      * and the locked branding editor in SettingsController (SLO-90).
      *
-     * @return array{name: string, slug: string, logo_url: string|null, primary_color: string, primary_foreground: string}|null
+     * @return array{id: int, name: string, slug: string, is_demo: bool, logo_url: string|null, primary_color: string, primary_foreground: string}|null
      */
     private function tenantIdentity(): ?array
     {
@@ -212,6 +212,12 @@ class HandleInertiaRequests extends Middleware
             'id' => $tenant->getKey(),
             'name' => $tenant->name,
             'slug' => $tenant->slug,
+            // Drives the "DEMO · fictional data" bar on every page of a demo
+            // tenant (SLO-192). Shared rather than passed per page on purpose:
+            // the visitor arrives inside an iframe on the marketing site and may
+            // click anywhere, so a bar that only one controller remembers to
+            // send is a bar that disappears on the second page.
+            'is_demo' => $tenant->is_demo,
             'logo_url' => $branded ? $branding->logoUrl() : null,
             'primary_color' => $primaryColor,
             // Both halves of the token, because the public shell overrides both:

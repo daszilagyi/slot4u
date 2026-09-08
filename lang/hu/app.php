@@ -161,6 +161,51 @@ return [
             'payment_hint' => 'Kérheted előre a díjat, számlával együtt — vagy hagyhatod a pultra.',
         ],
 
+        // „Próbáld ki élőben" (docs/21 §2, 6. sor + §2.1) — a landing
+        // legerősebb konverziós eleme: a látogató két kattintásból egy működő
+        // foglalófelületen vagy demo dashboardon áll.
+        'demo_title' => 'Próbáld ki élőben, regisztráció nélkül',
+        // ⚠️ Szándékosan NINCS benne darabszám. A lista az `is_demo` jelzőből
+        // épül (l. HomeController), tehát egy hatodik persona seedelése egy
+        // hazug mondattá tenné a „négy"-et — ahogy az ötödik (autószerviz)
+        // már tette is.
+        'demo_lead' => 'Kitalált vállalkozások, nagyon különböző működéssel — mind ugyanazon a motoron. Kattints bármit: minden éjjel visszaáll.',
+        'demo_view_customer' => 'Ügyfélként foglalok',
+        'demo_view_admin' => 'Admin nézet',
+        'demo_book_as_customer' => 'Foglalok ügyfélként',
+        'demo_open' => 'Megnyitom a demót',
+        'demo_frame_title' => ':name demo foglalóoldala',
+        // ⚠️ Ez a mondat nem marketingszöveg, hanem figyelmeztetés: a látogató
+        // sose higgye valósnak, amit a keretben lát.
+        'demo_caption' => 'Fiktív adatok · nem küld e-mailt és SMS-t · a fizetés sandbox · hajnali 3-kor minden visszaáll.',
+        'demo' => [
+            // Persona-kártyák szövege, tenant-slug szerint. ⚠️ Ha egy demo
+            // tenanthoz nincs sor, a kártya egyszerűen kevesebbet mutat — a
+            // lista a `is_demo` jelzőből jön, nem innen (l. HomeController).
+            'persona' => [
+                'demo-pszichologus' => [
+                    'size' => 'Egyszemélyes',
+                    'try' => 'Próbáld: első konzultáció foglalása — jóváhagyásra váró státuszt kapsz.',
+                ],
+                'demo-szepsegszalon' => [
+                    'size' => 'Több dolgozós',
+                    'try' => 'Próbáld: válassz kollégát vagy hagyd a „bárki" opciót — saját arculattal.',
+                ],
+                'demo-fitnesz' => [
+                    'size' => 'Teljes',
+                    'try' => 'Próbáld: iratkozz fel egy telt csoportóra várólistájára, vagy vidd végig a sandbox-fizetést.',
+                ],
+                'demo-rendezvenyhaz' => [
+                    'size' => 'Ajánlat-alapú',
+                    'try' => 'Próbáld: kérj ajánlatot egy rendezvényre — itt nem időpontot foglalsz.',
+                ],
+                'demo-autoszerviz' => [
+                    'size' => 'Szerviz',
+                    'try' => 'Próbáld: foglalj kerékcserét egy szombati gumis állásra.',
+                ],
+            ],
+        ],
+
         // GYIK (docs/21 §2, 9. sor). ⚠️ MINDEN válasz ellenőrzött tény, és a
         // kényelmetlenek is bent vannak — a lemondási szabály azért, mert egy
         // meglepetés-jutalék a számlán rosszabb, mint egy őszinte sor itt.
@@ -186,6 +231,15 @@ return [
         'footer_rights' => '© :year slot4u',
     ],
     'tenant' => [
+        // Demo tenant jelzések (SLO-192, docs/21 §2.1). ⚠️ A sáv minden demo
+        // oldalon látszik: a personák valósághűek — ez a lényegük —, és épp
+        // ezért ki kell mondani, hogy nem valódi vállalkozások.
+        'demo' => [
+            'banner' => 'DEMO · fiktív adatok · nem küldünk e-mailt és SMS-t · hajnali 3-kor minden visszaáll',
+            'cta_title' => 'Tetszett? Ilyet te is kapsz, 5 perc alatt.',
+            'cta_lead' => 'Saját foglalóoldal a saját aldomaineden, havidíj nélkül. Jutalékot csak akkor számolunk, ha már van forgalmad.',
+            'cta_button' => 'Elkezdem ingyen',
+        ],
         'home' => [
             'subtitle' => 'Foglalj online, néhány kattintással.',
             'meta_description' => ':name — foglalj online, néhány kattintással.',

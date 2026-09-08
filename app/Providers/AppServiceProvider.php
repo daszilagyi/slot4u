@@ -252,6 +252,14 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('public', fn (Request $request) => Limit::perMinute(60)
             ->by($this->publicRateLimitKey($request)));
 
+        // ⚠️ Tighter still, because this one hands out a SESSION (SLO-192). The
+        // URL is signed and short-lived, but a signed URL is still a URL: without
+        // a limit it is replayable as fast as a script can ask, and each hit
+        // creates a session and a log line. Ten a minute is more than a human
+        // clicking a demo link, and far less than anything automated.
+        RateLimiter::for('demo-login', fn (Request $request) => Limit::perMinute(10)
+            ->by((string) $request->ip()));
+
         // Checkout is tighter: every attempt opens a payment row.
         RateLimiter::for('checkout', fn (Request $request) => Limit::perMinute(20)
             ->by($this->publicRateLimitKey($request)));

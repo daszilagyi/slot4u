@@ -43,6 +43,10 @@ export default function MarketingLayout({ children }: PropsWithChildren) {
     const navLinks = [
         { href: '#funkciok', label: t('welcome.nav.features') },
         { href: '#arazas', label: t('welcome.nav.pricing') },
+        // Points at the live demo section rather than straight out to a tenant
+        // (SLO-192): from there the visitor picks which business to look at, and
+        // the page they came for is still behind them.
+        { href: '#demo', label: t('welcome.nav.demo') },
     ];
 
     return (
@@ -132,6 +136,9 @@ export default function MarketingLayout({ children }: PropsWithChildren) {
                                 </FooterLink>
                                 <FooterLink href="#arazas">
                                     {t('welcome.nav.pricing')}
+                                </FooterLink>
+                                <FooterLink href="#demo">
+                                    {t('welcome.nav.demo')}
                                 </FooterLink>
                                 <FooterLink href="/register">
                                     {t('welcome.cta_primary')}

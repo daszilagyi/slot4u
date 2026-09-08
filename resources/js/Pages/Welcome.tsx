@@ -6,9 +6,11 @@ import HowItWorks from '@/components/landing/HowItWorks';
 import FeatureGrid from '@/components/landing/FeatureGrid';
 import Faq from '@/components/landing/Faq';
 import ProductShowcase from '@/components/landing/ProductShowcase';
+import TryItLive from '@/components/landing/TryItLive';
 import MarketingLayout from '@/Layouts/MarketingLayout';
 import { useTranslations } from '@/lib/i18n';
 import { formatMoney, formatRate } from '@/lib/format';
+import type { DemoPersona } from '@/types';
 
 /**
  * The commission terms as the server resolved them (SLO-50). Null when the
@@ -29,6 +31,12 @@ type CommissionTerms = {
 type Props = {
     commission: CommissionTerms | null;
     demo_url: string | null;
+    /**
+     * The demo tenants a visitor can walk into (SLO-192). Empty on an
+     * installation with nothing seeded — the section then renders nothing at all
+     * rather than a dead first click.
+     */
+    demo_personas: DemoPersona[];
     /** Absolute URL of the link-preview card — see HomeController. */
     og_image: string;
 };
@@ -70,7 +78,12 @@ function Tile({ title, hint }: { title: string; hint: string }) {
     );
 }
 
-export default function Welcome({ commission, demo_url, og_image }: Props) {
+export default function Welcome({
+    commission,
+    demo_url,
+    demo_personas,
+    og_image,
+}: Props) {
     const t = useTranslations();
     const currency = commission?.currency ?? 'HUF';
 
@@ -349,6 +362,11 @@ export default function Welcome({ commission, demo_url, og_image }: Props) {
 
             {/* row 5 */}
             <ProductShowcase />
+
+            {/* row 6 — the live demo. The strongest thing on the page, and the
+                only section whose content is a running copy of the product
+                rather than a description of it (docs/21 §2.1). */}
+            <TryItLive personas={demo_personas} />
 
             {/* row 9 */}
             <Faq />

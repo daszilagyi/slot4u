@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Support\Analytics\PageAnalytics;
 use App\Support\ContentSecurityPolicy;
+use App\Tenancy\TenantManager;
 use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Vite;
@@ -35,7 +36,22 @@ class SecurityHeaders
         // Applies to every response, not just documents: a JSON or PDF response
         // that a browser sniffs into HTML is exactly the case this prevents.
         $response->headers->set('X-Content-Type-Options', 'nosniff');
-        $response->headers->set('X-Frame-Options', (string) ($headers['frame_options'] ?? 'DENY'));
+
+        // ⚠️ The one surface allowed inside a frame: a demo tenant, embedded by
+        // the marketing site (SLO-192).
+        //
+        // `X-Frame-Options` cannot say "this one origin" — `ALLOW-FROM` is dead
+        // in every current browser — so for a demo tenant the header is OMITTED
+        // and `frame-ancestors` below carries the rule instead. That is the
+        // modern mechanism and the more precise one; in a browser too old to
+        // honour CSP the page would be framable by anyone, which for a tenant
+        // holding nothing but fixtures (docs/20 §3.1) is a trade worth naming
+        // rather than a hole worth closing.
+        //
+        // Every other tenant, and every non-tenant surface, keeps DENY.
+        if (! $this->isEmbeddableDemo()) {
+            $response->headers->set('X-Frame-Options', (string) ($headers['frame_options'] ?? 'DENY'));
+        }
         $response->headers->set('Referrer-Policy', (string) ($headers['referrer_policy'] ?? 'strict-origin-when-cross-origin'));
         $response->headers->set('Permissions-Policy', (string) ($headers['permissions_policy'] ?? ''));
 
@@ -61,7 +77,7 @@ class SecurityHeaders
             devServer: $hot ? $this->devServerOrigin() : null,
             websocket: $this->websocketOrigin(),
             errorReporting: $this->errorReportingOrigin(),
-            extra: (array) config('security.csp.extra'),
+            extra: $this->cspExtra(),
             // Measurement origins, from the very object the root Blade asked
             // whether to emit the tag (SLO-172) — so the policy can never permit
             // Google on a page that did not load it, nor block it on one that
@@ -69,6 +85,44 @@ class SecurityHeaders
             // consent and host have already decided the answer.
             analytics: app(PageAnalytics::class)->cspOrigins(),
         ))->build();
+    }
+
+    /**
+     * Whether THIS request is for a demo tenant's own pages.
+     *
+     * ⚠️ Read from the resolved tenant, not from the host string. A host can be
+     * spoofed by a proxy header; `is_demo` is a column, set on a model the
+     * tenancy middleware already looked up, and it is the same flag every other
+     * demo guardrail keys on (docs/20 §3.1).
+     */
+    private function isEmbeddableDemo(): bool
+    {
+        return app(TenantManager::class)->current()?->is_demo === true;
+    }
+
+    /**
+     * CSP additions for this request.
+     *
+     * @return array{script?: string, connect?: string, img?: string, frame?: string}
+     */
+    private function cspExtra(): array
+    {
+        /** @var array{script?: string, connect?: string, img?: string, frame?: string} $extra */
+        $extra = (array) config('security.csp.extra');
+
+        if (! $this->isEmbeddableDemo()) {
+            return $extra;
+        }
+
+        // The marketing site, and nothing else. `'self'` keeps the demo able to
+        // frame its own pages; the central domain is what the "try it live"
+        // section is served from.
+        $scheme = request()->isSecure() ? 'https' : 'http';
+        $central = $scheme.'://'.config('tenancy.central_domain');
+
+        $extra['frame'] = trim(($extra['frame'] ?? '').' \'self\' '.$central);
+
+        return $extra;
     }
 
     /**
