@@ -152,7 +152,25 @@
  * always supplies one (indigo by default) — their shop window stays theirs,
  * which is the same line the data-controller split follows (docs/19 §2).
  */
-:root {
+/*
+ * ⚠️ `.theme-light` is not a second palette — it is THIS one, reachable from
+ * inside a dark document (SLO-208).
+ *
+ * The marketing site is drawn as a light page with two navy bands (docs/21 §2);
+ * there is no designed dark version of it. But `.dark` is the default on
+ * `<html>`, and it overrides only the shadcn role tokens — never the brand ones
+ * the landing actually uses (`text-ink`, `border-line`, `bg-brand-100`). The
+ * result was ink #14212F on card #122234: a contrast ratio of 1.01, which is to
+ * say invisible.
+ *
+ * Re-declaring the same custom properties on a wrapper element is what fixes it,
+ * and it works precisely because of the `@theme inline` above: utilities emit
+ * `var(--ink)` rather than a colour settled at the root, so the nearest
+ * declaration wins for that subtree. The theme toggle keeps working everywhere
+ * else, and the app stays dark.
+ */
+:root,
+.theme-light {
     /*
      * ⚠️ The palette's hex values live HERE, not in `@theme inline`.
      *

@@ -178,7 +178,15 @@ brand #1B4F72 (linkek, ikonok, aktív nav); brand-100 #E6F0F8 és brand-200 #C9D
 egy kiemelt szó a címben – szövegszínnek soha); ice #7CC4F5 (csak fókuszgyűrű, 1px
 rácsháló, glow – kitöltésre soha); canvas #F5F7FA; line #DCE4EC; ink #14212F;
 ink-muted #5B6B7C; ok #1E9E6A; warn #D9781E; err #D33A3A (csak státusz).
-Dark mode: surface #0B1622 / #122234, line #23384D, a többi változatlan.
+Dark mode: **a főoldalnak nincs sötét változata** — a lap világosnak van tervezve, két navy
+sávval (§2, 5. és 10. sor), és ez a két sáv adja a kontrasztritmusát. ⚠️ **Javítva 2026-09-08
+(SLO-208):** a korábbi „surface #0B1622 / #122234, line #23384D, a többi változatlan" mondat
+használhatatlan volt. Az „a többi változatlan" azt jelentette, hogy az `ink #14212F` a sötét
+felületen is marad — 1,01:1 kontraszt, azaz olvashatatlan szöveg —, és a `line #23384D` is csak
+a shadcn `--border` szerepre került rá, a márka `--line` tokenre nem. A megvalósítás hűen követte
+ezt a sort; a sor volt a hibás. A marketing shell ezért `theme-light` osztállyal a világos
+palettához van rögzítve, és **nincs témaváltó a fejlécében**. A sötét mód az alkalmazás felületeié
+(admin, tenant publikus oldal), ahol a shadcn szerep-tokenek végig felül vannak írva.
 
 Typography: Poppins 700/600 címekre (40/28/20 px, -0.02em); Inter 400–600 body és UI
 (17/15/13 px); JetBrains Mono 500 minden időpontra, árra, számra (tabular-nums);

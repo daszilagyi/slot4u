@@ -4,7 +4,6 @@ import type { PropsWithChildren } from 'react';
 
 import BrandLockup from '@/components/BrandLockup';
 import { CookieConsent, CookieSettingsLink } from '@/components/CookieConsent';
-import ThemeToggle from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
 import { BRAND_NAME } from '@/lib/brand';
 import { useTranslations } from '@/lib/i18n';
@@ -50,7 +49,14 @@ export default function MarketingLayout({ children }: PropsWithChildren) {
     ];
 
     return (
-        <div className="flex min-h-screen flex-col bg-background text-foreground">
+        // ⚠️ `theme-light` pins the marketing shell to the light palette
+        // (SLO-208). The page is designed light with two navy bands (docs/21
+        // §2) — there is no dark version of it — but `.dark` is the default on
+        // <html> and leaves the brand tokens at their light values, which put
+        // near-black ink on a near-black card. Scoping the palette here rather
+        // than stripping `.dark` from <html> keeps the app's own dark mode, and
+        // survives an Inertia navigation without a flash of the wrong theme.
+        <div className="theme-light flex min-h-screen flex-col bg-background text-foreground">
             <header
                 className={`sticky top-0 z-40 transition-colors duration-200 ${
                     scrolled
@@ -81,8 +87,12 @@ export default function MarketingLayout({ children }: PropsWithChildren) {
                         ))}
                     </nav>
 
+                    {/*
+                        No theme toggle here (SLO-208): this shell is pinned to
+                        the light palette, so a switch would be a control that
+                        visibly does nothing. The app's own surfaces keep theirs.
+                    */}
                     <div className="flex items-center gap-2">
-                        <ThemeToggle />
                         {auth.user === null ? (
                             <>
                                 <Button asChild variant="ghost" size="sm">
