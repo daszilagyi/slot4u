@@ -136,7 +136,44 @@ class AvailabilityService
             $cursor->addDay();
         }
 
-        return $slots;
+        return $this->stillBookable($slots);
+    }
+
+    /**
+     * Drop the slots that have already started (SLO-207).
+     *
+     * ⚠️ This is where "available" gets its visitor-facing meaning, and it lives
+     * in the service rather than in a form request on purpose: the same answer
+     * has to hold for BOTH the grid the picker draws AND the slot a submission is
+     * matched against (BuildsSlotView::matchAvailableSlot — named in prose, not
+     * imported: a domain service should not reach up into the controller layer
+     * even for a docblock).
+     * A rule written at one endpoint would only ever have covered one of them —
+     * and the gap was real in both directions: a visitor opening today's page at
+     * 15:00 was still offered the 09:00 slot, and a crafted POST could book any
+     * time in the past.
+     *
+     * ⚠️ The admin surface is deliberately NOT affected, and must not become so.
+     * An admin records what already happened — this morning's walk-in, yesterday's
+     * phone booking — so retroactive entry is a feature there, not a hole. That
+     * path never reaches this service: it goes through Admin\BookingRequest and
+     * CreateBooking. A test asserts it stays that way.
+     *
+     * A slot starting exactly now survives: it has not started yet, and rounding
+     * that edge the other way would make the boundary depend on which side of a
+     * millisecond the request landed.
+     *
+     * @param  list<Slot>  $slots
+     * @return list<Slot>
+     */
+    private function stillBookable(array $slots): array
+    {
+        $now = Carbon::now();
+
+        return array_values(array_filter(
+            $slots,
+            fn (Slot $slot): bool => $slot->start->greaterThanOrEqualTo($now),
+        ));
     }
 
     /**
@@ -294,6 +331,15 @@ class AvailabilityService
         // $minDuration, any valid longer-duration start is also a valid min-length
         // grid start, so this rejects off-grid crafted starts.
         $startLocal = $start->copy()->timezone($timezone);
+
+        // ⚠️ The free-range path builds its own slot instead of picking one off
+        // the grid, so it does not inherit the filter in stillBookable() — it has
+        // to refuse the past itself, or the whole guard has a rental-shaped hole
+        // in it (SLO-207).
+        if ($startLocal->lessThan(Carbon::now())) {
+            return null;
+        }
+
         $onGrid = false;
         foreach ($this->gridStarts($windows, $minDuration, $interval) as $gridStart) {
             if ($gridStart->equalTo($startLocal)) {

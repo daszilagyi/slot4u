@@ -41,7 +41,12 @@ use Spatie\Permission\PermissionRegistrar;
 beforeEach(function () {
     $this->seed(PermissionSeeder::class);
     $this->seed(BasePlanSeeder::class);
-    Carbon::setTestNow('2026-09-07 06:00:00');
+    // ⚠️ Before the overnight booking, not after it (SLO-207). The tenant is
+    // Europe/Budapest, so the 2026-09-07 grid opens at 2026-09-06 22:00 UTC —
+    // with the clock at 06:00 on the 7th that slot is in the past, and the
+    // "offers it back once the booking has ended" case below would be asserting
+    // against a slot the service is now right to withhold.
+    Carbon::setTestNow('2026-09-06 12:00:00');
 });
 
 afterEach(function () {
