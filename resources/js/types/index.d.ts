@@ -25,10 +25,34 @@ export type TenantIdentity = {
     id: number;
     name: string;
     slug: string;
+    /** A sales-demo workspace whose data is fictional and reset nightly (SLO-192). */
+    is_demo: boolean;
     logo_url: string | null;
     primary_color: string;
     /** Readable text colour for `primary_color` (TenantBranding::readableForeground). */
     primary_foreground: string;
+};
+
+/**
+ * A demo tenant offered on the landing page's "try it live" section (SLO-192).
+ *
+ * ⚠️ `admin_url` is a signed, short-lived, single-purpose URL minted per render
+ * (HomeController::demoPersonas). It is not a route to build by hand: without
+ * the signature it 403s, and against a tenant that is not a demo it 404s.
+ */
+export type DemoPersona = {
+    slug: string;
+    name: string;
+    /** One line from the tenant's own profile, or null when it has none. */
+    description: string | null;
+    public_url: string;
+    admin_url: string;
+    /**
+     * When `admin_url`'s signature dies (ISO-8601). Sent because the link is
+     * minted at render time: a tab left open past this would meet a 403 inside
+     * the demo frame, and a stale link has to be replaced, not followed.
+     */
+    admin_url_expires_at: string;
 };
 
 export type RoomTypeValue = 'room' | 'equipment';

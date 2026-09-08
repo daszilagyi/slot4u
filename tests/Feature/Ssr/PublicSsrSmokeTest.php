@@ -157,6 +157,42 @@ it('server-renders the middle of the landing page too', function () {
         ->toContain('Online fizetés');
 });
 
+it('server-renders the demo section without loading the demo itself', function () {
+    // ⚠️ Two claims in one test, and the second is the load-bearing one.
+    //
+    // The cards have to arrive with the document — they are the section's
+    // content, and a crawler reading "try it live" over an empty column learns
+    // nothing. The IFRAME must NOT: it is a whole application, gated behind an
+    // IntersectionObserver precisely so it never competes with the hero's LCP
+    // budget (docs/21 §2.1). If it ever shows up in server markup, that gate has
+    // been lost — and the symptom is a slow page, which nobody attributes to a
+    // diff in this file.
+    $this->seed(CommissionSettingSeeder::class);
+
+    Tenant::factory()->active()->create([
+        'slug' => 'demo-fitnesz',
+        'name' => 'Premium Fitness Studio SSR',
+        'is_demo' => true,
+    ]);
+
+    $content = $this->get('http://'.config('tenancy.central_domain'))->assertOk()->getContent();
+    $rendered = renderedMarkupOnly($content);
+
+    expect($rendered)
+        ->toContain('Próbáld ki élőben')
+        ->toContain('Premium Fitness Studio SSR')
+        // The persona's size label, off the lang file rather than the database.
+        ->toContain('Teljes')
+        // ⚠️ The warning, which is the one line on this page that must never be
+        // quietly dropped: the personas are written to look like real
+        // businesses.
+        ->toContain('Fiktív adatok')
+        // The host in the frame's address bar — the visitor's own subdomain,
+        // shown as it will look.
+        ->toContain('demo-fitnesz.'.config('tenancy.central_domain'))
+        ->not->toContain('<iframe');
+});
+
 it('server-renders the closing block, FAQ answers included', function () {
     // ⚠️ The answers, not just the questions. An accordion whose text lives only
     // in React state is one a crawler never reads — and the FAQ is the part of

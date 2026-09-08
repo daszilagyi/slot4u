@@ -157,3 +157,27 @@ export function trackPurchase(purchase: {
         { eventID: purchase.transactionId },
     );
 }
+
+/**
+ * A step in the demo funnel (SLO-192, docs/21 §2.1).
+ *
+ * GA4 only, and deliberately: these are product-usage events, not conversions —
+ * Meta's catalogue has nothing to map "somebody clicked the fitness card" onto,
+ * and inventing a custom pixel event for it would pollute the ad account's
+ * optimisation signal with traffic that never buys anything.
+ *
+ * ⚠️ No parameter here may identify a visitor. The persona slug is a public
+ * fixture name and the surface is one of three constants; the events answer
+ * "which demo do people open, and from where", which is all they are for.
+ */
+export function trackDemo(
+    event:
+        | 'demo_select_persona'
+        | 'demo_open_public'
+        | 'demo_open_admin'
+        | 'demo_booking_completed'
+        | 'demo_cta_register',
+    params: Record<string, string> = {},
+): void {
+    gtag('event', event, params);
+}

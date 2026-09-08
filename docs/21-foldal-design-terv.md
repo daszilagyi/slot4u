@@ -103,6 +103,37 @@ Alatta egy sor caption (`ink-muted`, 13 px): „Fiktív adatok · nem küld e-ma
 - Sikeres demo-foglalás után a visszaigazoló oldalon egy kártya: „Tetszett? Ilyet kapsz te is 5 perc alatt →” (navy gomb a regisztrációra) — ez a szekció valódi konverziós pontja.
 - Esemény-mérés (GA4/Clarity): `demo_select_persona`, `demo_open_public`, `demo_open_admin`, `demo_booking_completed`, `demo_cta_register`.
 
+> ### ⚠️ Megvalósítási megjegyzés (SLO-192, 2026-09-06) — mi épült meg és mi tér el
+>
+> **Az útvonal alakja más, mint a fenti spec.** Nem `GET /demo/login/{tenant}?t={signed}` a központi
+> domainen, hanem **`GET /demo/login` a tenant saját aldoménjén**, Laravel-natív aláírással
+> (`URL::temporarySignedRoute`). Így a tenantot a meglévő `identify.tenant` middleware oldja fel —
+> nem kell egy második, kézzel írt tenant-feloldás arra az egyetlen útvonalra, ami munkamenetet ad
+> névtelen látogatónak. Az aláírás a teljes URL-t fedi, a lejárat 15 perc, a rate limit 10/perc/IP.
+>
+> **Nincs külön `demo_logins` tábla.** Minden belépés az alkalmazásnaplóba megy (`Log::info`,
+> tenant + user_id + IP). Egy tábla itt olyan adatot tartana el, amit senki nem kérdez le, viszont
+> naponta 03:00-kor a `demo:reset` mellé kellene takarítani is.
+>
+> **Amiért a látogató landol: Manager, nem tulajdonos.** Amit a Manager *nem* ér el, az fele annak,
+> amit a jogosultsági mátrix megmutat (`docs/03`); tulajdonosként belépve a demo egy olyan
+> jogosultsági modellt mutatna, aminek nincs mit mutatnia. Ahol nincs Manager (egyszemélyes praxis),
+> a tenant-admin a tartalék.
+>
+> **A persona-lista az `is_demo` jelzőből jön**, nem a landing forrásából. Egy oldal, ami négy
+> personát a saját kódjában sorol fel, az az oldal, ami az ötödikre nem linkel és a törölt negyediket
+> tovább hirdeti. A `demo-smoke` és a nem aktív tenantok kimaradnak.
+>
+> **Ami elmaradt, és miért:** a keret sarkában a *laptopos lajhár* avatar és a placeholder-screenshotok
+> (`docs/design/foldal/06-demo-*.png`) — mindkettő **SLO-202** asset, ami még nem létezik. A keret
+> helyükön skeletont mutat, mobilon pedig a screenshot helyett a chip-sor + „Megnyitom a demót" gomb
+> áll. Ha az assetek megjönnek, csak a placeholder cserélődik.
+>
+> **Ami többet kapott a specnél:** a „DEMO · fiktív adatok" sáv nem csak a publikus foglalóoldalon
+> van, hanem a demo tenant **admin felületén is** — a látogató az iframe-ből bárhová kattinthat, és
+> egy sáv, amire csak egy controller emlékszik, a második oldalon eltűnik. Ezért a `tenant.is_demo`
+> megosztott Inertia propból jön.
+
 **Miért ez, és nem screenshot-galéria:** a célcsoportod (pszichológus, szalon, edző) nem feature-listát vesz, hanem azt, hogy *az ő ügyfele* mit fog látni. Az élő iframe ezt a kérdést 10 másodperc alatt megválaszolja, és egyben a „high-tech” ígéretet is bizonyítja — a rendszer nem kép, hanem fut.
 
 **Üres állapotok és 404 az appban:** a lajhár *ül a laptopnál* póz + 1 mondat. Ez a kabala 4. pózának helye, a landing oldalon nem kell.

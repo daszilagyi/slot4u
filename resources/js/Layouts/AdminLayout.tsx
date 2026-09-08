@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { useState, type ReactNode } from 'react';
 
+import DemoBanner from '@/components/DemoBanner';
 import ImpersonationBanner from '@/components/ImpersonationBanner';
 import AdminTopbar, { type Breadcrumb } from '@/components/admin/AdminTopbar';
 import Sidebar from '@/components/admin/Sidebar';
@@ -27,6 +28,7 @@ export default function AdminLayout({
     return (
         <div className="min-h-screen bg-background text-foreground">
             <ImpersonationBanner />
+            <DemoBanner />
 
             <a
                 href="#admin-main"

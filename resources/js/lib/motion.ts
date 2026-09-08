@@ -18,60 +18,72 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from '
 const REDUCED_MOTION_QUERY = '(prefers-reduced-motion: reduce)';
 
 /**
- * Whether this visitor has asked for less motion.
+ * Whether a CSS media query currently matches.
  *
- * ⚠️ SSR-safe by construction. This project server-renders the public pages
- * (docs/01 §7), where `window` does not exist and no preference is knowable —
- * so the server assumes "no reduction" and the client corrects on hydration.
- * Assuming the opposite would be worse: the server would emit the still frame,
- * and every visitor who wants motion would see the page jump into life.
+ * ⚠️ `useSyncExternalStore` rather than state-plus-effect, and not merely to
+ * satisfy a lint rule: a media query IS an external store. Read it in an effect
+ * and the first paint is always the wrong answer, corrected one render later —
+ * which is a flash of the wrong layout on every load. This reads it during
+ * render on the client and takes the server snapshot on the server.
  *
- * The subscription matters as much as the initial read: a visitor can turn the
- * setting on while the page is open, and a hook that only checks at mount keeps
- * animating at somebody who just asked it to stop.
+ * The subscription matters as much as the initial read: a visitor rotates a
+ * phone, drags a window, or changes an accessibility setting with the page open,
+ * and a hook that only checks at mount is wrong from that moment on.
+ *
+ * ⚠️ The server always answers `false`. It has no window and no way to know, and
+ * every caller here is written so that "false" is the safe half: no reduction
+ * assumed, no desktop-only weight loaded.
  */
-export function useReducedMotion(): boolean {
-    // `useSyncExternalStore` rather than state-plus-effect, and not merely to
-    // satisfy a lint rule: a media query IS an external store, and reading it in
-    // an effect means the first paint is always the wrong answer, corrected one
-    // render later. This reads it during render on the client and takes the
-    // server snapshot on the server.
-    return useSyncExternalStore(subscribeToReducedMotion, getReducedMotion, getServerReducedMotion);
-}
+export function useMediaQuery(query: string): boolean {
+    const subscribe = useCallback(
+        (onChange: () => void): (() => void) => {
+            if (typeof window === 'undefined' || !window.matchMedia) {
+                return () => {};
+            }
 
-function subscribeToReducedMotion(onChange: () => void): () => void {
-    if (typeof window === 'undefined' || !window.matchMedia) {
-        return () => {};
-    }
+            const list = window.matchMedia(query);
+            list.addEventListener('change', onChange);
 
-    // Subscribed, not just read once: a visitor can turn the setting on while
-    // the page is open, and a hook that only checks at mount keeps animating at
-    // somebody who has just asked it to stop.
-    const query = window.matchMedia(REDUCED_MOTION_QUERY);
-    query.addEventListener('change', onChange);
+            return () => list.removeEventListener('change', onChange);
+        },
+        [query],
+    );
 
-    return () => query.removeEventListener('change', onChange);
-}
+    const getSnapshot = useCallback((): boolean => {
+        if (typeof window === 'undefined' || !window.matchMedia) {
+            return false;
+        }
 
-function getReducedMotion(): boolean {
-    if (typeof window === 'undefined' || !window.matchMedia) {
-        return false;
-    }
+        return window.matchMedia(query).matches;
+    }, [query]);
 
-    return window.matchMedia(REDUCED_MOTION_QUERY).matches;
+    return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
 
 /**
- * ⚠️ The server cannot know the preference, so it assumes motion is wanted.
+ * ⚠️ The server cannot know anything about the viewport or the visitor's
+ * settings, so every query answers `false` there.
  *
- * The opposite default would be worse: the server would render the still frame,
- * and every visitor who does want motion would watch the page jump into life on
- * hydration. This way the correction only reaches the minority who asked for
- * less — and for them the CSS floor in app.css has already flattened everything
- * before any JavaScript runs.
+ * For motion that is the better half of the guess: the server renders the
+ * animated page, and the correction only reaches the minority who asked for
+ * less — for whom the CSS floor in `app.css` has already flattened everything
+ * before any JavaScript runs. The opposite default would have every visitor who
+ * does want motion watch the page jump into life on hydration.
  */
-function getServerReducedMotion(): boolean {
+function getServerSnapshot(): boolean {
     return false;
+}
+
+/**
+ * Whether this visitor has asked for less motion.
+ *
+ * ⚠️ The CSS floor in `app.css` already flattens every transition and animation
+ * product-wide. This hook is for what CSS cannot reach — a Framer Motion
+ * variant, a `requestAnimationFrame` loop, a marquee that has to actually stop
+ * rather than run invisibly fast.
+ */
+export function useReducedMotion(): boolean {
+    return useMediaQuery(REDUCED_MOTION_QUERY);
 }
 
 type InViewOptions = {

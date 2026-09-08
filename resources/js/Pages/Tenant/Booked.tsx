@@ -11,7 +11,7 @@ import PublicLayout from '@/Layouts/PublicLayout';
 import { Badge } from '@/components/ui/badge';
 import ConfirmDialog from '@/components/admin/ConfirmDialog';
 import { Button } from '@/components/ui/button';
-import { trackPurchase } from '@/lib/analytics';
+import { trackDemo, trackPurchase } from '@/lib/analytics';
 import { formatMoney } from '@/lib/format';
 import { useTranslations } from '@/lib/i18n';
 import type { BookedBooking } from '@/types';
@@ -24,6 +24,12 @@ type BookedProps = {
      * render would count one booking many times over.
      */
     measurable?: boolean;
+    /**
+     * Where a demo visitor goes next (SLO-192). Non-null only on a demo tenant,
+     * and absolute — `/register` on this subdomain would sign them up as a
+     * customer of the fixture business they were just browsing.
+     */
+    register_url?: string | null;
 };
 
 // The /booked/{code} link is permanent, so an admin may later cancel, reject or
@@ -39,7 +45,11 @@ const KNOWN_STATUSES = [
     ...NEGATIVE_STATUSES,
 ];
 
-export default function Booked({ booking, measurable = false }: BookedProps) {
+export default function Booked({
+    booking,
+    measurable = false,
+    register_url = null,
+}: BookedProps) {
     const t = useTranslations();
     const [canceling, setCanceling] = useState(false);
 
@@ -57,6 +67,14 @@ export default function Booked({ booking, measurable = false }: BookedProps) {
             currency: booking.currency,
             itemName: booking.service,
         });
+
+        // The demo funnel's last step (SLO-192). Reported here rather than as
+        // its own effect so it inherits the server's once-only decision: a demo
+        // booking counted twice would overstate the one number this section
+        // exists to move.
+        if (register_url !== null) {
+            trackDemo('demo_booking_completed');
+        }
         // Deliberately keyed on the code alone: a re-render must not re-report,
         // and the server has already decided this is the one view that counts.
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -210,6 +228,38 @@ export default function Booked({ booking, measurable = false }: BookedProps) {
                         <Link href="/">{t('tenant.booked.back')}</Link>
                     </Button>
                 </div>
+
+                {/*
+                    The demo's real conversion point (docs/21 §2.1). A visitor
+                    who has just carried a booking through to a confirmation
+                    code has seen the whole product work; this is the one moment
+                    where "you can have this" is an answer rather than a pitch.
+
+                    ⚠️ Below the booking, never above it — even a fictional
+                    booking's confirmation is what the visitor came for, and a
+                    marketing card between them and their code would be the
+                    thing they remember about the demo.
+                */}
+                {register_url !== null ? (
+                    <div className="flex flex-col items-center gap-3 rounded-xl border border-border bg-card px-4 py-6 text-center">
+                        <p className="font-medium">
+                            {t('tenant.demo.cta_title')}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                            {t('tenant.demo.cta_lead')}
+                        </p>
+                        <Button asChild>
+                            {/* Plain anchor: the platform register page is on
+                                another host entirely, outside this Inertia app. */}
+                            <a
+                                href={register_url}
+                                onClick={() => trackDemo('demo_cta_register')}
+                            >
+                                {t('tenant.demo.cta_button')}
+                            </a>
+                        </Button>
+                    </div>
+                ) : null}
             </div>
 
             <ConfirmDialog

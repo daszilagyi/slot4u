@@ -558,6 +558,18 @@ class BookingController extends Controller
             'timezone' => $timezone,
             // Whether THIS view should report a conversion (SLO-56).
             'measurable' => $this->measurableOnce($request, $booking),
+            // ⚠️ The demo's actual conversion point (SLO-192, docs/21 §2.1).
+            // Somebody who has just walked a booking through end to end is the
+            // warmest visitor this product ever gets, and until now the page
+            // left them at a dead end.
+            //
+            // Absolute, and only for a demo tenant: `/register` on a tenant
+            // subdomain is where that tenant's CUSTOMERS sign up, so a relative
+            // link here would offer a service provider an account at the fixture
+            // business they were just browsing.
+            'register_url' => $tenantModel->is_demo
+                ? rtrim((string) config('app.url'), '/').'/register'
+                : null,
         ]);
     }
 

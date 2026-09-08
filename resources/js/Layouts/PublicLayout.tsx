@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import type { CSSProperties, PropsWithChildren } from 'react';
 
 import { CookieConsent, CookieSettingsLink } from '@/components/CookieConsent';
+import DemoBanner from '@/components/DemoBanner';
 import ImpersonationBanner from '@/components/ImpersonationBanner';
 import ThemeToggle from '@/components/ThemeToggle';
 import { Button } from '@/components/ui/button';
@@ -93,6 +94,7 @@ export default function PublicLayout({ children }: PropsWithChildren) {
             </a>
 
             <ImpersonationBanner />
+            <DemoBanner />
 
             <header className="border-b border-border">
                 <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
