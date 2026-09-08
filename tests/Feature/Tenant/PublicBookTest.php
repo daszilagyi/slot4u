@@ -10,6 +10,19 @@ use App\Models\Tenant;
 use Illuminate\Support\Carbon;
 use Inertia\Testing\AssertableInertia as Assert;
 
+beforeEach(function () {
+    // ⚠️ Pinned, because every fixture in this file is built around Monday
+    // 2026-09-07. Without a fixed clock that date is only in the future until
+    // it isn't — see SLO-206, where exactly that turned the suite red overnight
+    // with no commit behind it.
+    Carbon::setTestNow('2026-09-01 08:00:00');
+
+});
+
+afterEach(function () {
+    Carbon::setTestNow();
+});
+
 /**
  * A duration_based service with one staff member and a weekly band on the given
  * date's weekday, so AvailabilityService produces slots.

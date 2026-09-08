@@ -17,11 +17,18 @@ use Illuminate\Support\Carbon;
 use Spatie\Permission\PermissionRegistrar;
 
 beforeEach(function () {
+    // ⚠️ Pinned, because every fixture in this file is built around Monday
+    // 2026-09-07. Without a fixed clock that date is only in the future until
+    // it isn't — see SLO-206, where exactly that turned the suite red overnight
+    // with no commit behind it.
+    Carbon::setTestNow('2026-09-01 08:00:00');
+
     // Customer creation assigns the `customer` role (FindOrCreateCustomer).
     $this->seed(PermissionSeeder::class);
 });
 
 afterEach(function () {
+    Carbon::setTestNow();
     app(PermissionRegistrar::class)->setPermissionsTeamId(null);
     app(TenantManager::class)->forget();
 });
