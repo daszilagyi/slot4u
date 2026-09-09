@@ -35,6 +35,10 @@ return [
             'pricing' => 'Árak',
             'demo' => 'Demo',
             'menu' => 'Menü',
+            // Csak a vertikális landingeken jelenik meg (SLO-198): ott a
+            // főoldal nem a logó mögötti magától értetődő hely, hanem egy másik
+            // oldal, ahová vissza lehet lépni.
+            'back_home' => 'Vissza a főoldalra',
         ],
 
         // A hero foglaló-widgetje: statikus illusztráció a VALÓDI slot-választó
@@ -229,6 +233,185 @@ return [
 
         'footer_demo' => 'Demó foglalóoldal',
         'footer_rights' => '© :year slot4u',
+    ],
+
+    // Vertikális landing oldalak (SLO-198, docs/22 §4). Egy kulcs = egy oldal a
+    // `slot4u.hu/{kulcs}` címen; hogy melyik létezik és melyik demo tenantot
+    // mutatja, azt a `config/verticals.php` mondja meg.
+    //
+    // ⚠️ Itt VAN az egész oldal tartalma. A `Vertical.tsx` egyetlen szöveget sem
+    // ismer — a következő szakma landingje ez a blokk még egyszer, plusz egy sor
+    // configban, komponens-módosítás nélkül. Ez a sablon-elv, és csak addig áll,
+    // amíg ide nem szivárog kód-döntés.
+    //
+    // Az `icon` mezők a lucide ikonkészlet nevei (kebab-case); a `Vertical.tsx`
+    // regisztere fordítja őket komponensre, és ismeretlen névnél kihagyja az
+    // ikont ahelyett, hogy elszállna.
+    'verticals' => [
+        // „Csavarkulcs Autószerviz" (docs/22). Hangnem: a szerviz nyelvén, nem
+        // szoftvernyelven. A pozicionálás a docs/22 §1 zárómondata: „nem
+        // cseréljük le a munkalapot — a naptáradat cseréljük le".
+        'autoszerviz' => [
+            'meta_title' => 'Autószerviz időpontfoglaló rendszer online — slot4u',
+            'meta_description' => 'Online időpontfoglalás és automatikus emlékeztető kis szervizeknek, gumisoknak. Nem műhelyszoftver: a füzetet és a telefont váltja ki. Havidíj nincs.',
+
+            'eyebrow' => 'Autószervizeknek',
+            // A H1 három részben, mert a sárga szó a mondat KÖZEPÉN van
+            // (docs/22 §4, 1. sor). A főoldalon a kiemelés a végére esik, ezért
+            // ott elég a két rész — itt a `title_tail` viszi a maradékot.
+            'title_lead' => 'A vendéged éjfélkor is tud',
+            'title_accent' => 'időpontot',
+            'title_tail' => 'foglalni. Te közben szerelsz.',
+            'lead' => 'Online időpontfoglalás és automatikus emlékeztető kis szervizeknek, gumisoknak. Nem műhelyszoftver — a füzetet és a telefont váltja ki.',
+            'cta_primary' => 'Kipróbálom ingyen',
+            'cta_secondary' => 'Nézd meg a demót',
+            'cta_caption' => 'Nem kérünk bankkártyát. A foglalóoldalad öt perc múlva él.',
+
+            // A hero widgetje ugyanaz a komponens, mint a főoldalon, csak a
+            // szerviz szolgáltatásával és egy szombati nappal (docs/22 §4).
+            'widget' => [
+                'title' => 'Kerékcsere · 4 kerék',
+                'day' => 'Szombat · gumis állás',
+            ],
+
+            'pains' => [
+                'title' => 'Három dolog, amit minden szerviz ismer',
+                'items' => [
+                    [
+                        'icon' => 'phone-off',
+                        'title' => 'Csörög a telefon, olajos a kezed',
+                        'body' => 'A vendég online foglal — éjjel, hétvégén, munka közben is. Nem kell letenned a szerszámot ahhoz, hogy időpontot adj.',
+                    ],
+                    [
+                        'icon' => 'calendar-x',
+                        'title' => 'Elfelejtett időpont = üres állás',
+                        'body' => 'A rendszer magától küld emlékeztetőt e-mailben és SMS-ben. Aki mégsem tud jönni, időben szól — és a hely kiadható másnak.',
+                    ],
+                    [
+                        'icon' => 'timer',
+                        'title' => 'Gumiszezon: két hét káosz',
+                        'body' => 'Az állásaid külön-külön telnek be, párhuzamosan. A naptár nem enged két autót ugyanabba az emelőbe, akkor sem, ha ketten veszitek fel a foglalást.',
+                    ],
+                ],
+            ],
+
+            'steps' => [
+                'title' => 'Három lépés, és megy magától',
+                'lead' => 'Nincs bevezetési projekt és nincs oktatás. Egy délelőtt alatt kész.',
+                'items' => [
+                    [
+                        'title' => 'Felviszed az állásokat és a szerelőket',
+                        'body' => 'Hány emelő, ki melyik munkát végzi, mikor van nyitva a műhely. Szombatra külön munkarend, ha csak a gumis dolgozik.',
+                    ],
+                    [
+                        'title' => 'Kiteszed a linkedet oda, ahol a vendég keres',
+                        'body' => 'A Google-cégprofilodba, a Facebook-oldaladra, QR-kóddal a pultra. A foglalóoldalad az első perctől él.',
+                    ],
+                    [
+                        'title' => 'A vendég foglal, te a naptárat nézed',
+                        'body' => 'Minden foglalás azonnal ott van a naptáradban, állásra és szerelőre bontva. Te csak akkor nyúlsz hozzá, ha át kell tenni.',
+                    ],
+                ],
+            ],
+
+            'features' => [
+                'title' => 'Amit egy szerviznek tudnia kell',
+                'items' => [
+                    [
+                        'icon' => 'calendar-check',
+                        'title' => 'Állás-alapú naptár',
+                        'body' => 'Az emelő is erőforrás, nem csak a szerelő. A rendszer a kettő metszetéből ajánl időpontot, és foglaláskor kioszt egy szabad állást.',
+                    ],
+                    [
+                        'icon' => 'shield-check',
+                        'title' => 'Jóváhagyás a nagyobb munkákra',
+                        'body' => 'Műszaki vizsga, vezérműszíj: a vendég időpontot KÉR, te elfogadod, elutasítod vagy másikat ajánlasz. A hely addig nem vész el.',
+                    ],
+                    [
+                        'icon' => 'file-text',
+                        'title' => 'Ajánlatkérés hibaleírással',
+                        'body' => 'Ha előre nem tudod, mennyi lesz: a vendég leírja a hibát, te árat és időpontot ajánlasz, és a levelezés egy helyen marad.',
+                    ],
+                    [
+                        'icon' => 'bell',
+                        'title' => 'E-mail és SMS emlékeztető',
+                        'body' => 'Visszaigazolás foglaláskor, emlékeztető előtte. Automatikusan, a te nevedben — nem neked kell felhívnod senkit.',
+                    ],
+                    [
+                        'icon' => 'calendar-days',
+                        'title' => 'Szombati nyitás külön munkarenddel',
+                        'body' => 'Fél nap, más csapat, más szolgáltatások. Szabadságot és ünnepnapot ugyanígy kezel — a naptár nem ajánl olyan időpontot, amikor zárva vagy.',
+                    ],
+                    [
+                        'icon' => 'bar-chart',
+                        'title' => 'Kihasználtság állásonként',
+                        'body' => 'Melyik emelő áll üresen, melyik hét viszi a szezont, mennyi a bevétel. Nem riportokat gyártasz — megnézed.',
+                    ],
+                ],
+            ],
+
+            'demo' => [
+                'title' => 'Nézd meg élőben — ez egy működő szerviz-fiók',
+                // ⚠️ Ne nevezd meg itt a demo tenantot. A `translations` MINDEN oldal
+                // megosztott propja, tehát ez a mondat a főoldal HTML-jébe is
+                // belekerülne — és van egy tesztünk (PublicSsrSmokeTest), ami
+                // pont azt őrzi, hogy a főoldal ne emlegessen fiktív cégnevet
+                // ügyfélként. A cég neve amúgy is ott van a keretben.
+                'lead' => 'Nem képernyőkép: egy valódi, fiktív adatokkal feltöltött szerviz-fiók fut alatta. Foglalj be egy kerékcserét vendégként, aztán nézd meg ugyanazt az admin naptárban.',
+                'caption' => 'Fiktív adatok · nem küld e-mailt és SMS-t · éjfél után visszaáll',
+            ],
+
+            'not_for' => [
+                'title' => 'Amit NEM csinálunk',
+                'lead' => 'Inkább előre mondjuk meg, mint hogy a második héten derüljön ki.',
+                'items' => [
+                    'Nem vezetünk munkalapot.',
+                    'Nem kezelünk alkatrészkészletet.',
+                    'Nem állítunk ki tételes szervizszámlát.',
+                ],
+                'footnote' => 'Ezekre ott a mostani rendszered vagy a könyvelőd — mi a naptáradat cseréljük le, nem a műhelyedet.',
+            ],
+
+            'pricing' => [
+                'title' => 'Mennyibe kerül egy szerviznek?',
+                // ⚠️ docs/22 §4 itt „Közepes csomag kiemelve"-t ír. Csomagok
+                // nincsenek (CLAUDE.md, docs/10): az indoklás ezért nem
+                // csomagszintre, hanem a szerviz konkrét igényére épül —
+                // docs/22 §7.4 amúgy is ezt kérte.
+                'lead' => 'Nincs csomagválasztás és nincs havidíj. Három állás, szombati gumis munkarend, statisztika — mindez benne van, és addig nem fizetsz, amíg nincs miből.',
+            ],
+
+            'faq' => [
+                'title' => 'Amit a szervizek kérdezni szoktak',
+                'items' => [
+                    [
+                        'q' => 'Kell hozzá bankkártya a vendégnek?',
+                        'a' => 'Nem. A vendég időpontot foglal, fizetni nálad fizet, ahogy eddig. Online fizetést csak akkor kapcsolsz be, ha te akarod.',
+                    ],
+                    [
+                        'q' => 'Mi van, ha egy munka tovább tart a tervezettnél?',
+                        'a' => 'Minden szolgáltatáshoz állítható ráhagyás, így a következő vendég nem ér rád azonnal. Ha mégis csúszik, a naptárban áthúzod a foglalást, és a vendég értesítést kap.',
+                    ],
+                    [
+                        'q' => 'Több autója van egy vendégnek — hogyan kezeljem?',
+                        'a' => 'Ma a rendszámot és az autó adatait a foglalás megjegyzésébe írja a vendég, és ott is marad az előzményben. Külön, strukturált jármű-mező készül — ezt inkább megmondjuk előre, mint hogy keresd.',
+                    ],
+                    [
+                        'q' => 'Hogyan kerül ki a foglalási linkem?',
+                        'a' => 'A Google-cégprofilodba „Időpontfoglalás" gombként, a Facebook-oldaladra, és QR-kóddal a pultra vagy a számlára. A legtöbb vendég a Google-ből érkezik.',
+                    ],
+                    [
+                        'q' => 'Mi van szombaton, ha csak a gumis dolgozik?',
+                        'a' => 'A szombat külön munkarend: más nyitvatartás, más szolgáltatások, más ember. A naptár csak azt ajánlja fel, amit aznap tényleg el tudsz vállalni.',
+                    ],
+                ],
+            ],
+
+            'closing' => [
+                'title' => 'Kezdd el ma. Öt perc, és nem kérünk bankkártyát.',
+                'lead' => 'Felviszed az állásaidat, kiteszed a linket, és a következő vendég már online foglal.',
+            ],
+        ],
     ],
     'tenant' => [
         // Demo tenant jelzések (SLO-192, docs/21 §2.1). ⚠️ A sáv minden demo

@@ -124,6 +124,31 @@ Indok: sales-beszélgetésben a szerviz első kérdése a rendszám lesz; a note
 
 **Arculat:** `docs/21` §1 tokenek kötelezőek (navy/brand/accent/ice; Poppins/Inter/JetBrains Mono; 1 sárga CTA / képernyő; tiltólista érvényes). A szerviz-tenant saját narancs arculata CSAK az iframe-ben látszik — a landing maga slot4u-arculatú.
 
+> ### ⚠️ Megvalósítási korrekciók (SLO-198, 2026-09-09) — a lenti tábla négy pontján
+>
+> 1. **7. sor, árazás — „Közepes csomag kiemelve" NEM épült meg, mert nincs mit kiemelni.**
+>    A háromlépcsős csomagmodell megszűnt (CLAUDE.md, `docs/10`); az oldal a **forgalom-alapú
+>    jutalékot** hozza, ugyanabból a `BuildPublicCommissionTerms` szolgáltatásból, mint a főoldal.
+>    Az indoklás a §7.4 szándéka szerint a szerviz konkrét igényére épül („3 állás + szombati gumis
+>    munkarend + statisztika"), nem feature-listára. A tábla 7. sora ezen a ponton elavult.
+> 2. **3. és 5. sor, screenshotok — komponensek, nem képek.** Nincs böngésző a projektben, amivel
+>    demo-screenshot készülne, és ugyanez a döntés született az SLO-203/204-ben is (`HowItWorks`,
+>    `ProductShowcase`): egy admin-képernyőről készült kép csendben elavul, mert semmi nem törik el
+>    tőle, és aki legközelebb hozzányúl a képernyőhöz, nem tudja újra elkészíteni. Az OG-kép a
+>    meglévő platform-kártya. Az 5. sor mobil viselkedése ettől nem sérül: a `TryItLive` mobilon
+>    amúgy is kilinkel az iframe helyett.
+> 3. **Tartalom-fájl: `lang/hu/app.php` → `verticals.{slug}`, nem `content/verticals/*.json`.**
+>    A repó egyetlen szövegtárolója a lang fájl (Inertia shared prop → `t()`), és egy második,
+>    párhuzamos tároló bevezetése többe került volna, mint amennyit ér. A sablon-elv ugyanaz marad,
+>    és teszt bizonyítja: egy új `verticals.*` blokk + egy sor `config/verticals.php` elég, komponenst
+>    nem kell hozzányúlni.
+> 4. **UTM-attribúció: nem épült meg, mert nincs mihez kötni.** Nincs `signup_source` oszlop és nincs
+>    `utm_*` kezelés a kódban — a §4 „SEO / mérés" pontja maga írja elő, hogy ilyenkor ne itt épüljön.
+>    Külön issue tartja számon. A GA4/Meta oldali `vertical` paraméter és a `Lead` esemény megvan.
+>
+> Ami a leírásból tárgytalan lett: a „ha a `TryItLive` nem paraméterezhető, tedd azzá" pont — az
+> `only` prop az SLO-192-ben megépült, itt csak használjuk.
+
 **Szekciók (desktop 1440 / mobil 390, a `docs/21` §2 animációs elvei szerint, `prefers-reduced-motion` tisztelve):**
 
 | # | Szekció | Tartalom | Megjegyzés |

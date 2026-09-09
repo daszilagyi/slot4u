@@ -16,8 +16,13 @@ import { useTranslations } from '@/lib/i18n';
  * the button naming the time it would book.
  */
 
+export type PreviewSlot = {
+    time: string;
+    state: 'free' | 'taken' | 'chosen';
+};
+
 /** The illustrated day. 09:45 is taken; 11:15 is the one being chosen. */
-const SLOTS = [
+const SLOTS: readonly PreviewSlot[] = [
     { time: '09:00', state: 'free' },
     { time: '09:45', state: 'taken' },
     { time: '10:30', state: 'free' },
@@ -27,11 +32,29 @@ const SLOTS = [
     { time: '14:15', state: 'taken' },
     { time: '15:00', state: 'free' },
     { time: '15:45', state: 'free' },
-] as const;
+];
 
-const CHOSEN = SLOTS.find((slot) => slot.state === 'chosen')!.time;
+type Props = {
+    /**
+     * The service and the day, when this is not the home page's generic
+     * appointment.
+     *
+     * ⚠️ Strings, not keys: a vertical landing keeps its whole copy in one
+     * block (`verticals.{slug}`, SLO-198) and hands the pieces down. A key here
+     * would have this component reach into a branch that belongs to the page.
+     */
+    title?: string;
+    day?: string;
+    /**
+     * The grid itself. Times are data, not copy — a workshop's Saturday runs in
+     * hour steps and a therapist's in fifty-minute ones, and a wheel change
+     * offered at 09:45 is a detail that reads as wrong to the one visitor the
+     * page is for.
+     */
+    slots?: readonly PreviewSlot[];
+};
 
-export default function HeroSlotPreview() {
+export default function HeroSlotPreview({ title, day, slots = SLOTS }: Props = {}) {
     const t = useTranslations();
     const reduced = useReducedMotion();
     const [ref, seen] = useInView<HTMLDivElement>({ threshold: 0.3 });
@@ -40,18 +63,31 @@ export default function HeroSlotPreview() {
     // is here so the entrance is not already over on a slow first paint.
     const revealed = seen || reduced;
 
+    // The button names the time it would book, so it has to follow the grid it
+    // was given. Falling back to the first free slot keeps a caller from having
+    // to remember to mark one — the button is never left naming nothing.
+    const chosen =
+        slots.find((slot) => slot.state === 'chosen')?.time ??
+        slots.find((slot) => slot.state === 'free')?.time ??
+        slots[0]?.time ??
+        '';
+
     return (
         <div
             ref={ref}
             className="w-full max-w-sm rounded-[14px] border border-line bg-card p-5 text-card-foreground shadow-float"
         >
             <div className="flex items-baseline justify-between gap-2">
-                <p className="text-sm font-medium">{t('welcome.widget.title')}</p>
-                <p className="text-xs text-ink-muted">{t('welcome.widget.day')}</p>
+                <p className="text-sm font-medium">
+                    {title ?? t('welcome.widget.title')}
+                </p>
+                <p className="text-xs text-ink-muted">
+                    {day ?? t('welcome.widget.day')}
+                </p>
             </div>
 
             <div className="mt-4 grid grid-cols-3 gap-2">
-                {SLOTS.map((slot, index) => (
+                {slots.map((slot, index) => (
                     <SlotChip
                         key={slot.time}
                         time={slot.time}
@@ -71,7 +107,7 @@ export default function HeroSlotPreview() {
                 users tabbing the hero would land on a dead stop.
             */}
             <div className="mt-4 rounded-[10px] bg-primary px-4 py-2.5 text-center text-sm font-medium text-primary-foreground">
-                {t('welcome.widget.submit', { time: CHOSEN })}
+                {t('welcome.widget.submit', { time: chosen })}
             </div>
         </div>
     );

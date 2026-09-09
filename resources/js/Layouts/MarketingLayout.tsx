@@ -8,6 +8,18 @@ import { Button } from '@/components/ui/button';
 import { BRAND_NAME } from '@/lib/brand';
 import { useTranslations } from '@/lib/i18n';
 
+type Props = {
+    /**
+     * Put "back to the home page" in the nav — what a vertical landing needs and
+     * the home page cannot have (SLO-198, docs/22 §4 row 0).
+     *
+     * ⚠️ The logo is not that link on these pages. It goes home too, but a
+     * visitor who arrived from an ad has never seen the home page and does not
+     * read a logo as a way to somewhere else.
+     */
+    homeLink?: boolean;
+};
+
 /**
  * The shell for the central slot4u.hu marketing pages (SLO-50).
  *
@@ -20,7 +32,10 @@ import { useTranslations } from '@/lib/i18n';
  * prop (SLO-161) — the same versions a company is asked to accept at sign-up, so
  * they can be read before rather than during.
  */
-export default function MarketingLayout({ children }: PropsWithChildren) {
+export default function MarketingLayout({
+    children,
+    homeLink = false,
+}: PropsWithChildren<Props>) {
     const t = useTranslations();
     const { auth, legal } = usePage().props;
     const documents = legal?.documents ?? [];
@@ -40,6 +55,9 @@ export default function MarketingLayout({ children }: PropsWithChildren) {
     }, []);
 
     const navLinks = [
+        ...(homeLink
+            ? [{ href: '/', label: t('welcome.nav.back_home') }]
+            : []),
         { href: '#funkciok', label: t('welcome.nav.features') },
         { href: '#arazas', label: t('welcome.nav.pricing') },
         // Points at the live demo section rather than straight out to a tenant

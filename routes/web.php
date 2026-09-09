@@ -5,6 +5,7 @@ use App\Http\Controllers\CookieConsentController;
 use App\Http\Controllers\DeployHealthController;
 use App\Http\Controllers\HomeController;
 use App\Http\Controllers\LegalController;
+use App\Http\Controllers\VerticalLandingController;
 use Illuminate\Support\Facades\Route;
 
 // Deploy verification (SLO-152). Deliberately not domain-constrained: the smoke
@@ -19,6 +20,23 @@ Route::get('_deploy/health', DeployHealthController::class)
 // domain so tenant subdomains fall through to routes/tenant.php.
 Route::domain(config('tenancy.central_domain'))->group(function () {
     Route::get('/', HomeController::class)->name('home');
+
+    // The vertical landings — /autoszerviz and the trades after it (SLO-198,
+    // docs/22 §4).
+    //
+    // ⚠️ Constrained to the registered slugs, which is what keeps a one-segment
+    // route from swallowing the apex domain. Without `whereIn`, `/valami`
+    // would render a landing page for a vertical nobody wrote, and every future
+    // top-level path would silently belong to this controller.
+    //
+    // Registered only when there is something to register: an empty `whereIn`
+    // compiles to a pattern that matches everything, which is the opposite of
+    // what this line is for.
+    if (($verticals = array_keys((array) config('verticals', []))) !== []) {
+        Route::get('/{vertical}', VerticalLandingController::class)
+            ->whereIn('vertical', $verticals)
+            ->name('vertical');
+    }
 
     // The platform's own terms and privacy notice (SLO-161). Public: nobody can
     // consent to a text they are not allowed to read, and the sign-up form links

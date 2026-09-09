@@ -52,9 +52,30 @@ type Props = {
      * has nothing to refactor and nothing to fork.
      */
     only?: string;
+    /**
+     * The section's own heading, lead and caption, when the page around it
+     * speaks a trade's language rather than the home page's (SLO-198).
+     */
+    title?: string;
+    lead?: string;
+    caption?: string;
+    /**
+     * Which landing this is, tagged onto every event the section reports
+     * (docs/22 §4). Without it the demo funnel of `/autoszerviz` and the funnel
+     * of the home page arrive in GA4 as one number, and the reason the vertical
+     * pages exist at all is to be measured apart.
+     */
+    vertical?: string;
 };
 
-export default function TryItLive({ personas, only }: Props) {
+export default function TryItLive({
+    personas,
+    only,
+    title,
+    lead,
+    caption,
+    vertical,
+}: Props) {
     const t = useTranslations();
     const reduced = useReducedMotion();
 
@@ -100,9 +121,13 @@ export default function TryItLive({ personas, only }: Props) {
         return value === key ? null : value;
     };
 
+    /** Every event this section reports, tagged with the landing it happened on. */
+    const track: typeof trackDemo = (event, params = {}) =>
+        trackDemo(event, vertical === undefined ? params : { ...params, vertical });
+
     const select = (index: number, slug: string) => {
         setSelected(index);
-        trackDemo('demo_select_persona', { persona: slug });
+        track('demo_select_persona', { persona: slug });
     };
 
     /**
@@ -139,9 +164,11 @@ export default function TryItLive({ personas, only }: Props) {
         >
             <div className="mx-auto w-full max-w-5xl px-4 py-16 sm:px-6 sm:py-20">
                 <h2 className="text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
-                    {t('welcome.demo_title')}
+                    {title ?? t('welcome.demo_title')}
                 </h2>
-                <p className="mt-3 max-w-2xl text-ink-muted">{t('welcome.demo_lead')}</p>
+                <p className="mt-3 max-w-2xl text-ink-muted">
+                    {lead ?? t('welcome.demo_lead')}
+                </p>
 
                 <div ref={ref} className="mt-10 grid gap-6 lg:grid-cols-[5fr_7fr] lg:items-start">
                     {showList && (
@@ -196,7 +223,7 @@ export default function TryItLive({ personas, only }: Props) {
                                 }
 
                                 setAdminView(value);
-                                trackDemo(value ? 'demo_open_admin' : 'demo_open_public', {
+                                track(value ? 'demo_open_admin' : 'demo_open_public', {
                                     persona: persona.slug,
                                     surface: 'frame',
                                 });
@@ -246,7 +273,7 @@ export default function TryItLive({ personas, only }: Props) {
                         </BrowserFrame>
 
                         <p className="mt-3 text-[13px] text-ink-muted">
-                            {t('welcome.demo_caption')}
+                            {caption ?? t('welcome.demo_caption')}
                         </p>
 
                         {/* Mobile: a whole application inside a 390px column is
@@ -258,7 +285,7 @@ export default function TryItLive({ personas, only }: Props) {
                             target="_blank"
                             rel="noreferrer"
                             onClick={() =>
-                                trackDemo('demo_open_public', {
+                                track('demo_open_public', {
                                     persona: persona.slug,
                                     surface: 'mobile',
                                 })
