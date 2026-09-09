@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Services\Marketing\DemoPersonaLinks;
 use App\Support\Analytics\PageAnalytics;
 use App\Support\ContentSecurityPolicy;
 use App\Tenancy\TenantManager;
@@ -9,6 +10,7 @@ use Closure;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Vite;
 use Symfony\Component\HttpFoundation\Response;
+use Throwable;
 
 /**
  * Security response headers (SLO-145, docs/01). Until this the app sent none at
@@ -103,26 +105,70 @@ class SecurityHeaders
     /**
      * CSP additions for this request.
      *
-     * @return array{script?: string, connect?: string, img?: string, frame?: string}
+     * The embedding contract has two halves, and both are per-request:
+     *
+     * - on a **demo tenant**, `frame-ancestors` names the marketing site — who
+     *   may frame this page;
+     * - on the **central domain**, `frame-src` names the demo tenants — what
+     *   this page may frame.
+     *
+     * ⚠️ Only the first half existed until SLO-213, so the marketing site's own
+     * policy blocked its own demo preview. Neither half is any use alone, which
+     * is why they are written next to each other now.
+     *
+     * @return array{script?: string, connect?: string, img?: string, frame?: string, frame_src?: string}
      */
     private function cspExtra(): array
     {
-        /** @var array{script?: string, connect?: string, img?: string, frame?: string} $extra */
+        /** @var array{script?: string, connect?: string, img?: string, frame?: string, frame_src?: string} $extra */
         $extra = (array) config('security.csp.extra');
 
-        if (! $this->isEmbeddableDemo()) {
+        if ($this->isEmbeddableDemo()) {
+            // The marketing site, and nothing else. `'self'` keeps the demo able
+            // to frame its own pages; the central domain is what the "try it
+            // live" section is served from.
+            $scheme = request()->isSecure() ? 'https' : 'http';
+            $central = $scheme.'://'.config('tenancy.central_domain');
+
+            $extra['frame'] = trim(($extra['frame'] ?? '').' \'self\' '.$central);
+
             return $extra;
         }
 
-        // The marketing site, and nothing else. `'self'` keeps the demo able to
-        // frame its own pages; the central domain is what the "try it live"
-        // section is served from.
-        $scheme = request()->isSecure() ? 'https' : 'http';
-        $central = $scheme.'://'.config('tenancy.central_domain');
+        // Not a tenant at all: the marketing site. Only here does framing a demo
+        // tenant make sense, and only the demo tenants — a real tenant's booking
+        // page stays unframable from everywhere, this side included.
+        if (app(TenantManager::class)->current() === null) {
+            $origins = $this->embeddableDemoOrigins();
 
-        $extra['frame'] = trim(($extra['frame'] ?? '').' \'self\' '.$central);
+            if ($origins !== []) {
+                $extra['frame_src'] = trim(($extra['frame_src'] ?? '').','.implode(',', $origins), ',');
+            }
+        }
 
         return $extra;
+    }
+
+    /**
+     * The demo origins the marketing pages may frame.
+     *
+     * Asked of the same service the pages build their links from, so the policy
+     * cannot end up narrower than the frames the page actually renders.
+     *
+     * ⚠️ Swallows a database failure on purpose. This runs on every central
+     * request, including the error page a broken database is already trying to
+     * show; a policy that is merely too narrow costs one preview, while throwing
+     * here would cost the whole response.
+     *
+     * @return list<string>
+     */
+    private function embeddableDemoOrigins(): array
+    {
+        try {
+            return app(DemoPersonaLinks::class)->embeddableOrigins();
+        } catch (Throwable) {
+            return [];
+        }
     }
 
     /**

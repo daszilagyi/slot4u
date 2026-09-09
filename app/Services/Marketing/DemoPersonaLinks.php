@@ -7,6 +7,7 @@ namespace App\Services\Marketing;
 use App\Enums\TenantStatus;
 use App\Http\Controllers\Tenant\DemoLoginController;
 use App\Models\Tenant;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
@@ -51,19 +52,30 @@ final class DemoPersonaLinks
     }
 
     /**
-     * @return list<array{slug: string, name: string, description: string|null, public_url: string, admin_url: string, admin_url_expires_at: string}>
+     * The origins the marketing site is allowed to put in a frame (SLO-213).
+     *
+     * ⚠️ Same query as the links themselves, deliberately. The CSP and the page
+     * have to agree on "which demo tenants exist": a list computed twice is a
+     * list that drifts, and the way it fails is a frame the browser blocks with
+     * no error anybody sees — which is exactly how SLO-213 shipped.
+     *
+     * @return list<string>
      */
-    private function build(?string $slug): array
+    public function embeddableOrigins(): array
     {
-        $scheme = Str::before((string) config('app.url'), '://') === 'http' ? 'http' : 'https';
-        $central = (string) config('tenancy.central_domain');
+        return array_map(
+            fn (string $slug): string => $this->origin($slug),
+            $this->shown()->pluck('slug')->all(),
+        );
+    }
 
-        // One expiry for the whole list, and sent to the browser with it. The
-        // signatures die 15 minutes after this render; a tab left open longer
-        // would otherwise meet a 403 inside the demo frame, which reads as a
-        // broken product rather than an expired link (see TryItLive).
-        $expiresAt = Carbon::now()->addMinutes(DemoLoginController::LIFETIME_MINUTES);
-
+    /**
+     * The demo tenants worth showing a visitor.
+     *
+     * @return Builder<Tenant>
+     */
+    private function shown(?string $slug = null): Builder
+    {
         return Tenant::query()
             ->demo()
             ->where('status', TenantStatus::Active)
@@ -71,13 +83,37 @@ final class DemoPersonaLinks
             // shown to anybody (docs/20 §3.2) — it has one service and no story.
             ->where('slug', '!=', 'demo-smoke')
             ->when($slug !== null, fn ($query) => $query->where('slug', $slug))
-            ->orderBy('id')
+            ->orderBy('id');
+    }
+
+    /**
+     * A demo tenant's own origin, on the scheme this deployment serves.
+     */
+    private function origin(string $slug): string
+    {
+        $scheme = Str::before((string) config('app.url'), '://') === 'http' ? 'http' : 'https';
+
+        return $scheme.'://'.$slug.'.'.config('tenancy.central_domain');
+    }
+
+    /**
+     * @return list<array{slug: string, name: string, description: string|null, public_url: string, admin_url: string, admin_url_expires_at: string}>
+     */
+    private function build(?string $slug): array
+    {
+        // One expiry for the whole list, and sent to the browser with it. The
+        // signatures die 15 minutes after this render; a tab left open longer
+        // would otherwise meet a 403 inside the demo frame, which reads as a
+        // broken product rather than an expired link (see TryItLive).
+        $expiresAt = Carbon::now()->addMinutes(DemoLoginController::LIFETIME_MINUTES);
+
+        return $this->shown($slug)
             ->get(['id', 'slug', 'name', 'settings'])
             ->map(fn (Tenant $tenant): array => [
                 'slug' => $tenant->slug,
                 'name' => $tenant->name,
                 'description' => $this->tagline($tenant),
-                'public_url' => $scheme.'://'.$tenant->slug.'.'.$central,
+                'public_url' => $this->origin($tenant->slug),
                 'admin_url' => URL::temporarySignedRoute(
                     'tenant.demo.login',
                     $expiresAt,
