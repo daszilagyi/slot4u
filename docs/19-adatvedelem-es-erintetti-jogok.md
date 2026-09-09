@@ -328,6 +328,30 @@ Kivételek, amik kapuvá és nem csapdává teszik: **maga a dokumentum**, az el
 elfogadást (a slot4u nem szerződik önmagával), vendégtől sem — őt a foglalás
 pontján kérdezzük.
 
+**A publikus marketing-oldalak is kivételt kapnak (SLO-219)** — a `slot4u.hu`
+főoldala és a vertikális landingek. Az indoklás: ezeket **bárki olvassa fiók
+nélkül**, tehát a bejelentkezés nem veheti el őket. Enélkül új ÁSZF-verzió
+közzétételekor egyszerre **minden ügyfél** jogi űrlapot kapna a főoldal helyett —
+épp akkor, amikor azt próbálja kideríteni, mi változott.
+
+⚠️ **A kivétel párban jár, és csak így védhető.** Ezeken az oldalakon a
+`HandleInertiaRequests` **`null`-ként osztja meg a bejelentkezett usert**, amíg van
+elfogadatlan dokumentuma: a fejléc a névtelen ágra esik vissza (nincs név, nincs
+munkaterület-link), és a személyes adat **el sem hagyja a szervert** — nem csak
+renderelve nincs, a prop-payloadban sincs benne. Így a „prospektus maradjon
+olvasható" nem kerül szembe azzal, hogy lejárt hozzájárulás mellett nem kezelünk
+személyes adatot.
+
+⚠️ **Amit ez NEM lazít:** minden termék-felület a fal mögött marad — tenant admin,
+foglalás, members area, `/register`. A kaput magát nem gyengítettük, csak megnevezünk
+mellette egy felületet, ami nem a termék. Ugyanaz az elv, mint az SLO-209-nél: ott
+sem a middleware-t lazítottuk, hanem a demo-seedet javítottuk.
+
+A „melyik oldal prospektus" kérdésre **egy hely** válaszol (`App\Support\MarketingSurface`),
+route-név alapján (`home`, `vertical`) — nem útvonal-minta alapján, mert a tenantok
+saját `/`-je is létezik (`tenant.home`), és mert minden jövőbeli vertikális ugyanazt a
+route-nevet kapja, tehát nem tud csendben kimaradni a kivételből.
+
 ### 10.6 Megőrzés — miért nem söpri a retention
 
 A §7.1 az `audit_logs.ip_address`-t 90 nap után nullázza. A `legal_consents.ip_address`

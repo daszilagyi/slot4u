@@ -3,6 +3,7 @@
 namespace App\Http\Middleware;
 
 use App\Services\Legal\LegalDocumentRegistry;
+use App\Support\MarketingSurface;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -46,7 +47,16 @@ class EnsureLegalConsent
     {
         $user = $request->user();
 
-        if ($user === null || $user->isSuperAdmin() || $request->is(...self::EXEMPT)) {
+        // ⚠️ The marketing pages are a brochure, not the product (SLO-219). A
+        // stranger reads them without an account, so signing in must not take
+        // them away — and it did, for anyone with an outstanding document.
+        //
+        // This does NOT weaken the gate: every product surface (tenant admin,
+        // booking, members area) still stops here, and HandleInertiaRequests
+        // renders these pages as if nobody were signed in, so no personal data
+        // reaches a visitor whose consent has lapsed. Same principle as SLO-209
+        // — solve it beside the gate, never by loosening it.
+        if ($user === null || $user->isSuperAdmin() || MarketingSurface::matches($request) || $request->is(...self::EXEMPT)) {
             return $next($request);
         }
 

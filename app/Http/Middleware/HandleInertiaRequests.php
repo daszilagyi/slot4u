@@ -11,6 +11,7 @@ use App\Services\Impersonation\Impersonation;
 use App\Services\Legal\LegalDocumentRegistry;
 use App\Settings\TenantBranding;
 use App\Support\CookieConsent;
+use App\Support\MarketingSurface;
 use App\Tenancy\TenantManager;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -59,7 +60,7 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
-        $user = $request->user();
+        $user = $this->visibleUser($request);
 
         return [
             ...parent::share($request),
@@ -184,6 +185,38 @@ class HandleInertiaRequests extends Middleware
         return $this->enabledFeatures = $tenant === null
             ? []
             : $this->features->enabledCodes($tenant);
+    }
+
+    /**
+     * The signed-in user, as far as THIS page is allowed to know (SLO-219).
+     *
+     * The marketing pages stay readable while a legal document is outstanding
+     * (see EnsureLegalConsent) — but readable as a brochure, not as a signed-in
+     * session. Nulled here rather than hidden in the layout, so the name and the
+     * workspace link are not merely unrendered: they never leave the server, and
+     * are not sitting in the Inertia prop payload for anyone to read.
+     *
+     * ⚠️ Only on those pages. Everywhere else the gate has already redirected,
+     * so a user with outstanding documents cannot reach a product surface at all
+     * — this does not widen what they can see, it narrows what we send.
+     */
+    private function visibleUser(Request $request): ?User
+    {
+        $user = $request->user();
+
+        if ($user === null || ! MarketingSurface::matches($request)) {
+            return $user;
+        }
+
+        // Superadmins are exempt from the gate itself, so they are exempt here
+        // too: nothing is being withheld from them elsewhere.
+        if ($user->isSuperAdmin()) {
+            return $user;
+        }
+
+        return app(LegalDocumentRegistry::class)->outstandingFor($user)->isEmpty()
+            ? $user
+            : null;
     }
 
     /**
