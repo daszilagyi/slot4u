@@ -96,7 +96,9 @@ Alatta egy sor caption (`ink-muted`, 13 px): „Fiktív adatok · nem küld e-ma
 **Animáció:** kártyaváltásra a keret tartalma 250 ms crossfade + 8 px csúszás felfelé, a címsor URL-je „gépelődik” (120 ms, mono); a sárga jelölő 200 ms alatt csúszik az új kártyára. Az iframe csak akkor tölt, ha a szekció a viewportba ér (LCP-védelem), addig a screenshot látszik placeholderként — így a crossfade sosem üres.
 
 **Technikai feltételek (Claude Code-nak):**
-- A demo tenantok válaszfejléce: `Content-Security-Policy: frame-ancestors 'self' https://slot4u.hu` (csak `is_demo = true` tenantnál; éles tenant sosem beágyazható).
+- **A beágyazásnak két fele van, és mindkettő kell** (SLO-213 — sokáig csak az első épült meg, ezért a keret minden környezetben üres maradt):
+  1. **Gyerek oldal:** a demo tenantok válaszfejléce `Content-Security-Policy: frame-ancestors 'self' https://slot4u.hu` (csak `is_demo = true` tenantnál; éles tenant sosem beágyazható), és náluk az `X-Frame-Options` elmarad, mert az nem tud egy origint megnevezni.
+  2. **Szülő oldal:** a **központi domain** válaszfejléce `frame-src 'self' https://{minden demo tenant}.slot4u.hu`. Enélkül a `default-src 'self'` dönt, és a böngésző némán megtagadja a betöltést — a tenant-aldomén más origin. A listát ugyanaz a szolgáltatás adja (`DemoPersonaLinks`), amelyikből a persona-kártyák linkjei jönnek, hogy a policy sose legyen szűkebb, mint amit az oldal kirajzol.
 - Demo-login: `GET /demo/login/{tenant}?t={signed}` → Laravel signed URL, 15 perc, csak `is_demo` tenantra, minden hívás `demo_logins` logba; rate limit 10/perc/IP.
 - Az iframe `sandbox="allow-same-origin allow-scripts allow-forms allow-popups"`, `loading="lazy"`, `title` kitöltve.
 - A demo foglalóoldalon egy vékony felső sáv: „DEMO · fiktív adatok” (`warn` háttér, `navy` szöveg) — a látogató sose higgye valósnak.

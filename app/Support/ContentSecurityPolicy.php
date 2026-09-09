@@ -28,7 +28,10 @@ final class ContentSecurityPolicy
      * @param  string|null  $devServer  Origin of that dev server (e.g. http://localhost:5173).
      * @param  string|null  $websocket  Realtime origin the browser connects to (Reverb).
      * @param  string|null  $errorReporting  Origin the browser posts JS errors to (Sentry ingest).
-     * @param  array{script?: string, connect?: string, img?: string, frame?: string}  $extra
+     * @param  array{script?: string, connect?: string, img?: string, frame?: string, frame_src?: string}  $extra
+     *                                                                                                             ⚠️ `frame` is `frame-ancestors` (who may frame us),
+     *                                                                                                             `frame_src` is `frame-src` (what we may frame). Two
+     *                                                                                                             directives, two keys — see config/security.php.
      * @param  array<string, list<string>>  $analytics
      *                                                  Origins a measurement tag needs — but only on a request that
      *                                                  actually emits one (SLO-172). Separate from `$extra` because
@@ -55,6 +58,13 @@ final class ContentSecurityPolicy
             'img-src '.implode(' ', $this->sources(["'self'", 'data:', 'blob:'], 'img')),
             "font-src 'self' data:",
             'connect-src '.implode(' ', $this->connectSources()),
+            // What this page may put in a frame. Without it `default-src` decides,
+            // and `default-src 'self'` silently blocks the marketing site's demo
+            // preview — a tenant subdomain is a different origin (SLO-213).
+            //
+            // ⚠️ Not the same directive as `frame-ancestors` below, and not the
+            // same config key: this one is `frame_src`.
+            'frame-src '.implode(' ', $this->sources(["'self'"], 'frame_src')),
             // No plugins, no <base> rewriting, no posting the session somewhere else.
             "object-src 'none'",
             "base-uri 'self'",

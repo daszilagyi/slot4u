@@ -57,3 +57,6 @@ id_ed25519*
 # Munkapéldányban tartott piszkozatok (pl. logó-exportok, SLO-170). A repóban
 # a forrás a resources/images/ alatt van; ide csak ideiglenes fájlok kerülnek.
 /tmp
+
+# Playwright MCP scratch output (screenshots, snapshots, console logs) — SLO-213
+.playwright-mcp/

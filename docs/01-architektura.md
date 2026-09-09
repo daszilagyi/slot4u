@@ -303,7 +303,12 @@ villanásmentes téma-váltó), és a Laravel Vite helper ugyanazt a nonce-ot b�
 A `style-src` **tudatos kivétel** (`unsafe-inline`): a Radix és a toast-könyvtár futásidőben szúr be
 `<style>` elemeket, és egy stílus-injekció nagyságrendekkel kisebb nyeremény, mint a script-futtatás.
 A policy-t a `App\Support\ContentSecurityPolicy` építi — külön osztály, hogy a **dev és a prod ág is
-tesztelhető** legyen Vite dev szerver nélkül. ⚠️ **A mérés originjei (SLO-172) nem env-ből jönnek,
+tesztelhető** legyen Vite dev szerver nélkül. ⚠️ **A `frame-src` és a `frame-ancestors` két külön
+irány, és a config két külön kulcsa** (`csp.extra.frame_src` illetve `csp.extra.frame`): az előbbi azt
+mondja meg, **mit ágyazhat be ez az oldal**, az utóbbi azt, **ki ágyazhatja be őt**. A demo-előnézet
+mindkettőt igényli, és az SLO-213 pontosan az volt, hogy csak az egyik létezett — a hiányzó `frame-src`
+miatt a `default-src 'self'` tiltotta a saját marketing-oldalunk saját demo-keretét, némán, zöld
+teszt-suite mellett. ⚠️ **A mérés originjei (SLO-172) nem env-ből jönnek,
 hanem kérésenként** (`$analytics` konstruktor-paraméter): ugyanabból az objektumból, amelyik a root
 Blade-nek megmondta, hogy kimenjen-e a tag. A `SECURITY_CSP_SCRIPT_SRC` tágítása ehelyett a
 googletagmanager.com-ot **minden oldalon örökre** futtathatóvá tenné — az admin panelen és a foglalási

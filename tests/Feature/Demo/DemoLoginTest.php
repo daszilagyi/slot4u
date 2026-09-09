@@ -202,3 +202,52 @@ it('⚠️ lets ONLY a demo tenant be framed, and only by the marketing site', f
         ->and($realResponse->headers->get('Content-Security-Policy'))
         ->toContain("frame-ancestors 'none'");
 });
+
+// ⚠️ The other half of the same contract (SLO-213). `frame-ancestors` above says
+// who may frame the demo; this says what the marketing site may frame. Only the
+// first half existed, so the "try it live" preview was blocked in every
+// environment — by our own policy, silently, with a green test suite.
+it('⚠️ lets the marketing site frame the demo tenants it links to', function () {
+    config()->set('security.csp.enabled', true);
+
+    $demo = demoLoginTenant(isDemo: true, slug: 'demo-keretben');
+    $real = demoLoginTenant(isDemo: false, slug: 'valodi-keretben');
+
+    $central = config('tenancy.central_domain');
+
+    $policy = $this->get('http://'.$central.'/')->assertOk()
+        ->headers->get('Content-Security-Policy');
+
+    expect($policy)->toContain('frame-src ')
+        // The frame the landing page actually renders.
+        ->and($policy)->toContain('http://'.$demo->slug.'.'.$central)
+        // ⚠️ and nothing else. A policy that admitted any tenant subdomain would
+        // pass the assertion above while handing every real booking page to a
+        // frame on the marketing origin.
+        ->and($policy)->not->toContain($real->slug.'.'.$central);
+});
+
+// The permission belongs to the marketing origin only. A demo tenant's own pages
+// have no business framing their neighbours.
+it('does not hand the frame-src permission to the tenant surfaces', function () {
+    config()->set('security.csp.enabled', true);
+
+    $demo = demoLoginTenant(isDemo: true, slug: 'demo-nem-keretez');
+
+    $policy = $this->get('http://'.$demo->slug.'.'.config('tenancy.central_domain').'/')
+        ->assertOk()->headers->get('Content-Security-Policy');
+
+    expect($policy)->toContain("frame-src 'self';");
+});
+
+// The landing renders no demo section when nothing is seeded (docs/20 §3.5), and
+// the policy should be just as narrow — not a standing permission for origins
+// that do not exist.
+it('keeps frame-src at self when no demo tenant is seeded', function () {
+    config()->set('security.csp.enabled', true);
+
+    $policy = $this->get('http://'.config('tenancy.central_domain').'/')->assertOk()
+        ->headers->get('Content-Security-Policy');
+
+    expect($policy)->toContain("frame-src 'self';");
+});

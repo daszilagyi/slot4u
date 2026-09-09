@@ -57,7 +57,20 @@ return [
             'script' => (string) env('SECURITY_CSP_SCRIPT_SRC', ''),
             'connect' => (string) env('SECURITY_CSP_CONNECT_SRC', ''),
             'img' => (string) env('SECURITY_CSP_IMG_SRC', ''),
-            'frame' => (string) env('SECURITY_CSP_FRAME_SRC', ''),
+
+            // ⚠️ Two directives, two keys, and they are easy to confuse — the
+            // confusion is what SLO-213 actually was.
+            //
+            // `frame` is `frame-ancestors`: who may put OUR page in a frame.
+            // `frame_src` is `frame-src`: what WE may put in a frame.
+            //
+            // The demo preview on the marketing site needs both halves — the
+            // demo tenant allows the marketing site (`frame`, added per request
+            // in SecurityHeaders), and the marketing site allows the demo tenant
+            // (`frame_src`, likewise). Only one half existed, so the flagship
+            // "try it live" frame was blocked in every environment.
+            'frame' => (string) env('SECURITY_CSP_FRAME_ANCESTORS', env('SECURITY_CSP_FRAME_SRC', '')),
+            'frame_src' => (string) env('SECURITY_CSP_FRAME_SRC_EXTRA', ''),
         ],
     ],
 
