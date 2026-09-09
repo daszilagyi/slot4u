@@ -46,6 +46,19 @@ use Spatie\Permission\PermissionRegistrar;
 */
 
 beforeEach(function () {
+    // ⚠️ One frame for the seed AND the assertions (SLO-211).
+    //
+    // DemoDataFactory pins its own `today` at construction, precisely so a seed
+    // cannot straddle midnight. The tests then read `Carbon::today()` again —
+    // about ninety seconds later, because that is what the seed costs. Those two
+    // clocks are allowed to disagree, and when they do the test is asking about
+    // a different day than the one it built.
+    //
+    // Frozen rather than tolerated: every date below is relative to this anchor,
+    // so nothing here is pinned to a real calendar date, and a suite that starts
+    // at 23:59 asks the same question as one that starts at noon.
+    Carbon::setTestNow(Carbon::parse('2026-09-09 09:00:00', 'Europe/Budapest'));
+
     $this->seed(PermissionSeeder::class);
     $this->seed(BasePlanSeeder::class);
 });
@@ -172,8 +185,39 @@ it('⚠️ opens the tyre bay on Saturday and nothing else', function () {
 
     // ...and midweek both are bookable, so the Saturday result above is a rota
     // talking, not a service that is broken.
-    expect(garageSlots($tenant, $wheels, $wednesday))->not->toBeEmpty()
-        ->and(garageSlots($tenant, $oil, $wednesday))->not->toBeEmpty();
+    //
+    // ⚠️ Asked of the WEEK, not of one chosen day (SLO-211). A single weekday can
+    // legitimately sell out here: `seedExceptions` puts Attila on leave on days
+    // +6 and +7, an eight-hour MOT holds a bay for a whole day, and Gábor's two
+    // or three jobs take the other one. That is realistic workshop data, not a
+    // defect — but `today->next(WEDNESDAY)` lands on +6 or +7 whenever the suite
+    // runs on a Wednesday or a Thursday, so the old single-day assertion failed
+    // about once in every two full runs and passed on the retry.
+    //
+    // What the assertion is actually for is unchanged: proving the empty
+    // Saturday above is the rota speaking rather than a broken service. One
+    // bookable weekday proves exactly that, and a service that stopped working
+    // would still leave none.
+    $midweek = collect(range(1, 14))
+        ->map(fn (int $days): Carbon => Carbon::today($timezone)->addDays($days))
+        ->reject(fn (Carbon $day): bool => $day->isWeekend());
+
+    // ⚠️ The counts go into the failure message on purpose. The original flake
+    // reported only "Expecting [] not to be empty", which said nothing about
+    // WHICH day was sold out or whether the neighbours were — and that is the
+    // evidence the investigation needed and did not have. If this ever goes red
+    // again, the CI output names every day and its capacity.
+    $census = fn (Service $service): string => $midweek
+        ->map(fn (Carbon $day): string => $day->format('D d.').' '.count(garageSlots($tenant, $service, $day)))
+        ->implode(' | ');
+
+    $bookableOn = fn (Service $service): bool => $midweek
+        ->contains(fn (Carbon $day): bool => garageSlots($tenant, $service, $day) !== []);
+
+    expect($bookableOn($wheels))
+        ->toBeTrue('No weekday in the next fortnight offers a wheel change: '.$census($wheels))
+        ->and($bookableOn($oil))
+        ->toBeTrue('No weekday in the next fortnight offers an oil change: '.$census($oil));
 
     // The all-day drop-off takes a bay for the whole working day, which is why
     // it is the only service in the demo set that cannot be offered twice.

@@ -35,6 +35,16 @@ function versionPayload(array $overrides = []): array
     ], $overrides);
 }
 
+// ⚠️ Two tests below freeze the clock and never unfroze it (SLO-211). Laravel's
+// TestCase::tearDown() happens to reset it, so nothing was broken — but "happens
+// to" is the whole problem: the next reader cannot tell a deliberate reliance on
+// the framework from an omission, and a frozen clock leaking into a later test
+// is the kind of failure that only ever shows up as somebody else's flake.
+// Every other file here resets explicitly; this one now does too.
+afterEach(function () {
+    Carbon::setTestNow();
+});
+
 // --- Access control ---
 
 it('renders the commission config for a superadmin', function () {
