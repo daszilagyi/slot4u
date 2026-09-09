@@ -187,7 +187,7 @@ class HandleInertiaRequests extends Middleware
      * to no logo + the default colour, matching the cover gate in HomeController
      * and the locked branding editor in SettingsController (SLO-90).
      *
-     * @return array{id: int, name: string, slug: string, is_demo: bool, logo_url: string|null, primary_color: string, primary_foreground: string}|null
+     * @return array{id: int, name: string, slug: string, is_demo: bool, logo_url: string|null, primary_color: string, primary_foreground: string, primary_color_dark: string, primary_foreground_dark: string}|null
      */
     private function tenantIdentity(): ?array
     {
@@ -224,6 +224,15 @@ class HandleInertiaRequests extends Middleware
             // `--primary` alone would leave the near-white default sitting on a
             // tenant who picked a pale brand colour.
             'primary_foreground' => TenantBranding::readableForeground($primaryColor),
+            // ⚠️ And both halves AGAIN for dark mode (SLO-214), because the theme
+            // is a client-side choice: the server cannot know which one to send,
+            // so it sends the pair for each and the stylesheet picks. Painting
+            // one colour into both themes is what left a dark-branded tenant's
+            // prices at 1.32:1 in the theme that is the default.
+            'primary_color_dark' => TenantBranding::readableOnDarkSurface($primaryColor),
+            'primary_foreground_dark' => TenantBranding::readableForeground(
+                TenantBranding::readableOnDarkSurface($primaryColor),
+            ),
         ];
     }
 

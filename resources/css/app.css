@@ -259,6 +259,33 @@
     --ring: var(--ice);
 }
 
+/*
+ * The tenant's own brand colour, on their public booking page (SLO-21) — and
+ * the only runtime override of `--primary` left in the app (docs/21, SLO-201).
+ *
+ * ⚠️ Why these are rules here and not an inline `--primary` in PublicLayout:
+ * an inline style beats every selector, so a subtree that wrote `--primary`
+ * directly could not be corrected by `.dark`. It therefore writes only the raw
+ * `--tenant-*` inputs, and these two rules decide which pair is in force. The
+ * second wins in dark mode by specificity.
+ *
+ * ⚠️ And why dark needs a different value at all (SLO-214): the same reason
+ * `.dark` above swaps OUR navy for ice. A dark brand colour on a near-navy card
+ * is invisible — measured at 1.32:1 for `text-primary` (a service price) before
+ * this existed, and 3.60:1 even for the unbranded default indigo. The dark
+ * variant is the tenant's own hue lightened until it clears 4.5:1, derived in
+ * TenantBranding::readableOnDarkSurface() so one place decides it.
+ */
+[data-tenant-brand] {
+    --primary: var(--tenant-primary);
+    --primary-foreground: var(--tenant-primary-foreground);
+}
+
+.dark [data-tenant-brand] {
+    --primary: var(--tenant-primary-dark);
+    --primary-foreground: var(--tenant-primary-dark-foreground);
+}
+
 @layer base {
     * {
         border-color: var(--border);

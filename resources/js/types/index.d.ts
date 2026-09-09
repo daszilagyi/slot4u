@@ -31,6 +31,14 @@ export type TenantIdentity = {
     primary_color: string;
     /** Readable text colour for `primary_color` (TenantBranding::readableForeground). */
     primary_foreground: string;
+    /**
+     * The same brand colour, lightened until it is readable on the dark theme's
+     * surfaces (SLO-214). The theme is chosen in the browser, so the server
+     * sends both pairs and `app.css` picks — see `[data-tenant-brand]`.
+     */
+    primary_color_dark: string;
+    /** Readable text colour for `primary_color_dark`. */
+    primary_foreground_dark: string;
 };
 
 /**
