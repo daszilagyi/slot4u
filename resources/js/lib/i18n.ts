@@ -46,3 +46,36 @@ export function useTranslations() {
         return interpolate(message, replacements);
     };
 }
+
+/**
+ * Read a whole SUBTREE of the translations, not a single string.
+ *
+ * ⚠️ `t()` deliberately returns only strings — a key that resolves to a branch
+ * is a bug at every one of its call sites. The vertical landings (SLO-198) are
+ * the exception that earns this second door: their entire page content is a
+ * structured block under `verticals.{slug}`, lists included, and the whole point
+ * is that adding the next trade touches no component. Handing that block to the
+ * page as a second Inertia prop would have shipped it twice, since the
+ * translations tree already carries it.
+ *
+ * Returns null when the key is missing or names a plain string, so a caller can
+ * render nothing instead of a page of dotted keys. The cast is the caller's:
+ * the shape of a branch is known where it is used, not here.
+ */
+export function useTranslationTree() {
+    const { translations } = usePage().props;
+
+    return function tree<T>(key: string): T | null {
+        const value = key
+            .split('.')
+            .reduce<unknown>(
+                (acc, segment) =>
+                    acc && typeof acc === 'object'
+                        ? (acc as Record<string, unknown>)[segment]
+                        : undefined,
+                translations,
+            );
+
+        return value !== null && typeof value === 'object' ? (value as T) : null;
+    };
+}

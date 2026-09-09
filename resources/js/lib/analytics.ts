@@ -170,6 +170,24 @@ export function trackPurchase(purchase: {
  * fixture name and the surface is one of three constants; the events answer
  * "which demo do people open, and from where", which is all they are for.
  */
+/**
+ * A visitor started the trial sign-up (SLO-198, docs/22 §4).
+ *
+ * ⚠️ Reported at the CLICK, not at the created account: the landing page cannot
+ * see the other side of /register, and a conversion counted only on success
+ * would silently drop everybody the form itself loses. What this measures is
+ * "the page did its job", which is the question a landing page is optimised
+ * against.
+ *
+ * Both vendors, because they are optimised against different events: GA4's
+ * `generate_lead` and Meta's `Lead` are the names each platform's own campaign
+ * tooling looks for, and a custom name in either is a number nobody can bid on.
+ */
+export function trackLead(params: Record<string, string> = {}): void {
+    gtag('event', 'generate_lead', params);
+    fbq('track', 'Lead', params);
+}
+
 export function trackDemo(
     event:
         | 'demo_select_persona'

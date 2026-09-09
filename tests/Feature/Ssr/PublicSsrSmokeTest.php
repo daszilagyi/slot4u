@@ -254,6 +254,72 @@ it('⚠️ never claims customers it does not have', function () {
     expect($content)->not->toContain('99,9%')->not->toContain('99.9%');
 });
 
+it('server-renders the vertical landing whole, copy and structured data included', function () {
+    // ⚠️ This is what stands in for the Lighthouse SEO number the issue asks for
+    // (SLO-198): there is no browser in this project to run one. What a crawler
+    // needs is provable without it — the copy has to be IN the document rather
+    // than assembled by React, and against prop-stripped HTML only real SSR can
+    // satisfy that.
+    //
+    // The vertical exists to rank for one phrase and to be measured on its own,
+    // so the head is as load-bearing as the body: a missing canonical would have
+    // every `utm_*` variant of this page indexed as a competitor of itself.
+    $this->seed(CommissionSettingSeeder::class);
+
+    $content = $this->get('http://'.config('tenancy.central_domain').'/autoszerviz')
+        ->assertOk()
+        ->getContent();
+
+    $rendered = renderedMarkupOnly($content);
+
+    expect($rendered)
+        // The H1, in three parts because the accent falls mid-sentence.
+        ->toContain('A vendéged éjfélkor is tud')
+        ->toContain('időpontot')
+        ->toContain('foglalni. Te közben szerelsz.')
+        // One pain, one step, one feature, one honest limit, one question — the
+        // page is written in the trade's language and all of it is server-side.
+        ->toContain('Csörög a telefon, olajos a kezed')
+        ->toContain('Felviszed az állásokat és a szerelőket')
+        ->toContain('Állás-alapú naptár')
+        ->toContain('Nem vezetünk munkalapot')
+        ->toContain('Mi van szombaton, ha csak a gumis dolgozik?')
+        // Structured data, both kinds (docs/22 §4).
+        ->toContain('SoftwareApplication')
+        ->toContain('FAQPage');
+
+    // Exactly one H1 — a second one has the page competing with itself for the
+    // phrase it was built to rank for.
+    expect(substr_count($rendered, '<h1'))->toBe(1);
+    expect($content)->toContain('rel="canonical"');
+});
+
+it('⚠️ keeps the vertical demo frame off the first paint too', function () {
+    // The home page has this guarantee (SLO-192) and the vertical inherits it —
+    // but "inherits" is a claim about a component, and this page passes it
+    // different props. The iframe is the heaviest thing on either page; if it
+    // ever lands in server markup, the symptom is a slow ad landing page, which
+    // is the one page where slowness costs money directly.
+    $this->seed(CommissionSettingSeeder::class);
+
+    Tenant::factory()->active()->create([
+        'slug' => 'demo-autoszerviz',
+        'name' => 'Csavarkulcs Autószerviz SSR',
+        'is_demo' => true,
+    ]);
+
+    $rendered = renderedMarkupOnly(
+        $this->get('http://'.config('tenancy.central_domain').'/autoszerviz')
+            ->assertOk()
+            ->getContent()
+    );
+
+    // The section is there, with its caption — the frame is not.
+    expect($rendered)
+        ->toContain('Fiktív adatok')
+        ->not->toContain('<iframe');
+});
+
 it('server-renders an authenticated admin page without breaking (global SSR)', function () {
     $tenant = Tenant::factory()->active()->create(['slug' => 'acme', 'name' => 'Acme']);
 
