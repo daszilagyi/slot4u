@@ -331,6 +331,13 @@ php artisan demo:seed          # mind a 4 persona + a smoke tenant
 php artisan demo:seed --tenant=demo-fitnesz --fresh   # egy persona újraépítése
 ```
 
+⚠️ **A `fakerphp/faker` ezért `require`, nem `require-dev` (SLO-217).** A deploy `--no-dev`-vel
+telepít, a `Database\Seeders\` névtér viszont a prod autoloadban van — vagyis a `DemoDataFactory`
+kiment élesre, a függősége nem, és a `demo:seed` az első éles futtatáskor `Class "Faker\Factory" not
+found`-dal halt meg. A demo tenantok termékfunkciók (a publikus főoldal „Próbáld ki élőben"
+szekciója rájuk épül, és a `demo:reset` cron élesben rebuildeli őket), nem teszt-fixture-ök.
+A `ProductionDependenciesTest` őrzi, hogy prod kódútvonal ne importáljon `require-dev` csomagot.
+
 A parancs **bármely környezeten futtatható**, mert a destruktív útja csak `is_demo` tenantot
 érhet el: a `DemoSeeder` visszautasítja a valós tenant tulajdonában lévő slugot, a
 `PurgeDemoTenant` pedig a nem jelölt tenant törlését (`docs/20` §3.1). Egy éles telepítésen,
