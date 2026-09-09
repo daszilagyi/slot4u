@@ -14,6 +14,11 @@ use Illuminate\Support\Carbon;
 use Spatie\Permission\PermissionRegistrar;
 
 beforeEach(function () {
+    // ⚠️ Pinned to a date before the 2026-09-07 fixtures below (SLO-207): a slot
+    // that has already started is no longer offered, so without a fixed clock
+    // this file would stop finding any slot to book the moment that day passed.
+    Carbon::setTestNow('2026-09-01 08:00:00');
+
     // Customer creation assigns the `customer` role (FindOrCreateCustomer); feature
     // defaults (the mode is feature-independent, but the plan must exist) come from
     // the plan_features table seeded by BasePlanSeeder.
@@ -22,6 +27,7 @@ beforeEach(function () {
 });
 
 afterEach(function () {
+    Carbon::setTestNow();
     app(PermissionRegistrar::class)->setPermissionsTeamId(null);
     app(TenantManager::class)->forget();
 });

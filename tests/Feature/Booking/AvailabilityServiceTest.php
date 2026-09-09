@@ -15,6 +15,21 @@ use App\Services\Booking\AvailabilityService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
+beforeEach(function () {
+    // ⚠️ Since SLO-207 a slot that has already started is not returned at all,
+    // so every fixture date in this file has to be in the future — otherwise the
+    // scenarios below would quietly assert against empty slot lists.
+    //
+    // Anchored in January rather than the usual 2026-09-01, because this file
+    // spans further than the others: the DST scenarios sit on 2026-03-29 and
+    // 2026-10-25, either side of the September dates the rest of it uses.
+    Carbon::setTestNow('2026-01-01 08:00:00');
+});
+
+afterEach(function () {
+    Carbon::setTestNow();
+});
+
 /** Local start times ("H:i") of the produced slots, for readable assertions. */
 function slotTimes(array $slots, string $timezone = 'UTC'): array
 {

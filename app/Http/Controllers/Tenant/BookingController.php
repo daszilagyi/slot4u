@@ -162,8 +162,10 @@ class BookingController extends Controller
         abort_unless($service->booking_mode->usesTimeSlot(), 404);
 
         // Never trust the submitted times: re-validate the slot against live
-        // availability (schedule/duration/future), and use the matched slot's own
-        // instants — so a crafted POST can't book off-grid or with a wrong length.
+        // availability — schedule, duration, existing bookings, and (since
+        // SLO-207) that the slot has not already started — then use the matched
+        // slot's own instants, so a crafted POST can't book off-grid, with a
+        // wrong length, or in the past.
         $slot = $this->matchAvailableSlot($service, $data);
 
         $contact = $this->resolveContact($resolvePublicContact, $data);
