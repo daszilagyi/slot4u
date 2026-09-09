@@ -379,3 +379,50 @@ it('server-renders the marketing landing with its price in the HTML (SLO-50)', f
         // Intl uses a non-breaking space as the group separator).
         ->toContain('10'."\u{A0}".'000');
 });
+
+/*
+| The marketing header's audience test (SLO-215)
+|
+| The shared `.{central}` cookie means a demo sign-in follows the visitor back to
+| the landing, and the header used to read that as "customer": it dropped the
+| registration CTA and offered a login to somebody already logged in.
+|
+| ⚠️ These assert on the WORKSPACE LABEL, not on a count of `/register` links.
+| The counting version was written first and it does not discriminate — it passes
+| against the broken header too, because the page carries several registration
+| links and the rendered total did not move. A test that cannot fail is worse
+| than no test, because it is read as coverage.
+*/
+
+it('⚠️ offers no workspace button to a visitor who only tried the demo', function () {
+    $demo = Tenant::factory()->active()->create(['slug' => 'demo-ssr-erdeklodo']);
+    $demo->is_demo = true;
+    $demo->save();
+
+    $this->actingAs(User::factory()->create(['tenant_id' => $demo->getKey()]));
+
+    $rendered = renderedMarkupOnly(
+        (string) $this->get('http://'.config('tenancy.central_domain'))->assertOk()->getContent()
+    );
+
+    // A trial is not an account: they still get the prospect's header.
+    expect($rendered)
+        ->not->toContain(trans('app.welcome.workspace'))
+        ->toContain('/register');
+});
+
+it('offers a real customer their own workspace instead of a second login', function () {
+    $tenant = Tenant::factory()->active()->create(['slug' => 'valodi-ssr']);
+
+    $this->actingAs(User::factory()->create(['tenant_id' => $tenant->getKey()]));
+
+    $rendered = renderedMarkupOnly(
+        (string) $this->get('http://'.config('tenancy.central_domain'))->assertOk()->getContent()
+    );
+
+    expect($rendered)
+        ->toContain(trans('app.welcome.workspace'))
+        // Their dashboard is on their own subdomain, so the link is absolute —
+        // the broken branch pointed at `/`, the page they were already on.
+        ->toContain('http://valodi-ssr.'.config('tenancy.central_domain').'/dashboard');
+});

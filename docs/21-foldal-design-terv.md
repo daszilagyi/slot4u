@@ -99,6 +99,18 @@ Alatta egy sor caption (`ink-muted`, 13 px): „Fiktív adatok · nem küld e-ma
 - **A beágyazásnak két fele van, és mindkettő kell** (SLO-213 — sokáig csak az első épült meg, ezért a keret minden környezetben üres maradt):
   1. **Gyerek oldal:** a demo tenantok válaszfejléce `Content-Security-Policy: frame-ancestors 'self' https://slot4u.hu` (csak `is_demo = true` tenantnál; éles tenant sosem beágyazható), és náluk az `X-Frame-Options` elmarad, mert az nem tud egy origint megnevezni.
   2. **Szülő oldal:** a **központi domain** válaszfejléce `frame-src 'self' https://{minden demo tenant}.slot4u.hu`. Enélkül a `default-src 'self'` dönt, és a böngésző némán megtagadja a betöltést — a tenant-aldomén más origin. A listát ugyanaz a szolgáltatás adja (`DemoPersonaLinks`), amelyikből a persona-kártyák linkjei jönnek, hogy a policy sose legyen szűkebb, mint amit az oldal kirajzol.
+- ⚠️ **A demo-belépés a főoldalon is bejelentkezetté teszi a látogatót** (SLO-215). A session süti
+  `.{central}`-ra szól, tehát a demo tenanton szerzett munkamenet a marketing oldalon is érvényes —
+  az eredeti tervezői feltevés („nincs bejelentkezett végfelhasználó", lásd a brief lentebb) a
+  demo-belépőponttal megszűnt igaz lenni. A fejléc ezért **nem** a puszta „be van-e jelentkezve"
+  kérdésre válaszol, hanem arra, **kit lát**:
+  * **demo tenant sessionje** → érdeklődő: marad a „Belépés" + „Kezdd el ingyen" páros. Egy próba
+    nem fiók, és pont az a látogató a legvalószínűbb konvertáló, aki most próbálta ki.
+  * **valódi tenant sessionje** → ügyfél: egyetlen „Vezérlőpult" gomb a **saját aldoménjára**
+    (a központi domain nem tudja relatív linkkel megcímezni).
+  A döntést a szerver adja két propban (`auth.user.is_demo_visitor`, `auth.user.workspace_url`),
+  mert a központi domainen nincs aktuális tenant, amiből a frontend kikövetkeztethetné.
+
 - Demo-login: `GET /demo/login/{tenant}?t={signed}` → Laravel signed URL, 15 perc, csak `is_demo` tenantra, minden hívás `demo_logins` logba; rate limit 10/perc/IP.
 - Az iframe `sandbox="allow-same-origin allow-scripts allow-forms allow-popups"`, `loading="lazy"`, `title` kitöltve.
 - A demo foglalóoldalon egy vékony felső sáv: „DEMO · fiktív adatok” (`warn` háttér, `navy` szöveg) — a látogató sose higgye valósnak.
