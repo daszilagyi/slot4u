@@ -111,7 +111,7 @@ export default function MarketingLayout({
                         visibly does nothing. The app's own surfaces keep theirs.
                     */}
                     <div className="flex items-center gap-2">
-                        {auth.user === null ? (
+                        {auth.user === null || auth.user.is_demo_visitor ? (
                             <>
                                 <Button asChild variant="ghost" size="sm">
                                     <a href="/login">{t('welcome.login')}</a>
@@ -132,8 +132,22 @@ export default function MarketingLayout({
                                 </Button>
                             </>
                         ) : (
+                            /*
+                                A real customer, recognised across the shared
+                                cookie. They get the one thing the marketing site
+                                can offer them that they cannot already see: the
+                                way back into their own workspace, which lives on
+                                their subdomain and so cannot be a relative link.
+
+                                ⚠️ This branch used to say "log in" and point at
+                                `/` — an invitation to log in, aimed at somebody
+                                already logged in, leading to the page they were
+                                standing on (SLO-215).
+                            */
                             <Button asChild size="sm">
-                                <a href="/">{t('welcome.login')}</a>
+                                <a href={auth.user.workspace_url ?? '/'}>
+                                    {t('welcome.workspace')}
+                                </a>
                             </Button>
                         )}
                     </div>

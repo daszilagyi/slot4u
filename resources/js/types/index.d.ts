@@ -9,6 +9,20 @@ export type AuthUser = {
     name: string;
     email: string;
     is_staff: boolean;
+    /**
+     * This session belongs to a demo tenant (SLO-215) — a trial, not an account.
+     * The marketing site keeps treating them as a prospect, because the shared
+     * `.{central}` cookie otherwise makes a demo sign-in look like a customer.
+     *
+     * ⚠️ Only sent on the central domain; undefined on tenant surfaces, where
+     * the marketing shell is not rendered.
+     */
+    is_demo_visitor?: boolean;
+    /**
+     * Where this customer's own workspace lives — an absolute URL, because it is
+     * on their subdomain. Null for a demo visitor and for a superadmin.
+     */
+    workspace_url?: string | null;
 };
 
 export type Auth = {

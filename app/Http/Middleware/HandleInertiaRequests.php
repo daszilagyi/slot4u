@@ -76,6 +76,12 @@ class HandleInertiaRequests extends Middleware
                     // Lets the public shell pick the members-area vs admin link and
                     // never offer a customer a staff-only destination (SLO-94).
                     'is_staff' => $user->isStaff(),
+                    // Where this user's own workspace lives, and whether that
+                    // workspace is a demo (SLO-215). Only the marketing site asks:
+                    // it is the one surface that sees a session it does not own,
+                    // because the cookie is scoped to `.{central}` and a demo
+                    // sign-in therefore follows the visitor back to the home page.
+                    ...$this->visitorWorkspace($user),
                 ],
                 'permissions' => $this->permissionsFor($user),
             ],
@@ -178,6 +184,54 @@ class HandleInertiaRequests extends Middleware
         return $this->enabledFeatures = $tenant === null
             ? []
             : $this->features->enabledCodes($tenant);
+    }
+
+    /**
+     * Who the marketing site is actually looking at (SLO-215).
+     *
+     * The session cookie is scoped to `.{central}`, so signing into a demo
+     * tenant signs the visitor in on the marketing site too. The header then
+     * took its "logged in" branch and dropped the registration CTA — from the
+     * one visitor who had just tried the product and was most likely to convert.
+     *
+     * Two facts fix it, and both have to come from the USER's tenant rather than
+     * the request's: on the central domain there is no current tenant at all.
+     *
+     * - `is_demo_visitor` — they signed into a demo. That is a trial, not an
+     *   account, so the marketing site should keep treating them as a prospect.
+     * - `workspace_url` — for a real customer, where their own workspace lives.
+     *   The central domain cannot derive it; it is on their own subdomain.
+     *
+     * ⚠️ Only computed on the central domain. Everywhere else the marketing
+     * shell is not rendered, and this would be a tenant lookup on every single
+     * authenticated request in the admin panel for a prop nobody reads.
+     *
+     * @return array{is_demo_visitor?: bool, workspace_url?: string|null}
+     */
+    private function visitorWorkspace(User $user): array
+    {
+        if ($this->tenants->current() !== null) {
+            return [];
+        }
+
+        $tenant = $user->tenant;
+
+        if ($tenant === null) {
+            // A superadmin: no workspace of their own, and no demo about it.
+            return ['is_demo_visitor' => false, 'workspace_url' => null];
+        }
+
+        $scheme = request()->isSecure() ? 'https' : 'http';
+
+        return [
+            'is_demo_visitor' => $tenant->is_demo,
+            // A demo tenant gets no workspace link: sending a prospect into the
+            // demo dashboard is not the same offer as sending a customer to
+            // their own, and one button cannot honestly mean both.
+            'workspace_url' => $tenant->is_demo
+                ? null
+                : $scheme.'://'.$tenant->slug.'.'.config('tenancy.central_domain').'/dashboard',
+        ];
     }
 
     /**

@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\CommissionSetting;
+use App\Models\Tenant;
+use App\Models\User;
 use Database\Seeders\CommissionSettingSeeder;
 use Illuminate\Support\Carbon;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -141,4 +143,66 @@ it('offers the registration the landing sends people to', function () {
     // The issue's acceptance criterion is that a visitor can register FROM the
     // landing, so the target of the primary call to action is part of the page.
     $this->get(centralUrl('/register'))->assertOk();
+});
+
+/*
+|--------------------------------------------------------------------------
+| Who the marketing site thinks it is looking at (SLO-215)
+|--------------------------------------------------------------------------
+|
+| The session cookie is scoped to `.{central}`, so a demo sign-in follows the
+| visitor back here. The header read that as "customer" and took away the
+| registration CTA — from the one visitor who had just tried the product.
+|
+| These assert the prop the header branches on, because the branch itself is
+| React. A prop that is right and a header that ignores it would still be a bug,
+| which is what the browser pass is for; a prop that is wrong makes the header
+| unfixable.
+|
+*/
+
+/** A staff user inside a tenant, signed in the way the shared cookie leaves them. */
+function welcomeVisitorFrom(bool $isDemo, string $slug): User
+{
+    $tenant = Tenant::factory()->active()->create(['slug' => $slug]);
+
+    if ($isDemo) {
+        $tenant->is_demo = true;
+        $tenant->save();
+    }
+
+    return User::factory()->create(['tenant_id' => $tenant->getKey()]);
+}
+
+it('⚠️ still treats someone who only tried the demo as a prospect', function () {
+    // The regression. A demo sign-in is a trial, not an account: the landing has
+    // to keep offering registration, or the release's own demo entry point ends
+    // up closing the door behind the visitor it just invited in.
+    $this->actingAs(welcomeVisitorFrom(isDemo: true, slug: 'demo-erdeklodo'));
+
+    $this->get(centralUrl())
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('auth.user.is_demo_visitor', true)
+            // No workspace of their own to go back to — they do not have one yet,
+            // and offering the demo's dashboard as "yours" would be a lie.
+            ->where('auth.user.workspace_url', null)
+        );
+});
+
+it('sends a real customer back to their own workspace, on their own subdomain', function () {
+    $user = welcomeVisitorFrom(isDemo: false, slug: 'valodi-ugyfel');
+
+    $this->actingAs($user);
+
+    $this->get(centralUrl())
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('auth.user.is_demo_visitor', false)
+            // ⚠️ Absolute, and it has to be: their dashboard is not on this host.
+            ->where(
+                'auth.user.workspace_url',
+                'http://valodi-ugyfel.'.config('tenancy.central_domain').'/dashboard',
+            )
+        );
 });

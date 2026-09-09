@@ -23,6 +23,10 @@ return [
         'cta_primary' => 'Kezdd el ingyen',
         'cta_secondary' => 'Nézd meg működés közben',
         'login' => 'Belépés',
+        // A fejléc gombja annak, akit a megosztott sütiről valódi ügyfélként
+        // ismerünk fel (SLO-215). Nem „Belépés": ő már belépett — az egyetlen
+        // dolog, amit itt kaphat, a saját munkaterületéhez vezető út.
+        'workspace' => 'Vezérlőpult',
         // A hero alatti apróbetűs (docs/21 §2): a legerősebb kifogást veszi el
         // közvetlenül a gomb mellett, ahol az felmerül.
         'cta_caption' => 'Nem kérünk bankkártyát.',
