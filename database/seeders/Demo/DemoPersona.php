@@ -4,10 +4,14 @@ declare(strict_types=1);
 
 namespace Database\Seeders\Demo;
 
+use App\Actions\Legal\RecordConsent;
+use App\Enums\ConsentContext;
 use App\Enums\Role;
 use App\Enums\TenantStatus;
+use App\Http\Middleware\EnsureLegalConsent;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\Legal\LegalDocumentRegistry;
 use App\Services\Rbac\TenantRoleSeeder;
 use Illuminate\Support\Facades\Hash;
 use Spatie\Permission\PermissionRegistrar;
@@ -179,6 +183,50 @@ abstract class DemoPersona
             $registrar->setPermissionsTeamId(null);
         }
 
+        // After the roles, not before: which documents this user owes depends on
+        // whether they are staff, and that is a role question.
+        $this->acceptDocumentsInForce($tenant, $user);
+
         return $user;
+    }
+
+    /**
+     * Sign the fixture user up to the documents in force (SLO-209).
+     *
+     * Without this every seeded account stands on day zero, and
+     * {@see EnsureLegalConsent} holds it at the
+     * re-acceptance screen — which is what a visitor got instead of the
+     * dashboard the landing page promised them. Worse, it is not only the admin
+     * view: while that session is alive the tenant's PUBLIC pages redirect to
+     * the wall too, so one look at the admin demo took the booking demo away
+     * with it.
+     *
+     * ⚠️ The fix is here rather than in the middleware. Exempting `is_demo`
+     * tenants from the gate would weaken a real legal control for the sake of a
+     * sales demo; a fixture user's acceptance, on the other hand, is fiction in
+     * exactly the way its bookings are, and it is seeded the same way. The rows
+     * carry the demo tenant's `tenant_id`, so they never sit among real evidence
+     * without saying which they are.
+     *
+     * `Reconsent` is the honest context: nobody ticked a box on a sign-up form.
+     * It is the same context the blocking screen writes, and the screen is what
+     * this stands in for.
+     *
+     * Publishing a new document version leaves these accounts outstanding again
+     * — until the nightly `demo:reset` (SLO-191) rebuilds them. A day at worst,
+     * and it heals itself.
+     */
+    private function acceptDocumentsInForce(Tenant $tenant, User $user): void
+    {
+        // outstandingFor(), not requiredFor(): the same list, minus anything
+        // already accepted. On a fresh fixture that is the whole set, and it
+        // keeps the seed from writing a duplicate acceptance if this is ever
+        // reached twice.
+        app(RecordConsent::class)->many(
+            app(LegalDocumentRegistry::class)->outstandingFor($user),
+            $tenant,
+            ConsentContext::Reconsent,
+            $user,
+        );
     }
 }
