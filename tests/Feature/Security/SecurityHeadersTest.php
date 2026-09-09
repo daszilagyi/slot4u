@@ -120,7 +120,10 @@ it('keeps a built bundle free of unsafe-eval and any dev origin', function () {
 
     expect($policy)->toContain("script-src 'self' 'nonce-abc123'")
         ->and($policy)->not->toContain('unsafe-eval')
+        // ⚠️ Covers font-src and img-src as well: the dev widening added for
+        // SLO-216 must be as unreachable from a built bundle as unsafe-eval is.
         ->and($policy)->not->toContain('localhost:5173')
+        ->and($policy)->toContain("font-src 'self' data:;")
         ->and($policy)->toContain("object-src 'none'")
         ->and($policy)->toContain("base-uri 'self'")
         ->and($policy)->toContain("form-action 'self'")
@@ -139,7 +142,14 @@ it('widens the policy only while the dev server is hot', function () {
 
     expect($policy)->toContain("'unsafe-eval'")
         ->and($policy)->toContain('http://localhost:5173')
-        ->and($policy)->toContain('ws://localhost:5173');
+        ->and($policy)->toContain('ws://localhost:5173')
+        // ⚠️ Fonts and images too (SLO-216). Our typefaces are npm packages, so
+        // in dev they are served BY VITE, from its origin — and a policy that
+        // widened only script/style/connect blocked every one of them. The page
+        // still rendered, in a fallback face, which is why nobody noticed until
+        // somebody compared it with a built bundle.
+        ->and($policy)->toContain("font-src 'self' data: http://localhost:5173")
+        ->and($policy)->toContain("img-src 'self' data: blob: http://localhost:5173");
 });
 
 it('lets the realtime connection through', function () {

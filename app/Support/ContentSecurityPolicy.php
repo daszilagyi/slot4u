@@ -55,8 +55,13 @@ final class ContentSecurityPolicy
             "default-src 'self'",
             'script-src '.implode(' ', $this->scriptSources()),
             'style-src '.implode(' ', $this->styleSources()),
-            'img-src '.implode(' ', $this->sources(["'self'", 'data:', 'blob:'], 'img')),
-            "font-src 'self' data:",
+            'img-src '.implode(' ', $this->assetSources(["'self'", 'data:', 'blob:'], 'img')),
+            // ⚠️ Served from the dev origin while Vite is hot, exactly like the
+            // scripts and styles above (SLO-216). Our own typefaces are npm
+            // packages, so in dev they come from localhost:5173 — and a policy
+            // that forgot them blocked the fonts on every local page, leaving
+            // everyone reviewing designs in a fallback face without knowing it.
+            'font-src '.implode(' ', $this->assetSources(["'self'", 'data:'], 'font')),
             'connect-src '.implode(' ', $this->connectSources()),
             // What this page may put in a frame. Without it `default-src` decides,
             // and `default-src 'self'` silently blocks the marketing site's demo
@@ -151,6 +156,34 @@ final class ContentSecurityPolicy
     private function sources(array $base, string $key): array
     {
         return array_merge($base, $this->list($key), $this->measurement($key));
+    }
+
+    /**
+     * Sources for a directive that names STATIC ASSETS — fonts, images.
+     *
+     * The difference from {@see sources()} is the dev server. A built bundle
+     * serves its fonts and images from our own origin, but `npm run dev` serves
+     * them from Vite, and that is a different origin (SLO-216). Scripts, styles
+     * and connections already knew this; these two did not, so in dev the
+     * browser blocked our own typefaces and the brand tile, silently, on every
+     * page.
+     *
+     * ⚠️ Gated on `hot`, like every other dev widening here — a built bundle
+     * cannot reach this branch, so the production policy stays exactly as narrow
+     * as it was.
+     *
+     * @param  list<string>  $base
+     * @return list<string>
+     */
+    private function assetSources(array $base, string $key): array
+    {
+        $sources = $base;
+
+        if ($this->hot && $this->devServer !== null) {
+            $sources[] = $this->devServer;
+        }
+
+        return array_merge($sources, $this->list($key), $this->measurement($key));
     }
 
     /**

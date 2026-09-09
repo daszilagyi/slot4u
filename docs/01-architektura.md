@@ -315,7 +315,11 @@ googletagmanager.com-ot **minden oldalon örökre** futtathatóvá tenné — az
 folyamaton is —, azért, hogy egyetlen marketing-oldalon fusson egy script. Aki nem járult hozzá a
 méréshez, annak a policy is visszaszűkül. A dev ág (`'unsafe-eval'` + a dev szerver origin, a
 React Refresh miatt) **a `hot` állapotra van kötve, nem környezet-névre**, tehát buildelt bundle
-mellett strukturálisan nem tud érvényre jutni. A websocket origin (`connect-src`) az **AKTÍV** broadcast connectionből jön
+mellett strukturálisan nem tud érvényre jutni. ⚠️ **A dev origin a `font-src`-be és az `img-src`-be
+is kell** (SLO-216): a betűtípusaink npm-csomagok, tehát dev módban a Vite szolgálja ki őket a saját
+originjéről. Amíg csak a `script`/`style`/`connect` volt kiszélesítve, a böngésző **némán blokkolta
+az összes saját betűnket** — az oldal fallback betűvel renderelt, tehát a designt lokálisan senki
+nem azon a tipográfián nézte, ami élesbe megy. A websocket origin (`connect-src`) az **AKTÍV** broadcast connectionből jön
 (`broadcasting.default`), különben az élő foglalás-feed minden oldalon elakadna. ⚠️ **Ezt driver-névre
 kötni hiba (SLO-150):** dev alatt Reverb fut, **prodban hosted Pusher** — a beégetett `reverb` név
 prodban üres `connect-src`-t adott volna, tehát pont ott blokkolta volna a realtime-ot, ahol számít.
