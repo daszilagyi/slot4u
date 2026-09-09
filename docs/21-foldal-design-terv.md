@@ -257,6 +257,18 @@ Claude Code nem „látja” a Claude Design-vásznat, fájlokat lát. Ezért az
 > alapértelmezés**. Így az app **egyetlen** futásidejű `--primary`-felülírása maradt: a `PublicLayout`,
 > ami a tenant saját színét teszi rá. Erre teszt van (`IdentityTokensTest`).
 >
+> ⚠️ **A tenant színének két változata van, témánként (SLO-214).** Ugyanaz az ok, amiért a `.dark`
+> a mi navynkat is ice-ra cseréli: sötét márkaszín a navy kártyán olvashatatlan — mérve **1.32:1**
+> egy `text-primary` áron, és **3.60:1** még az alapértelmezett indigóval is, tehát a márkázatlan
+> többség is megbukott. A `TenantBranding::readableOnDarkSurface()` a tenant **saját színárnyalatát**
+> világosítja addig, amíg át nem lépi a 4.5:1-et; a világos téma a választott színt kapja
+> változatlanul.
+>
+> ⚠️ **A `PublicLayout` ezért NEM ír inline `--primary`-t**, csak nyers `--tenant-*` bemeneteket; a
+> tokent az `app.css` `[data-tenant-brand]` / `.dark [data-tenant-brand]` szabálypárja állítja be.
+> Egy inline custom property ugyanis **minden szelektort ver**, tehát a sötét téma nem tudná
+> korrigálni — pontosan ez volt a hiba. `IdentityTokensTest` őrzi, hogy ne kerüljön vissza.
+>
 > ⚠️ **Amit ez érint:** a tenant admin és az auth képernyők eddig a semleges violetet kapták, most
 > navy-t. A **tenant publikus foglalóoldala változatlan** — azt a `TenantBranding` mindig felülírja
 > (alapból indigo), tehát a bolt kirakata az övék marad (`docs/19` §2).

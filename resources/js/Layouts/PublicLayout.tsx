@@ -21,13 +21,21 @@ export default function PublicLayout({ children }: PropsWithChildren) {
     const feature = useFeatures();
     const { tenant, auth } = usePage().props;
 
-    // Both halves of the token, not just the colour: `--primary-foreground` is
-    // what sits ON the brand colour, and leaving it at the near-white default
-    // puts white text on a tenant who picked a pale brand.
+    // ⚠️ These are INPUTS, not the answer. `app.css` maps them onto `--primary`
+    // per theme, because an inline style beats any stylesheet rule — writing
+    // `--primary` directly here would make the dark theme unable to correct it,
+    // which is exactly how a dark-branded tenant ended up with 1.32:1 prices in
+    // the default theme (SLO-214).
+    //
+    // Both halves of each pair: `--primary-foreground` is what sits ON the brand
+    // colour, and leaving it at the near-white default puts white text on a
+    // tenant who picked a pale brand.
     const brandStyle = tenant
         ? ({
-              ['--primary']: tenant.primary_color,
-              ['--primary-foreground']: tenant.primary_foreground,
+              ['--tenant-primary']: tenant.primary_color,
+              ['--tenant-primary-foreground']: tenant.primary_foreground,
+              ['--tenant-primary-dark']: tenant.primary_color_dark,
+              ['--tenant-primary-dark-foreground']: tenant.primary_foreground_dark,
           } as CSSProperties)
         : undefined;
 
@@ -83,6 +91,7 @@ export default function PublicLayout({ children }: PropsWithChildren) {
 
     return (
         <div
+            data-tenant-brand={tenant ? '' : undefined}
             style={brandStyle}
             className="flex min-h-screen flex-col bg-background text-foreground"
         >

@@ -146,14 +146,31 @@ it('leaves exactly one runtime override of the primary token', function () {
     // With the platform accent gone (SLO-201), the ONLY subtree that repaints
     // `--primary` is the tenant public shell. Two places deciding one colour is
     // how they drift apart, so this counts them.
+    //
+    // ⚠️ Since SLO-214 the shell hands the stylesheet raw `--tenant-*` inputs
+    // instead of a finished `--primary`, so this counts those — and the next
+    // assertion is why.
     $layouts = glob(resource_path('js/Layouts/*.tsx')) ?: [];
     $overriding = [];
+    $inline = [];
 
     foreach ($layouts as $file) {
-        if (str_contains((string) file_get_contents($file), "['--primary']")) {
+        $source = (string) file_get_contents($file);
+
+        if (str_contains($source, "['--tenant-primary']")) {
             $overriding[] = basename($file);
+        }
+
+        if (str_contains($source, "['--primary']")) {
+            $inline[] = basename($file);
         }
     }
 
-    expect($overriding)->toBe(['PublicLayout.tsx']);
+    expect($overriding)->toBe(['PublicLayout.tsx'])
+        // ⚠️ And NOTHING may write `--primary` as an inline style again. An
+        // inline custom property beats every selector, so `.dark` could not
+        // correct it — which is precisely how a dark-branded tenant's prices
+        // ended up at 1.32:1 in the default theme (SLO-214). The token is set
+        // in app.css, from the inputs above.
+        ->and($inline)->toBe([]);
 });
