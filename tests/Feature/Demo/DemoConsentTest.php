@@ -57,7 +57,14 @@ function seededDemoTenant(): Tenant
     return Tenant::withoutGlobalScopes()->where('slug', (new SmokeDemoPersona)->slug())->firstOrFail();
 }
 
-function tenantUrl(Tenant $tenant, string $path): string
+/**
+ * A page on the tenant's own host.
+ *
+ * ⚠️ Not named `tenantUrl` — Pest hoists a helper declared in a test file into
+ * the global namespace, and `IdentifyTenantTest` already owns that name. The
+ * clash only appears in a full run, never when this file is run on its own.
+ */
+function demoTenantUrl(Tenant $tenant, string $path): string
 {
     return 'http://'.$tenant->slug.'.'.config('tenancy.central_domain').$path;
 }
@@ -106,7 +113,7 @@ it('⚠️ lands the one-click visitor on the dashboard, not on the consent wall
 
     $this->get($url)->assertRedirect('/dashboard');
 
-    $this->get(tenantUrl($tenant, '/dashboard'))
+    $this->get(demoTenantUrl($tenant, '/dashboard'))
         ->assertOk()
         ->assertDontSee('/consent');
 });
@@ -123,7 +130,7 @@ it('⚠️ leaves the public demo page reachable while that session is open', fu
         ['tenant' => $tenant->slug],
     ));
 
-    $this->get(tenantUrl($tenant, '/'))->assertOk();
+    $this->get(demoTenantUrl($tenant, '/'))->assertOk();
 });
 
 it('⚠️ still stops a real tenant’s staff at the wall — the gate is not weakened', function () {
@@ -140,6 +147,6 @@ it('⚠️ still stops a real tenant’s staff at the wall — the gate is not w
     expect($tenant->refresh()->is_demo)->toBeFalse();
 
     $this->actingAs($user)
-        ->get(tenantUrl($tenant, '/dashboard'))
+        ->get(demoTenantUrl($tenant, '/dashboard'))
         ->assertRedirect('/consent');
 });
