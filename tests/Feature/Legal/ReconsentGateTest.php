@@ -10,6 +10,7 @@ use App\Services\Legal\LegalDocumentRegistry;
 use App\Tenancy\TenantManager;
 use Database\Seeders\BasePlanSeeder;
 use Database\Seeders\PermissionSeeder;
+use Inertia\Testing\AssertableInertia;
 use Spatie\Permission\PermissionRegistrar;
 
 /*
@@ -186,4 +187,71 @@ it('asks a customer for the tenant documents, not the platform ones', function (
     $outstanding = app(LegalDocumentRegistry::class)->outstandingFor($customer);
 
     expect($outstanding->pluck('id')->all())->toBe([$tenantDocument->id]);
+});
+
+/*
+| The brochure stays readable (SLO-219)
+|
+| slot4u.hu's landing is public: a stranger reads it without an account. So
+| signing in must not take it away — and it did, because this gate ran on every
+| authenticated request. On the morning a new ÁSZF version is published that
+| would be every customer at once, each of them meeting a legal form where they
+| expected the home page.
+|
+| The exemption is narrow and it is paired: these pages are reachable, AND they
+| render as if nobody were signed in, so nothing personal reaches a visitor whose
+| consent has lapsed. Both halves are asserted below, and so is the thing that
+| must NOT have changed.
+*/
+
+it('⚠️ lets a signed-in visitor read the marketing pages with a document outstanding', function () {
+    $tenant = gateTenant();
+    LegalDocument::factory()->platform()->terms()->create();
+
+    $central = 'http://'.config('tenancy.central_domain');
+
+    $this->actingAs(gateStaff($tenant))
+        ->get($central)
+        ->assertSuccessful();
+});
+
+it('⚠️ renders those pages as a brochure — the session never reaches them', function () {
+    // Nulled server-side, not hidden in the layout. An unrendered name that is
+    // still sitting in the Inertia prop payload has still been sent to someone
+    // whose consent has lapsed, and the payload is readable in view-source.
+    $tenant = gateTenant();
+    LegalDocument::factory()->platform()->terms()->create();
+
+    $this->actingAs(gateStaff($tenant))
+        ->get('http://'.config('tenancy.central_domain'))
+        ->assertSuccessful()
+        ->assertInertia(fn (AssertableInertia $page) => $page->where('auth.user', null));
+});
+
+it('gives the session back on those same pages once the document is accepted', function () {
+    // The exemption is about outstanding consent, not about the marketing pages
+    // being permanently anonymous — a customer in good standing still gets their
+    // header (SLO-215).
+    $tenant = gateTenant();
+    $document = LegalDocument::factory()->platform()->terms()->create();
+    $user = gateStaff($tenant);
+    LegalConsent::factory()->forTenant($tenant)->forDocument($document)->byUser($user)->create();
+
+    $this->actingAs($user)
+        ->get('http://'.config('tenancy.central_domain'))
+        ->assertSuccessful()
+        ->assertInertia(fn (AssertableInertia $page) => $page->where('auth.user.id', $user->getKey()));
+});
+
+it('⚠️ still holds the product surfaces, which is the half that must not move', function () {
+    // The counterweight. An exemption written slightly too wide would let the
+    // booking system and the admin panel through as well, and every assertion
+    // above would still pass — this is the one that would not.
+    $tenant = gateTenant();
+    LegalDocument::factory()->platform()->terms()->create();
+    $user = gateStaff($tenant);
+
+    $this->actingAs($user)->get(tenantHost('acme', '/dashboard'))->assertRedirect('/consent');
+    $this->actingAs($user)->get(tenantHost('acme'))->assertRedirect('/consent');
+    $this->actingAs($user)->get('http://'.config('tenancy.central_domain').'/register')->assertRedirect('/consent');
 });
