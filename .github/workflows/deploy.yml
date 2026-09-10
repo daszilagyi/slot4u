@@ -112,12 +112,34 @@ jobs:
           mkdir -p public/build/manifests
           cp public/build/manifest.json "public/build/manifests/${RELEASE_REF//\//-}.json"
 
-      # Only the client build goes to the server: it has no Node process, so the
-      # SSR bundle (bootstrap/ssr) would never be executed there (docs/13).
       - uses: actions/upload-artifact@v7
         with:
           name: build-${{ github.run_id }}
           path: public/build
+          retention-days: 7
+          include-hidden-files: true
+
+      # The SSR bundle, in its own artifact (SLO-212).
+      #
+      # This used to say "only the client build goes to the server: it has no
+      # Node process" — which was true, and was the bug: the docs promised SSR
+      # on the public pages while every one of them shipped as an empty shell.
+      # The host does have one, under Passenger.
+      #
+      # ⚠️ A SEPARATE artifact rather than a second path on the one above. The
+      # download step below is deliberately by-name and unpacks straight into
+      # `public/build`; adding a path would change that layout and relocate the
+      # client bundle, which is the SLO-164 failure — a broken front end behind
+      # a smoke test that still saw a 200.
+      #
+      # ⚠️ No node_modules go with it. The bundle is built with
+      # `ssr: { noExternal: true }` (vite.config.ts), so it carries its
+      # dependencies: ~5 MB of files instead of ~300 MB of packages, and nothing
+      # to install on the server.
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ssr-${{ github.run_id }}
+          path: bootstrap/ssr
           retention-days: 7
           include-hidden-files: true
 
@@ -153,6 +175,11 @@ jobs:
           name: build-${{ github.run_id }}
           path: public/build
 
+      - uses: actions/download-artifact@v8
+        with:
+          name: ssr-${{ github.run_id }}
+          path: bootstrap/ssr
+
       - name: Configure ssh
         env:
           SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
@@ -186,6 +213,27 @@ jobs:
           --rsync-path="mkdir -p ${DEPLOY_PATH}/public/build && /home/slot4uhu/.local/bin/rsync" \
           public/build/ "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_PATH}/public/build/"
 
+      # The renderer's own directory, which is NOT inside the application
+      # (Passenger owns it, and cPanel points the `/_ssr` mount at it).
+      # Uploaded before the deploy script runs, because that script is what
+      # restarts Passenger — the order is: new files, then restart, or the old
+      # bundle keeps serving and nothing says so (SLO-212).
+      #
+      # ⚠️ No --delete. `package.json` lives there and is not ours to ship: it
+      # is what tells Node the bundle is an ES module, and the deploy script
+      # writes it only when missing.
+      - name: Upload the SSR bundle
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
+          DEPLOY_SSR_PATH: ${{ vars.DEPLOY_SSR_PATH || '~/ssr' }}
+        run: |
+          rsync -rlvz --human-readable \
+          -e "ssh -i ~/.ssh/deploy_key -p ${DEPLOY_PORT} -o StrictHostKeyChecking=yes -o BatchMode=yes" \
+          --rsync-path="mkdir -p ${DEPLOY_SSR_PATH} && /home/slot4uhu/.local/bin/rsync" \
+          bootstrap/ssr/ "${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_SSR_PATH}/"
+
       # The script is piped from this checkout, so the deploy logic that runs is
       # always the one committed at the ref being deployed — and it cannot be
       # corrupted by the checkout it performs on the server.
@@ -197,6 +245,8 @@ jobs:
           DEPLOY_PORT: ${{ vars.DEPLOY_PORT || '22' }}
           DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '~/slot4u' }}
           DEPLOY_PHP: ${{ vars.DEPLOY_PHP || '/opt/cpanel/ea-php84/root/usr/bin/php' }}
+          DEPLOY_SSR_PATH: ${{ vars.DEPLOY_SSR_PATH || '~/ssr' }}
+          DEPLOY_DOCROOT: ${{ vars.DEPLOY_DOCROOT || '~/public_html' }}
           SKIP_MIGRATIONS: ${{ inputs.skip_migrations && '1' || '0' }}
           EXPECT_SHA: ${{ steps.target.outputs.sha }}
         run: |
@@ -204,7 +254,7 @@ jobs:
           ssh -i ~/.ssh/deploy_key -p "${DEPLOY_PORT}" \
               -o StrictHostKeyChecking=yes -o BatchMode=yes \
               "${DEPLOY_USER}@${DEPLOY_HOST}" \
-              "DEPLOY_PATH='${DEPLOY_PATH}' DEPLOY_PHP='${DEPLOY_PHP}' DEPLOY_SKIP_MIGRATIONS='${SKIP_MIGRATIONS}' DEPLOY_EXPECT_SHA='${EXPECT_SHA}' bash -s -- '${RELEASE_REF}'" \
+              "DEPLOY_PATH='${DEPLOY_PATH}' DEPLOY_PHP='${DEPLOY_PHP}' DEPLOY_SSR_PATH='${DEPLOY_SSR_PATH}' DEPLOY_DOCROOT='${DEPLOY_DOCROOT}' DEPLOY_SKIP_MIGRATIONS='${SKIP_MIGRATIONS}' DEPLOY_EXPECT_SHA='${EXPECT_SHA}' bash -s -- '${RELEASE_REF}'" \
               < deploy/deploy.sh | tee /tmp/deploy.log
           previous="$(sed -n 's/^deploy-previous-ref=//p' /tmp/deploy.log | head -n 1)"
           echo "previous=${previous}" >> "$GITHUB_OUTPUT"
