@@ -270,29 +270,53 @@ else
         # rendering without a word. A deploy that loses SSR must stop being a
         # green deploy.
         #
-        # ⚠️ The props are stripped first, and the strip is cruder than it
-        # looks on purpose. Inertia serialises the whole page — headings
-        # included — into `<script data-page="app" type="application/json">`,
-        # so a raw grep for `<h1` can find markup on a page that rendered none:
-        # the check would pass exactly when it should fail.
+        # The props are stripped first because Inertia serialises the whole
+        # page — headings included — into `<script data-page="app">`, and
+        # `json_encode` does not escape `<`. A raw grep for `<h1` can therefore
+        # find markup on a page that rendered none: the check would pass exactly
+        # when it should fail.
         #
-        # Deleting from that script to the end of the line, rather than matching
-        # its closing tag, is what makes this survive a prop containing literal
-        # markup. A `[^<]*` match cannot span one and silently strips nothing —
-        # written that way first, and a fixture carrying `<h1>` inside the props
-        # is what caught it. Everything the renderer produces lives in
-        # `<div id="app">`, which comes BEFORE the props block, so nothing that
-        # matters is lost with the tail.
+        # ⚠️ Stripping the SCRIPT ELEMENT, not "to the end of the line". Inertia
+        # writes the props block FIRST and the root div after it —
+        #
+        #     <script data-page="app" ...>{json}</script><div id="app">…</div>
+        #
+        # — all on one line, in both modes (see its Directive.php). A strip that
+        # ran to the end of the line therefore deleted the server-rendered
+        # markup itself, and this check could never pass. It looked right, it
+        # passed its own fixture, and it failed the first real deploy on a page
+        # that had rendered perfectly. The fixture now carries production's
+        # actual shape.
         if [[ "${ssr_enabled}" == "true" ]]; then
-            markup="$(sed 's#<script[^>]*data-page="app".*##' "${BODY}")"
-
-            if printf '%s' "${markup}" | grep -q '<h1'; then
-                pass "landing page is server-rendered (h1 present outside the props)"
+            # perl for the non-greedy match, which sed cannot express: the props
+            # JSON may contain `<`, so the element has to end at its OWN closing
+            # tag rather than the document's last one. A missing perl must fail
+            # loudly — an unstripped body would let the props satisfy the grep.
+            if ! command -v perl >/dev/null 2>&1; then
+                fail "perl is missing, and the server-rendering check needs it to separate
+       the rendered markup from the serialized props. Without that separation the
+       check would pass on a page that rendered nothing, which is worse than no check."
             else
-                fail "the landing page has NO server-rendered <h1> — it shipped as an empty shell.
-       SSR is enabled but the markup is not there, so search engines see nothing. This is
-       the SLO-212 failure returning: the page still works for humans, which is why it
-       needs a check that fails."
+                markup="$(perl -0777 -pe 's{<script[^>]*\bdata-page="[^"]*"[^>]*>.*?</script>}{}gs' "${BODY}")"
+
+                if printf '%s' "${markup}" | grep -q '<h1'; then
+                    pass "landing page is server-rendered (h1 present outside the props)"
+                else
+                    # Which of the two failures it is, since they are fixed
+                    # differently: the renderer never ran, or it ran and the page
+                    # genuinely has no heading.
+                    if grep -q 'data-server-rendered' "${BODY}"; then
+                        hint="The renderer DID run (data-server-rendered is present), so the page really
+       has no <h1> — look at the component, not at the deploy."
+                    else
+                        hint="No data-server-rendered marker either, so the renderer did not run at all
+       and Inertia fell back to the client. Check INERTIA_SSR_* in the server .env."
+                    fi
+
+                    fail "the landing page has NO server-rendered <h1> — it shipped as an empty shell.
+       SSR is enabled but the markup is not there, so search engines see nothing.
+       ${hint}"
+                fi
             fi
         fi
     fi

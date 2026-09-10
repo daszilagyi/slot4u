@@ -383,10 +383,23 @@ pedig a teljes URL-re illeszt). Egy renderelő, ami **semmit nem renderel**, de 
 státuszkód-ellenőrzésnek egészséges. A `/health`-nek `{"status":"OK"}`-t kell mondania.
 
 ⚠️ **A kiszűrés nem kozmetika.** Az Inertia az egész oldalt beleírja egy
-`<script data-page="app" type="application/json">` blokkba, címsorokkal együtt. A nyers törzs
-grepje ezért találhat markupot olyan oldalon, amin **semmi nem renderelődött** — pontosan
-akkor menne át, amikor buknia kellene. A script-blokktól sorvégig törlünk; minden, amit a
-renderelő előállít, a `<div id="app">`-ben van, ami **megelőzi** a blokkot.
+`<script data-page="app" type="application/json">` blokkba, címsorokkal együtt, a `json_encode`
+pedig **nem escape-eli a `<`-t**. A nyers törzs grepje ezért találhat markupot olyan oldalon,
+amin **semmi nem renderelődött** — pontosan akkor menne át, amikor buknia kellene.
+
+⚠️ **A script-ELEMET töröljük, nem „sorvégig".** Az Inertia a props-blokkot írja ki **előbb**,
+és a root divet utána (l. a saját `Directive.php`-ját), mindet egy sorban:
+
+```html
+<script data-page="app" ...>{json}</script><div id="app">…</div>
+```
+
+Egy sorvégig futó törlés tehát **magát a szerver-renderelt markupot törölte** — a check így
+sosem tudott átmenni. Helyesnek látszott, átment a saját fixture-én, és az első valódi deployt
+buktatta el egy tökéletesen renderelt oldalon. A fixture azóta a prod tényleges alakját viszi,
+a törlés pedig `perl` nem-mohó illesztése (a `sed` ezt nem tudja kifejezni, a props JSON-ban
+pedig lehet `<`). **Ha nincs `perl`, a check hangosan elbukik** — egy kiszűrés nélküli törzsön
+a propok teljesítenék a grepet, ami rosszabb, mint semmilyen ellenőrzés.
 
 ⚠️ Ha az `INERTIA_SSR_ENABLED=false`, a füstteszt **egy szót sem szól** az SSR-ről. Egy tudatos
 döntés nem olvasható elromlott renderelőként.
