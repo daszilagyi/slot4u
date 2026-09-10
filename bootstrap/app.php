@@ -15,6 +15,7 @@ use App\Http\Middleware\ResolveCustomDomain;
 use App\Http\Middleware\RetireSharedConsentCookie;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\SetLocale;
+use App\Http\Middleware\WarnWhenSsrFellBack;
 use Illuminate\Auth\Middleware\Authorize;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Contracts\Session\Middleware\AuthenticatesSessions;
@@ -134,6 +135,12 @@ return Application::configure(basePath: dirname(__DIR__))
             // meet the same wall on every host they can reach, and the check
             // short-circuits on the first line for guests and super-admins.
             EnsureLegalConsent::class,
+            // ⚠️ LAST in the group, and outside production it does nothing but
+            // talk: it reads the finished response and says so in the log when
+            // the page went out without server-rendered markup (SLO-222). Last,
+            // because it can only judge a response that everything above has
+            // already had its say on.
+            WarnWhenSsrFellBack::class,
         ]);
 
         // The cookie-consent decision is NOT encrypted (SLO-165). It is a
