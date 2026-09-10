@@ -50,6 +50,16 @@ COMPOSER="${DEPLOY_COMPOSER:-}"
 SKIP_MIGRATIONS="${DEPLOY_SKIP_MIGRATIONS:-0}"
 ASSET_RETENTION_DAYS="${DEPLOY_ASSET_RETENTION_DAYS:-30}"
 
+# The SSR renderer's directory and the docroot the web server actually serves
+# (SLO-212). Both are OUTSIDE the application directory, and the second one is
+# the surprise: on this host the docroot is `~/public_html` with a bridge
+# index.php booting the app from `~/slot4u`, NOT `~/slot4u/public`. The same
+# tilde expansion as APP_DIR, for the same reason.
+SSR_DIR="${DEPLOY_SSR_PATH:-${HOME}/ssr}"
+SSR_DIR="${SSR_DIR/#\~/${HOME}}"
+DOCROOT="${DEPLOY_DOCROOT:-${HOME}/public_html}"
+DOCROOT="${DOCROOT/#\~/${HOME}}"
+
 log() { printf '\n\033[1m==> %s\033[0m\n' "$*"; }
 
 cd "${APP_DIR}"
@@ -68,6 +78,106 @@ fi
 [[ -n "${COMPOSER}" ]] || { echo "composer not found; set DEPLOY_COMPOSER" >&2; exit 1; }
 
 [[ -f .env ]] || { echo ".env missing in ${APP_DIR}" >&2; exit 1; }
+
+# --- The SSR renderer's preconditions (SLO-212) ----------------------------
+#
+# ⚠️ Shipping the bundle is what TURNS SSR ON. `INERTIA_SSR_ENABLED` defaults to
+# true (config/inertia.php); the only thing stopping server rendering on this
+# host was that `bootstrap/ssr` never reached it, and Inertia falls back to the
+# client without a word when the bundle is missing. So from the first deploy
+# that carries it, the four conditions below stop being optional — and each of
+# them fails the same way when unmet: not an error, just a page with no markup
+# in it.
+#
+# Checked HERE, in preflight, rather than left to the smoke test: this refuses
+# while the site is still up and untouched, and says exactly what to add. A
+# smoke failure would say the same thing after the deploy had already happened.
+ssr_env() { sed -n "s/^[[:space:]]*$1[[:space:]]*=[[:space:]]*//p" .env | tail -n 1 | tr -d '"'"'"'\r'; }
+
+SSR_ENABLED_ENV="$(ssr_env INERTIA_SSR_ENABLED)"
+
+if [[ "${SSR_ENABLED_ENV,,}" != "false" && "${SSR_ENABLED_ENV,,}" != "0" ]]; then
+    if [[ -z "$(ssr_env INERTIA_SSR_URL)" ]]; then
+        echo "INERTIA_SSR_URL is not set in ${APP_DIR}/.env, and server rendering is on." >&2
+        echo "Its default (http://127.0.0.1:13714) is wrong on this host: the renderer runs" >&2
+        echo "under Passenger, which owns the socket and listens on no port of its own." >&2
+        echo "Set it to the mount (e.g. https://slot4u.hu/_ssr), or set" >&2
+        echo "INERTIA_SSR_ENABLED=false to ship without server rendering." >&2
+        exit 1
+    fi
+
+    # ⚠️ The check Inertia makes BEFORE it ever calls the renderer:
+    #
+    #     if (! $isHot && $this->shouldEnsureBundleExists() && ! $this->bundleExists())
+    #         return null;
+    #
+    # and `bundleExists()` looks for `base_path('bootstrap/ssr/ssr.js')` — inside
+    # the APPLICATION. On this host the bundle is not there and cannot be: it
+    # lives in the renderer's own directory, which Passenger owns, and
+    # `/bootstrap/ssr` is gitignored so the checkout never brings one either.
+    #
+    # So with the default left alone, every other piece of this could be
+    # correct — bundle shipped, renderer answering, secret matching — and the
+    # app would still return null and ship an empty shell, without a word. The
+    # check means something where the bundle and the app share a directory
+    # (docker, CI); here it is a switch that turns SSR off silently.
+    SSR_ENSURE_ENV="$(ssr_env INERTIA_SSR_ENSURE_BUNDLE_EXISTS)"
+
+    if [[ "${SSR_ENSURE_ENV,,}" != "false" && "${SSR_ENSURE_ENV,,}" != "0" \
+        && ! -f bootstrap/ssr/ssr.js ]]; then
+        echo "There is no bootstrap/ssr/ssr.js in ${APP_DIR}, and Inertia is set to require one." >&2
+        echo "It checks for that file before it calls the renderer at all, so server rendering" >&2
+        echo "would stay off no matter how well the renderer itself works — silently, as a" >&2
+        echo "client-side fallback." >&2
+        echo "The bundle lives in the renderer's own directory on this host. Add to .env:" >&2
+        echo '    INERTIA_SSR_ENSURE_BUNDLE_EXISTS=false' >&2
+        exit 1
+    fi
+
+    # The mount is inside the public site, so `/render` is reachable from the
+    # internet, and an unauthenticated one will render whatever props anyone
+    # posts to it — arbitrary HTML out of our own domain, and a CPU to burn.
+    #
+    # ⚠️ Loopback is the exemption, not a whitelist of trusted hosts: a renderer
+    # on 127.0.0.1 can only be called by this machine. Anything else — this
+    # host's `/_ssr` included — has an audience, and the secret is what turns it
+    # away. Both `config/inertia.php` and `.env.example` already say the secret
+    # is not optional in production; without this they only say it.
+    SSR_HOST_ENV="$(ssr_env INERTIA_SSR_URL)"
+    SSR_HOST_ENV="${SSR_HOST_ENV#*://}"
+    SSR_HOST_ENV="${SSR_HOST_ENV%%[:/]*}"
+
+    if [[ "${SSR_HOST_ENV}" != "127.0.0.1" && "${SSR_HOST_ENV}" != "localhost" \
+        && "${SSR_HOST_ENV}" != "::1" && -z "$(ssr_env SSR_SHARED_SECRET)" ]]; then
+        echo "SSR_SHARED_SECRET is empty in ${APP_DIR}/.env, and the renderer at" >&2
+        echo "${SSR_HOST_ENV} is not on loopback — anyone who finds the mount can post a" >&2
+        echo "page object and have this server render it into HTML." >&2
+        echo "Set the SAME value in two places: ${APP_DIR}/.env, and the Node application's" >&2
+        echo "own environment (cPanel -> the app -> Environment variables). See docs/16." >&2
+        exit 1
+    fi
+
+    # The renderer is mounted inside the public site, and the docroot's rewrite
+    # sends every unmatched path to the front controller. Without an exception
+    # the mount's sub-paths — /render among them — reach Laravel and 404, so SSR
+    # silently degrades to client rendering.
+    #
+    # ⚠️ This file is NOT the one the deploy manages. `.htaccess.host` protects
+    # ${APP_DIR}/public/.htaccess, which on this host the web server never reads:
+    # the docroot is ${DOCROOT}, with a bridge index.php booting the app. That
+    # mismatch is why this is a check and not a rewrite — the file belongs to the
+    # hosting setup, and a deploy that edited it would be claiming ownership it
+    # does not have.
+    if [[ -f "${DOCROOT}/.htaccess" ]] && ! grep -q '_ssr' "${DOCROOT}/.htaccess"; then
+        echo "${DOCROOT}/.htaccess has no /_ssr exception, and server rendering is on." >&2
+        echo "The front-controller rewrite will swallow the renderer's sub-paths and Laravel" >&2
+        echo "will 404 them, which Inertia turns into a silent client-side fallback." >&2
+        echo "Add this ABOVE the front-controller rule (docs/16):" >&2
+        echo '    RewriteCond %{REQUEST_URI} ^/_ssr(/|$)' >&2
+        echo '    RewriteRule ^ - [L]' >&2
+        exit 1
+    fi
+fi
 
 # Host-owned Apache directives. cPanel's MultiPHP writes the PHP handler into
 # the docroot's .htaccess — a tracked file — so the forced checkout below would
@@ -263,6 +373,31 @@ log "Rebuilding caches"
 # rather than keep running the old code out of memory.
 "${PHP}" artisan queue:restart
 
+# ---------------------------------------------------------------------------
+# The SSR renderer (SLO-212)
+# ---------------------------------------------------------------------------
+# The bundle was uploaded before this script ran. Passenger keeps serving the
+# OLD one until it is told otherwise, and the symptom of forgetting is not an
+# error — it is quietly stale HTML, which is the same shape of silence that let
+# the missing renderer live for months.
+if [[ -d "${SSR_DIR}" ]]; then
+    # What tells Node the bundle is an ES module. Written only when missing:
+    # it belongs to the renderer's directory rather than to a release, and
+    # overwriting it every deploy would be this script claiming ownership of
+    # something Passenger's own tooling also writes into.
+    if [[ ! -f "${SSR_DIR}/package.json" ]]; then
+        log "Declaring the SSR bundle an ES module"
+        printf '{\n  "name": "slot4u-ssr",\n  "private": true,\n  "type": "module"\n}\n' \
+            > "${SSR_DIR}/package.json"
+    fi
+
+    log "Restarting the SSR renderer"
+    mkdir -p "${SSR_DIR}/tmp"
+    touch "${SSR_DIR}/tmp/restart.txt"
+else
+    echo "No SSR directory at ${SSR_DIR} — skipping the renderer restart." >&2
+fi
+
 log "Maintenance mode off"
 "${PHP}" artisan up
 trap - ERR
@@ -278,6 +413,20 @@ if [[ "${ASSET_RETENTION_DAYS}" != "0" && -d public/build ]]; then
     log "Pruning build assets older than ${ASSET_RETENTION_DAYS} days"
     find public/build -type f -mtime "+${ASSET_RETENTION_DAYS}" -delete || true
     find public/build -type d -empty -delete || true
+fi
+
+# The renderer's own chunks, on the same terms and for the same reason: the
+# upload does not delete, and the SSR build is code-split, so every release
+# leaves ~5 MB of hashed files behind. On a shared host that is a quota problem
+# a hundred deploys from now.
+#
+# ⚠️ `assets/` ONLY. `package.json` is written once and never again, so an
+# age-based sweep of the whole directory would eventually delete the one file
+# that tells Node the bundle is an ES module — and the renderer would stop
+# booting a month after the last change to it, for no visible reason.
+if [[ "${ASSET_RETENTION_DAYS}" != "0" && -d "${SSR_DIR}/assets" ]]; then
+    log "Pruning SSR chunks older than ${ASSET_RETENTION_DAYS} days"
+    find "${SSR_DIR}/assets" -type f -mtime "+${ASSET_RETENTION_DAYS}" -delete || true
 fi
 
 log "Deployed ${REF} (${TARGET:0:7}), previous was ${PREVIOUS_REF}"

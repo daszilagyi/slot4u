@@ -518,6 +518,14 @@ Két külön profil fut: a **dev/CI referencia-stack** (Docker Compose) és az *
   - **A Passenger az egyetlen supervisor:** osztott cPanelen a hosszú életű processzeket órákon belül lelövik (`docs/11`), tehát önálló `node ssr.js` nem opció. Ezért megy az SSR-hívás Apache-on át.
   - ⚠️ **A Passenger NEM vágja le a mount-prefixet**, az app `/_ssr/render`-t kap. Ezért a `resources/js/ssr.tsx` **saját, prefix-független szervert** futtat az Inertia `createServer`-e helyett — az ugyanis pontos string-egyezéssel dönt és nem vesz base-path opciót. Ugyanez a bundle megy prefix nélkül a docker `ssr` szolgáltatásban és a CI-ban.
   - ⚠️ **A renderelő a publikus oldalunkon belül van mountolva**, tehát az internetről elérhető. A `/render` ezért **megosztott titkot** kér (`SSR_SHARED_SECRET`, l. `config/inertia.php`), amit a Laravel HTTP-kliens globális middleware-e tesz rá (`App\Ssr\SsrCredentials`). Titok nélkül a válasz **404**, nem 401: egy szkenner ne tanuljon semmit.
-  - Deploy-integráció (a bundle feltöltése, restart, füstteszt) és az `INERTIA_SSR_ENABLED=true` élesítése külön darab.
+  - ⚠️ **`INERTIA_SSR_ENSURE_BUNDLE_EXISTS=false` kell prodon.** Az Inertia a renderelő hívása
+    ELŐTT megnézi a `base_path('bootstrap/ssr/ssr.js')`-t, és ha nincs, **némán** null-t ad. Itt
+    nem is lehet ott: a bundle a renderelő saját könyvtárában lakik (a Passengeré), a
+    `/bootstrap/ssr` pedig gitignore-olt. A deploy preflightja megtagadja nélküle (`docs/16` §6.7).
+  - ⚠️ **Az SSR MINDEN Inertia-oldalra megy, a bejelentkezettekre is** — így írja elő a
+    `PublicSsrSmokeTest` két tesztje („global SSR"), és így megy ki. Ennek ezen a hoszton
+    ára van: oldalanként egy CDN-kör (~114 ms, `docs/16` §6.9). Cserébe az admin első
+    festése sem vár a JS-re. **Nyitva: SLO-223** — mérés alapján eldöntendő.
+  - Deploy-integráció (a bundle feltöltése, restart, füstteszt) és az élesítés: `docs/16` §6.6–6.9.
 - **Deploy-sajátosságok:** `storage:link` helyett shell `ln -s` (a PHP `symlink()` tiltott); Vite build lokálisan/CI-ban, csak a build-output megy fel; scheduler cron `schedule:run` percenként.
 - Backup: napi DB dump + storage sync, visszaállási teszt negyedévente.

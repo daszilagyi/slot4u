@@ -192,6 +192,8 @@ commit="$(json_field commit)"
 environment="$(json_field environment)"
 config_cached="$(json_field config_cached)"
 pending="$(json_field pending_migrations)"
+ssr_enabled="$(json_field ssr_enabled)"
+ssr_healthy="$(json_field ssr_healthy)"
 
 if [[ "${health_ok}" == "1" && -z "${release}" ]]; then
     fail "no release in the /_deploy/health answer: ${health:0:200}"
@@ -218,6 +220,19 @@ elif [[ "${health_ok}" == "1" ]]; then
     [[ "${pending}" == "0" ]] \
         && pass "no pending migrations" \
         || fail "pending migrations: ${pending:-unknown} (empty/unknown means the database could not be read)"
+
+    # The renderer, asked from the server's own side of the network (SLO-212).
+    # Reported separately from the markup check below because the two fail for
+    # different reasons: this one says the renderer is not answering, that one
+    # says it answered and the page still came out empty.
+    if [[ "${ssr_enabled}" == "true" ]]; then
+        [[ "${ssr_healthy}" == "true" ]] \
+            && pass "SSR renderer is answering" \
+            || fail "SSR is enabled but the renderer is NOT answering (ssr_healthy=${ssr_healthy:-unknown}).
+       The pages will still be served — Inertia falls back to client rendering silently —
+       so this will not show up anywhere else. Check the Node application is running and
+       that INERTIA_SSR_URL points at it."
+    fi
 fi
 
 # --- 3. The public page renders, and not a debug page ----------------------
@@ -245,6 +260,40 @@ else
         else
             fail "no Content-Security-Policy header — this is not the slot4u app answering
        (a parked page or an edge error page would look exactly like this)"
+        fi
+
+        # --- 3b. The page was actually rendered on the server ---------------
+        #
+        # ⚠️ The check this whole issue exists for (SLO-212). For months every
+        # public page shipped as an empty `<div id="app">` while the docs
+        # promised SSR, and nothing failed: Inertia falls back to client
+        # rendering without a word. A deploy that loses SSR must stop being a
+        # green deploy.
+        #
+        # ⚠️ The props are stripped first, and the strip is cruder than it
+        # looks on purpose. Inertia serialises the whole page — headings
+        # included — into `<script data-page="app" type="application/json">`,
+        # so a raw grep for `<h1` can find markup on a page that rendered none:
+        # the check would pass exactly when it should fail.
+        #
+        # Deleting from that script to the end of the line, rather than matching
+        # its closing tag, is what makes this survive a prop containing literal
+        # markup. A `[^<]*` match cannot span one and silently strips nothing —
+        # written that way first, and a fixture carrying `<h1>` inside the props
+        # is what caught it. Everything the renderer produces lives in
+        # `<div id="app">`, which comes BEFORE the props block, so nothing that
+        # matters is lost with the tail.
+        if [[ "${ssr_enabled}" == "true" ]]; then
+            markup="$(sed 's#<script[^>]*data-page="app".*##' "${BODY}")"
+
+            if printf '%s' "${markup}" | grep -q '<h1'; then
+                pass "landing page is server-rendered (h1 present outside the props)"
+            else
+                fail "the landing page has NO server-rendered <h1> — it shipped as an empty shell.
+       SSR is enabled but the markup is not there, so search engines see nothing. This is
+       the SLO-212 failure returning: the page still works for humans, which is why it
+       needs a check that fails."
+            fi
         fi
     fi
 fi

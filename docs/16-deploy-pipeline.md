@@ -73,6 +73,8 @@ git tag v0.8.0-M8 && git push origin v0.8.0-M8
 | `DEPLOY_PATH` | `~/slot4u` | az app gyökere a szerveren |
 | `DEPLOY_PHP` | `/opt/cpanel/ea-php84/root/usr/bin/php` | a default PHP 8.2, ezért teljes útvonal |
 | `DEPLOY_URL` | `https://slot4u.hu` | a füstteszt ezt hívja |
+| `DEPLOY_SSR_PATH` | `~/ssr` | az SSR renderelő könyvtára — **az appon KÍVÜL**, mert a Passenger birtokolja (SLO-212). Elhagyható. |
+| `DEPLOY_DOCROOT` | `~/public_html` | ⚠️ **NEM `~/slot4u/public`.** A webszerver ezt szolgálja ki, benne egy bridge `index.php`-vel, ami a `~/slot4u`-ból bootolja az appot. A deploy ennek az `.htaccess`-ét **ellenőrzi** (nem írja). Elhagyható. |
 | `VITE_REVERB_APP_KEY` | *(a broadcast app key)* | **⚠️ lásd lent** |
 | `VITE_REVERB_HOST` | `ws-eu.pusher.com` | |
 | `VITE_REVERB_PORT` | `443` | |
@@ -178,6 +180,8 @@ bizonyíték:
 | … → `pending_migrations=0` | lefuttatatlan migráció, vagy elérhetetlen DB (`null` → bukás) |
 | `GET /` → 200, nincs stack trace | `APP_DEBUG` bekapcsolva maradt, vagy hibaoldal a nyitólapon |
 | CSP header jelen van | nem a slot4u app válaszol (parkoló oldal, edge hibalap) |
+| … → `ssr_healthy=true` | **az SSR be van kapcsolva, de a renderelő nem válaszol** (SLO-212) |
+| `GET /` szerver-markupjában van `<h1>` | **az oldal üres shellként ment ki** — l. §6.6 |
 
 A `/_deploy/health` **token mögött van, és token nélkül 404** (nem 403): a futó verzió
 neve támadónak hasznos, látogatónak nem — a végpont létezését sem erősítjük meg.
@@ -358,6 +362,124 @@ ingyenessé. A scheduler-bejegyzés `when` feltétele miatt **ahol nincs demo te
   tranzakciót használ, tehát a hiba előttiek megvannak, az utániak hiányoznak. A javítás mindig
   ugyanaz: `php artisan demo:reset` kézzel, a hibaüzenettel a kezedben.
 * **A rollback nem érinti** — ahogy a migrációt sem (5. fejezet).
+
+### 6.6 ⚠️ A szerver-renderelés ellenőrzése (SLO-212)
+
+Ez az a hiba, ami **hónapokig élt anélkül, hogy bármi elromlott volna**: a publikus oldalak
+üres `<div id="app">`-pel mentek ki, miközben a `docs/01` SSR-t ígért. Az Inertia némán
+kliensoldali renderre esik vissza, ha a renderelő nincs meg — az oldal az embernek tökéletes,
+a keresőnek üres. **Semmilyen 200-as ellenőrzés nem fogja meg.**
+
+Ezért a füstteszt két külön dolgot kérdez, mert két külön ok:
+
+1. **`ssr_healthy`** a `/_deploy/health`-ből: a szerver saját oldaláról nézve válaszol-e a
+   renderelő. Ha nem, a Node app nem fut, vagy az `INERTIA_SSR_URL` rossz helyre mutat.
+2. **A `/` válaszában van-e `<h1>`** — a **propok kiszűrése után**.
+
+⚠️ **Az `ssr_healthy` a válasz TÖRZSÉT nézi, nem a státuszkódot** — és ezt a prod bizonyította
+be. A `/_ssr`-re felmountolt renderelő **HTTP 200-zal** felelt `{"status":"NOT_FOUND"}`
+törzzsel *minden* útvonalra (a Passenger nem vágja le a prefixet, az Inertia stock szervere
+pedig a teljes URL-re illeszt). Egy renderelő, ami **semmit nem renderel**, de a
+státuszkód-ellenőrzésnek egészséges. A `/health`-nek `{"status":"OK"}`-t kell mondania.
+
+⚠️ **A kiszűrés nem kozmetika.** Az Inertia az egész oldalt beleírja egy
+`<script data-page="app" type="application/json">` blokkba, címsorokkal együtt. A nyers törzs
+grepje ezért találhat markupot olyan oldalon, amin **semmi nem renderelődött** — pontosan
+akkor menne át, amikor buknia kellene. A script-blokktól sorvégig törlünk; minden, amit a
+renderelő előállít, a `<div id="app">`-ben van, ami **megelőzi** a blokkot.
+
+⚠️ Ha az `INERTIA_SSR_ENABLED=false`, a füstteszt **egy szót sem szól** az SSR-ről. Egy tudatos
+döntés nem olvasható elromlott renderelőként.
+
+Mindezt teszt őrzi (`tests/Feature/Deploy/SmokeScriptTest.php`) egy fixture-szerver ellen,
+aminek a propjaiban **szándékosan van literál `<h1>`** — a kiszűrés elhagyása pirosra vált.
+
+### 6.7 ⚠️ A deploy preflightja SSR-hez
+
+Két dolgot **megtagad**, még mielőtt a karbantartási mód bekapcsolna (tehát az oldal sértetlen
+marad):
+
+* **nincs `INERTIA_SSR_URL` a szerver `.env`-jében.** ⚠️ Az `INERTIA_SSR_ENABLED`
+  **alapértelmezése `true`** — a szerver-renderelést eddig nem ez a kapcsoló tartotta ki,
+  hanem az, hogy a bundle sosem jutott ki. A default URL (`http://127.0.0.1:13714`) ezen a
+  hoszton **biztosan rossz**: a Passenger birtokolja a socketet, saját portot nem nyit.
+* **nincs `/_ssr` kivétel a `DEPLOY_DOCROOT/.htaccess`-ben.** A front-controller rewrite
+  különben elnyeli a renderelő alútvonalait, a Laravel 404-ezik, az Inertia pedig ebből
+  csendes kliens-fallbacket csinál. A szükséges két sor a front-controller szabály **elé**:
+
+  ```apache
+  RewriteCond %{REQUEST_URI} ^/_ssr(/|$)
+  RewriteRule ^ - [L]
+  ```
+
+* **üres `SSR_SHARED_SECRET`, miközben a renderelő nem loopbacken van.** A `/_ssr` a publikus
+  oldalon belül lakik, tehát a `/render` az internetről hívható: titok nélkül bárki beküldhet
+  egy page objectet, és a **saját domainünkről** kiszolgált HTML-t csinálunk belőle (plusz egy
+  elégethető CPU). A loopback az egyetlen kivétel — ott nincs kit kizárni. A titkot **két
+  helyre, azonos értékkel**: a szerver `.env`-jébe és a Node app saját környezeti változói közé
+  (cPanel → az app → Environment variables).
+
+* **`INERTIA_SSR_ENSURE_BUNDLE_EXISTS` nincs `false`-ra állítva**, miközben nincs
+  `bootstrap/ssr/ssr.js` az app könyvtárában. Az Inertia a renderelő hívása **előtt** ezt nézi:
+
+  ```php
+  if (! $isHot && $this->shouldEnsureBundleExists() && ! $this->bundleExists()) {
+      return null;   // ← néma kliens-fallback
+  }
+  ```
+
+  …és a `BundleDetector` a `base_path('bootstrap/ssr/ssr.js')`-t keresi, **az appon belül**.
+  Ezen a hoszton a bundle a renderelő saját könyvtárában van (a Passengeré), a
+  `/bootstrap/ssr` pedig gitignore-olt — tehát a checkout sem hoz oda egyet. E nélkül a
+  beállítás nélkül **minden más lehet helyes** (bundle kint, renderelő válaszol, titok
+  stimmel), és az oldal akkor is üresen megy ki, egy szó nélkül.
+
+A négy megtagadást teszt őrzi (`tests/Feature/Deploy/DeployScriptPreflightTest.php`), egy
+eldobható könyvtár ellen futtatva a valódi scriptet.
+
+⚠️ **Ezt a fájlt a deploy nem írja, csak ellenőrzi.** A `.htaccess.host` mechanizmus a
+`~/slot4u/public/.htaccess`-t védi — **azt a fájlt, amit a webszerver el sem olvas** ezen a
+hoszton. A valódi docroot a `~/public_html`, és az ottani `.htaccess` a hosting beállítása,
+nem a repóé; egy deploy, ami belenyúlna, olyasmit birtokolna, ami nem az övé.
+
+### 6.8 Az SSR bundle szállítása
+
+Külön artefakt (`ssr-<run_id>`), és **külön rsync** a `DEPLOY_SSR_PATH`-ba, a deploy script
+futása **előtt** — mert a script az, ami újraindítja a Passengert. A sorrend: előbb az új
+fájlok, aztán a restart; fordítva a régi bundle szolgálna ki tovább, és **semmi nem szólna**.
+
+* **`node_modules` nem kell.** A bundle `ssr: { noExternal: true }`-val épül, tehát viszi a
+  függőségeit: ~5 MB fájl ~300 MB csomag helyett, és nincs `npm ci` a szerveren.
+* **`--delete` nincs.** A `package.json` ott lakik (ez mondja meg a Node-nak, hogy a bundle
+  ES-modul), és nem egy release-hez tartozik — a deploy script csak akkor írja, ha hiányzik.
+* A restart `touch ~/ssr/tmp/restart.txt`.
+* A bundle **code-split**, tehát nem egy fájl: `ssr.js` + `assets/` (~90 chunk, összesen ~5 MB).
+  Mivel a feltöltés nem töröl, a régi chunkok gyűlnének — ezért a deploy a `~/ssr/assets`-ből
+  ugyanúgy kigyomlálja a `DEPLOY_ASSET_RETENTION_DAYS`-nél régebbieket, ahogy a `public/build`-ből.
+  ⚠️ **Csak az `assets/`-ből.** A `package.json` egyszer íródik és soha többé; egy az egész
+  könyvtárra menő kor-alapú söprés egy hónappal az utolsó módosítása után kitörölné azt az
+  egy fájlt, ami a Node-nak megmondja, hogy a bundle ES-modul.
+
+### 6.9 ⚠️ Nyitott: a renderelő hívása a CDN-en át megy oda-vissza
+
+Az `INERTIA_SSR_URL` prodon a **publikus URL** (`https://slot4u.hu/_ssr`), és ennek ára van:
+a szerver a saját oldalait úgy rendereli, hogy **kimegy a Cloudflare bécsi edge-éig és vissza**
+(`cf-ray: …-VIE`, mérve **~114 ms** a szerverről). Vagyis minden szerver-renderelt oldal
+TTFB-je ennyivel nő, és egy CF-oldali WAF-szabály vagy bot-challenge **némán** kliens-renderre
+fordítja az egészet — pont az a csend, ami ellen ez az issue szól. (A deploy pillanatában a
+füstteszt elkapja; egy későbbi CF-szabályváltozás viszont már nem.)
+
+Amiért mégis ez megy ki most, és nem valami közvetlenebb:
+
+| próba | eredmény |
+|---|---|
+| `http://127.0.0.1/_ssr` `Host: slot4u.hu` fejléccel | **404** — a cPanel vhostjai a publikus IP-re vannak kötve, a loopbackre nincs vhost, tehát a default vhost felel; a Host fejléc szóba se kerül |
+| `http://<publikus IP>/_ssr` `Host` fejléccel | **301** a https-re, vagyis vissza a CF-en át |
+| `https://<publikus IP>/_ssr` közvetlenül | **hibás lánc** — az origin CF Origin CA tanúsítványt mutat, ami nem publikusan megbízható |
+
+Mindhárom megkerüléshez vagy a hoszt `.htaccess`-ébe kellene nyúlni (nem a miénk, l. §6.7),
+vagy tanúsítvány-ellenőrzést kikapcsolni, vagy saját Inertia `Gateway`-t forkolni. Külön
+issue-ba tartozik, nem ebbe.
 
 ## 7. Karbantartási ablak
 

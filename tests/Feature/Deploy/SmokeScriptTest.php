@@ -190,3 +190,65 @@ it('gets the security header on /up that the liveness check treats as proof of l
     expect($this->get('http://'.config('tenancy.central_domain').'/up')->headers->get('Content-Security-Policy'))
         ->not->toBeNull();
 });
+
+// --- Server-side rendering (SLO-212) ---------------------------------------
+
+it('confirms the page was rendered on the server when SSR is on', function () {
+    $result = runSmokeScript('healthy');
+
+    expect($result->exitCode())->toBe(0, $result->output().$result->errorOutput());
+    expect($result->output())
+        ->toContain('SSR renderer is answering')
+        ->toContain('landing page is server-rendered');
+});
+
+it('⚠️ fails when SSR is on and the page came out an empty shell', function () {
+    // The failure that hid for months. The page is a perfectly good 200 with the
+    // app's own headers, no debug output, and every other check green — it is
+    // simply empty of markup, and Inertia never says so. Without this line the
+    // deploy that lost SSR would be reported as a success.
+    $result = runSmokeScript('healthy', ['SMOKE_FAKE_SSR_RENDERED' => 'false']);
+
+    expect($result->exitCode())->toBe(1);
+    expect($result->output())
+        ->toContain('NO server-rendered <h1>')
+        ->toContain('shipped as an empty shell');
+});
+
+it('⚠️ is not satisfied by an h1 that exists only in the serialized props', function () {
+    // The trap this check has to avoid: Inertia writes the whole page, headings
+    // included, into a `<script data-page="app">` block. A grep of the raw body
+    // finds markup on a page with none rendered — passing exactly when it should
+    // fail. The fixture's shell always carries that block.
+    $result = runSmokeScript('healthy', ['SMOKE_FAKE_SSR_RENDERED' => 'false']);
+
+    expect($result->exitCode())->toBe(1);
+    expect($result->output())->not->toContain('landing page is server-rendered');
+});
+
+it('fails when SSR is on but the renderer is not answering', function () {
+    // Distinct from the empty-shell case on purpose: this one says the renderer
+    // is unreachable, which is a different thing to go and look at.
+    $result = runSmokeScript('healthy', [
+        'SMOKE_FAKE_SSR_HEALTHY' => 'false',
+        'SMOKE_FAKE_SSR_RENDERED' => 'false',
+    ]);
+
+    expect($result->exitCode())->toBe(1);
+    expect($result->output())->toContain('SSR is enabled but the renderer is NOT answering');
+});
+
+it('says nothing about SSR when the release has it turned off', function () {
+    // A deliberate choice must not read as a broken renderer. Someone who ships
+    // with INERTIA_SSR_ENABLED=false gets a green deploy and no noise.
+    $result = runSmokeScript('healthy', [
+        'SMOKE_FAKE_SSR_ENABLED' => 'false',
+        'SMOKE_FAKE_SSR_HEALTHY' => 'false',
+        'SMOKE_FAKE_SSR_RENDERED' => 'false',
+    ]);
+
+    expect($result->exitCode())->toBe(0, $result->output().$result->errorOutput());
+    expect($result->output())
+        ->not->toContain('SSR')
+        ->toContain('Smoke test passed');
+});
