@@ -244,6 +244,26 @@ export type EventItem = {
 
 export type TenantStatusValue = 'trial' | 'active' | 'suspended' | 'archived';
 
+/**
+ * Which campaign produced a tenant (SLO-210). Null on the summary when nothing
+ * is known — most tenants predate the measurement, and "direct" would be a
+ * claim rather than an absence.
+ */
+export type TenantSignupSource = {
+    utm_source: string | null;
+    utm_medium: string | null;
+    utm_campaign: string | null;
+    /** The marketing page they arrived on: `/` or `/{vertical}`. */
+    landing_path: string | null;
+    landed_at: string | null;
+};
+
+/** One row of the acquisition breakdown; `source` null is the unknown bucket. */
+export type SignupSourceCount = {
+    source: string | null;
+    total: number;
+};
+
 export type TenantSummary = {
     id: number;
     name: string;
@@ -255,6 +275,7 @@ export type TenantSummary = {
     users_count: number;
     archived: boolean;
     created_at: string | null;
+    signup: TenantSignupSource | null;
 };
 
 export type AuditLogEntry = {

@@ -27,6 +27,11 @@ use Illuminate\Support\Carbon;
  * @property array<string, mixed>|null $settings
  * @property array<string, mixed>|null $invoicing seller details + provider API key (encrypted at rest)
  * @property array<string, mixed>|null $analytics the tenant's own GA4 / Meta measurement config (encrypted at rest)
+ * @property string|null $signup_utm_source which campaign brought this tenant to us (SLO-210) — NOT the tenant's own campaign
+ * @property string|null $signup_utm_medium
+ * @property string|null $signup_utm_campaign
+ * @property string|null $signup_landing_path the marketing page they arrived on: `/` or `/{vertical}`
+ * @property Carbon|null $signup_landed_at when they first arrived, so time-to-signup is answerable
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property Carbon|null $deleted_at the archive instant — the platform's only churn timestamp (SLO-138)
@@ -61,6 +66,12 @@ class Tenant extends Model
         // statistics. Mass-assignable, it would be one stray request payload away
         // from a paying tenant that stops being invoiced and stops being counted.
         // The demo seeders set it explicitly on a model they just built.
+        //
+        // The `signup_*` attribution columns are out too (SLO-210), on a third
+        // reasoning again: their values come from a QUERY STRING. Mass-assignable,
+        // the sign-up form itself would accept `signup_utm_source` straight from
+        // the POST body, and the one number the marketing spend is judged on
+        // would be writable by whoever is being measured.
     ];
 
     /**
@@ -80,6 +91,7 @@ class Tenant extends Model
             // Same treatment (SLO-56): the measurement ids are public, but they
             // share the column with the Conversions API access token.
             'analytics' => 'encrypted:array',
+            'signup_landed_at' => 'datetime',
         ];
     }
 

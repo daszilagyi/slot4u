@@ -12,6 +12,7 @@ use App\Models\Tenant;
 use App\Models\User;
 use App\Rules\Phone;
 use App\Services\Legal\LegalDocumentRegistry;
+use App\Services\Marketing\CampaignAttribution;
 use App\Support\PhoneNumber;
 use App\Tenancy\TenantHostResolver;
 use App\Tenancy\TenantManager;
@@ -45,6 +46,7 @@ class CreateNewUser implements CreatesNewUsers
         private readonly CreateCustomer $createCustomer,
         private readonly LegalDocumentRegistry $legal,
         private readonly RecordConsent $recordConsent,
+        private readonly CampaignAttribution $attribution,
     ) {}
 
     /**
@@ -140,7 +142,13 @@ class CreateNewUser implements CreatesNewUsers
             'slug.not_in' => __('validation.custom.slug.reserved'),
         ]);
 
-        return DB::transaction(function () use ($input, $documents): User {
+        // Taken before the transaction, not inside it: `take()` mutates the
+        // session, and a session write is not rolled back by a failed database
+        // transaction. Reading it here means a retry after a failed sign-up
+        // starts from the same known state rather than from a half-consumed one.
+        $source = $this->attribution->take();
+
+        return DB::transaction(function () use ($input, $documents, $source): User {
             // Creating the tenant fires TenantObserver → seeds the tenant roles.
             $tenant = Tenant::create([
                 'name' => $input['company_name'],
@@ -150,6 +158,14 @@ class CreateNewUser implements CreatesNewUsers
                 'timezone' => 'Europe/Budapest',
                 'locale' => 'hu',
             ]);
+
+            // Which campaign brought them (SLO-210). Assigned rather than passed
+            // to `create()`: the `signup_*` columns are deliberately not fillable,
+            // because their values started life in a query string and the sign-up
+            // form must not be able to state its own attribution.
+            if (! $source->isEmpty()) {
+                $tenant->forceFill($source->toColumns())->save();
+            }
 
             // tenant_id is set from the freshly created tenant — never from the
             // untrusted registration input (a null tenant_id would mint a

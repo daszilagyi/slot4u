@@ -232,6 +232,57 @@ export default function TenantsShow({
                     </div>
                 </section>
 
+                {/*
+                    Where this tenant came from (SLO-210). A read-only panel:
+                    the values were recorded from the URL the visitor arrived on
+                    and are evidence about a past event, not a setting — an
+                    editable acquisition source is a number nobody can trust.
+                */}
+                <section className="rounded-xl border border-border p-6">
+                    <h2 className="mb-1 text-lg font-medium">
+                        {t('super.tenants.source.title')}
+                    </h2>
+                    {tenant.signup === null ? (
+                        <p className="text-sm text-muted-foreground">
+                            {t('super.tenants.source.none')}
+                        </p>
+                    ) : (
+                        <dl className="mt-4 grid gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
+                            {(
+                                [
+                                    ['utm_source', tenant.signup.utm_source],
+                                    ['utm_medium', tenant.signup.utm_medium],
+                                    ['utm_campaign', tenant.signup.utm_campaign],
+                                    ['landing_path', tenant.signup.landing_path],
+                                ] as const
+                            ).map(([key, value]) => (
+                                <div key={key}>
+                                    <dt className="text-xs text-muted-foreground">
+                                        {t(`super.tenants.source.${key}`)}
+                                    </dt>
+                                    {/* Untrusted text: it came from a query
+                                        string. React escapes it, and the value
+                                        object capped its length — rendered as
+                                        plain text, never as a link. */}
+                                    <dd className="break-all font-mono text-xs">
+                                        {value ?? '—'}
+                                    </dd>
+                                </div>
+                            ))}
+                            <div>
+                                <dt className="text-xs text-muted-foreground">
+                                    {t('super.tenants.source.landed_at')}
+                                </dt>
+                                <dd className="text-xs">
+                                    {tenant.signup.landed_at
+                                        ? formatDate(tenant.signup.landed_at)
+                                        : '—'}
+                                </dd>
+                            </div>
+                        </dl>
+                    )}
+                </section>
+
                 {/* Feature toggles */}
                 <section className="rounded-xl border border-border p-6">
                     <h2 className="mb-4 text-lg font-medium">

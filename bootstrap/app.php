@@ -10,6 +10,7 @@ use App\Http\Middleware\EnsureUserIsCustomer;
 use App\Http\Middleware\EnsureUserIsStaff;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\IdentifyTenant;
+use App\Http\Middleware\RememberCampaignSource;
 use App\Http\Middleware\ResolveCustomDomain;
 use App\Http\Middleware\RetireSharedConsentCookie;
 use App\Http\Middleware\SecurityHeaders;
@@ -117,6 +118,12 @@ return Application::configure(basePath: dirname(__DIR__))
             // and the visitors likeliest to still carry the retired cookie are
             // exactly the ones who have been here before (SLO-220).
             RetireSharedConsentCookie::class,
+            // Campaign attribution (SLO-210). Before EnsureLegalConsent, which
+            // can redirect: a visitor arriving from an ad while carrying an
+            // outstanding document is still a visitor arriving from that ad.
+            // Gated on MarketingSurface, so a tenant's own `utm_*` never lands
+            // in slot4u's session.
+            RememberCampaignSource::class,
             // SetLocale before Inertia sharing so the `locale`/`translations`
             // props reflect the resolved locale. On tenant domains IdentifyTenant
             // (route middleware) runs after and overrides with the tenant locale.

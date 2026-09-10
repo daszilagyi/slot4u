@@ -6,24 +6,41 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DEMO_BADGE_CLASS, formatDate, statusBadgeClass } from '@/lib/format';
 import { useTranslations } from '@/lib/i18n';
-import type { Paginator, TenantSummary } from '@/types';
+import type { Paginator, SignupSourceCount, TenantSummary } from '@/types';
 
 type IndexProps = {
     tenants: Paginator<TenantSummary>;
-    filters: { search: string | null; status: string | null };
+    filters: { search: string | null; status: string | null; source: string | null };
     statuses: string[];
+    sources: SignupSourceCount[];
 };
 
-export default function TenantsIndex({ tenants, filters, statuses }: IndexProps) {
+/**
+ * The campaign that brought a tenant, in one line for a table cell (SLO-210).
+ *
+ * Falls back to the landing page when there is no `utm_source`: someone who
+ * found `/autoszerviz` through search is still attributable to that vertical,
+ * which is half of what docs/22 §7.1 wants to compare.
+ */
+function sourceLabel(signup: TenantSummary['signup']): string | null {
+    if (signup === null) {
+        return null;
+    }
+
+    return signup.utm_source ?? signup.landing_path;
+}
+
+export default function TenantsIndex({ tenants, filters, statuses, sources }: IndexProps) {
     const t = useTranslations();
     const [search, setSearch] = useState(filters.search ?? '');
 
-    function navigate(params: { search?: string; status?: string }) {
+    function navigate(params: { search?: string; status?: string; source?: string }) {
         router.get(
             '/tenants',
             {
                 search: params.search ?? search,
                 status: params.status ?? filters.status ?? '',
+                source: params.source ?? filters.source ?? '',
             },
             { preserveState: true, preserveScroll: true, replace: true },
         );
@@ -77,6 +94,63 @@ export default function TenantsIndex({ tenants, filters, statuses }: IndexProps)
                     </Button>
                 </form>
 
+                {/*
+                    The acquisition breakdown (SLO-210). Chips rather than a
+                    select, because the counts ARE the answer: "which campaign
+                    produced tenants" is read at a glance here, and clicking one
+                    only narrows the list to look closer.
+
+                    ⚠️ The unknown bucket is a number, not a filter. It is the
+                    denominator everything else is judged against — most of it is
+                    tenants that predate the measurement — and offering it as a
+                    working set would suggest it is a cohort rather than a gap.
+                */}
+                {sources.length > 0 && (
+                    <div
+                        className="mb-4 flex flex-wrap items-center gap-2"
+                        aria-label={t('super.tenants.source.heading')}
+                    >
+                        <span className="text-xs text-muted-foreground">
+                            {t('super.tenants.source.heading')}
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => navigate({ source: '' })}
+                            className={`rounded-full border px-2.5 py-0.5 text-xs ${
+                                filters.source === null
+                                    ? 'border-primary bg-primary/10 font-medium text-foreground'
+                                    : 'border-border text-muted-foreground hover:text-foreground'
+                            }`}
+                        >
+                            {t('super.tenants.source.all')}
+                        </button>
+                        {sources.map((row) =>
+                            row.source === null ? (
+                                <span
+                                    key="unknown"
+                                    title={t('super.tenants.source.unknown_hint')}
+                                    className="rounded-full border border-dashed border-border px-2.5 py-0.5 text-xs text-muted-foreground"
+                                >
+                                    {t('super.tenants.source.unknown')} · {row.total}
+                                </span>
+                            ) : (
+                                <button
+                                    key={row.source}
+                                    type="button"
+                                    onClick={() => navigate({ source: row.source ?? '' })}
+                                    className={`rounded-full border px-2.5 py-0.5 text-xs ${
+                                        filters.source === row.source
+                                            ? 'border-primary bg-primary/10 font-medium text-foreground'
+                                            : 'border-border text-muted-foreground hover:text-foreground'
+                                    }`}
+                                >
+                                    {row.source} · {row.total}
+                                </button>
+                            ),
+                        )}
+                    </div>
+                )}
+
                 <div className="overflow-hidden rounded-xl border border-border">
                     <table className="w-full text-sm">
                         <thead className="bg-muted/50 text-left text-muted-foreground">
@@ -84,6 +158,7 @@ export default function TenantsIndex({ tenants, filters, statuses }: IndexProps)
                                 <th className="px-4 py-3 font-medium">{t('super.tenants.col.name')}</th>
                                 <th className="px-4 py-3 font-medium">{t('super.tenants.col.status')}</th>
                                 <th className="px-4 py-3 font-medium">{t('super.tenants.col.users')}</th>
+                                <th className="px-4 py-3 font-medium">{t('super.tenants.col.source')}</th>
                                 <th className="px-4 py-3 font-medium">{t('super.tenants.col.trial_ends')}</th>
                                 <th className="px-4 py-3 text-right font-medium">{t('super.tenants.col.actions')}</th>
                             </tr>
@@ -91,7 +166,7 @@ export default function TenantsIndex({ tenants, filters, statuses }: IndexProps)
                         <tbody>
                             {tenants.data.length === 0 ? (
                                 <tr>
-                                    <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                                    <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                                         {t('super.tenants.empty')}
                                     </td>
                                 </tr>
@@ -121,6 +196,13 @@ export default function TenantsIndex({ tenants, filters, statuses }: IndexProps)
                                         </td>
                                         <td className="px-4 py-3 text-muted-foreground">
                                             {tenant.users_count}
+                                        </td>
+                                        <td className="px-4 py-3 text-muted-foreground">
+                                            {sourceLabel(tenant.signup) ?? (
+                                                <span title={t('super.tenants.source.unknown_hint')}>
+                                                    {t('super.tenants.source.unknown')}
+                                                </span>
+                                            )}
                                         </td>
                                         <td className="px-4 py-3 text-muted-foreground">
                                             {tenant.trial_ends_at

@@ -142,9 +142,16 @@ Indok: sales-beszélgetésben a szerviz első kérdése a rendszám lesz; a note
 >    párhuzamos tároló bevezetése többe került volna, mint amennyit ér. A sablon-elv ugyanaz marad,
 >    és teszt bizonyítja: egy új `verticals.*` blokk + egy sor `config/verticals.php` elég, komponenst
 >    nem kell hozzányúlni.
-> 4. **UTM-attribúció: nem épült meg, mert nincs mihez kötni.** Nincs `signup_source` oszlop és nincs
->    `utm_*` kezelés a kódban — a §4 „SEO / mérés" pontja maga írja elő, hogy ilyenkor ne itt épüljön.
->    Külön issue tartja számon. A GA4/Meta oldali `vertical` paraméter és a `Lead` esemény megvan.
+> 4. **UTM-attribúció: azóta megépült (SLO-210).** Az SLO-198 idején még nem volt mihez kötni; ma van:
+>    `tenants.signup_utm_source/_medium/_campaign/_landing_path/_landed_at` (`docs/02`), a rögzítés a
+>    **session**ben utazik a központi marketingfelületről (`CampaignAttribution`), és a superadmin
+>    tenant-listán kampányonkénti bontás látszik.
+>    ⚠️ **Nem süti, és ez tudatos:** egy attribúciós sütihez hozzájárulás kellene, a hozzájárulási
+>    arány pedig közönségenként eltér — vagyis épp abban a dimenzióban torzítana, amit ez az egész
+>    össze akar hasonlítani. Az ára: az attribúció a látogatás idejéig él, tehát a késleltetett
+>    konverziót alulmérjük — egyenletesen, ezért a **vertikálisok összehasonlítása** túléli.
+>    A teljes indoklás: `docs/19` §12. A GA4/Meta oldali `vertical` paraméter és a `Lead` esemény
+>    változatlanul megvan.
 >
 > Ami a leírásból tárgytalan lett: a „ha a `TryItLive` nem paraméterezhető, tedd azzá" pont — az
 > `only` prop az SLO-192-ben megépült, itt csak használjuk.

@@ -1086,7 +1086,26 @@ return [
                 'users' => 'Felhasználók',
                 'trial_ends' => 'Trial vége',
                 'created' => 'Létrehozva',
+                'source' => 'Honnan jött',
                 'actions' => 'Műveletek',
+            ],
+            // Akvizíciós forrás (SLO-210). Az „ismeretlen" szándékosan nem
+            // „közvetlen": a legtöbb tenant a mérés bevezetése előtti, és a
+            // hiányzó adatot állításnak nevezni rosszabb, mint bevallani.
+            'source' => [
+                'title' => 'Honnan jött ez a tenant',
+                'heading' => 'Akvizíciós forrás:',
+                // Külön kulcs, nem a `filter_all`: az „Összes státusz" egy
+                // forrás-szűrőn rossz mondat — a böngészős átnézés fogta meg.
+                'all' => 'Összes forrás',
+                'none' => 'Erről a tenantról nincs forrásadatunk. A regisztrációja vagy a mérés bevezetése előtt történt, vagy nem hirdetésből érkezett — a kettő nem különböztethető meg utólag.',
+                'unknown' => 'ismeretlen',
+                'unknown_hint' => 'Nincs rögzített kampány. Az attribúció a látogatás idejéig él (2 óra), tehát az is ide kerül, aki a hirdetésre kattintás után csak napokkal később regisztrált.',
+                'utm_source' => 'Forrás (utm_source)',
+                'utm_medium' => 'Csatorna (utm_medium)',
+                'utm_campaign' => 'Kampány (utm_campaign)',
+                'landing_path' => 'Érkezési oldal',
+                'landed_at' => 'Első látogatás',
             ],
             'action' => [
                 'view' => 'Megnyitás',

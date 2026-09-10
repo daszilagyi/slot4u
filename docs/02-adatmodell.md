@@ -184,6 +184,19 @@ commission_invoices -- ÚJ oszlopok (SLO-143): number, provider_error, storno_re
                    -- tehet úgy, mintha a tartozás lenne fura állapotban. `provider_error` nem null
                    -- = az utolsó próbálkozást elutasították, újrapróbálható.
 
+tenants.signup_*   -- akvizíciós attribúció (SLO-210): signup_utm_source, signup_utm_medium,
+                   -- signup_utm_campaign, signup_landing_path, signup_landed_at.
+                   -- ⚠️ OSZLOPOK, nem json — szemben a settings/analytics mintával ugyanezen a
+                   -- táblán. Azok konfigurációk (egészben olvasva/írva, sosem aggregálva); ez
+                   -- analitikai adat, aminek az egész értelme a GROUP BY. A json-út ráadásul
+                   -- driverfüggő: a json_extract SQLite-on csupasz skalárt, MariaDB-n idézőjeles
+                   -- JSON-értéket ad — a teszt zöld, a prod idézőjeles.
+                   -- Indexelt: utm_source, utm_campaign, landing_path (amikre csoportosítunk).
+                   -- NEM fillable: az értékek query stringből származnak, a regisztrációs űrlap
+                   -- nem mondhatja meg a saját attribúcióját.
+                   -- NULL = nem tudjuk. Nincs backfill és nincs „direct" helyettesítő érték.
+                   -- utm_term/utm_content SZÁNDÉKOSAN nincs (docs/19 §12).
+
 tenants.analytics  -- titkosított (encrypted:array) oszlop (SLO-56): a tenant SAJÁT mérőkódjai
                    -- (ga4_measurement_id, meta_pixel_id) + a Conversions API hitelesítése
                    -- (meta_access_token, meta_test_event_code). Az azonosítók publikusak, a
