@@ -29,6 +29,21 @@ return [
 
         'url' => env('INERTIA_SSR_URL', 'http://127.0.0.1:13714'),
 
+        /*
+        | The secret the renderer requires on `/render` (SLO-212).
+        |
+        | ⚠️ It has to be set in TWO places with the same value: here, from the
+        | app's .env, and on the Node application itself (in production, a cPanel
+        | environment variable). The renderer is mounted inside our own public
+        | site, so without a matching secret anyone who finds the mount can post
+        | a page object and have the server render it.
+        |
+        | Empty means unauthenticated, which is what dev and CI want. The
+        | renderer warns loudly at startup if it is empty while NODE_ENV is
+        | production, and the deploy smoke test is what makes it non-optional.
+        */
+        'shared_secret' => env('SSR_SHARED_SECRET', ''),
+
         'ensure_bundle_exists' => (bool) env('INERTIA_SSR_ENSURE_BUNDLE_EXISTS', true),
 
         // 'bundle' => base_path('bootstrap/ssr/ssr.mjs'),

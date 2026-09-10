@@ -12,7 +12,9 @@
 | Realtime | Laravel Reverb | élő foglalás-kártya az admin dashboardon |
 | Auth | Laravel Fortify/Breeze alap + saját tenant logika | |
 
-**Döntés:** a publikus foglalófelület NEM külön Astro/Next app, hanem ugyanaz a Laravel+Inertia alkalmazás publikus route-csoportja. SSR (Inertia SSR) bekapcsolva a publikus oldalakon SEO és sebesség miatt. Ha később mégis kell külön frontend, a Service réteg API-vá alakítható.
+**Döntés:** a publikus foglalófelület NEM külön Astro/Next app, hanem ugyanaz a Laravel+Inertia alkalmazás publikus route-csoportja. SSR (Inertia SSR) a publikus oldalakon SEO és sebesség miatt. Ha később mégis kell külön frontend, a Service réteg API-vá alakítható.
+
+> ⚠️ **A doksi és az éles rendszer sokáig ellentmondott itt** (SLO-212): ez a sor SSR-t ígért, prodon viszont nem futott Node processz, tehát a publikus oldalak üres shellként mentek ki. A hiba **nem hibázott** — az Inertia némán kliensoldali renderre esik vissza —, ezért élt hónapokig. Az éles profil „SSR" sora lentebb mondja meg, hol tart.
 
 ### SEO assetek (SLO-89)
 
@@ -512,6 +514,10 @@ Két külön profil fut: a **dev/CI referencia-stack** (Docker Compose) és az *
 - **Mail:** `MAIL_MAILER=smtp` (`no-reply@slot4u.hu`, `smtps` séma a 465-ös porton — Laravel 11/12 `MAIL_SCHEME=smtps`, nem `MAIL_ENCRYPTION`); DKIM a cPanel Email Deliverability alatt.
 - **TLS / aldomének:** DNS Cloudflare mögött, Universal SSL fedi a `*.slot4u.hu`-t az edge-en; origin felé cPanel cert. cPanel `*` wildcard aldomain → docroot az app `public/`-ja. Az egyedi tenant-domain (`feature_custom_domain`) app-oldala kész (SLO-42); a custom hostname TLS-ét **Cloudflare for SaaS** adja (100 hostname-ig ingyenes), a hostname-provisioning az SLO-135 — l. az „Egyedi tenant-domain" szakaszt.
 - **Cloudflare mögötti IP/séma:** az Apache már visszaállítja a valódi klienst (mod_cloudflare), a Laravel `trustProxies` a CF-tartományokra ennek framework-szintű biztosítéka (rate limit + audit valódi kliens-IP-t, `X-Forwarded-Proto` HTTPS-sémát lát) — l. `bootstrap/app.php`.
-- **SSR:** kikapcsolva indulunk (`INERTIA_SSR_ENABLED=false`, nincs Node daemon) — a SEO-hatás vállalt; külön spike, ha Passengerrel megoldható.
+- **SSR (SLO-212):** a spike **sikerült** — a hoszton cPanel **Node.js + Passenger** van, és a Passenger elindítja az **ES-modul** bundle-t (Node 22). Mérve: a `/_ssr` végpont a mi renderelőnket szolgálja ki, egy valódi főoldal-objektumra **163 KB markup, benne a H1 és a valódi `<title>`**.
+  - **A Passenger az egyetlen supervisor:** osztott cPanelen a hosszú életű processzeket órákon belül lelövik (`docs/11`), tehát önálló `node ssr.js` nem opció. Ezért megy az SSR-hívás Apache-on át.
+  - ⚠️ **A Passenger NEM vágja le a mount-prefixet**, az app `/_ssr/render`-t kap. Ezért a `resources/js/ssr.tsx` **saját, prefix-független szervert** futtat az Inertia `createServer`-e helyett — az ugyanis pontos string-egyezéssel dönt és nem vesz base-path opciót. Ugyanez a bundle megy prefix nélkül a docker `ssr` szolgáltatásban és a CI-ban.
+  - ⚠️ **A renderelő a publikus oldalunkon belül van mountolva**, tehát az internetről elérhető. A `/render` ezért **megosztott titkot** kér (`SSR_SHARED_SECRET`, l. `config/inertia.php`), amit a Laravel HTTP-kliens globális middleware-e tesz rá (`App\Ssr\SsrCredentials`). Titok nélkül a válasz **404**, nem 401: egy szkenner ne tanuljon semmit.
+  - Deploy-integráció (a bundle feltöltése, restart, füstteszt) és az `INERTIA_SSR_ENABLED=true` élesítése külön darab.
 - **Deploy-sajátosságok:** `storage:link` helyett shell `ln -s` (a PHP `symlink()` tiltott); Vite build lokálisan/CI-ban, csak a build-output megy fel; scheduler cron `schedule:run` percenként.
 - Backup: napi DB dump + storage sync, visszaállási teszt negyedévente.

@@ -34,6 +34,7 @@ use App\Services\Domain\NullCustomHostnameProvisioner;
 use App\Services\Domain\SystemDnsResolver;
 use App\Services\Feature\FeatureResolver;
 use App\Services\Monitoring\Heartbeats;
+use App\Ssr\SsrCredentials;
 use App\Support\Analytics\PageAnalytics;
 use App\Tenancy\CustomDomainResolver;
 use App\Tenancy\TenantManager;
@@ -49,6 +50,7 @@ use Illuminate\Notifications\Events\NotificationSent;
 use Illuminate\Queue\Events\Looping;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
@@ -134,6 +136,11 @@ class AppServiceProvider extends ServiceProvider
             'staff' => Staff::class,
             'room' => Room::class,
         ]);
+
+        // Every render request to the SSR renderer carries the shared secret
+        // (SLO-212). Registered here rather than in a custom Gateway because
+        // Inertia's HttpGateway offers no header hook — see App\Ssr\SsrCredentials.
+        Http::globalRequestMiddleware(SsrCredentials::attach(...));
 
         // Platform super-admins bypass all tenant permission checks.
         Gate::before(fn ($user) => $user instanceof User && $user->isSuperAdmin() ? true : null);
