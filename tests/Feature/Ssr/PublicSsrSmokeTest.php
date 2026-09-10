@@ -403,3 +403,25 @@ it('offers a real customer their own workspace instead of a second login', funct
         // the broken branch pointed at `/`, the page they were already on.
         ->toContain('http://valodi-ssr.'.config('tenancy.central_domain').'/dashboard');
 });
+
+it('⚠️ gives a crawler the page own title, not the application name', function () {
+    // Found on production, on the first server-rendered deploy. The root
+    // template carried `<title inertia>slot4u</title>` and printed the SSR head
+    // AFTER it, so every server-rendered page shipped TWO title elements — and
+    // HTML says the first one is the document's. Every page said "slot4u".
+    //
+    // ⚠️ A browser never showed that: on hydration Inertia removes every
+    // `title:not([data-inertia])`. It was wrong only for the reader who runs no
+    // JavaScript — which is the entire reason this application renders on the
+    // server. Nothing that watches the browser could have caught it.
+    $this->seed(CommissionSettingSeeder::class);
+
+    $content = $this->get('http://'.config('tenancy.central_domain'))->assertOk()->getContent();
+
+    preg_match_all('#<title[^>]*>(.*?)</title>#s', $content, $titles);
+
+    expect($titles[1])->not->toBeEmpty('the page has no <title> at all');
+    expect($titles[1][0])
+        ->toContain('slot4u — online foglalási rendszer')
+        ->not->toBe('slot4u');
+});
