@@ -15,29 +15,6 @@ afterEach(function () {
     app(PermissionRegistrar::class)->setPermissionsTeamId(null);
 });
 
-/**
- * Whether an Inertia SSR renderer is listening at the configured URL. The smoke
- * test needs a live node process (the `ssr` docker service, or
- * `node bootstrap/ssr/ssr.js`); without one it skips rather than failing, so the
- * normal suite stays green everywhere while CI runs it against a started server.
- */
-function ssrRendererReachable(): bool
-{
-    $parts = parse_url((string) config('inertia.ssr.url'));
-    $host = $parts['host'] ?? '127.0.0.1';
-    $port = $parts['port'] ?? 13714;
-
-    $conn = @fsockopen($host, $port, $errno, $errstr, 1);
-
-    if ($conn === false) {
-        return false;
-    }
-
-    fclose($conn);
-
-    return true;
-}
-
 beforeEach(function () {
     // In hot (vite dev) mode Inertia routes SSR through the vite dev server, not
     // the production bundle server this test targets — skip so we only assert the
