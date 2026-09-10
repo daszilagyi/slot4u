@@ -11,6 +11,7 @@ use App\Http\Middleware\EnsureUserIsStaff;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\IdentifyTenant;
 use App\Http\Middleware\ResolveCustomDomain;
+use App\Http\Middleware\RetireSharedConsentCookie;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\SetLocale;
 use Illuminate\Auth\Middleware\Authorize;
@@ -111,6 +112,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->prepend(SecurityHeaders::class);
 
         $middleware->web(append: [
+            // First in the group, because anything below it may short-circuit:
+            // EnsureLegalConsent redirects a user with an outstanding document,
+            // and the visitors likeliest to still carry the retired cookie are
+            // exactly the ones who have been here before (SLO-220).
+            RetireSharedConsentCookie::class,
             // SetLocale before Inertia sharing so the `locale`/`translations`
             // props reflect the resolved locale. On tenant domains IdentifyTenant
             // (route middleware) runs after and overrides with the tenant locale.
@@ -131,6 +137,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // inspect the privacy control they were given, which is the right
         // posture for a control that exists to be trustworthy.
         $middleware->encryptCookies(except: [
+            'slot4u_consent_host',
+            // The retired domain-wide name (SLO-220). Still listed because
+            // browsers keep sending it until RetireSharedConsentCookie has had a
+            // chance to delete it, and EncryptCookies would otherwise try to
+            // decrypt a plaintext value on every one of those requests.
             'slot4u_consent',
             // ⚠️ Meta's own cookies (SLO-173), set by fbevents.js in the browser
             // and read by us to attribute a conversion to the ad that produced
