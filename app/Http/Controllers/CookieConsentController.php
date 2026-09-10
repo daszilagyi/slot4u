@@ -40,14 +40,11 @@ class CookieConsentController extends Controller
 
         $consent = CookieConsent::granted($granted);
 
-        // Refusing must be as durable as accepting. A short-lived "no" would ask
-        // again on the next visit, which is the pattern that trains people to
-        // click accept.
-        Cookie::queue(Cookie::make(
-            (string) config('consent.cookie'),
-            $consent->toCookieValue(),
-            (int) config('consent.lifetime_days') * 24 * 60,
-        ));
+        // Host-only, and the shape of it is CookieConsent's business rather than
+        // this controller's (SLO-220): the answer given here is an answer to the
+        // data controller behind THIS host, and must not follow the visitor onto
+        // the marketing site or another tenant.
+        Cookie::queue($consent->toCookie());
 
         return back();
     }

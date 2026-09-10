@@ -436,6 +436,10 @@ adatfeldolgozói szerep megsértése, függetlenül attól, hogy a látogató mi
 kattintott a banneren. Ezt kódban a `PlatformAnalytics::isCentralHost()` zárja, és
 külön teszt őrzi (`tests/Feature/Analytics/PlatformAnalyticsTest.php`).
 
+⚠️ Ez a szabály sokáig **csak az egyik irányban** állt: azt tiltotta, hogy a
+platform mérjen a tenant oldalán, azt nem, hogy a platformnak adott hozzájárulás
+legitimálja a tenant mérését. A másik felét a §11.6 zárja (SLO-220).
+
 ### 11.1.3 A tenant saját mérése (SLO-56)
 
 `{slug}.slot4u.hu`-n a tenant a **saját** GA4 propertyjébe és a **saját** Meta
@@ -603,3 +607,68 @@ hibamintája: az oldal helyesnek látszik, és némán az ellenkezőjét teszi. 
 consent-kapuzott funkciónál tehát a `gatedCategories()` a hely, ahol jelentkezni
 kell; a `ConsentScopeTest` utolsó tesztje pedig kibukik, ha egy
 `config/consent.php`-beli kategóriát semmilyen kapu nem tud felhozni.
+
+### 11.6 A hozzájárulás EGY adatkezelőnek szól (SLO-220)
+
+A consent-süti **host-only**: nincs rajta `Domain` attribútum, tehát a böngésző
+pontosan annak a hostnak küldi vissza, amelyik letette, és sehova máshova.
+
+**Miért kellett ez.** Az SLO-165 óta a süti `Domain=.slot4u.hu`-val íródott (a
+`CookieJar` a `session.domain`-t örökölte), tehát **egyetlen válasz szólt a
+marketingoldalra és minden tenantra egyszerre**. Ez a §2-vel áll szemben: a
+központi domainen a **slot4u** az adatkezelő, a tenant-aldoménen a **tenant** (a
+slot4u ott adatfeldolgozó). A látogató elfogadta a slot4u saját GA4-ét a
+`slot4u.hu`-n, majd egy tenant foglalóoldalára lépve **a tenant saját GA4-e és
+Meta Pixele** (SLO-56) is betöltött, anélkül hogy bárki megkérdezte volna a
+tenant méréséről. Fordítva ugyanígy: az egyik tenantnál adott „igen" átjött a
+másikéra.
+
+A §11.1.2 eddig **csak az egyik irányt** őrizte (`PlatformAnalytics::isCentralHost()`:
+a platform ne mérjen a tenant oldalán). Azt nem, hogy a platformnak adott
+hozzájárulás ne legitimálja a tenant mérését.
+
+**Miért strukturális a javítás, és nem szabály.** A host-only sütinél a válasz
+fizikailag nem jut át a másik felületre — nincs olyan kód, amit valakinek eszébe
+kell jutnia meghívni. A süti alakja egy helyen dől el
+(`CookieConsent::toCookie()`), és a `Domain`-t **le kell venni**, nem elég nem
+megadni: a `CookieJar::make` minden hamis domain-argumentumra a `session.domain`-re
+esik vissza.
+
+⚠️ **A `SESSION_DOMAIN` szándékosan megosztott marad.** A session süti azért szól
+`.{central}`-ra, hogy egy belépés a tenant felületei között végigvigyen — csak a
+**consent** süti volt rossz. Egy javítás, ami mindkettőt leszűkíti, minden
+ugrásnál kiléptetne, és kívülről ugyanolyan zöld tesztet mutatna; erre külön
+teszt van (`ConsentControllerBoundaryTest`).
+
+**⚠️ A süti nevet váltott, és ez nem ízlés kérdése.** Egy **azonos nevű** host-only
+süti együtt élt volna a böngészőben a régi, domain-szintűvel, mindkettő elment
+volna ugyanazon a kérésen, és a PHP azt adta volna, amelyik utoljára jött —
+kérésenként pénzfeldobás, egy adatvédelmi kontrollon. Ezért:
+
+* az élő név `slot4u_consent_host` (`config/consent.php` → `cookie`),
+* a visszavonult név `slot4u_consent` (`shared_cookie`), amit a
+  `RetireSharedConsentCookie` middleware **töröl** minden olyan böngészőből,
+  amelyik még hordozza — bármelyik hostunkon, a látogató következő kérésén.
+
+Nem élő szivárgás (semmi nem olvassa többé), hanem **elavult adat valakinek az
+adatvédelmi döntéseiről, amit nincs miért tartanunk** — ezért nem várjuk meg a
+saját lejáratát. A middleware a web-csoport **elején** fut, mert alatta bármi
+rövidre zárhat (az `EnsureLegalConsent` átirányít egy elfogadatlan dokumentumú
+usert), és épp azok hordozzák legvalószínűbben a régi sütit, akik már jártak itt.
+
+**Következmény: mindenki újra kap kérdést, felületenként.** Ez nem mellékhatás.
+A korábbi döntés a rossz adatkezelőnek szólt; nem migráljuk, mert nem tudjuk
+megmondani róla, melyik hoston adták. Ugyanaz a szabály, mint a §11.3-ban.
+
+**Ami ebből következik a gyakorlatban.** Egy tenant, akinek a saját domainje is
+van (`feature_custom_domain`) és az aldoménje is, **két külön hostnak számít**,
+tehát két külön döntés. A látogató szempontjából ezek külön origin-ek, tehát ez
+inkább helyes, mint kellemetlen. Custom domainen egyébként sosem volt megosztott
+süti: a böngésző eleve nem fogadott el `.{central}`-ra szóló sütit
+`booking.acme.hu`-tól, és a `ResolveCustomDomain` ezért nullázza a
+`session.domain`-t (SLO-42).
+
+⚠️ **A `RetireSharedConsentCookie` átmeneti.** Ha eltelt `consent.lifetime_days`
+(ma 365 nap) az ezt bevezető release óta, egyetlen böngésző sem hordozhatja már a
+régi sütit — akkor a middleware, a `shared_cookie` config-kulcs és a hozzá tartozó
+tesztek törölhetők.

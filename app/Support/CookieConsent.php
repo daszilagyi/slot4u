@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Support;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cookie;
+use Symfony\Component\HttpFoundation\Cookie as SymfonyCookie;
 
 /**
  * A visitor's decision about non-essential storage (SLO-165, docs/19 §11).
@@ -18,6 +20,13 @@ use Illuminate\Http\Request;
  * `necessary` is never a field here. It is not a choice, and modelling it as one
  * would suggest a visitor could refuse the session cookie that makes the booking
  * form work.
+ *
+ * ⚠️ The decision belongs to ONE host (SLO-220, docs/19 §11.6). The marketing
+ * site and each tenant are different data controllers (§2), so a yes given to
+ * slot4u is not a yes given to a tenant — and the cookie is written host-only to
+ * make that structural rather than a rule someone has to remember. Everything
+ * about the cookie's shape lives in this class, so the next change to it is one
+ * file rather than a hunt.
  */
 final class CookieConsent
 {
@@ -94,13 +103,72 @@ final class CookieConsent
         return $this->decided && ($this->categories[$category] ?? false);
     }
 
-    /** The cookie payload. Versioned, so a policy change re-asks. */
-    public function toCookieValue(): string
+    /**
+     * The cookie payload. Versioned, so a policy change re-asks.
+     *
+     * Private since SLO-220: the value and the Set-Cookie that carries it are
+     * one decision, and letting a caller take the value alone is how a second
+     * place ended up choosing the cookie's domain. {@see toCookie()}.
+     */
+    private function toCookieValue(): string
     {
         return (string) json_encode([
             'v' => (string) config('consent.version'),
             'c' => $this->categories,
         ]);
+    }
+
+    /**
+     * The Set-Cookie that stores this decision — deliberately with NO Domain.
+     *
+     * A cookie without a Domain attribute is host-only: the browser sends it
+     * back to exactly the host that set it and nowhere else. That is the whole
+     * fix for SLO-220. `Domain=.slot4u.hu` made one answer stand for the
+     * marketing site and every tenant at once, which put slot4u's own GA4 and a
+     * tenant's advertising pixel behind a single click — two different data
+     * controllers, one question, asked by only one of them.
+     *
+     * ⚠️ It has to be stripped rather than not passed: CookieJar::make falls
+     * back to `session.domain` for any falsy domain argument, so "leave it out"
+     * and "make it host-only" are not the same call. Path, secure and SameSite
+     * still come from the session config, which is why the cookie is built by
+     * the factory first and narrowed after.
+     *
+     * Refusing is as durable as accepting: a short-lived "no" would ask again on
+     * the next visit, which is the pattern that trains people to click accept.
+     */
+    public function toCookie(): SymfonyCookie
+    {
+        return Cookie::make(
+            (string) config('consent.cookie'),
+            $this->toCookieValue(),
+            (int) config('consent.lifetime_days') * 24 * 60,
+        )->withDomain(null);
+    }
+
+    /**
+     * The Set-Cookie that deletes the old domain-wide decision, or null when
+     * this browser is not carrying one (SLO-220).
+     *
+     * Null matters: without the check every response on every host would carry
+     * a pointless deletion header, forever, for a cookie almost nobody has.
+     *
+     * The domain is named explicitly rather than taken from `session.domain`,
+     * because ResolveCustomDomain nulls that config on a tenant's own hostname
+     * (SLO-42) — and a deletion aimed at the wrong domain silently deletes
+     * nothing. On a custom domain there is no shared cookie to begin with: the
+     * browser never accepted a `.{central}` cookie from `booking.acme.hu`, so
+     * this returns null there and the explicit domain never gets used.
+     */
+    public static function retireSharedDecision(Request $request): ?SymfonyCookie
+    {
+        $shared = (string) config('consent.shared_cookie');
+
+        if ($shared === '' || ! is_string($request->cookie($shared))) {
+            return null;
+        }
+
+        return Cookie::forget($shared, null, '.'.config('tenancy.central_domain'));
     }
 
     /**
