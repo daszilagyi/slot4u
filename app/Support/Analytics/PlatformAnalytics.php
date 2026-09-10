@@ -31,6 +31,15 @@ use Illuminate\Http\Request;
  */
 final class PlatformAnalytics
 {
+    /**
+     * GA4 counts visitors, so it answers to `analytics`. A constant rather than
+     * a config key: the tenant side is configurable because a tenant's vendors
+     * are its own business (SLO-56), but slot4u's own property is ours, and a
+     * setting that could point it at `necessary` is a setting that could turn
+     * the consent gate off by editing an .env.
+     */
+    private const CATEGORY = 'analytics';
+
     private function __construct(
         /** Null whenever the tag must not load, for any of the three reasons. */
         public readonly ?string $measurementId,
@@ -38,21 +47,48 @@ final class PlatformAnalytics
 
     public static function forRequest(Request $request): self
     {
-        $id = trim((string) config('analytics.platform.ga4_measurement_id'));
-
-        if ($id === '') {
+        if (self::gatedCategories($request) === []) {
             return new self(null);
+        }
+
+        if (! CookieConsent::fromRequest($request)->allows(self::CATEGORY)) {
+            return new self(null);
+        }
+
+        return new self(self::configuredId());
+    }
+
+    /**
+     * The consent categories whose answer can change what this request loads —
+     * conditions 1 and 3 above, with the visitor's answer (2) left out (SLO-218).
+     *
+     * Empty means the banner has nothing to ask on slot4u's behalf here: no id
+     * configured (every dev laptop, CI, and any host that is not production) or
+     * a tenant subdomain, where the platform never measures at all (§11.1.2).
+     *
+     * Derived from the same conditions {@see forRequest()} applies rather than
+     * restated, so "would we ask?" and "would we emit?" cannot disagree. A
+     * second copy of the rules is how a page ends up asking for permission to
+     * do something it was never going to do — or, worse, the other way round.
+     *
+     * @return list<string>
+     */
+    public static function gatedCategories(Request $request): array
+    {
+        if (self::configuredId() === '') {
+            return [];
         }
 
         if (! self::isCentralHost($request)) {
-            return new self(null);
+            return [];
         }
 
-        if (! CookieConsent::fromRequest($request)->allows('analytics')) {
-            return new self(null);
-        }
+        return [self::CATEGORY];
+    }
 
-        return new self($id);
+    private static function configuredId(): string
+    {
+        return trim((string) config('analytics.platform.ga4_measurement_id'));
     }
 
     /** Nothing configured, nothing consented to, or the wrong host. */

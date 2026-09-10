@@ -892,9 +892,16 @@ type LegalSharedProps = {
  * categories because "declined analytics" and "has not been asked" must render
  * differently — one shows the banner, the other does not.
  */
-type ConsentSharedProps = {
+export type ConsentSharedProps = {
     decided: boolean;
     categories: Record<string, boolean>;
+    /**
+     * The categories that can change anything on THIS page (SLO-218). Empty
+     * where nothing but the session cookie is in play — a tenant that measures
+     * nothing, the embedded demo, dev and CI — and there the banner does not
+     * ask, because both answers would produce the same page.
+     */
+    askable: string[];
 };
 
 declare module '@inertiajs/core' {

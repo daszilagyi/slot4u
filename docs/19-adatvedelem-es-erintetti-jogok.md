@@ -553,3 +553,53 @@ döntés **erről**.
   foglalási űrlap működik, egy kapcsoló mellette azt sugallná, hogy visszautasítható.
 * **A süti kategórialistája nem parancs:** egy ismeretlen kategóriát tartalmazó
   süti semmit nem enged — a lista az appé, nem a sütié.
+
+### 11.5 Hol kérdez a banner egyáltalán? (SLO-218)
+
+A banner **nem ott jelenik meg, ahol még nincs döntés, hanem ott, ahol a döntésnek
+van következménye.** Kérésenként a szerver megmondja, mely kategóriák kapuznak
+bármit is az adott oldalon (`consent.askable` shared prop, `App\Support\ConsentScope`);
+ha ez üres, nincs mit kérdezni, és a sáv nem jelenik meg.
+
+**Mi indokolja jogilag.** Az ePrivacy szerint a hozzájárulás a **nem feltétlenül
+szükséges** tárolásra kell. Egy olyan tenant publikus foglalóoldala, amelyik nem
+állított be sem GA4-et, sem Meta Pixelt (SLO-56), a session és a CSRF sütin kívül
+semmit nem tesz le — azokra pedig §11.1 szerint nincs hozzájárulás-kötelezettség.
+Ott a banner nem óvatosság, hanem zaj: egy kérdés, amelynek mindkét válasza
+ugyanazt az oldalt eredményezi, és amelyet a látogatónak el kell tüntetnie, mielőtt
+bármit lát. A fölösleges consent-kérés önmagában is kár — ez szoktatja rá az
+embereket, hogy végigkattintsanak azon a sávon, amelyik máshol valódi kérdés.
+
+**Mi hozta elő.** A főoldal „Próbáld ki élőben" iframe-je (SLO-192) a demo tenant
+aldoménjára mutat, ami külön origin, tehát ott a **saját** sávja jelent meg — a
+marketingoldal saját sávjával **együtt, egy képernyőn**, a termék elé. A látogató
+két süti-párbeszédet kapott, mielőtt egyetlen szabad időpontot látott volna.
+
+**⚠️ Ez NEM `is_demo` kivétel**, és ez a lényegi része. Egy „a demo tenantok nem
+kérdeznek" szabály ugyanaz a csúszós lejtő lenne, amit az SLO-209-nél
+szándékosan elutasítottunk (ott is a seedben oldottuk meg, nem a middleware-ben).
+A demo azért hallgat el, amiért **bármelyik** tenant elhallgatna: nem mér semmit.
+Állíts be rajta egy GA4 propertyt, és a sávja visszajön, egyetlen sor módosítása
+nélkül. Mindkét irányt teszt őrzi (`tests/Feature/Legal/ConsentScopeTest.php`) —
+külön az az eset is, hogy egy **mérő** demo tenant kérdez.
+
+**Amit ez megváltoztat a tenantoknál.** Egy valódi tenant publikus oldalán a sáv
+akkor és csak akkor jelenik meg, ha a tenant tényleg mér. Ez tudatos eltérés az
+issue eredeti megfogalmazásától („a valódi tenant oldalán változatlanul jelenjen
+meg"): a kivétel nem a beágyazott demóra szól, hanem nincs kivétel — egyetlen
+szabály van, és az a mérésről szól, nem a felületről.
+
+**A visszavonás mindig elérhető marad.** A lábléc „Sütibeállítások" linkje akkor is
+látszik, ha a `askable` üres, de a látogató **már döntött** (`CookieConsent.tsx`
+`hasQuestion()`). GDPR 7. cikk (3): a visszavonásnak ugyanolyan könnyűnek kell
+lennie, mint a megadásnak — egy tenant, amelyik kikapcsolja a mérését, nem
+rekesztheti be a látogatót egy tárolt „igennel", amihez nincs visszaút.
+
+**Hol van a kapu.** A kategóriákat az az osztály jelenti be, amelyik a tagot ki is
+tenné (`PlatformAnalytics::gatedCategories()`, `TenantAnalytics::gatedCategories()`),
+és ugyanabból a feltételekből, amiből a betöltés dönt. Egy második,
+`ConsentScope`-ba írt feltétel-lista elcsúszhatna az elsőtől — ez az SLO-150
+hibamintája: az oldal helyesnek látszik, és némán az ellenkezőjét teszi. Új
+consent-kapuzott funkciónál tehát a `gatedCategories()` a hely, ahol jelentkezni
+kell; a `ConsentScopeTest` utolsó tesztje pedig kibukik, ha egy
+`config/consent.php`-beli kategóriát semmilyen kapu nem tud felhozni.

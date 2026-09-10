@@ -15,6 +15,7 @@ import {
     openCookieSettings,
 } from '@/lib/cookie-consent';
 import { useTranslations } from '@/lib/i18n';
+import type { ConsentSharedProps } from '@/types';
 
 /**
  * The cookie banner and its settings dialog (SLO-165).
@@ -25,13 +26,36 @@ import { useTranslations } from '@/lib/i18n';
  * opposite of what hydration produces.
  *
  * What the decision gates: slot4u's own GA4 tag on the marketing site
- * (SLO-172), emitted by the root Blade only for a visitor who granted
- * `analytics`. Tenant-side measurement follows in SLO-56.
+ * (SLO-172), and the tenant's own GA4 / Meta Pixel on its public pages
+ * (SLO-56) — both emitted by the server, never by this component.
+ *
+ * Which is also why the banner does not appear everywhere: the server says
+ * per request which categories gate anything here (`askable`, SLO-218), and
+ * where nothing does, there is no question to put. See docs/19 §11.5.
  */
+
+/**
+ * Whether this page has a cookie question at all (SLO-218).
+ *
+ * Two ways it does: something here is actually gated by a category (`askable`,
+ * decided on the server), or the visitor already answered and must be able to
+ * change their mind. The second half is not symmetry for its own sake — GDPR
+ * 7(3) wants withdrawing to be as easy as consenting, and a tenant switching
+ * its measurement off must not strand a visitor with a stored yes and no way
+ * back to it.
+ */
+function hasQuestion(consent: ConsentSharedProps): boolean {
+    return consent.askable.length > 0 || consent.decided;
+}
 
 /** The "cookie settings" affordance for a footer. */
 export function CookieSettingsLink() {
     const t = useTranslations();
+    const { consent } = usePage().props;
+
+    if (consent === undefined || consent === null || !hasQuestion(consent)) {
+        return null;
+    }
 
     return (
         <button
@@ -91,7 +115,14 @@ export function CookieConsent() {
 
     return (
         <>
-            {!consent.decided && (
+            {/* Undecided AND there is something to decide. The second condition
+                is what keeps the embedded demo (SLO-192) showing the product
+                instead of a cookie bar: nothing on a tenant page that measures
+                nothing depends on the answer, so the question is noise — and
+                inside the iframe it landed on the same screen as the marketing
+                site's own banner, two consent bars deep before the visitor saw
+                a single booking slot. */}
+            {!consent.decided && consent.askable.length > 0 && (
                 <div
                     role="region"
                     aria-label={t('consent.title')}

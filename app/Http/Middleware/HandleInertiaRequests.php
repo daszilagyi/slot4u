@@ -10,6 +10,7 @@ use App\Services\Feature\FeatureResolver;
 use App\Services\Impersonation\Impersonation;
 use App\Services\Legal\LegalDocumentRegistry;
 use App\Settings\TenantBranding;
+use App\Support\ConsentScope;
 use App\Support\CookieConsent;
 use App\Support\MarketingSurface;
 use App\Tenancy\TenantManager;
@@ -109,7 +110,16 @@ class HandleInertiaRequests extends Middleware
             // The visitor's cookie decision (SLO-165). Read from the request, so
             // the banner's visibility is settled before the first byte goes out
             // — a client-side decision flashes the banner on every page.
-            'consent' => fn (): array => CookieConsent::fromRequest($request)->toArray(),
+            //
+            // `askable` is the other half of that decision and belongs to the
+            // page, not the visitor: which categories can change anything here
+            // (SLO-218). Lazy for the same reason as `features` — the tenant is
+            // bound by route middleware that runs after this one, and the scope
+            // depends on which tenant it turned out to be.
+            'consent' => fn (): array => [
+                ...CookieConsent::fromRequest($request)->toArray(),
+                'askable' => ConsentScope::forRequest($request),
+            ],
         ];
     }
 
