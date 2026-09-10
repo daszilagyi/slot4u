@@ -17,6 +17,7 @@ use App\Services\Audit\AuditLogger;
 use App\Services\Commission\ResolveTenantCommissionSettings;
 use App\Services\Feature\FeatureResolver;
 use App\Services\Privacy\TenantDataExport;
+use App\Settings\TenantSignupSource;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -39,10 +40,15 @@ class TenantController extends Controller
         $filters = $request->validate([
             'search' => ['nullable', 'string', 'max:255'],
             'status' => ['nullable', Rule::enum(TenantStatus::class)],
+            // Which campaign brought them (SLO-210). Length-capped to the same
+            // bound the value object truncates at, so a crafted query string
+            // cannot turn a filter into a table scan on a 4 KB literal.
+            'source' => ['nullable', 'string', 'max:'.TenantSignupSource::MAX_LENGTH],
         ]);
 
         $search = $filters['search'] ?? null;
         $status = $filters['status'] ?? null;
+        $source = $filters['source'] ?? null;
 
         $tenants = Tenant::query()
             ->withTrashed()
@@ -51,6 +57,9 @@ class TenantController extends Controller
                 ->where('name', 'like', "%{$search}%")
                 ->orWhere('slug', 'like', "%{$search}%")))
             ->when($status, fn ($query) => $query->where('status', $status))
+            // An indexed equality on a real column — which is the reason these
+            // are columns and not a JSON blob (see the migration).
+            ->when($source, fn ($query) => $query->where('signup_utm_source', $source))
             ->orderByDesc('id')
             ->paginate(20)
             ->withQueryString()
@@ -58,8 +67,11 @@ class TenantController extends Controller
 
         return Inertia::render('Super/Tenants/Index', [
             'tenants' => $tenants,
-            'filters' => ['search' => $search, 'status' => $status],
+            'filters' => ['search' => $search, 'status' => $status, 'source' => $source],
             'statuses' => array_map(fn (TenantStatus $s) => $s->value, TenantStatus::cases()),
+            // The breakdown, which is what makes the source "groupable" rather
+            // than merely filterable: one aggregate query, not one per source.
+            'sources' => $this->signupSourceBreakdown(),
         ]);
     }
 
@@ -248,6 +260,71 @@ class TenantController extends Controller
             'users_count' => $tenant->users_count,
             'archived' => $tenant->trashed(),
             'created_at' => $tenant->created_at?->toIso8601String(),
+            // Same reasoning as `is_demo` above: the list shows a compact cell
+            // and the detail page a full panel, both from this one line.
+            'signup' => $this->signupSource($tenant),
         ];
+    }
+
+    /**
+     * Where this tenant came from, or null when we do not know (SLO-210).
+     *
+     * Null rather than a "direct" placeholder: most tenants predate the
+     * measurement, and calling their absent source "direct" would turn missing
+     * data into a claim about it — the same reason the migration backfills
+     * nothing.
+     *
+     * @return array<string, string|null>|null
+     */
+    private function signupSource(Tenant $tenant): ?array
+    {
+        $source = TenantSignupSource::fromTenant($tenant);
+
+        if ($source->isEmpty()) {
+            return null;
+        }
+
+        return [
+            'utm_source' => $source->utmSource,
+            'utm_medium' => $source->utmMedium,
+            'utm_campaign' => $source->utmCampaign,
+            'landing_path' => $source->landingPath,
+            'landed_at' => $source->landedAt?->toIso8601String(),
+        ];
+    }
+
+    /**
+     * How many tenants each campaign source produced, biggest first.
+     *
+     * ⚠️ Demo tenants are excluded. They are created by a seeder and rebuilt
+     * nightly (SLO-191), so they have no source at all — counting them would
+     * inflate the "unknown" bucket with rows that were never an acquisition,
+     * and that bucket is the denominator anyone reading this will divide by.
+     *
+     * Archived tenants ARE counted: a campaign that produced a company which
+     * later left still produced it, and hiding churn here would flatter exactly
+     * the campaigns that deserve it least.
+     *
+     * @return list<array{source: string|null, total: int}>
+     */
+    private function signupSourceBreakdown(): array
+    {
+        // `toBase()` after the Eloquent scopes: the rows are counts, not
+        // tenants, and hydrating a model per group would invite exactly the
+        // mistake of reading `$tenant->total` as if it were an attribute.
+        return Tenant::query()
+            ->withTrashed()
+            ->where('is_demo', false)
+            ->toBase()
+            ->select('signup_utm_source')
+            ->selectRaw('COUNT(*) as total')
+            ->groupBy('signup_utm_source')
+            ->orderByDesc('total')
+            ->get()
+            ->map(fn (object $row): array => [
+                'source' => is_string($row->signup_utm_source) ? $row->signup_utm_source : null,
+                'total' => (int) $row->total,
+            ])
+            ->all();
     }
 }

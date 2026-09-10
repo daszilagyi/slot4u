@@ -672,3 +672,64 @@ süti: a böngésző eleve nem fogadott el `.{central}`-ra szóló sütit
 (ma 365 nap) az ezt bevezető release óta, egyetlen böngésző sem hordozhatja már a
 régi sütit — akkor a middleware, a `shared_cookie` config-kulcs és a hozzá tartozó
 tesztek törölhetők.
+
+## 12. Kampány-attribúció: miért a session, és nem egy süti (SLO-210)
+
+Azt akarjuk tudni, **melyik kampányból lett tenant** — ez a vertikális
+landing-sablon egész üzleti indoklása (`docs/22` §7.1). A GA4/Meta megmondja,
+hány kattintást vett egy kampány; azt, hogy melyikből lett cég, csak mi tudjuk.
+
+### 12.1 A kézenfekvő megoldás, és miért nem az
+
+A szokásos építés egy **30 napos first-party attribúciós süti**. Ehhez
+hozzájárulás kell: egy attribúciós süti nem feltétlenül szükséges a látogató
+által kért szolgáltatáshoz, tehát ePrivacy szerint a banner mögé kerül.
+
+⚠️ **És itt nem a kényelem a baj, hanem a torzítás.** A hozzájárulási arány
+közönségenként eltér — mi pedig épp **közönségeket hasonlítunk össze**
+(`/autoszerviz` vs. főoldal). Egy mérés, aminek a lefedettsége együtt mozog
+azzal, amit összehasonlít, **rosszabb, mint egy kisebb, de torzítatlan**.
+
+### 12.2 Amit helyette csinálunk
+
+A kampány a **meglévő session sütiben** utazik (`CampaignAttribution`). A session
+süti a §11.1 szerint eleve hozzájárulás-mentes, tehát ez **semmit nem tesz le a
+látogató eszközére azon felül, ami már ott van**. Ami marad, az szerveroldali
+kezelés **jogos érdek** alapon (melyik kampányból lett üzleti ügyfelünk), és
+regisztrációkor egy **cég adatlapjára** kerül, nem egy személyt követ.
+
+Amit tárolunk: `utm_source`, `utm_medium`, `utm_campaign`, az érkezési oldal és
+az érkezés időpontja.
+
+⚠️ **`utm_term` és `utm_content` SZÁNDÉKOSAN nincs.** Részben scope (a kérdés az,
+melyik vertikális és melyik kampány — nem az, melyik kulcsszó és melyik kreatív),
+részben tartás: az `utm_term` az a kifejezés, amit az illető **beírt egy
+keresőbe**, ez a halmaz legszemélyesebb eleme, és a legolcsóbb módja annak, hogy
+ne tároljuk, az, hogy nem gyűjtjük be.
+
+### 12.3 ⚠️ Az ár, kimondva
+
+Az attribúció a **munkamenetig él (2 óra)**. Aki ma rákattint egy hirdetésre és
+jövő héten regisztrál, „ismeretlen forrás"-ként kerül be. **Alulmérjük a késleltetett
+konverziót** — de *egyenletesen*, ezért az **összehasonlítás** túléli, még ha az
+abszolút számok nem is. Ezeket a számokat úgy kell olvasni: „azok közül, akik
+ugyanabban a látogatásban regisztráltak".
+
+A superadmin felületen ezért az „ismeretlen" **nem** „közvetlen": a hiányzó adatot
+állításnak nevezni rosszabb, mint bevallani. A migráció ugyanezért nem tölt fel
+semmit visszamenőleg.
+
+### 12.4 ⚠️ A tenant kampánya nem a miénk
+
+A rögzítés **kizárólag a központi marketingfelületen** történik
+(`MarketingSurface`, route-név alapján). A `/register` egy domain nélküli Fortify
+route, tehát `utm_*` **bármelyik hostra** megérkezhet — köztük a tenant saját
+foglalóoldalára, ahol a kampány a **tenanté**, az ő pénzéből, az ő ügyfeleire.
+Azt a slot4u nyilvántartásába behúzni ugyanaz a határsértés lenne, mint a §11.6-ban.
+
+### 12.5 Ha később mégis kell a hosszabb ablak
+
+Akkor sem a mostani mérést bővítjük, hanem **mellé** kerül egy marketing-consenthez
+kötött süti, és a riportnak **külön** kell mutatnia a két populációt — mert a
+consenthez kötött rész nem összehasonlítható a consent-mentessel. Egy közös szám a
+kettőből pontosan azt a torzítást hozná vissza, ami elől a §12.1 kitért.
