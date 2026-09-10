@@ -8,6 +8,7 @@ use App\Enums\Feature;
 use App\Models\Tenant;
 use App\Services\Feature\FeatureResolver;
 use App\Settings\TenantAnalyticsSettings;
+use App\Support\ConsentScope;
 use App\Support\CookieConsent;
 use App\Tenancy\TenantManager;
 use Illuminate\Http\Request;
@@ -40,22 +41,9 @@ final class TenantAnalytics
 
     public static function forRequest(Request $request): self
     {
-        $tenant = app(TenantManager::class)->current();
+        $settings = self::configuredSettings();
 
-        if (! $tenant instanceof Tenant) {
-            return self::none();
-        }
-
-        // The feature gate is checked before the settings are even read, so a
-        // tenant whose analytics feature was switched off stops measuring at
-        // once — rather than keeping whatever ids happen to be stored.
-        if (! app(FeatureResolver::class)->enabled($tenant, Feature::Analytics)) {
-            return self::none();
-        }
-
-        $settings = TenantAnalyticsSettings::fromArray($tenant->analytics);
-
-        if ($settings->isEmpty()) {
+        if (! $settings instanceof TenantAnalyticsSettings) {
             return self::none();
         }
 
@@ -76,6 +64,70 @@ final class TenantAnalytics
     public static function none(): self
     {
         return new self(null, null);
+    }
+
+    /**
+     * The consent categories whose answer can change what this tenant's public
+     * pages load (SLO-218) — the same three conditions {@see forRequest()}
+     * applies, minus the visitor's answer.
+     *
+     * Empty is the ordinary case, not an edge one: a tenant that never filled in
+     * the analytics screen measures nothing, so its booking page sets no cookie
+     * beyond the session, and a banner there would be asking about nothing. The
+     * embedded demo (SLO-192) falls out of this rule rather than being exempted
+     * from it — see {@see ConsentScope}.
+     *
+     * No `Request` parameter, unlike the platform side: which tenant this is was
+     * settled by the middleware, and taking an argument this never reads would
+     * suggest the host still had a say.
+     *
+     * @return list<string>
+     */
+    public static function gatedCategories(): array
+    {
+        $settings = self::configuredSettings();
+
+        if (! $settings instanceof TenantAnalyticsSettings) {
+            return [];
+        }
+
+        $categories = [];
+
+        if ($settings->hasGa4()) {
+            $categories[] = (string) config('analytics.tenant.ga4_category');
+        }
+
+        if ($settings->hasMetaPixel()) {
+            $categories[] = (string) config('analytics.tenant.meta_pixel_category');
+        }
+
+        return array_values(array_unique($categories));
+    }
+
+    /**
+     * The tenant's stored measurement config, or null when nothing could load
+     * whatever the visitor answers: no tenant on this host, the feature switched
+     * off, or nothing configured.
+     *
+     * ⚠️ The feature gate is checked before the settings are even read, so a
+     * tenant whose analytics feature was switched off stops measuring at once —
+     * rather than keeping whatever ids happen to be stored.
+     */
+    private static function configuredSettings(): ?TenantAnalyticsSettings
+    {
+        $tenant = app(TenantManager::class)->current();
+
+        if (! $tenant instanceof Tenant) {
+            return null;
+        }
+
+        if (! app(FeatureResolver::class)->enabled($tenant, Feature::Analytics)) {
+            return null;
+        }
+
+        $settings = TenantAnalyticsSettings::fromArray($tenant->analytics);
+
+        return $settings->isEmpty() ? null : $settings;
     }
 
     public function loadsGa4(): bool
