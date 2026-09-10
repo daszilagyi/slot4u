@@ -518,6 +518,12 @@ Két külön profil fut: a **dev/CI referencia-stack** (Docker Compose) és az *
   - **A Passenger az egyetlen supervisor:** osztott cPanelen a hosszú életű processzeket órákon belül lelövik (`docs/11`), tehát önálló `node ssr.js` nem opció. Ezért megy az SSR-hívás Apache-on át.
   - ⚠️ **A Passenger NEM vágja le a mount-prefixet**, az app `/_ssr/render`-t kap. Ezért a `resources/js/ssr.tsx` **saját, prefix-független szervert** futtat az Inertia `createServer`-e helyett — az ugyanis pontos string-egyezéssel dönt és nem vesz base-path opciót. Ugyanez a bundle megy prefix nélkül a docker `ssr` szolgáltatásban és a CI-ban.
   - ⚠️ **A renderelő a publikus oldalunkon belül van mountolva**, tehát az internetről elérhető. A `/render` ezért **megosztott titkot** kér (`SSR_SHARED_SECRET`, l. `config/inertia.php`), amit a Laravel HTTP-kliens globális middleware-e tesz rá (`App\Ssr\SsrCredentials`). Titok nélkül a válasz **404**, nem 401: egy szkenner ne tanuljon semmit.
+  - ⚠️ **Az `@inertiaHead` a `<title inertia>` ELŐTT áll** az `app.blade.php`-ban. SSR-rel
+    ugyanis két `<title>` megy ki (az oldalé és a Blade-fallback), a HTML pedig **az elsőt**
+    tekinti a dokumentum címének — fordított sorrenddel minden szerver-renderelt oldal azt
+    mondta a keresőrobotnak, hogy `slot4u`. Böngészőben ez sosem látszott: hidratáláskor az
+    Inertia eltávolítja a `title:not([data-inertia])` elemeket. Csak annak volt rossz, aki nem
+    futtat JS-t — vagyis pont annak, akiért az SSR van.
   - ⚠️ **`INERTIA_SSR_ENSURE_BUNDLE_EXISTS=false` kell prodon.** Az Inertia a renderelő hívása
     ELŐTT megnézi a `base_path('bootstrap/ssr/ssr.js')`-t, és ha nincs, **némán** null-t ad. Itt
     nem is lehet ott: a bundle a renderelő saját könyvtárában lakik (a Passengeré), a

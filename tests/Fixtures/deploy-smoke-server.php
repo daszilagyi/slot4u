@@ -146,26 +146,33 @@ if ($path === '/') {
     $appHeaders();
     header('Content-Type: text/html; charset=UTF-8');
 
-    // ⚠️ The props block is here even when the page is NOT server-rendered, and
-    // that is the point: Inertia serialises the whole page into it, headings
-    // included. A check that greps the raw body for `<h1` would pass on this
-    // shell, which is exactly the failure SLO-212 was — a page that looks fine
-    // to every automated eye and carries no markup for a search engine.
-    // ⚠️ A LITERAL `<h1>` inside the props. Real Inertia escapes `<` in this
-    // block, so production would not look like this today — which is precisely
-    // why the fixture does: the check must not depend on that escaping staying
-    // true. Strip the block and the page has no heading; grep the raw body and
-    // it appears to have one.
+    // ⚠️ The shape below is COPIED FROM PRODUCTION, not imagined, and the order
+    // is the whole point: Inertia writes the props block FIRST and the root div
+    // after it, in both modes. Its own Blade directive says so —
+    //
+    //     <script data-page="app" ...>{json}</script><div id="app"></div>
+    //
+    // — and the SSR body mirrors it, adding `data-server-rendered` and putting
+    // the markup inside the div. This fixture used to have it the other way
+    // round, so a check that deleted from the props block to the end of the
+    // line looked correct while deleting the very markup it was meant to find.
+    // It passed here and failed the first real deploy, on a page that was
+    // server-rendered perfectly.
+    //
+    // ⚠️ A LITERAL `<h1>` inside the props, deliberately. `json_encode` does not
+    // escape `<`, so a page whose props happen to contain markup would let a raw
+    // grep of the body find a heading on a page that rendered none — passing
+    // exactly when it should fail.
     $props = '<script data-page="app" type="application/json">'
         .'{"component":"Welcome","props":{"heading":"<h1>only in the props</h1>"}}'
         .'</script>';
 
-    $rendered = (getenv('SMOKE_FAKE_SSR_RENDERED') ?: 'true') === 'true'
-        ? '<h1>Online foglalás</h1><p>Foglalás</p>'
-        : '';
+    $root = (getenv('SMOKE_FAKE_SSR_RENDERED') ?: 'true') === 'true'
+        ? '<div data-server-rendered="true" id="app"><h1>Online foglalás</h1><p>Foglalás</p></div>'
+        : '<div id="app"></div>';
 
     echo '<!DOCTYPE html><html lang="hu"><head><title>slot4u</title></head>'
-        .'<body><div id="app">'.$rendered.'</div>'.$props.'</body></html>';
+        .'<body>'.$props.$root.'</body></html>';
 
     return;
 }
