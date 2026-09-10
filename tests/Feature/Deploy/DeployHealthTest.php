@@ -2,6 +2,9 @@
 
 use App\Models\Tenant;
 use App\Tenancy\TenantManager;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Testing\TestResponse;
 
 /*
 |--------------------------------------------------------------------------
@@ -109,3 +112,79 @@ it('reads the release and the commit from the .release file the deploy script wr
     fn () => env('APP_RELEASE') !== null && env('APP_RELEASE') !== '',
     'APP_RELEASE overrides the file on this host.'
 );
+
+// --- The renderer (SLO-212) -------------------------------------------------
+//
+// Server rendering is the one part of a deploy that can break without anything
+// going wrong: Inertia falls back to the client silently, and the page stays a
+// perfectly good 200 with no markup in it. These fields are how the smoke test
+// gets to see that, so they have to be right about the difference between "we
+// did not ask" and "we asked and got nothing".
+
+function ssrHealth(): TestResponse
+{
+    // ⚠️ A pattern that matches nothing must fail loudly. Written first with the
+    // port left out of the fake, every one of these tests got the default
+    // 200-with-no-body instead of the answer it meant to send — and all but one
+    // still passed, proving nothing.
+    Http::preventStrayRequests();
+
+    return test()->withHeader('X-Deploy-Token', 'test-deploy-token')->getJson(healthUrl());
+}
+
+it('reports the renderer healthy when it answers that it is', function () {
+    config()->set('inertia.ssr.enabled', true);
+    config()->set('inertia.ssr.url', 'http://ssr.test:13714');
+    Http::fake(['ssr.test:13714/health' => Http::response(['status' => 'OK', 'timestamp' => 1])]);
+
+    ssrHealth()
+        ->assertOk()
+        ->assertJsonPath('ssr_enabled', true)
+        ->assertJsonPath('ssr_healthy', true);
+});
+
+it('⚠️ does not call a 200 healthy when the body says there is nothing there', function () {
+    // Production, exactly as found. The renderer mounted at `/_ssr` answered
+    // every path with HTTP 200 and `{"status":"NOT_FOUND"}` — Passenger does not
+    // strip the mount prefix, so Inertia's stock server matched no route. It
+    // rendered NOTHING, and a status-code check calls that healthy: the smoke
+    // test would have green-lit the very deploy this issue exists to catch.
+    config()->set('inertia.ssr.enabled', true);
+    config()->set('inertia.ssr.url', 'http://ssr.test:13714');
+    Http::fake(['ssr.test:13714/health' => Http::response(['status' => 'NOT_FOUND', 'timestamp' => 1])]);
+
+    ssrHealth()->assertOk()->assertJsonPath('ssr_healthy', false);
+});
+
+it('reports the renderer unhealthy when it cannot be reached at all', function () {
+    config()->set('inertia.ssr.enabled', true);
+    config()->set('inertia.ssr.url', 'http://ssr.test:13714');
+    Http::fake(fn () => throw new ConnectionException('refused'));
+
+    ssrHealth()->assertOk()->assertJsonPath('ssr_healthy', false);
+});
+
+it('reports the renderer unhealthy when nothing says where it is', function () {
+    config()->set('inertia.ssr.enabled', true);
+    config()->set('inertia.ssr.url', '');
+    Http::fake();
+
+    ssrHealth()->assertOk()->assertJsonPath('ssr_healthy', false);
+
+    Http::assertNothingSent();
+});
+
+it('⚠️ says null rather than false when server rendering is switched off', function () {
+    // "Not asked" and "asked and got nothing" must not look the same. If off
+    // read as false, turning SSR off would fail every deploy, and the smoke test
+    // would have to guess which one it was looking at.
+    config()->set('inertia.ssr.enabled', false);
+    Http::fake();
+
+    ssrHealth()
+        ->assertOk()
+        ->assertJsonPath('ssr_enabled', false)
+        ->assertJsonPath('ssr_healthy', null);
+
+    Http::assertNothingSent();
+});

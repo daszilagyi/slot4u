@@ -131,6 +131,12 @@ if ($path === '/_deploy/health') {
         'environment' => getenv('SMOKE_FAKE_ENVIRONMENT') ?: 'production',
         'config_cached' => (getenv('SMOKE_FAKE_CONFIG_CACHED') ?: 'true') === 'true',
         'pending_migrations' => (int) (getenv('SMOKE_FAKE_PENDING') ?: '0'),
+        // What the release believes about server rendering, and whether the
+        // renderer answered (SLO-212). Both overridable, because the failures
+        // worth testing are the combinations: enabled but unhealthy, and
+        // enabled but the page still came out empty.
+        'ssr_enabled' => (getenv('SMOKE_FAKE_SSR_ENABLED') ?: 'true') === 'true',
+        'ssr_healthy' => (getenv('SMOKE_FAKE_SSR_HEALTHY') ?: 'true') === 'true',
     ]);
 
     return;
@@ -139,7 +145,27 @@ if ($path === '/_deploy/health') {
 if ($path === '/') {
     $appHeaders();
     header('Content-Type: text/html; charset=UTF-8');
-    echo '<!DOCTYPE html><html lang="hu"><head><title>slot4u</title></head><body>Foglalás</body></html>';
+
+    // ⚠️ The props block is here even when the page is NOT server-rendered, and
+    // that is the point: Inertia serialises the whole page into it, headings
+    // included. A check that greps the raw body for `<h1` would pass on this
+    // shell, which is exactly the failure SLO-212 was — a page that looks fine
+    // to every automated eye and carries no markup for a search engine.
+    // ⚠️ A LITERAL `<h1>` inside the props. Real Inertia escapes `<` in this
+    // block, so production would not look like this today — which is precisely
+    // why the fixture does: the check must not depend on that escaping staying
+    // true. Strip the block and the page has no heading; grep the raw body and
+    // it appears to have one.
+    $props = '<script data-page="app" type="application/json">'
+        .'{"component":"Welcome","props":{"heading":"<h1>only in the props</h1>"}}'
+        .'</script>';
+
+    $rendered = (getenv('SMOKE_FAKE_SSR_RENDERED') ?: 'true') === 'true'
+        ? '<h1>Online foglalás</h1><p>Foglalás</p>'
+        : '';
+
+    echo '<!DOCTYPE html><html lang="hu"><head><title>slot4u</title></head>'
+        .'<body><div id="app">'.$rendered.'</div>'.$props.'</body></html>';
 
     return;
 }
