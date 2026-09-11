@@ -502,6 +502,9 @@ Két külön profil fut: a **dev/CI referencia-stack** (Docker Compose) és az *
 
 **Dev / CI (referencia-stack):**
 - Docker Compose (PHP-FPM, nginx, MariaDB, Redis, Reverb, Horizon worker) — fejlesztésre és a stack-ekvivalencia igazolására.
+  - ⚠️ **Ha a `vite` konténer tartósan CPU-t eszik** (SLO-225), két, egymástól független ok volt, mindkettő mérve:
+    1. **Sérült `node_modules`:** hiányzó `.js` fájlok a csomagokban → a Vite függőség-optimalizálója elhasal, a konténer ~20 mp-enként újraindul (`docker inspect … RestartCount` nő), és minden kör `npm install`-lal kezdődik. Az `npm install` erre „up to date”-et mond, mert csak a lockfile-t nézi, a fájlokat nem. Tünet: `docker compose logs vite` → `Could not resolve …`. Javítás: `docker compose run --rm --no-deps --entrypoint sh vite -c 'rm -rf node_modules && npm ci'`.
+    2. **A watcher a PHP írásait figyelte:** a `vite.config.ts` `server.watch.ignored` listája most kizárja a `storage/`, `vendor/`, `public/build/` és `bootstrap/ssr/` könyvtárat. Előtte egy tesztfutás `storage/`-írásai alatt a Vite ~1,3 magot evett.
 - CI: GitHub Actions — Pint, Larastan, Pest, build.
 - Monitoring: **Sentry** (backend + böngésző, DSN nélkül teljesen no-op), `monitor:health` watchdog a cron-vezérelt queue-ra és schedulerre (`heartbeats` tábla), külső **dead man's switch** a teljes app halálára, és `/up` uptime-végpont DB-próbával. PII-szabályok, riasztási runbook: **`docs/17-monitoring-es-riasztas.md`**.
 - Deploy: GitHub Actions, `v*` verziótagre, **jóváhagyási kapuval** (`production` environment) — a tag javaslatot tesz, az ember dönt. A logika verziókövetett shell scriptekben (`deploy/deploy.sh`, `deploy/rollback.sh`, `deploy/smoke.sh`), hogy a szerveren kézzel is futtatható legyen és a rollback ugyanazt a kódutat járja. Folyamat, beállítandó kulcsok és rollback-eljárás: **`docs/16-deploy-pipeline.md`**. Staging környezet és valódi zero-downtime (release-könyvtárak): SLO-156.

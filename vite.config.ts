@@ -38,8 +38,21 @@ export default defineConfig({
         hmr: {
             host: 'localhost',
         },
+        // ⚠️ The dev server watches the whole project root, and PHP writes into
+        // it all the time: a test run puts thousands of files under storage/.
+        // Watching them cost ~1.3 cores for as long as the writes lasted —
+        // 176 298 inotify watches, down to 1 324 with this list (SLO-225,
+        // measured under the same write load: 127–134% CPU → 0.2–0.4%).
+        // Nothing here is a Vite input: PHP state, PHP dependencies, and the
+        // build output Vite itself writes.
         watch: {
-            ignored: ['**/storage/framework/views/**'],
+            ignored: [
+                '**/storage/**',
+                '**/vendor/**',
+                '**/public/build/**',
+                '**/bootstrap/ssr/**',
+                '**/.playwright-mcp/**',
+            ],
         },
     },
 });
