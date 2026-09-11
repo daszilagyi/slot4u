@@ -3,6 +3,7 @@
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 /*
@@ -42,6 +43,19 @@ pest()->beforeEach(fn () => Notification::fake())->in('Feature');
 // A test that wants a real renderer turns it back on in its own beforeEach,
 // which runs after this one.
 pest()->beforeEach(fn () => config()->set('inertia.ssr.enabled', false))->in('Feature');
+
+// ⚠️ Fake the disks the application writes tenant files to (SLO-227). The queue
+// is synchronous in tests, so every test that settles a payment runs the real
+// IssueInvoice job and writes a real PDF — and before this, onto the real dev
+// disk: 150 000 files, 604 MB, 10–46 thousand more every day, and a Vite dev
+// server burning 1.3 cores watching them arrive (SLO-225). A faked disk
+// lives under storage/framework/testing, gets its own root per parallel worker,
+// and is emptied at the start of every test. A test that fakes a disk again
+// itself simply gets a fresh one.
+pest()->beforeEach(function () {
+    Storage::fake((string) config('invoicing.disk'));
+    Storage::fake('public');
+})->in('Feature');
 
 /*
 |--------------------------------------------------------------------------
