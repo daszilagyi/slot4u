@@ -77,6 +77,11 @@ class PruneOrphanedTenantFiles extends Command
         return self::SUCCESS;
     }
 
+    /**
+     * Two queries per candidate, on purpose: this is a one-off CLI cleanup over
+     * a handful of directories, not a listing, and a batched LIKE-per-prefix
+     * query would be harder to read than the risk it removes.
+     */
     private function referenced(int $tenantId): bool
     {
         $prefix = "tenants/{$tenantId}/%";
