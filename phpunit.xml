@@ -39,7 +39,12 @@
         <env name="DB_FOREIGN_KEYS" value="true" force="true"/>
         <!-- SSR off by default so full-page GETs in the suite don't reach for a
              (usually absent) renderer. The live-SSR smoke test re-enables it
-             per-test and skips when no renderer is reachable. -->
+             per-test and skips when no renderer is reachable.
+             ⚠️ THIS LINE DOES NOT TAKE (SLO-222). Despite force="true", .env's
+             INERTIA_SSR_ENABLED=true wins and config('inertia.ssr.enabled')
+             reads TRUE inside a test. It is kept because it states the intent,
+             but the setting that actually holds is in tests/Pest.php — see the
+             comment there for what the silence cost. -->
         <env name="INERTIA_SSR_ENABLED" value="false" force="true"/>
         <env name="DB_URL" value="" force="true"/>
         <env name="MAIL_MAILER" value="array" force="true"/>
