@@ -7,6 +7,7 @@ namespace App\Services\Demo;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Services\Privacy\PurgeTenant;
+use App\Services\Tenancy\TenantFiles;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -43,9 +44,18 @@ use RuntimeException;
  * with the usual cascade is handled here without anyone remembering to come
  * back. The two that do not cascade are `users` — above — and `audit_logs`,
  * which has no constraint at all and is cleaned explicitly below.
+ *
+ * ## Files do not cascade at all (SLO-226)
+ *
+ * The invoice PDFs, the logo, the share image: no foreign key reaches them.
+ * Before this was handled, every nightly reset left the previous night's
+ * invoices on disk — ~700 PDFs for the fitness persona alone, on a host with
+ * an inode quota, with nothing to say so until the quota ran out.
  */
 final class PurgeDemoTenant
 {
+    public function __construct(private readonly TenantFiles $files) {}
+
     public function __invoke(Tenant $tenant): void
     {
         if (! $tenant->is_demo) {
@@ -76,6 +86,12 @@ final class PurgeDemoTenant
             // Hard, not soft: archiving is what a real tenant gets, and a
             // soft-deleted row would keep the slug and collide with the rebuild.
             $tenant->forceDelete();
+
+            // ⚠️ After the commit, never inside the transaction: a file delete
+            // cannot be rolled back. A purge that failed — or ran inside a
+            // caller's transaction that later rolled back — would otherwise
+            // leave a tenant whose invoices point at PDFs that are gone.
+            DB::afterCommit(fn () => $this->files->delete((int) $tenantId));
         });
     }
 }
