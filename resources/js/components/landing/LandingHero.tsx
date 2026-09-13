@@ -135,16 +135,19 @@ function HeroVisual() {
     const t = useTranslations();
 
     return (
-        <div className="relative mx-auto mb-24 h-[610px] w-full max-w-[520px] sm:h-[440px] lg:mb-0 lg:h-[520px] lg:max-w-none">
-            {/* The sloth behind the card (docs/23): ~410px wide on desktop
-                with the card over its fist; on a phone (~260px) it flies above
-                the card instead, which would otherwise cover it whole. */}
+        // Below `lg` the pieces stack in the flow — sloth, sticker, card, note —
+        // so nothing covers the sloth; at `lg` they become the absolutely
+        // positioned composition of the design, with the card over its fist.
+        <div className="relative mx-auto mb-24 flex w-full max-w-[520px] flex-col lg:mb-0 lg:block lg:h-[520px] lg:max-w-none">
+            {/* ⚠️ On a phone the sloth is the picture, so it gets most of the
+                width (reported on production, 2026-09-13: at ~260px behind the
+                card it read as a detail). */}
             <HeroSloth
                 priority
-                className="absolute top-12 left-0 w-[260px] sm:top-0 sm:w-[340px] lg:top-[-10px] lg:w-[420px]"
+                className="mx-auto w-[88%] max-w-[380px] lg:absolute lg:top-[-10px] lg:left-0 lg:mx-0 lg:w-[420px] lg:max-w-none"
             />
 
-            <div className="absolute top-0 right-6 z-20 flex -rotate-[4deg] items-center gap-2.5 rounded-[14px] bg-white px-4 py-3 text-base font-extrabold text-navy shadow-[0_12px_30px_rgba(0,0,0,.25)] sm:right-[120px]">
+            <div className="relative z-20 -mt-4 ml-2 flex w-fit -rotate-[4deg] items-center gap-2.5 self-start rounded-[14px] bg-white px-4 py-3 text-base font-extrabold text-navy shadow-[0_12px_30px_rgba(0,0,0,.25)] lg:absolute lg:top-0 lg:right-[120px] lg:mt-0 lg:ml-0">
                 <span
                     className="grid size-[26px] place-items-center rounded-full bg-navy text-white"
                     aria-hidden
@@ -155,7 +158,7 @@ function HeroVisual() {
             </div>
 
             <div
-                className="absolute top-[270px] right-2 z-10 w-[270px] -rotate-6 rounded-[22px] bg-white p-6 shadow-[0_24px_60px_rgba(0,0,0,.3)] sm:top-[110px] sm:right-5 sm:w-[290px]"
+                className="relative z-10 -mt-2 mr-2 w-[270px] -rotate-6 self-end rounded-[22px] bg-white p-6 shadow-[0_24px_60px_rgba(0,0,0,.3)] sm:w-[290px] lg:absolute lg:top-[110px] lg:right-5 lg:mt-0 lg:mr-0"
                 role="img"
                 aria-label={t('welcome.hero.slots_label')}
             >
@@ -181,7 +184,7 @@ function HeroVisual() {
                 lead={t('welcome.hero.note_lead')}
                 tail={t('welcome.hero.note_tail')}
                 mark={<span className="text-highlight">✔</span>}
-                className="absolute right-4 bottom-0 z-20 -rotate-[8deg] text-right text-[28px] text-white sm:right-8 sm:bottom-8 sm:text-[32px]"
+                className="relative z-20 mt-8 mr-4 -rotate-[8deg] self-end text-right text-[28px] text-white sm:text-[32px] lg:absolute lg:right-8 lg:bottom-8 lg:mt-0 lg:mr-0"
             />
         </div>
     );
