@@ -337,6 +337,19 @@ Az első **nem-wellness** vertikális, és a bizonyíték, hogy a foglalási mot
 > 29 ilyen), tehát egy később hozzáadott, szokásos cascade-del ellátott tábla magától
 > rendben lesz. A két kivétel a `users` (fent) és az `audit_logs` (nincs rajta constraint,
 > ezért szintén explicit törlődik).
+>
+> **⚠️ A fájlokat semmilyen idegen kulcs nem viszi (SLO-226).** A számla-PDF-ek, a logó és
+> az OG-kép a diszken vannak, és 2026-09-11-ig **minden purge ott is hagyta őket**: az
+> éjszakai `demo:reset` prodon éjjelente ~700 árva PDF-et hagyott egy inode-kvótás
+> tárhelyen (egyedül a fitnesz persona 685 számlát kap). A `PurgeDemoTenant` most a
+> commit **után** (`DB::afterCommit`) törli a tenant fájl-prefixeit; hogy ezek hol vannak,
+> azt egyetlen hely tudja: `App\Services\Tenancy\TenantFiles`. **Új, tenantonkénti fájlt
+> író kód vagy ezeket a prefixeket használja, vagy oda kerül fel.**
+>
+> A korábban felgyűlt árvákra: `php artisan tenants:prune-orphaned-files` listáz, `--force`-szal
+> töröl. Árva = olyan `tenants/{id}` könyvtár, amelynek az id-je a `tenants` táblában
+> (archiváltakkal együtt) nem létezik. Üres `tenants` táblán megtagadja magát, és olyan
+> könyvtárhoz sem nyúl, amelybe számla-sor mutat.
 
 
 ```
