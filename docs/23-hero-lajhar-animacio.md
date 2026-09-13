@@ -22,6 +22,12 @@
 > **fix 1920 × 640 px-es periódus kétszer**, a hero aljához igazítva. A százalékos + `slice` méretezés
 > keskeny/magas mobil-heróban a széleken levágta a felhőket, és a periódushatáron egyenes vágás látszott.
 > Pixelméretben a loop ugyanúgy varratmentes (a `-50%` pont egy periódus), és 1920 px-ig nincs rés.
+>
+> **Mobil (SLO-237, 2026-09-13, élesben észrevéve):** `lg` alatt a lajhár **a hero fő képe**: a szélesség 88 %-a
+> (max. 380 px), és a matrica, a kártya és a kézírás **alatta**, a folyamban áll — a 260 px-es, kártya mögé
+> szorult lajhár nem volt hangsúlyos. A felhők mobilon **mindkét** réteggel és erősebben látszanak
+> (hátsó 16 %, elülső 20 %), mert a keskeny képernyő a csíkból csak egy szeletet mutat; `md`-től a §3b
+> értékei (10 % / 16 %, hátsó réteg is) maradnak.
 
 ---
 

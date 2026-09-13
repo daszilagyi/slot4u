@@ -68,7 +68,8 @@ function Strip({
 }: {
     clouds: Cloud[];
     seconds: number;
-    opacity: number;
+    /** Opacity classes — phones get more, where the strip shows a narrow slice. */
+    opacity: string;
     running: boolean;
     className?: string;
 }) {
@@ -99,11 +100,10 @@ function Strip({
     return (
         <div
             data-cloud-strip
-            className={`absolute bottom-0 left-0 w-max text-white motion-safe:animate-[hero-cloud-drift_var(--drift)_linear_infinite] ${className}`}
+            className={`absolute bottom-0 left-0 w-max text-white ${opacity} motion-safe:animate-[hero-cloud-drift_var(--drift)_linear_infinite] ${className}`}
             style={
                 {
                     '--drift': `${seconds}s`,
-                    opacity,
                     animationPlayState: running ? 'running' : 'paused',
                 } as CSSProperties
             }
@@ -139,14 +139,17 @@ export default function HeroClouds() {
             <Strip
                 clouds={BACK}
                 seconds={70}
-                opacity={0.1}
+                // docs/23 §3b hides this layer on phones and keeps both faint;
+                // on production that left the sky nearly empty on a phone,
+                // where the strip shows a narrow slice at a time (2026-09-13).
+                // Phones get both layers and more opacity; desktop keeps the doc.
+                opacity="opacity-[0.16] md:opacity-10"
                 running={running}
-                className="hidden md:flex"
             />
             <Strip
                 clouds={FRONT}
                 seconds={38}
-                opacity={0.16}
+                opacity="opacity-20 md:opacity-[0.16]"
                 running={running}
             />
         </div>
