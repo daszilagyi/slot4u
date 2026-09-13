@@ -14,6 +14,7 @@
 > 4. **A szerveroldali `MarketingArt` slot-mechanizmus (SLO-229) megszűnt** — minden illusztráció a bundle része.
 > 5. **Méret:** a hat WebP együtt ~406 KB (a §3 célja < 400 KB); a `sloth-armchair.webp` 148 KB, ez a legnagyobb.
 > 6. A referencia-kép (`docs/design/foldal/latvanyterv-fooldal.png`) nincs a repóban — a pozíciók a §2 leírása szerint készültek.
+> 7. **A `sloth-peek` átlógása 53 %, nem 35 %** (2026-09-13, élesben észrevéve): a képen az alkarok a 235–300. képsorban futnak (502-ből); a szekció élének az alkarok tetején kell futnia, hogy a lajhár a peremre támaszkodjon. 35 %-nál a perem az alkarok alá esett, és a lajhár a perem fölött lebegett.
 
 ---
 
