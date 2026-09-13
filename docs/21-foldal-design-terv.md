@@ -332,7 +332,7 @@ döntött (2026-09-13):
 | Szín és font | **Csak a marketing felületen** az új look: navy `#0f2547`, sárga `#f6c34a`, krém `#fbe7b4`, **Nunito** + kézírásos **Caveat**. Az admin és a tenant oldalak az 1. fejezet tokenjein maradnak. A fontok self-hostoltak (`@fontsource`, docs/19: nincs Google Fonts CDN). | `resources/css/app.css` `.theme-landing` · `MarketingLayout` |
 | Árazás | **Marad**, új stílusban. A designban nincs árazás-szekció, a termék ajánlata viszont maga az ár (docs/10). | `components/landing/Pricing.tsx` |
 | „Próbáld ki élőben" | A design **elrendezése** (persona-kártyák, kapcsoló, böngésző-keret), de a keretben az **élő iframe** fut (2.1), nem a design kitalált áraival rajzolt makett. | `components/landing/TryItLive.tsx` |
-| Lajhár-illusztrációk | A design helyőrzőinek **szerveroldali slotok** felelnek meg: `public/brand/{slot}.{svg,webp,png}`. Ami nem létezik, az nem renderelődik, se üres keret, se 404 (`App\Support\MarketingArt`). Slotok: `hero`, `step-register`, `step-setup`, `step-bookings`, `sofa`, `peek`, `cta`. | SLO-202 szállítja az asseteket |
+| Lajhár-illusztrációk | **Bundle-özött képek** (`resources/images/sloth/`, Vite): a hero animált rétegei (docs/23) és a szekciók hat illusztrációja (docs/24). A korábbi szerveroldali `public/brand/{slot}` slotok (`MarketingArt`) megszűntek, mert az apex domainen a `public/` prodon 404-et ad (SLO-233). | docs/23, docs/24 |
 | Nem létező oldalak | A footer Blog / Karrier / Rólunk / Tudástár linkjei és a közösségi ikonok **kimaradnak**; a nav „Referenciák" helyett „Próbáld ki" (#demo). | `MarketingLayout` |
 
 **Szöveg-korrekciók** (a design javaslat volt, nem szerződés):

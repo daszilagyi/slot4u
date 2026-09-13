@@ -136,6 +136,21 @@ it('server-renders the hero sloth as one still image, never its animation layers
     expect($content)->toMatch('#<link[^>]+rel="preload"[^>]+as="image"[^>]+/sloth-full-[^"]*\.webp#');
 });
 
+it('server-renders the section illustrations lazy, decorative and sized (SLO-236)', function () {
+    // docs/24 §3: every illustration below the hero is lazy (none may compete
+    // with the LCP image), carries its real size (no layout shift when it lands)
+    // and says nothing to a screen reader.
+    $rendered = renderedMarkupOnly(
+        $this->get('http://'.config('tenancy.central_domain'))->assertOk()->getContent()
+    );
+
+    foreach (['illus-laptop-profile', 'illus-calendar-gear', 'sloth-cheer', 'sloth-armchair', 'sloth-peek', 'sloth-beanbag'] as $name) {
+        expect($rendered)->toMatch(
+            '#<picture aria-hidden="true"[^>]*><source type="image/webp" srcSet="[^"]*/'.$name.'-[^"]*\\.webp"/><img src="[^"]*/'.$name.'-[^"]*\\.png" alt="" width="\\d+" height="\\d+" loading="lazy"#'
+        );
+    }
+});
+
 it('server-renders the middle of the landing page too', function () {
     // The sections below the fold are the ones a crawler reads and a visitor
     // scrolls to (SLO-204). They animate on scroll, which is exactly the shape

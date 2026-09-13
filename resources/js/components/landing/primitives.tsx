@@ -1,6 +1,7 @@
 import { Check } from 'lucide-react';
 import type { CSSProperties, ReactNode } from 'react';
 
+import type { LandingImage } from '@/components/landing/landingArt';
 import { stagger, useInView, useReducedMotion } from '@/lib/motion';
 
 /*
@@ -60,35 +61,36 @@ export function CheckDot({ className = '' }: { className?: string }) {
 }
 
 /**
- * One of the sloth illustrations, or nothing.
+ * A decorative illustration (docs/24 §1): WebP with a PNG fallback, its real
+ * size on the tag so the box is reserved before the file arrives, lazy because
+ * every one of them is below the fold.
  *
- * The server tells the page which files exist (MarketingArt); a slot without
- * one renders nothing at all, so no section ever ships a broken-image icon or
- * an empty frame while the artwork is still being made (SLO-202).
+ * `alt=""` and a hidden wrapper: the pictures illustrate what the text already
+ * says, and a screen reader announcing a sloth in an armchair adds nothing.
  */
-export function Art({
-    src,
+export function Illustration({
+    image,
     className = '',
-    eager = false,
+    imgClassName = '',
 }: {
-    src: string | null | undefined;
+    image: LandingImage;
     className?: string;
-    /** Only the hero's: everything else is below the fold. */
-    eager?: boolean;
+    imgClassName?: string;
 }) {
-    if (!src) {
-        return null;
-    }
-
     return (
-        <img
-            src={src}
-            // Decorative: the mascot illustrates, it never carries information.
-            alt=""
-            loading={eager ? 'eager' : 'lazy'}
-            decoding="async"
-            className={`block h-full w-full object-contain ${className}`}
-        />
+        <picture aria-hidden className={className}>
+            <source type="image/webp" srcSet={image.webp} />
+            <img
+                src={image.png}
+                alt=""
+                width={image.width}
+                height={image.height}
+                loading="lazy"
+                decoding="async"
+                draggable={false}
+                className={`block h-auto max-w-full select-none ${imgClassName}`}
+            />
+        </picture>
     );
 }
 

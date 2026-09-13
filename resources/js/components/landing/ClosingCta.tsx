@@ -1,30 +1,30 @@
 import { ArrowRight, Check } from 'lucide-react';
 
+import { SLOTH_BEANBAG } from '@/components/landing/landingArt';
 import {
-    Art,
     HandNote,
     highlightButton,
+    Illustration,
 } from '@/components/landing/primitives';
 import { useTranslations } from '@/lib/i18n';
 
-/** The cream closing band (SLO-229): sloth, the ask, and four reassurances. */
-export default function ClosingCta({ art }: { art: string | null }) {
+/**
+ * The cream closing band (SLO-229): sloth, the ask, and four reassurances.
+ *
+ * The beanbag sloth sits left of the heading; on a phone it moves above it
+ * (docs/24 §2.4). It does not float — one moving mascot per page is the hero's.
+ */
+export default function ClosingCta() {
     const t = useTranslations();
 
     return (
         <section className="bg-cream">
-            <div
-                className={`mx-auto grid w-full max-w-[1440px] items-center gap-10 px-4 py-12 sm:px-8 lg:px-14 ${
-                    art !== null
-                        ? 'lg:grid-cols-[1fr_1.2fr_1.2fr]'
-                        : 'lg:grid-cols-[1.4fr_1fr]'
-                }`}
-            >
-                {art !== null && (
-                    <div className="hidden h-[220px] lg:block">
-                        <Art src={art} />
-                    </div>
-                )}
+            <div className="mx-auto grid w-full max-w-[1440px] items-center gap-8 px-4 py-12 sm:px-8 lg:grid-cols-[300px_1.2fr_1fr] lg:gap-10 lg:px-14">
+                <Illustration
+                    image={SLOTH_BEANBAG}
+                    className="mx-auto block w-full max-w-[240px] lg:max-w-[300px]"
+                    imgClassName="w-full"
+                />
 
                 <div>
                     <h2 className="mb-3 text-2xl leading-tight font-black text-navy sm:text-[30px]">
@@ -66,7 +66,7 @@ export default function ClosingCta({ art }: { art: string | null }) {
                         lead={t('welcome.cta_band.note_lead')}
                         tail={t('welcome.cta_band.note_tail')}
                         mark={<span className="text-err">♥</span>}
-                        className="hidden -rotate-[8deg] text-[30px] text-navy sm:block"
+                        className="hidden -rotate-[8deg] text-[30px] text-navy lg:block"
                     />
                 </div>
             </div>
