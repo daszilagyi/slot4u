@@ -6,7 +6,12 @@ import {
     MonitorSmartphone,
 } from 'lucide-react';
 
-import { Art, HandNote, Reveal } from '@/components/landing/primitives';
+import { SLOTH_ARMCHAIR } from '@/components/landing/landingArt';
+import {
+    HandNote,
+    Illustration,
+    Reveal,
+} from '@/components/landing/primitives';
 import { useTranslations } from '@/lib/i18n';
 
 const TOOLS = [
@@ -19,19 +24,16 @@ const TOOLS = [
 
 /**
  * "Professzionális eszközök" (SLO-229) — the sloth in its armchair on the left,
- * five tools with yellow icon tiles on the right.
+ * five tools with yellow icon tiles on the right (SLO-236, docs/24 §2.2).
  *
- * ⚠️ Without the illustration the left half would be a 520px hole, so the list
- * takes the whole width instead, in two columns. The handwritten aside goes with
- * the illustration: it annotates the picture, not the list.
+ * On a phone the picture comes first, smaller and centred, with the handwritten
+ * aside under it rather than over its corner.
  */
-export default function Tools({ art }: { art: string | null }) {
+export default function Tools() {
     const t = useTranslations();
 
     const list = (
-        <ul
-            className={`grid gap-[18px] ${art === null ? 'md:grid-cols-2 md:gap-x-12' : ''}`}
-        >
+        <ul className="grid gap-[18px]">
             {TOOLS.map(({ key, Icon }, index) => (
                 <li key={key}>
                     <Reveal index={index} className="flex items-start gap-4">
@@ -57,24 +59,19 @@ export default function Tools({ art }: { art: string | null }) {
 
     return (
         <section className="bg-gradient-to-b from-white to-canvas">
-            <div
-                className={`mx-auto grid w-full max-w-[1440px] items-center gap-12 px-4 py-16 sm:px-8 lg:px-14 ${
-                    art !== null ? 'lg:grid-cols-2' : ''
-                }`}
-            >
-                {art !== null && (
-                    <div className="relative">
-                        <div className="h-[320px] sm:h-[520px]">
-                            <Art src={art} />
-                        </div>
-                        <HandNote
-                            lead={t('welcome.tools.note_lead')}
-                            tail={t('welcome.tools.note_tail')}
-                            mark={<span className="text-err">♥</span>}
-                            className="absolute right-5 -bottom-2.5 -rotate-[8deg] text-[30px] text-navy"
-                        />
-                    </div>
-                )}
+            <div className="mx-auto grid w-full max-w-[1440px] items-center gap-10 px-4 py-16 sm:px-8 lg:grid-cols-2 lg:gap-12 lg:px-14 lg:pb-24">
+                <div className="relative mx-auto w-full max-w-[320px] lg:max-w-[520px]">
+                    <Illustration
+                        image={SLOTH_ARMCHAIR}
+                        imgClassName="w-full"
+                    />
+                    <HandNote
+                        lead={t('welcome.tools.note_lead')}
+                        tail={t('welcome.tools.note_tail')}
+                        mark={<span className="text-err">♥</span>}
+                        className="mt-3 -rotate-6 text-center text-[28px] text-navy lg:absolute lg:right-2 lg:-bottom-14 lg:mt-0 lg:text-right lg:text-[30px]"
+                    />
+                </div>
 
                 <div>
                     <p className="text-xs font-extrabold tracking-[0.12em] text-brand uppercase">

@@ -6,7 +6,6 @@ namespace App\Http\Controllers;
 
 use App\Services\Commission\BuildPublicCommissionTerms;
 use App\Services\Marketing\DemoPersonaLinks;
-use App\Support\MarketingArt;
 use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -30,9 +29,6 @@ class HomeController extends Controller
             // their expiry live in one service, shared with the vertical
             // landings (SLO-198).
             'demo_personas' => $demos->all(),
-
-            // Which sloth illustrations exist yet (SLO-229, SLO-202).
-            'art' => MarketingArt::available(),
 
             // ⚠️ Absolute, because every platform that fetches an OG image
             // fetches it from its own servers — a root-relative path resolves

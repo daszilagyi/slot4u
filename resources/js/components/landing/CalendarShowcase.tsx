@@ -8,9 +8,18 @@ import {
     Users,
 } from 'lucide-react';
 
-import { Art, CheckDot, Reveal } from '@/components/landing/primitives';
+import { motion, useInView } from 'framer-motion';
+import { useRef } from 'react';
+
+import { SLOTH_PEEK } from '@/components/landing/landingArt';
+import {
+    CheckDot,
+    Illustration,
+    Reveal,
+} from '@/components/landing/primitives';
 import { BRAND_NAME } from '@/lib/brand';
 import { useTranslations, useTranslationTree } from '@/lib/i18n';
+import { useReducedMotion } from '@/lib/motion';
 
 const NAV_ICONS = [
     Calendar,
@@ -52,7 +61,7 @@ const ROW_HEIGHT = 44;
  * each line is a shipped feature (day/week views, per-staff columns, drag to
  * move, realtime updates).
  */
-export default function CalendarShowcase({ art }: { art: string | null }) {
+export default function CalendarShowcase() {
     const t = useTranslations();
     const tree = useTranslationTree();
 
@@ -60,14 +69,10 @@ export default function CalendarShowcase({ art }: { art: string | null }) {
     const nav = tree<string[]>('welcome.calendar.mock.nav') ?? [];
 
     return (
-        <section className="bg-canvas">
-            {/* The peeking sloth hangs over the section's bottom edge, so the
-                padding only goes when it is there to fill it. */}
-            <div
-                className={`mx-auto grid w-full max-w-[1440px] items-center gap-12 px-4 pt-14 pb-16 sm:px-8 lg:grid-cols-[1.25fr_0.85fr] lg:px-14 ${
-                    art !== null ? 'lg:pb-0' : ''
-                }`}
-            >
+        // `relative` for the peeking sloth, and no overflow clipping: it hangs
+        // over this section's bottom edge into the next one (docs/24 §2.3).
+        <section className="relative bg-canvas">
+            <div className="mx-auto grid w-full max-w-[1440px] items-center gap-12 px-4 pt-14 pb-16 sm:px-8 lg:grid-cols-[1.25fr_0.85fr] lg:px-14 lg:pb-24">
                 <Reveal>
                     <div
                         role="img"
@@ -194,22 +199,49 @@ export default function CalendarShowcase({ art }: { art: string | null }) {
                             </li>
                         ))}
                     </ul>
-
-                    {art !== null && (
-                        <div className="relative mt-5 hidden items-end justify-end gap-3 lg:-mb-8 lg:flex">
-                            <p
-                                className="mb-[90px] rounded-full bg-white px-4 py-2 text-[13px] font-extrabold text-navy shadow-[0_8px_20px_rgba(0,0,0,.15)]"
-                                aria-hidden
-                            >
-                                {t('welcome.calendar.cheer')}
-                            </p>
-                            <div className="relative z-10 h-40 w-[200px]">
-                                <Art src={art} />
-                            </div>
-                        </div>
-                    )}
                 </div>
             </div>
+
+            <PeekingSloth cheer={t('welcome.calendar.cheer')} />
         </section>
+    );
+}
+
+/**
+ * The sloth peeking over the section's bottom edge (docs/24 §2.3): its lower
+ * third hangs into the next section, above it in the stacking order. It slides
+ * up once when it comes into view.
+ *
+ * Desktop only. On a phone there is no room beside the text, and a figure
+ * straddling two sections reads as a layout bug at that width.
+ */
+function PeekingSloth({ cheer }: { cheer: string }) {
+    const reduced = useReducedMotion();
+    const ref = useRef<HTMLDivElement>(null);
+    const seen = useInView(ref, { once: true, amount: 0.3 });
+    const shown = seen || reduced;
+
+    return (
+        <div
+            ref={ref}
+            aria-hidden
+            // The overhang lives on this wrapper; the motion below animates its
+            // own transform, and the two must not fight over one element.
+            className="absolute right-[4%] bottom-0 z-20 hidden w-[260px] translate-y-[35%] lg:block"
+        >
+            <motion.div
+                initial={false}
+                animate={shown ? { y: 0, opacity: 1 } : { y: 40, opacity: 0 }}
+                transition={{
+                    duration: reduced ? 0 : 0.4,
+                    ease: [0.2, 0.8, 0.2, 1],
+                }}
+            >
+                <p className="absolute -top-2 -left-24 rounded-full bg-white px-4 py-2 text-[13px] font-extrabold whitespace-nowrap text-navy shadow-[0_8px_20px_rgba(0,0,0,.15)]">
+                    {cheer}
+                </p>
+                <Illustration image={SLOTH_PEEK} imgClassName="w-full" />
+            </motion.div>
+        </div>
     );
 }

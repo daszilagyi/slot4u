@@ -1,7 +1,10 @@
-# Hero sloth layers (SLO-232, docs/23)
+# Home page sloth art (docs/23, docs/24)
 
-The flying superhero sloth in the home page hero, as stacked layers animated by
-`resources/js/components/landing/HeroSloth.tsx`.
+Two sets live here: the hero sloth's animation layers (docs/23) and the section
+illustrations below the hero (docs/24). Every file is imported through Vite — see
+the note at the bottom on why not `public/`.
+
+## Hero layers — `HeroSloth.tsx` (docs/23)
 
 | File | What | Where it shows |
 |---|---|---|
@@ -14,7 +17,25 @@ The flying superhero sloth in the home page hero, as stacked layers animated by
 line up with no offsets. Do not crop, trim or resize one of them on its own** —
 it would drift out of place. Re-export all of them from the master instead.
 
-- Master: `docs/design/foldal/hero_lajhar.psd` (Daniel's Photoshop file; not in the repo).
+## Section illustrations — `landingArt.ts` (docs/24)
+
+| File (`.png` + `.webp`) | What | Size | Where it shows |
+|---|---|---|---|
+| `illus-laptop-profile` | laptop with a profile card | 800 × 448 | How it works, step 1 |
+| `illus-calendar-gear` | calendar and cog | 800 × 591 | How it works, step 2 |
+| `sloth-cheer` | cheering sloth with stars | 800 × 576 | How it works, step 3 |
+| `sloth-armchair` | sloth in an armchair with a laptop, plant, GOOD SLOTS mug | 1100 × 1058 | Tools section, left column |
+| `sloth-peek` | sloth peeking over an edge | 800 × 502 | Calendar section, bottom right, hanging into the next section (desktop only) |
+| `sloth-beanbag` | winking sloth in a beanbag with a laptop | 900 × 662 | Closing CTA, left of the heading |
+
+All decorative: `alt=""`, wrapper `aria-hidden`, `loading="lazy"`, real
+`width`/`height` on the tag. ⚠️ The laptops carry no manufacturer logo — the
+Hungarian-named source files in `temp/sloth/` still do, and must never be
+committed. The mug's "GOOD SLOTS" is part of the artwork, not UI text.
+
+## Masters
+
+- Hero master: `docs/design/foldal/hero_lajhar.psd` (Daniel's Photoshop file; not in the repo).
 - Cape pivot: canvas point (490, 360) → `transform-origin: 47.9% 39.1%`.
 - WebP first, PNG fallback, both with alpha.
 

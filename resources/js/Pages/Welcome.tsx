@@ -15,16 +15,6 @@ import MarketingLayout from '@/Layouts/MarketingLayout';
 import { useTranslations } from '@/lib/i18n';
 import type { DemoPersona } from '@/types';
 
-/** Slot => URL of the sloth illustration, or null until it exists (MarketingArt). */
-type Art = {
-    'step-register': string | null;
-    'step-setup': string | null;
-    'step-bookings': string | null;
-    sofa: string | null;
-    peek: string | null;
-    cta: string | null;
-};
-
 type Props = {
     commission: CommissionTerms | null;
     demo_url: string | null;
@@ -34,7 +24,6 @@ type Props = {
      * rather than a dead first click.
      */
     demo_personas: DemoPersona[];
-    art: Art;
     /** Absolute URL of the link-preview card — see HomeController. */
     og_image: string;
 };
@@ -53,7 +42,6 @@ export default function Welcome({
     commission,
     demo_url,
     demo_personas,
-    art,
     og_image,
 }: Props) {
     const t = useTranslations();
@@ -97,20 +85,14 @@ export default function Welcome({
 
             <LandingHero demoHref={demoHref} />
             <AudienceStrip />
-            <HowItWorks
-                art={{
-                    register: art['step-register'],
-                    setup: art['step-setup'],
-                    bookings: art['step-bookings'],
-                }}
-            />
-            <Tools art={art.sofa} />
+            <HowItWorks />
+            <Tools />
             <FlexibleModes demoHref={demoHref} />
-            <CalendarShowcase art={art.peek} />
+            <CalendarShowcase />
             <Pricing commission={commission} />
             <TryItLive personas={demo_personas} />
             <Faq />
-            <ClosingCta art={art.cta} />
+            <ClosingCta />
         </MarketingLayout>
     );
 }

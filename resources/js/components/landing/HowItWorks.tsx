@@ -1,30 +1,31 @@
-import { CalendarCog, Laptop, PartyPopper } from 'lucide-react';
-
-import { Art, HandNote, Reveal } from '@/components/landing/primitives';
+import {
+    ILLUS_CALENDAR,
+    ILLUS_LAPTOP,
+    SLOTH_CHEER,
+} from '@/components/landing/landingArt';
+import {
+    HandNote,
+    Illustration,
+    Reveal,
+} from '@/components/landing/primitives';
 import { useTranslations } from '@/lib/i18n';
-
-type Props = {
-    art: {
-        register: string | null;
-        setup: string | null;
-        bookings: string | null;
-    };
-};
 
 /**
  * "Hogyan működik?" (SLO-229) — three steps, each a soft card with its number,
- * a line, and an illustration in the bottom corner.
+ * a line, and its illustration along the bottom (SLO-236, docs/24 §2.1).
  *
- * Until the illustrations exist (SLO-202) the corner holds the step's own icon,
- * so the three cards keep their shape instead of ending in a blank third.
+ * The cards stretch to one height and the picture is pushed to the bottom, so
+ * three pictures of different proportions still end on the same line. The
+ * cheering sloth stays inside its card — the design lets it spill over the
+ * corner, which falls apart on a phone.
  */
-export default function HowItWorks({ art }: Props) {
+export default function HowItWorks() {
     const t = useTranslations();
 
     const steps = [
-        { key: 'register', Icon: Laptop, src: art.register },
-        { key: 'setup', Icon: CalendarCog, src: art.setup },
-        { key: 'bookings', Icon: PartyPopper, src: art.bookings },
+        { key: 'register', image: ILLUS_LAPTOP },
+        { key: 'setup', image: ILLUS_CALENDAR },
+        { key: 'bookings', image: SLOTH_CHEER },
     ] as const;
 
     return (
@@ -47,12 +48,12 @@ export default function HowItWorks({ art }: Props) {
                     />
                 </div>
 
-                <ol className="mt-9 grid gap-6 md:grid-cols-3">
-                    {steps.map(({ key, Icon, src }, index) => (
-                        <li key={key}>
+                <ol className="mt-9 grid items-stretch gap-6 md:grid-cols-3">
+                    {steps.map(({ key, image }, index) => (
+                        <li key={key} className="h-full">
                             <Reveal
                                 index={index}
-                                className="grid h-full grid-rows-[auto_1fr_auto] rounded-[20px] bg-canvas px-7 pt-7"
+                                className="flex h-full flex-col rounded-[20px] bg-canvas px-7 pt-7 pb-6"
                             >
                                 <h3 className="flex items-center gap-3 text-lg font-extrabold text-navy">
                                     <span
@@ -66,21 +67,11 @@ export default function HowItWorks({ art }: Props) {
                                 <p className="mt-3.5 ml-11 text-[15px] leading-relaxed text-ink-muted">
                                     {t(`welcome.how.${key}_hint`)}
                                 </p>
-                                <div className="mt-3 ml-14 flex h-[130px] items-end justify-end pb-5">
-                                    {src !== null ? (
-                                        <Art src={src} />
-                                    ) : (
-                                        <span
-                                            className="grid size-20 place-items-center rounded-[20px] bg-brand-100 text-navy"
-                                            aria-hidden
-                                        >
-                                            <Icon
-                                                className="size-9"
-                                                strokeWidth={1.5}
-                                            />
-                                        </span>
-                                    )}
-                                </div>
+                                <Illustration
+                                    image={image}
+                                    className="mt-auto flex justify-center pt-5"
+                                    imgClassName="max-h-[120px] w-auto object-contain md:max-h-[150px]"
+                                />
                             </Reveal>
                         </li>
                     ))}
