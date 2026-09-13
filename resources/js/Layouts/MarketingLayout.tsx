@@ -1,10 +1,11 @@
 import { Link, usePage } from '@inertiajs/react';
+import { ArrowRight } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import type { PropsWithChildren } from 'react';
 
 import BrandLockup from '@/components/BrandLockup';
 import { CookieConsent, CookieSettingsLink } from '@/components/CookieConsent';
-import { Button } from '@/components/ui/button';
+import { highlightButton } from '@/components/landing/primitives';
 import { BRAND_NAME } from '@/lib/brand';
 import { useTranslations } from '@/lib/i18n';
 
@@ -40,8 +41,7 @@ export default function MarketingLayout({
     const { auth, legal } = usePage().props;
     const documents = legal?.documents ?? [];
 
-    // Transparent over the navy hero, solid once the page has moved (docs/21 §2
-    // row 0). Passive listener: this fires on every scroll frame, and the
+    // A hairline and a soft shadow once the page has moved (SLO-229). Passive listener: this fires on every scroll frame, and the
     // browser must not have to wait to find out whether we cancel the scroll.
     const [scrolled, setScrolled] = useState(false);
 
@@ -55,9 +55,7 @@ export default function MarketingLayout({
     }, []);
 
     const navLinks = [
-        ...(homeLink
-            ? [{ href: '/', label: t('welcome.nav.back_home') }]
-            : []),
+        ...(homeLink ? [{ href: '/', label: t('welcome.nav.back_home') }] : []),
         { href: '#funkciok', label: t('welcome.nav.features') },
         { href: '#arazas', label: t('welcome.nav.pricing') },
         // Points at the live demo section rather than straight out to a tenant
@@ -74,31 +72,41 @@ export default function MarketingLayout({
         // near-black ink on a near-black card. Scoping the palette here rather
         // than stripping `.dark` from <html> keeps the app's own dark mode, and
         // survives an Inertia navigation without a flash of the wrong theme.
-        <div className="theme-light flex min-h-screen flex-col bg-background text-foreground">
+        <div className="theme-light theme-landing flex min-h-screen flex-col bg-white text-foreground">
+            {/*
+                The "Slot4u Landing" header (SLO-229): white, logo left, section
+                links, then login and the yellow pill. `theme-landing` scopes the
+                design's navy, yellow and Nunito to this shell only — the admin
+                and the tenant pages keep the identity tokens (Daniel,
+                2026-09-13).
+            */}
             <header
-                className={`sticky top-0 z-40 transition-colors duration-200 ${
+                className={`sticky top-0 z-40 bg-white transition-shadow duration-200 ${
                     scrolled
-                        ? 'border-b border-line bg-canvas/95 backdrop-blur'
-                        : 'border-b border-transparent'
+                        ? 'shadow-[0_1px_0_var(--line),0_8px_24px_rgba(15,37,71,.06)]'
+                        : ''
                 }`}
             >
-                <div className="mx-auto flex w-full max-w-5xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
-                    <Link href="/" aria-label={BRAND_NAME}>
+                <div className="mx-auto flex w-full max-w-[1440px] items-center gap-8 px-4 py-3.5 sm:px-8 lg:px-14">
+                    <Link
+                        href="/"
+                        aria-label={BRAND_NAME}
+                        className="text-navy"
+                    >
                         <BrandLockup size={36} />
                     </Link>
 
                     {/*
-                        Hidden below `sm` rather than folded into a hamburger:
-                        two anchors to sections of THIS page do not earn a menu,
-                        and the actions beside them stay reachable at every width.
-                        A drawer arrives with the sections that need one.
+                        Hidden below `md` rather than folded into a hamburger:
+                        anchors to sections of THIS page do not earn a menu, and
+                        the actions beside them stay reachable at every width.
                     */}
-                    <nav className="hidden items-center gap-6 text-sm sm:flex">
+                    <nav className="ml-auto hidden items-center gap-6 text-sm font-semibold whitespace-nowrap text-ink-muted md:flex">
                         {navLinks.map((link) => (
                             <a
                                 key={link.href}
                                 href={link.href}
-                                className="text-ink-muted transition-colors hover:text-foreground"
+                                className="transition-colors hover:text-navy"
                             >
                                 {link.label}
                             </a>
@@ -108,47 +116,49 @@ export default function MarketingLayout({
                     {/*
                         No theme toggle here (SLO-208): this shell is pinned to
                         the light palette, so a switch would be a control that
-                        visibly does nothing. The app's own surfaces keep theirs.
+                        visibly does nothing.
                     */}
-                    <div className="flex items-center gap-2">
+                    <div className="ml-auto flex items-center gap-4 md:ml-10">
                         {auth.user === null || auth.user.is_demo_visitor ? (
                             <>
-                                <Button asChild variant="ghost" size="sm">
-                                    <a href="/login">{t('welcome.login')}</a>
-                                </Button>
-                                {/*
-                                    ⚠️ Deliberately NOT the yellow. docs/21 allows
-                                    one highlight CTA per screen, and on the home
-                                    page that is the hero's primary button — the
-                                    one a visitor is actually looking at. A yellow
-                                    header button would compete with it on every
-                                    scroll position, and the rule would be a rule
-                                    nobody could point at.
-                                */}
-                                <Button asChild size="sm">
-                                    <a href="/register">
-                                        {t('welcome.cta_primary')}
-                                    </a>
-                                </Button>
+                                <a
+                                    href="/login"
+                                    className="inline-flex items-center gap-3 rounded-full text-sm font-bold text-navy focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:outline-none"
+                                >
+                                    {/* The short word on a phone, where the
+                                        pill beside it needs the room. */}
+                                    <span className="sm:hidden">
+                                        {t('welcome.login')}
+                                    </span>
+                                    <span className="hidden sm:inline">
+                                        {t('welcome.nav_login')}
+                                    </span>
+                                    <span
+                                        className="hidden size-8 place-items-center rounded-full border-2 border-navy sm:grid"
+                                        aria-hidden
+                                    >
+                                        <ArrowRight className="size-4" />
+                                    </span>
+                                </a>
+                                <a
+                                    href="/register"
+                                    className={`${highlightButton} rounded-full px-5 py-2.5 text-sm whitespace-nowrap`}
+                                >
+                                    {t('welcome.nav_signup')}
+                                </a>
                             </>
                         ) : (
                             /*
                                 A real customer, recognised across the shared
-                                cookie. They get the one thing the marketing site
-                                can offer them that they cannot already see: the
-                                way back into their own workspace, which lives on
-                                their subdomain and so cannot be a relative link.
-
-                                ⚠️ This branch used to say "log in" and point at
-                                `/` — an invitation to log in, aimed at somebody
-                                already logged in, leading to the page they were
-                                standing on (SLO-215).
+                                cookie: the way back into their own workspace,
+                                which lives on their subdomain (SLO-215).
                             */
-                            <Button asChild size="sm">
-                                <a href={auth.user.workspace_url ?? '/'}>
-                                    {t('welcome.workspace')}
-                                </a>
-                            </Button>
+                            <a
+                                href={auth.user.workspace_url ?? '/'}
+                                className={`${highlightButton} rounded-full px-5 py-2.5 text-sm whitespace-nowrap`}
+                            >
+                                {t('welcome.workspace')}
+                            </a>
                         )}
                     </div>
                 </div>
@@ -156,62 +166,64 @@ export default function MarketingLayout({
 
             <main className="flex-1">{children}</main>
 
-            {/*
-                Navy, closing the page the way the hero opens it (docs/21 §2 row
-                11) — with the ice hairline on top that separates it from the
-                canvas above without a hard border.
-            */}
-            <footer className="border-t border-ice/20 bg-navy text-canvas">
-                <div className="mx-auto w-full max-w-5xl px-4 py-12 sm:px-6">
-                    <div className="flex flex-col gap-8 sm:flex-row sm:justify-between">
-                        <div className="max-w-xs">
-                            <BrandLockup size={28} />
-                            <p className="mt-3 text-sm text-canvas/70">
+            {/* Navy footer (SLO-229). Only links to pages that exist: the
+                design's Blog, Karrier, Rólunk, Tudástár and social icons have
+                nothing behind them yet. */}
+            <footer className="bg-navy text-mist">
+                <div className="mx-auto w-full max-w-[1440px] px-4 pt-14 pb-7 sm:px-8 lg:px-14">
+                    <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-[1.3fr_1fr_1fr]">
+                        <div>
+                            <span className="text-white">
+                                <BrandLockup size={38} />
+                            </span>
+                            <p className="mt-3.5 max-w-[240px] text-[13px] leading-normal">
                                 {t('welcome.footer.tagline')}
                             </p>
                         </div>
 
-                        <div className="flex flex-col gap-8 text-sm sm:flex-row sm:gap-12">
-                            <FooterColumn title={t('welcome.footer.product')}>
-                                <FooterLink href="#funkciok">
-                                    {t('welcome.nav.features')}
-                                </FooterLink>
-                                <FooterLink href="#arazas">
-                                    {t('welcome.nav.pricing')}
-                                </FooterLink>
-                                <FooterLink href="#demo">
-                                    {t('welcome.nav.demo')}
-                                </FooterLink>
-                                <FooterLink href="/register">
-                                    {t('welcome.cta_primary')}
-                                </FooterLink>
-                            </FooterColumn>
+                        <FooterColumn title={t('welcome.footer.product')}>
+                            <FooterLink href="#funkciok">
+                                {t('welcome.nav.features')}
+                            </FooterLink>
+                            <FooterLink href="#arazas">
+                                {t('welcome.nav.pricing')}
+                            </FooterLink>
+                            <FooterLink href="#demo">
+                                {t('welcome.nav.demo')}
+                            </FooterLink>
+                            <FooterLink href="/register">
+                                {t('welcome.hero.cta_primary')}
+                            </FooterLink>
+                        </FooterColumn>
 
-                            <FooterColumn title={t('welcome.footer.legal')}>
-                                {/*
-                                    The platform's own documents, from the shared
-                                    `legal` prop (SLO-161) — the same versions a
-                                    company is asked to accept at sign-up, so they
-                                    can be read before rather than during.
-                                */}
-                                {documents.map((document) => (
-                                    <FooterLink
-                                        key={document.id}
-                                        href={document.href}
-                                    >
-                                        {document.title}
-                                    </FooterLink>
-                                ))}
-                                <CookieSettingsLink />
-                            </FooterColumn>
-                        </div>
+                        <FooterColumn title={t('welcome.footer.legal')}>
+                            {/*
+                                The platform's own documents, from the shared
+                                `legal` prop (SLO-161) — the same versions a
+                                company is asked to accept at sign-up.
+                            */}
+                            {documents.map((document) => (
+                                <FooterLink
+                                    key={document.id}
+                                    href={document.href}
+                                >
+                                    {document.title}
+                                </FooterLink>
+                            ))}
+                            <CookieSettingsLink className="text-left text-mist transition-colors hover:text-white" />
+                        </FooterColumn>
                     </div>
 
-                    <p className="mt-10 border-t border-canvas/10 pt-6 text-xs text-canvas/60">
-                        {t('welcome.footer_rights', {
-                            year: new Date().getFullYear(),
-                        })}
-                    </p>
+                    <div className="mt-11 flex flex-wrap justify-between gap-4 border-t border-white/10 pt-5 text-xs">
+                        <span>
+                            {t('welcome.footer_rights', {
+                                year: new Date().getFullYear(),
+                            })}
+                        </span>
+                        <span className="font-bold text-white">
+                            {t('welcome.footer_slogan')}
+                        </span>
+                    </div>
                 </div>
             </footer>
 
@@ -220,12 +232,13 @@ export default function MarketingLayout({
     );
 }
 
-function FooterColumn({ title, children }: PropsWithChildren<{ title: string }>) {
+function FooterColumn({
+    title,
+    children,
+}: PropsWithChildren<{ title: string }>) {
     return (
-        <div className="flex flex-col gap-3">
-            <p className="text-xs font-semibold tracking-[0.12em] text-canvas/50 uppercase">
-                {title}
-            </p>
+        <div className="grid content-start gap-2.5 text-sm">
+            <p className="mb-1 font-bold text-white">{title}</p>
             {children}
         </div>
     );
@@ -233,10 +246,7 @@ function FooterColumn({ title, children }: PropsWithChildren<{ title: string }>)
 
 function FooterLink({ href, children }: PropsWithChildren<{ href: string }>) {
     return (
-        <a
-            href={href}
-            className="text-canvas/80 transition-colors hover:text-canvas"
-        >
+        <a href={href} className="text-mist transition-colors hover:text-white">
             {children}
         </a>
     );

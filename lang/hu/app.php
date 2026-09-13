@@ -11,25 +11,11 @@ return [
     'welcome' => [
         'meta_title' => 'slot4u — online foglalási rendszer, havidíj nélkül',
         'meta_description' => 'Ingyenes online foglalási rendszer szolgáltatóknak. Nincs havidíj és nincs csomagválasztás — jutalékot csak a havi 10 000 Ft forgalom feletti részre számolunk.',
-        'badge' => 'Havidíj nélkül · fizetsz, ha már van forgalmad',
-        'title' => 'Online foglalás, ami nem kerül semmibe, amíg nincs miből fizetned',
-        // A H1 két részben (docs/21 §2: „egy szó sárgán"). A kiemelés arra a
-        // tagmondatra esik, ami MAGA az ajánlat — nem díszítés, hanem a mondat
-        // súlypontja. A `title` fentebb marad: azt a meta/OG oldal használja,
-        // ahol nincs mit kiemelni.
-        'title_lead' => 'Online foglalás, ami nem kerül semmibe,',
-        'title_accent' => 'amíg nincs miből fizetned',
-        'subtitle' => 'A slot4u foglalási motorja ingyenes: nincs belépő havidíj, nincs csomagválasztás. Jutalékot csak akkor számolunk, ha már van forgalmad — és akkor is csak a küszöb feletti részre.',
-        'cta_primary' => 'Kezdd el ingyen',
-        'cta_secondary' => 'Nézd meg működés közben',
         'login' => 'Belépés',
         // A fejléc gombja annak, akit a megosztott sütiről valódi ügyfélként
         // ismerünk fel (SLO-215). Nem „Belépés": ő már belépett — az egyetlen
         // dolog, amit itt kaphat, a saját munkaterületéhez vezető út.
         'workspace' => 'Vezérlőpult',
-        // A hero alatti apróbetűs (docs/21 §2): a legerősebb kifogást veszi el
-        // közvetlenül a gomb mellett, ahol az felmerül.
-        'cta_caption' => 'Nem kérünk bankkártyát.',
 
         // Fejléc-navigáció (docs/21 §2, 0. sor). Horgonyok az oldalon belül —
         // a szekciók sorrendben épülnek (SLO-204/205), a linkek addig is arra
@@ -37,7 +23,7 @@ return [
         'nav' => [
             'features' => 'Funkciók',
             'pricing' => 'Árak',
-            'demo' => 'Demo',
+            'demo' => 'Próbáld ki',
             'menu' => 'Menü',
             // Csak a vertikális landingeken jelenik meg (SLO-198): ott a
             // főoldal nem a logó mögötti magától értetődő hely, hanem egy másik
@@ -56,13 +42,139 @@ return [
 
         // Footer (docs/21 §2, 11. sor).
         'footer' => [
-            'tagline' => 'Online foglalási rendszer szolgáltatóknak. Magyar fejlesztés.',
+            'tagline' => 'Online időpontfoglaló rendszer kisvállalkozásoknak.',
             'product' => 'A termék',
             'company' => 'A slot4u',
             'legal' => 'Jogi',
             'contact' => 'Kapcsolat',
             'rights' => 'Minden jog fenntartva.',
         ],
+
+        // ── A „Slot4u Landing" design szekciói (SLO-229, docs/21 2026-09-13) ──
+        // ⚠️ A design szövege javaslat volt, nem szerződés. Ahol állított valamit,
+        // ami nem igaz, itt a valóság áll — és miért:
+        //   „Max csomagban online fizetés és Számlázz.hu" → csomagok nincsenek
+        //     (docs/10), a számlázó integráció a Billingo;
+        //   „Napi, heti és havi nézet" → az admin naptárnak napi és heti nézete van;
+        //   „Teljes funkcionalitás" / „Bármikor lemondható" → ellenőrizhető
+        //     állításra cserélve (nincs havidíj, adatok az EU-ban);
+        //   Blog, Karrier, Rólunk, Tudástár, közösségi ikonok → nincs ilyen oldal.
+        'hero' => [
+            'eyebrow' => 'Online időpontfoglaló rendszer',
+            'title_lead' => 'Te pihenj,',
+            'title_middle' => 'a foglalást',
+            'title_accent' => 'mi intézzük.',
+            'lead' => 'A slot4u egy modern, egyszerűen használható időpontfoglaló rendszer kisvállalkozásoknak.',
+            'lead_strong' => 'Több ügyfél, kevesebb admin, több szabadidő.',
+            'cta_primary' => 'Kezdj ingyen',
+            'cta_secondary' => 'Nézd meg működés közben',
+            // A TRIAL_DAYS (CreateNewUser) értékével egyezik — ha az változik, ez is.
+            'check_trial' => '14 nap ingyenes próba',
+            'check_card' => 'Nincs bankkártya',
+            'check_quick' => 'Pár perc alatt beállítható',
+            'sticker' => 'Foglalás sikeres!',
+            'slots_label' => 'Szabad időpontok',
+            'note_lead' => 'Több idő',
+            'note_tail' => 'a fontos dolgokra',
+        ],
+
+        // A fejléc gombjai az új designban (a `login`/`cta_primary` a vertikális
+        // landingé is marad).
+        'nav_login' => 'Bejelentkezés',
+        'nav_signup' => 'Kezdj ingyen!',
+
+        'audience_strip' => [
+            'label' => 'Kinek készült',
+            'salon' => 'Szépségszalonok',
+            'trainer' => 'Edzők, stúdiók',
+            'health' => 'Egészségügyi szolgáltatók',
+            'coach' => 'Tanácsadók, coachok',
+            'other' => 'Egyéb szolgáltatások',
+            'other_hint' => 'és még sokan mások…',
+        ],
+
+        'how' => [
+            'title' => 'Hogyan működik?',
+            'lead' => 'Három egyszerű lépés, és már jöhetnek is a foglalások.',
+            'note_lead' => 'Egyszerű,',
+            'note_tail' => 'mint 1-2-3',
+            'register' => 'Regisztrálsz',
+            'register_hint' => 'Pár perc alatt létrehozod a fiókodat és kitöltöd a cégprofilodat.',
+            'setup' => 'Beállítod a szolgáltatásaidat',
+            'setup_hint' => 'Helyszínek, dolgozók, időpontok, árak – mindent a saját igényeid szerint.',
+            'bookings' => 'Jönnek a foglalások',
+            'bookings_hint' => 'Ügyfeleid online foglalnak, te pedig a fontos dolgokra koncentrálhatsz.',
+        ],
+
+        'tools' => [
+            'eyebrow' => 'Minden egy helyen',
+            'title_lead' => 'Professzionális eszközök',
+            'title_tail' => 'a vállalkozásodhoz',
+            'lead' => 'A slot4u nem csak egy naptár. Egy komplett rendszer, amely segít időt spórolni, több ügyfelet elérni és hatékonyabban működni.',
+            'note_lead' => 'Kevesebb admin.',
+            'note_tail' => 'Több szabadidő.',
+            'booking_page' => 'Online foglalási felület',
+            'booking_page_hint' => 'Gyors, mobilbarát, a te arculatodra szabva',
+            'multi' => 'Több helyszín, dolgozó, szolgáltatás',
+            'multi_hint' => 'Rugalmasan bővíthető',
+            'notify' => 'Automatikus értesítések',
+            'notify_hint' => 'E-mail visszaigazolások és emlékeztetők',
+            'payment' => 'Fizetés és számlázás',
+            'payment_hint' => 'Online fizetés és Billingo-számlázás, ha kéred',
+            'reports' => 'Részletes statisztikák',
+            'reports_hint' => 'Lásd, mi működik igazán jól',
+        ],
+
+        'flexible' => [
+            'title_lead' => 'Rugalmas minden',
+            'title_tail' => 'szolgáltatástípushoz',
+            'lead' => 'Legyen szó egyéni konzultációról, csoportos óráról, teremfoglalásról vagy időpont nélküli szolgáltatásról – a slot4u mindenre felkészült.',
+            // Nincs „összes funkció" oldal — a gomb oda visz, ahol ez kipróbálható.
+            'cta' => 'Próbáld ki élőben',
+            'duration_based' => 'Idősávos szolgáltatás',
+            'event_based' => 'Esemény / csoportos óra',
+            'resource_rental' => 'Terem- vagy eszközfoglalás',
+            'no_time_slot' => 'Időpont nélküli szolgáltatás',
+            'approval' => 'Jóváhagyáshoz kötött foglalás',
+            'quote_request' => 'Ajánlatkérés alapú szolgáltatás',
+        ],
+
+        'calendar' => [
+            'title_lead' => 'Átlátható naptár,',
+            'title_tail' => 'nyugodt mindennapok',
+            'lead' => 'Kezeld a foglalásokat egyszerűen, bárhonnan. Nézd dolgozónként vagy az egész hetet, és lásd egy pillantással a teljes napodat.',
+            'check_views' => 'Napi és heti nézet',
+            'check_resources' => 'Dolgozónkénti oszlopok',
+            'check_drag' => 'Áthelyezés egy húzással',
+            'check_realtime' => 'Valós idejű frissítés',
+            'cheer' => 'Szép munka!',
+            // A makett feliratai — illusztráció, nem valódi adat.
+            'mock' => [
+                'month' => 'Március',
+                'week' => 'Hét',
+                'filter' => 'Szűrő',
+                'new' => '+ Új',
+                'days' => ['H 3', 'K 4', 'Sze 5', 'Cs 6', 'P 7'],
+                'nav' => ['Naptár', 'Foglalások', 'Ügyfelek', 'Szolgáltatások', 'Dolgozók', 'Statisztikák', 'Beállítások'],
+                'massage' => 'Masszázs',
+                'consult' => 'Konzultáció',
+                'training' => 'Személyi edzés',
+                'yoga' => 'Jógaóra',
+            ],
+        ],
+
+        'cta_band' => [
+            'title' => 'Készen állsz, hogy egyszerűbb legyen a foglalás?',
+            'lead' => 'Próbáld ki 14 napig ingyen, kötelezettségek nélkül.',
+            'check_quick' => 'Pár perc regisztráció',
+            'check_fee' => 'Nincs havidíj',
+            'check_card' => 'Nincs bankkártya',
+            'check_eu' => 'Adataid az EU-ban',
+            'note_lead' => 'Több idő',
+            'note_tail' => 'Rád is vár',
+        ],
+
+        'footer_slogan' => 'Te pihenj, a foglalást mi intézzük.',
 
         'pricing_title' => 'Az árazás egy mondatban: fizetsz, ha keresel',
         'pricing_lead' => 'A slot4u nem ül be a pénzáramlásba. A foglalás ellenértéke közvetlenül hozzád fut — készpénzben, utalással vagy a saját fizetési integrációdon. Mi a havi forgalmad után számlázunk jutalékot.',
@@ -78,96 +190,6 @@ return [
         'pricing_example' => 'Ha egy hónapban :turnover forgalmad van, a jutalék a küszöb feletti :taxable :rate-a, azaz :fee — nem a teljes forgalomé.',
         'pricing_cancel' => 'A 24 óránál korábbi lemondás jutalékmentes — amiért nem kaptál pénzt, azért nem kérünk.',
         'pricing_note' => 'A feltüntetett értékek az induló beállítások, tájékoztató jelleggel. A pontos, rád vonatkozó feltételeket a szerződés rögzíti.',
-
-        'features_title' => 'Ötféle foglalás, egy rendszerben',
-        'features_lead' => 'Nem minden szolgáltatás időpont. A slot4u ugyanazon a motoron kezeli mindet — nem kell eldöntened, melyik dobozba férsz bele.',
-        // Külön szövegek, NEM az admin `admin.services.mode.*` kulcsai: az admin
-        // felület címkéi rövidek és belső használatra valók, itt eladni kell.
-        'modes' => [
-            'duration_based' => 'Idősávos időpont',
-            'duration_based_hint' => 'Fix hosszúságú alkalom a munkatárs munkarendje szerint, ütközésmentesen.',
-            'event_based' => 'Meghirdetett esemény',
-            'event_based_hint' => 'Fix kezdés, korlátos létszám, várólista, ha betelt.',
-            'resource_rental' => 'Terem- és eszközbérlés',
-            'resource_rental_hint' => 'Szabadon választott idősáv arra, amiből csak egy van.',
-            'no_time_slot' => 'Időpont nélküli',
-            'no_time_slot_hint' => 'Amihez nem kell naptár: dokumentumbeküldés, digitális termék, kérés.',
-            'quote_request' => 'Ajánlatkérés',
-            'quote_request_hint' => 'Ha az ár csak a részletek ismeretében derül ki — ajánlat, elfogadás, foglalás.',
-        ],
-
-        'audience_title' => 'Kinek készült',
-        'audience_lead' => 'Bárkinek, aki időt vagy kapacitást ad el — és nem akar érte havidíjat fizetni, amíg nincs miből.',
-        'audience' => [
-            'therapist' => 'Pszichológus, terapeuta',
-            'therapist_hint' => 'Idősávos foglalás, lemondási határidő, emlékeztető — és adatvédelem, ami elbírja az egészségügyhöz közeli adatokat.',
-            'trainer' => 'Edző, oktató',
-            'trainer_hint' => 'Egyéni időpont és meghirdetett csoportos alkalom, várólistával, ha betelt.',
-            'salon' => 'Szalon, több munkatárssal',
-            'salon_hint' => 'Munkatársankénti munkarend, helyiség-ütközés, admin naptár.',
-            'rental' => 'Terem- és eszközbérlés',
-            'rental_hint' => 'Szabadon választott hosszúságú idősáv, kaució, kihasználtsági riport.',
-        ],
-
-        'trust_title' => 'Amit alapból kapsz',
-        // ⚠️ Bizalmi sáv (docs/21 §2, 2. sor) — a jóváhagyott, ÜGYFÉL NÉLKÜLI
-        // változat. Az eredeti terv „Már X szolgáltató használja" + tenant-logók
-        // volt; ügyfelek nélkül a szám és a logók is kitaláltak lennének, a
-        // demo tenantok logói pedig kifejezetten félrevezetők (azok a MI
-        // fixture-jeink). Minden állítás alá van támasztva:
-        //   magyar fejlesztés — tény · EU-s adat — docs/19 · nincs havidíj —
-        //   docs/10 · bankkártya nélkül — a regisztrációs flow
-        // ⚠️ SLA-szám (pl. „99,9%") NEM kerülhet ide, amíg nincs mögötte vállalás.
-        'assurance' => [
-            'local' => 'Magyar fejlesztés',
-            'local_hint' => 'Magyarul beszélő ügyfélszolgálat, magyar számlázással.',
-            'eu' => 'Adataid az EU-ban',
-            'eu_hint' => 'GDPR-konform működés, adatexporttal és törlési kérelemmel.',
-            'no_fee' => 'Nincs havidíj',
-            'no_fee_hint' => 'Jutalékot csak a valódi forgalmad után számolunk.',
-            'no_card' => 'Bankkártya nélkül',
-            'no_card_hint' => 'A regisztrációhoz és a kipróbáláshoz nem kérünk kártyát.',
-        ],
-
-        // Hogyan működik (docs/21 §2, 3. sor) — három lépés, a szolgáltató
-        // szemszögéből, nem a rendszerében.
-        'steps_title' => 'Három lépés, és fogadod a foglalásokat',
-        'steps_lead' => 'Nincs bevezetési projekt és nincs betanulás. Ami kell, az a nyitvatartásod és egy link.',
-        'steps' => [
-            'setup' => 'Felviszed, amit kínálsz',
-            'setup_hint' => 'Szolgáltatások, munkarend, kollégák. Egy délelőtt alatt megvan.',
-            'share' => 'Kiteszed a linked',
-            'share_hint' => 'A Google-cégprofilodba, a Facebookra, a névjegyedre. Ennyi a marketing.',
-            'run' => 'Csak a naptárat nézed',
-            'run_hint' => 'Az ügyfél éjjel is foglal, a rendszer emlékeztet, te dolgozol.',
-        ],
-
-        // Termékbemutató (docs/21 §2, 5. sor).
-        'showcase_title' => 'A naptár, ami helyetted figyel',
-        'showcase_lead' => 'Minden foglalás egy helyen: ki, mikor, mennyiért — és mi maradt szabadon.',
-        'showcase' => [
-            'revenue' => 'Mai bevétel',
-            'bookings' => 'Mai foglalások',
-            'utilisation' => 'Kihasználtság',
-            'chart_label' => 'Az elmúlt hét foglalásai',
-        ],
-
-        'trust' => [
-            'domain' => 'Saját foglalóoldal',
-            'domain_hint' => 'A saját aldoménod az első perctől, később egyedi domainnel is.',
-            'privacy' => 'GDPR-eszközök',
-            'privacy_hint' => 'Ügyfél-adatexport, törlési kérelem, megőrzési idők — nem utólag ragasztva.',
-            'notify' => 'Értesítések',
-            'notify_hint' => 'Visszaigazoló és emlékeztető emailek, a te szövegeddel, a te nevedben.',
-            'reports' => 'Kimutatások',
-            'reports_hint' => 'Bevétel, kihasználtság, no-show — abból, ami a rendszerben történik.',
-            // A 2×3 rácshoz (docs/21 §2, 4. sor) két további blokk: mindkettő
-            // megépült funkció, nem ígéret.
-            'calendar' => 'Ütközésmentes naptár',
-            'calendar_hint' => 'Dolgozó és helyiség egyszerre — a rendszer nem enged két autót egy emelőre.',
-            'payment' => 'Online fizetés',
-            'payment_hint' => 'Kérheted előre a díjat, számlával együtt — vagy hagyhatod a pultra.',
-        ],
 
         // „Próbáld ki élőben" (docs/21 §2, 6. sor + §2.1) — a landing
         // legerősebb konverziós eleme: a látogató két kattintásból egy működő
@@ -232,10 +254,6 @@ return [
             'data_answer' => 'Az adatok az EU-ban maradnak. Az ügyfeleid önkiszolgálóan letölthetik a saját adataikat és kérhetik a törlésüket; a megőrzési időket a rendszer magától tartja be.',
         ],
 
-        'closing_title' => 'A regisztráció ingyenes, és két percbe telik',
-        'closing_lead' => 'Nem kell bankkártya. A foglalóoldalad azonnal él.',
-
-        'footer_demo' => 'Demó foglalóoldal',
         'footer_rights' => '© :year slot4u',
     ],
 

@@ -1,0 +1,75 @@
+import { ArrowRight, Check } from 'lucide-react';
+
+import {
+    Art,
+    HandNote,
+    highlightButton,
+} from '@/components/landing/primitives';
+import { useTranslations } from '@/lib/i18n';
+
+/** The cream closing band (SLO-229): sloth, the ask, and four reassurances. */
+export default function ClosingCta({ art }: { art: string | null }) {
+    const t = useTranslations();
+
+    return (
+        <section className="bg-cream">
+            <div
+                className={`mx-auto grid w-full max-w-[1440px] items-center gap-10 px-4 py-12 sm:px-8 lg:px-14 ${
+                    art !== null
+                        ? 'lg:grid-cols-[1fr_1.2fr_1.2fr]'
+                        : 'lg:grid-cols-[1.4fr_1fr]'
+                }`}
+            >
+                {art !== null && (
+                    <div className="hidden h-[220px] lg:block">
+                        <Art src={art} />
+                    </div>
+                )}
+
+                <div>
+                    <h2 className="mb-3 text-2xl leading-tight font-black text-navy sm:text-[30px]">
+                        {t('welcome.cta_band.title')}
+                    </h2>
+                    <p className="mb-5 text-[15px] text-ink-muted">
+                        {t('welcome.cta_band.lead')}
+                    </p>
+                    <a
+                        href="/register"
+                        className={`${highlightButton} rounded-xl px-6 py-3.5 text-[15px] shadow-[0_6px_16px_rgba(15,37,71,.12)]`}
+                    >
+                        {t('welcome.hero.cta_primary')}
+                        <ArrowRight className="size-[18px]" aria-hidden />
+                    </a>
+                </div>
+
+                <div className="flex items-center gap-8">
+                    <ul className="grid gap-3 text-sm font-bold text-navy">
+                        {(
+                            [
+                                'check_quick',
+                                'check_fee',
+                                'check_card',
+                                'check_eu',
+                            ] as const
+                        ).map((key) => (
+                            <li key={key} className="flex items-center gap-2.5">
+                                <Check
+                                    className="size-4 text-gold"
+                                    strokeWidth={3}
+                                    aria-hidden
+                                />
+                                {t(`welcome.cta_band.${key}`)}
+                            </li>
+                        ))}
+                    </ul>
+                    <HandNote
+                        lead={t('welcome.cta_band.note_lead')}
+                        tail={t('welcome.cta_band.note_tail')}
+                        mark={<span className="text-err">♥</span>}
+                        className="hidden -rotate-[8deg] text-[30px] text-navy sm:block"
+                    />
+                </div>
+            </div>
+        </section>
+    );
+}

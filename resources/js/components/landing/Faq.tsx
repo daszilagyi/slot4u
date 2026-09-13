@@ -61,9 +61,9 @@ export default function Faq({ title, items }: Props = {}) {
     const [open, setOpen] = useState<string | null>(questions[0]?.q ?? null);
 
     return (
-        <section className="border-b border-line bg-canvas">
+        <section className="bg-white">
             <div className="mx-auto w-full max-w-3xl px-4 py-16 sm:px-6 sm:py-20">
-                <h2 className="text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
+                <h2 className="text-3xl font-black text-balance text-navy sm:text-4xl">
                     {title ?? t('welcome.faq_title')}
                 </h2>
 
@@ -88,7 +88,9 @@ export default function Faq({ title, items }: Props = {}) {
                                 open={isOpen}
                                 onToggle={(event) =>
                                     setOpen(
-                                        event.currentTarget.open ? item.q : null,
+                                        event.currentTarget.open
+                                            ? item.q
+                                            : null,
                                     )
                                 }
                                 className="group py-4"
@@ -100,17 +102,15 @@ export default function Faq({ title, items }: Props = {}) {
                                     free, and all of which somebody would have to
                                     reimplement badly.
                                 */}
-                                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-medium focus-visible:ring-2 focus-visible:ring-ice focus-visible:outline-none">
+                                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-extrabold text-navy focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none">
                                     {item.q}
                                     <ChevronDown
-                                        className="ease-brand size-5 shrink-0 text-ink-muted transition-transform duration-200 group-open:rotate-180"
+                                        className="size-5 shrink-0 text-ink-muted transition-transform duration-200 ease-brand group-open:rotate-180"
                                         strokeWidth={1.75}
                                         aria-hidden
                                     />
                                 </summary>
-                                <p className="mt-3 text-ink-muted">
-                                    {item.a}
-                                </p>
+                                <p className="mt-3 text-ink-muted">{item.a}</p>
                             </details>
                         );
                     })}

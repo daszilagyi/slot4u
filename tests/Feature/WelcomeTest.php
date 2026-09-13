@@ -206,3 +206,32 @@ it('sends a real customer back to their own workspace, on their own subdomain', 
             )
         );
 });
+
+it('offers no sloth illustration until its file exists (SLO-229)', function () {
+    // A throwaway public dir: the real one must not grow test files.
+    $public = sys_get_temp_dir().'/slot4u-art-'.uniqid();
+    mkdir($public.'/brand', 0777, true);
+    app()->usePublicPath($public);
+
+    try {
+        $this->get(centralUrl())->assertInertia(fn (Assert $page) => $page
+            ->where('art.hero', null)
+            ->where('art.cta', null)
+        );
+
+        file_put_contents($public.'/brand/hero.png', 'png');
+        file_put_contents($public.'/brand/cta.svg', '<svg/>');
+        file_put_contents($public.'/brand/cta.png', 'png');
+
+        $this->get(centralUrl())->assertInertia(fn (Assert $page) => $page
+            ->where('art.hero', fn (string $url) => str_starts_with($url, '/brand/hero.png?v='))
+            // The vector wins over the bitmap when both are there.
+            ->where('art.cta', fn (string $url) => str_starts_with($url, '/brand/cta.svg?v='))
+            ->where('art.peek', null)
+        );
+    } finally {
+        array_map('unlink', glob($public.'/brand/*') ?: []);
+        rmdir($public.'/brand');
+        rmdir($public);
+    }
+});

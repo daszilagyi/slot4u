@@ -12,8 +12,12 @@ import {
     type LucideIcon,
 } from 'lucide-react';
 
-import HeroSlotPreview, { type PreviewSlot } from '@/components/HeroSlotPreview';
+import HeroSlotPreview, {
+    type PreviewSlot,
+} from '@/components/HeroSlotPreview';
 import Faq from '@/components/landing/Faq';
+// The same object the home page gets, from the same service.
+import type { CommissionTerms } from '@/components/landing/Pricing';
 import TryItLive from '@/components/landing/TryItLive';
 import MarketingLayout from '@/Layouts/MarketingLayout';
 import { trackLead } from '@/lib/analytics';
@@ -68,21 +72,6 @@ type VerticalContent = {
 
 type TextItem = { title: string; body: string };
 type IconItem = TextItem & { icon: string };
-
-/**
- * The commission terms as the server resolved them — the same object the home
- * page gets, from the same service.
- */
-type CommissionTerms = {
-    free_threshold_minor: number;
-    rate_bps: number;
-    rate_with_integration_bps: number;
-    monthly_cap_minor: number | null;
-    currency: string;
-    example_turnover_minor: number;
-    example_billable_base_minor: number;
-    example_commission_minor: number;
-};
 
 type Props = {
     vertical: string;
@@ -238,7 +227,7 @@ export default function Vertical({
                             <a
                                 href="/register"
                                 onClick={() => trackLead({ vertical })}
-                                className="ease-brand rounded-[10px] bg-highlight px-6 py-3 font-medium text-highlight-foreground transition-transform duration-200 hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-ice focus-visible:outline-none"
+                                className="rounded-[10px] bg-highlight px-6 py-3 font-medium text-highlight-foreground transition-transform duration-200 ease-brand hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-ice focus-visible:outline-none"
                             >
                                 {c.cta_primary}
                             </a>
@@ -247,7 +236,7 @@ export default function Vertical({
                                 running demo, and this is the first of them. */}
                             <a
                                 href="#demo"
-                                className="ease-brand rounded-[10px] border border-canvas/30 px-6 py-3 font-medium text-canvas transition-colors duration-200 hover:border-canvas/60 focus-visible:ring-2 focus-visible:ring-ice focus-visible:outline-none"
+                                className="rounded-[10px] border border-canvas/30 px-6 py-3 font-medium text-canvas transition-colors duration-200 ease-brand hover:border-canvas/60 focus-visible:ring-2 focus-visible:ring-ice focus-visible:outline-none"
                             >
                                 {c.cta_secondary}
                             </a>
@@ -458,7 +447,7 @@ export default function Vertical({
                         <a
                             href="/register"
                             onClick={() => trackLead({ vertical })}
-                            className="ease-brand rounded-[10px] bg-highlight px-6 py-3 font-medium text-highlight-foreground transition-transform duration-200 hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-ice focus-visible:outline-none"
+                            className="rounded-[10px] bg-highlight px-6 py-3 font-medium text-highlight-foreground transition-transform duration-200 ease-brand hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-ice focus-visible:outline-none"
                         >
                             {c.cta_primary}
                         </a>
@@ -522,9 +511,9 @@ function IconRow({
                                 }}
                             >
                                 {Icon !== undefined && (
-                                    <div className="ease-brand flex size-10 items-center justify-center rounded-[10px] bg-brand-100 transition-colors duration-200 group-hover:bg-brand-200">
+                                    <div className="flex size-10 items-center justify-center rounded-[10px] bg-brand-100 transition-colors duration-200 ease-brand group-hover:bg-brand-200">
                                         <Icon
-                                            className="ease-brand size-5 text-brand transition-transform duration-200 group-hover:scale-105"
+                                            className="size-5 text-brand transition-transform duration-200 ease-brand group-hover:scale-105"
                                             strokeWidth={1.75}
                                             aria-hidden
                                         />

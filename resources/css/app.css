@@ -17,6 +17,13 @@
 @import '@fontsource/poppins/600.css';
 @import '@fontsource/poppins/700.css';
 @import '@fontsource-variable/jetbrains-mono';
+/*
+ * The marketing surface's own faces (SLO-229, the "Slot4u Landing" design):
+ * Nunito for everything, Caveat for the handwritten asides. Self-hosted for the
+ * same reason as the three above. Caveat only at 700 — it is never body text.
+ */
+@import '@fontsource-variable/nunito';
+@import '@fontsource/caveat/700.css';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
@@ -122,6 +129,27 @@
      */
     --color-highlight: var(--highlight);
     --color-highlight-foreground: var(--highlight-foreground);
+    /* Pressed/hovered yellow, and the soft cream band it sits on (SLO-229). */
+    --color-highlight-hover: var(--highlight-hover);
+    --color-cream: var(--cream);
+
+    /*
+     * The landing's quieter shades (SLO-229): light text on navy, the mock
+     * calendar's hairlines and captions, the darker gold that stays legible on
+     * cream, and the teal of one mock booking. Named here so no component
+     * carries a raw hex.
+     */
+    --color-mist: var(--mist);
+    --color-mist-200: var(--mist-200);
+    --color-mist-100: var(--mist-100);
+    --color-slate: var(--slate);
+    --color-hairline: var(--hairline);
+    --color-gold: var(--gold);
+    --color-teal: var(--teal);
+    --color-teal-100: var(--teal-100);
+
+    /* The handwritten asides on the marketing surface — never body text. */
+    --font-hand: var(--hand-family);
 
     /*
      * Motion (docs/21 §2). One easing and two durations, so a section does not
@@ -199,6 +227,17 @@
     --err: #d33a3a;
     --highlight: #f4b942;
     --highlight-foreground: #14212f;
+    --highlight-hover: #e5a82e;
+    --cream: #fbf1d8;
+    --mist: #c9d7ea;
+    --mist-200: #d7e2f2;
+    --mist-100: #e6eef9;
+    --slate: #8a99b3;
+    --hairline: #edf2f9;
+    --gold: #c98a00;
+    --teal: #2aa8a0;
+    --teal-100: #d9f1f1;
+    --hand-family: 'Caveat', 'Comic Sans MS', cursive;
 
     --display-family: 'Poppins', var(--font-sans);
     --ease-signature: cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -284,6 +323,65 @@
 .dark [data-tenant-brand] {
     --primary: var(--tenant-primary-dark);
     --primary-foreground: var(--tenant-primary-dark-foreground);
+}
+
+/*
+ * The marketing surface (SLO-229) — the "Slot4u Landing" design, scoped to
+ * MarketingLayout and nothing else (Daniel, 2026-09-13).
+ *
+ * ⚠️ The same trick as `.theme-light`, one step further: the landing re-declares
+ * the NAMED palette on its wrapper, so every `bg-navy` / `text-ink` inside it
+ * picks the design's warmer navy and brighter yellow, while the admin and the
+ * tenant pages keep the identity tokens above untouched. Sits on the same
+ * element as `.theme-light` and after it, so it wins by source order.
+ */
+.theme-landing {
+    --navy: #0f2547;
+    --navy-deep: #0b1a33;
+    --navy-soft: #173a68;
+    --brand: #2f6db5;
+    --brand-100: #e9f1fa;
+    --brand-200: #dcecff;
+    --canvas: #f3f7fc;
+    --line: #dbe6f5;
+    --ink: #0f2547;
+    --ink-muted: #4a5a75;
+    --highlight: #f6c34a;
+    --highlight-hover: #f0b52e;
+    --highlight-foreground: #0f2547;
+    --cream: #fbe7b4;
+    --ok: #2aa876;
+    --warn: #f0855a;
+
+    --display-family:
+        'Nunito Variable', 'Nunito', ui-sans-serif, system-ui, sans-serif;
+    --foreground: #1f2a44;
+    --muted-foreground: var(--ink-muted);
+    --primary: var(--navy);
+
+    font-family: var(--display-family);
+}
+
+/* The landing's two loops: the mascot's slow hover, and one pop on the picked
+ * slot. Both stop for reduced motion via the floor in @layer base. */
+@keyframes landing-float {
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+    50% {
+        transform: translateY(-6px);
+    }
+}
+
+@keyframes landing-pop {
+    0%,
+    100% {
+        transform: scale(1);
+    }
+    40% {
+        transform: scale(1.08);
+    }
 }
 
 @layer base {
