@@ -15,6 +15,7 @@ use App\Models\Service;
 use App\Models\Staff;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Models\WaitlistEntry;
 use App\Notifications\BookingConfirmedNotification;
 use App\Notifications\GuestRecipient;
 use App\Services\Feature\FeatureResolver;
@@ -322,7 +323,13 @@ it('lets a guest send a quote request, filing the message without an author', fu
         ->and($message->body)->toBe('Mennyibe kerül?');
 });
 
-it('still requires an account to join a waitlist (SLO-103 opens that up)', function () {
+/**
+ * A full event with the waitlist on, on `acme` (SLO-228).
+ *
+ * @return array{0: Tenant, 1: Service, 2: Event}
+ */
+function guestWaitlistEvent(): array
+{
     $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
     $service = Service::factory()->forTenant($tenant)->mode(BookingMode::EventBased)->create([
         'active' => true,
@@ -338,9 +345,14 @@ it('still requires an account to join a waitlist (SLO-103 opens that up)', funct
         'ends_at' => Carbon::parse('2026-09-07 10:00:00'),
     ]);
     // The waitlist surface is feature-gated (404 otherwise) — the base plan seed
-    // carries the flag, so a failure below is about the account, not the gate.
+    // carries the flag, so a failure below is about the contact, not the gate.
     expect(app(FeatureResolver::class)->enabled($tenant, Feature::Waitlist))->toBeTrue();
 
+    return [$tenant, $service, $event];
+}
+
+it('joins a waitlist as a guest when the email belongs to another account (SLO-228)', function () {
+    [$tenant, $service, $event] = guestWaitlistEvent();
     User::factory()->create(['tenant_id' => null, 'email' => 'taken@example.test']);
 
     $this->post(tenantHost('acme', '/events/'.$event->id.'/waitlist'), [
@@ -348,5 +360,45 @@ it('still requires an account to join a waitlist (SLO-103 opens that up)', funct
         'name' => 'Teszt Vendég',
         'email' => 'taken@example.test',
         'party_size' => 1,
-    ])->assertSessionHasErrors('email');
+    ])->assertRedirect(tenantHost('acme', '/waitlisted'))->assertSessionHasNoErrors();
+
+    $entry = WaitlistEntry::withoutGlobalScopes()->where('event_id', $event->id)->sole();
+
+    expect($entry->tenant_id)->toBe($tenant->id)
+        ->and($entry->customer_id)->toBeNull()
+        ->and($entry->guest_name)->toBe('Teszt Vendég')
+        ->and($entry->guest_email)->toBe('taken@example.test')
+        ->and($entry->isGuest())->toBeTrue()
+        // No second account under the address — it could not exist anyway.
+        ->and(User::query()->where('email', 'taken@example.test')->count())->toBe(1);
+});
+
+it('answers a waitlist join identically whether or not the email already exists (no enumeration oracle)', function () {
+    [, $service, $event] = guestWaitlistEvent();
+    $other = Tenant::factory()->active()->create(['slug' => 'other']);
+    User::factory()->create(['tenant_id' => $other->id, 'email' => 'taken@example.test']);
+
+    $join = fn (string $email) => $this->post(tenantHost('acme', '/events/'.$event->id.'/waitlist'), [
+        'service_id' => $service->id,
+        'name' => 'Teszt Vendég',
+        'email' => $email,
+        'party_size' => 1,
+    ]);
+
+    $taken = $join('taken@example.test');
+    $takenFlash = session('waitlist');
+    $this->flushSession();
+    $unknown = $join('unknown@example.test');
+    $unknownFlash = session('waitlist');
+
+    $taken->assertSessionHasNoErrors();
+    $unknown->assertSessionHasNoErrors();
+
+    // Same status, same redirect, and the same confirmation — only the place in
+    // the queue differs, and that is about the queue, not the address.
+    expect($taken->status())->toBe($unknown->status())
+        ->and($taken->headers->get('Location'))->toBe($unknown->headers->get('Location'))
+        ->and(array_keys($takenFlash))->toBe(array_keys($unknownFlash))
+        ->and($takenFlash['position'])->toBe(1)
+        ->and($unknownFlash['position'])->toBe(2);
 });

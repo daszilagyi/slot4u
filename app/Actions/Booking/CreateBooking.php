@@ -317,11 +317,12 @@ class CreateBooking
 
             $booking = $this->persist($attributes, $status, $holdExpiresAt);
 
-            // If the customer was on this event's waitlist, close their entry and
-            // hand any remaining freed capacity to the next waiter (docs/04 §3,
-            // SLO-25).
-            $customerId = $attributes['customer_id'];
-            if ($customerId !== null && $this->waitlist->markConverted($eventId, $tenantId, (int) $customerId) > 0) {
+            // If the booker was on this event's waitlist — as a customer, or as a
+            // guest by email (SLO-228) — close their entry and hand any remaining
+            // freed capacity to the next waiter (docs/04 §3, SLO-25).
+            $customerId = $attributes['customer_id'] !== null ? (int) $attributes['customer_id'] : null;
+            $guestEmail = $customerId === null ? ($attributes['guest_email'] ?? null) : null;
+            if ($this->waitlist->markConverted($eventId, $tenantId, $customerId, $guestEmail) > 0) {
                 $this->waitlist->offerNext($eventId, $tenantId);
             }
 

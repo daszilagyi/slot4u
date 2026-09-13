@@ -70,7 +70,7 @@ final class AnonymizeCustomer
             $this->eraseConversions($user, $tenant, $originalEmail);
             $this->eraseBookings($user, $tenant, $originalEmail);
             $this->eraseQuoteRequests($user, $tenant, $originalEmail);
-            $this->eraseWaitlistEntries($user, $tenant);
+            $this->eraseWaitlistEntries($user, $tenant, $originalEmail);
             $this->redactNotificationLog($tenant, $originalEmail, $originalPhone);
             $this->eraseProfile($user, $tenant);
         });
@@ -182,12 +182,15 @@ final class AnonymizeCustomer
      * The gap this leaves in `position` is harmless — a join takes `max + 1` and
      * the queue is read with `orderBy('position')`, so neither depends on the
      * numbers being contiguous ({@see JoinWaitlist}).
+     *
+     * A place held as a guest under the same address goes too (SLO-228), as
+     * guest bookings do.
      */
-    private function eraseWaitlistEntries(User $user, Tenant $tenant): void
+    private function eraseWaitlistEntries(User $user, Tenant $tenant, ?string $originalEmail): void
     {
         WaitlistEntry::query()
             ->where('tenant_id', $tenant->id)
-            ->where('customer_id', $user->id)
+            ->where(fn ($query) => $this->matchesSubject($query, $user, $originalEmail))
             ->delete();
     }
 

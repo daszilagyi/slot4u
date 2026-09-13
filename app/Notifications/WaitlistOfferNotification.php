@@ -14,7 +14,8 @@ use Illuminate\Notifications\Messages\MailMessage;
  * leads with the deadline and links straight to the event's booking page.
  *
  * The link points at the public service page (the event list); a durable per-offer
- * URL is SLO-103.
+ * URL is SLO-103. The mail reaches a customer account or an account-less guest
+ * alike (SLO-228), and asks them to book with the address it was sent to.
  */
 class WaitlistOfferNotification extends TenantMailNotification
 {
@@ -79,6 +80,9 @@ class WaitlistOfferNotification extends TenantMailNotification
         return $mail
             ->action($actionLabel, $actionUrl)
             ->line(__('app.mail.waitlist_offer.outro'))
+            // The booking closes the place by matching this address — a guest
+            // has nothing else to be recognised by (SLO-228).
+            ->line(__('app.mail.waitlist_offer.same_email', ['email' => $notifiable->email]))
             ->line($this->closingLine());
     }
 

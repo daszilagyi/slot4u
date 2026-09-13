@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Tenant;
 
 use App\Actions\Booking\CancelBooking;
 use App\Actions\Booking\CreateBooking;
-use App\Actions\Customer\FindOrCreateCustomer;
 use App\Actions\Customer\PublicContact;
 use App\Actions\Customer\ResolvePublicContact;
 use App\Actions\Legal\RecordConsent;
@@ -26,7 +25,6 @@ use App\Http\Requests\Tenant\PublicEventBookingRequest;
 use App\Http\Requests\Tenant\PublicOrderRequest;
 use App\Http\Requests\Tenant\PublicQuoteRequest;
 use App\Models\Booking;
-use App\Models\Customer;
 use App\Models\Event;
 use App\Models\Service;
 use App\Models\User;
@@ -145,8 +143,8 @@ class BookingController extends Controller
     }
 
     /**
-     * Submit a public booking for a chosen slot (SLO-31). A guest becomes a
-     * customer record (FindOrCreateCustomer); CreateBooking is race-safe and, via
+     * Submit a public booking for a chosen slot (SLO-31). The visitor is resolved
+     * into a customer or an account-less guest (ResolvePublicContact); CreateBooking is race-safe and, via
      * source=online, applies the approval/payment gates. A taken slot throws
      * SlotUnavailableException, which self-renders as a back()->withErrors so the
      * picker can prompt a fresh slot. On success we PRG-redirect to the
@@ -348,12 +346,18 @@ class BookingController extends Controller
     }
 
     /**
-     * Join a full event's FIFO waitlist as a guest (SLO-100). Offered only when
-     * the per-event flag AND the tenant feature are on; JoinWaitlist enforces the
+     * Join a full event's FIFO waitlist (SLO-100). Offered only when the
+     * per-event flag AND the tenant feature are on; JoinWaitlist enforces the
      * full-check + no-duplicate rules and assigns a gap-free position, which the
      * confirmation page shows.
+     *
+     * The visitor is resolved like on every other public flow (SLO-228): an email
+     * that belongs to an account elsewhere joins as a guest instead of failing
+     * validation, so the form no longer tells anyone whether an address exists
+     * on the platform (SLO-106). The offer mail reaches a guest just the same, and
+     * booking the event with that email converts the entry.
      */
-    public function storeWaitlist(PublicEventBookingRequest $request, string $tenant, Event $event, JoinWaitlist $joinWaitlist, FindOrCreateCustomer $findOrCreateCustomer): RedirectResponse
+    public function storeWaitlist(PublicEventBookingRequest $request, string $tenant, Event $event, JoinWaitlist $joinWaitlist, ResolvePublicContact $resolvePublicContact): RedirectResponse
     {
         $service = $this->bookableEventService($event);
         $tenantModel = app(TenantManager::class)->current();
@@ -364,12 +368,12 @@ class BookingController extends Controller
         );
 
         $data = $request->validated();
-        $customer = $this->findGuest($findOrCreateCustomer, $data);
-        $entry = $joinWaitlist($event, $customer->id, (int) $data['party_size']);
+        $contact = $this->resolveContact($resolvePublicContact, $data);
+        $entry = $joinWaitlist($event, $contact, (int) $data['party_size']);
 
         // The waitlist shares PublicEventBookingRequest, so its form asks for the
         // same acceptance. Asking without recording would be the worst of both.
-        $this->recordLegalConsent($request, $customer, (string) $data['email'], ConsentContext::EventBooking);
+        $this->recordLegalConsent($request, $contact->customer, $contact->email, ConsentContext::EventBooking);
 
         return redirect('/waitlisted')->with('waitlist', [
             'position' => $entry->position,
@@ -461,25 +465,6 @@ class BookingController extends Controller
     private function resolveContact(ResolvePublicContact $resolvePublicContact, array $data): PublicContact
     {
         return $resolvePublicContact($data['email'], $data['name'], $data['phone'] ?? null);
-    }
-
-    /**
-     * Resolve the visitor into a real customer account, surfacing the "email
-     * belongs to another account" error on the public form's email field.
-     *
-     * Still used by the waitlist join, which cannot take a guest: the offer that
-     * follows is accepted in the members area (`/my/waitlist`), so an account-less
-     * waiter would have no way to claim the seat (SLO-103 opens that up).
-     *
-     * @param  array<string, mixed>  $data
-     */
-    private function findGuest(FindOrCreateCustomer $findOrCreateCustomer, array $data): Customer
-    {
-        try {
-            return $findOrCreateCustomer($data['email'], $data['name'], $data['phone'] ?? null);
-        } catch (ValidationException $e) {
-            throw ValidationException::withMessages(['email' => $e->validator->errors()->first()]);
-        }
     }
 
     /**

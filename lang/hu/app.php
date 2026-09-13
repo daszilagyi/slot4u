@@ -2585,6 +2585,7 @@ return [
             'deadline' => 'A hely eddig a tiéd: :deadline — utána a sorban következőnek ajánljuk fel.',
             'action' => 'Hely lefoglalása',
             'outro' => 'A helyet a foglalás véglegesíti — ha a határidőig nem foglalsz, a hely tovább száll.',
+            'same_email' => 'Foglaláskor ezt az email címet add meg (:email) — erről ismerjük fel, hogy a várólistáról érkezel.',
         ],
         'reminder_24h' => [
             'subject' => 'Emlékeztető: közelgő foglalásod – :tenant',

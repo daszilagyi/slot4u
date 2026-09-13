@@ -87,14 +87,29 @@ class WaitlistService
     /**
      * Close the loop when a waitlisted customer books the event: flip their active
      * entry to `converted`. Returns the number of entries converted (0 when the
-     * booking customer was not on the list).
+     * booker was not on the list).
+     *
+     * A guest booking (no account, SLO-128) converts the guest entry carrying the
+     * same email (SLO-228) — the offer mail sent them to the public booking page,
+     * and the email is the only thing that ties the two rows together. A guest
+     * booking never converts a customer's entry — an email that is a customer of
+     * this tenant resolves to that account on the public form anyway, so the
+     * guest branch has no business matching one.
      */
-    public function markConverted(int $eventId, int $tenantId, int $customerId): int
+    public function markConverted(int $eventId, int $tenantId, ?int $customerId, ?string $guestEmail = null): int
     {
+        if ($customerId === null && blank($guestEmail)) {
+            return 0;
+        }
+
         return WaitlistEntry::query()
             ->where('tenant_id', $tenantId)
             ->where('event_id', $eventId)
-            ->where('customer_id', $customerId)
+            ->when(
+                $customerId !== null,
+                fn ($query) => $query->where('customer_id', $customerId),
+                fn ($query) => $query->whereNull('customer_id')->where('guest_email', $guestEmail),
+            )
             ->whereIn('status', WaitlistStatus::activeValues())
             ->update([
                 'status' => WaitlistStatus::Converted->value,

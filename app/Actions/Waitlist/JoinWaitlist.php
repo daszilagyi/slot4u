@@ -2,6 +2,7 @@
 
 namespace App\Actions\Waitlist;
 
+use App\Actions\Customer\PublicContact;
 use App\Enums\WaitlistStatus;
 use App\Http\Requests\Admin\WaitlistRequest;
 use App\Models\Event;
@@ -15,13 +16,18 @@ use Illuminate\Validation\ValidationException;
  * concurrent joins get distinct, gap-free positions. Rejects a join when the event
  * has no waitlist, still has a free seat (book directly), or already lists the
  * customer. The tenant feature gate lives in {@see WaitlistRequest}.
+ *
+ * The waiter is a customer id (admin join) or a resolved {@see PublicContact}
+ * from the public form, which may be an account-less guest (SLO-228). A guest is
+ * "already listed" when an active entry on the event carries the same email —
+ * the only identity a guest has.
  */
 class JoinWaitlist
 {
     /**
      * @throws ValidationException
      */
-    public function __invoke(Event $event, int $customerId, int $partySize = 1): WaitlistEntry
+    public function __invoke(Event $event, int|PublicContact $waiter, int $partySize = 1): WaitlistEntry
     {
         if (! $event->waitlist_enabled) {
             throw ValidationException::withMessages([
@@ -34,7 +40,11 @@ class JoinWaitlist
         // CreateBooking's event path).
         $tenantId = (int) $event->tenant_id;
 
-        return DB::transaction(function () use ($event, $tenantId, $customerId, $partySize): WaitlistEntry {
+        $contact = is_int($waiter)
+            ? ['customer_id' => $waiter, 'guest_name' => null, 'guest_email' => null, 'guest_phone' => null]
+            : $waiter->recordAttributes();
+
+        return DB::transaction(function () use ($event, $tenantId, $contact, $partySize): WaitlistEntry {
             // Lock the event row so the full-check + position assignment can't race.
             /** @var Event $locked */
             $locked = Event::query()
@@ -52,7 +62,11 @@ class JoinWaitlist
             $alreadyListed = WaitlistEntry::query()
                 ->where('tenant_id', $tenantId)
                 ->where('event_id', $event->id)
-                ->where('customer_id', $customerId)
+                ->when(
+                    $contact['customer_id'] !== null,
+                    fn ($query) => $query->where('customer_id', $contact['customer_id']),
+                    fn ($query) => $query->whereNull('customer_id')->where('guest_email', $contact['guest_email']),
+                )
                 ->whereIn('status', WaitlistStatus::activeValues())
                 ->exists();
 
@@ -72,9 +86,8 @@ class JoinWaitlist
             $entry->fill([
                 'event_id' => $event->id,
                 'service_id' => $event->service_id,
-                'customer_id' => $customerId,
                 'party_size' => $partySize,
-            ]);
+            ] + $contact);
             $entry->position = $position;
             $entry->status = WaitlistStatus::Waiting;
             $entry->save();
