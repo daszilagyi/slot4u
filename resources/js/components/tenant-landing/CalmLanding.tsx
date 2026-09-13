@@ -137,10 +137,16 @@ function Art({
     slot,
     className,
     fallback,
+    fit = 'object-contain',
+    eager = false,
 }: {
     slot: CalmArtSlot;
     className: string;
     fallback: ReactNode;
+    /** `object-cover` for the photos, which fill their frame. */
+    fit?: string;
+    /** The hero picture is the largest paint: never lazy. */
+    eager?: boolean;
 }) {
     const image = CALM_ART[slot];
 
@@ -148,7 +154,8 @@ function Art({
         <Illustration
             image={image}
             className={`block ${className}`}
-            imgClassName="h-full w-full object-contain"
+            imgClassName={`h-full w-full ${fit}`}
+            eager={eager}
         />
     ) : (
         <div aria-hidden className={className}>
@@ -158,6 +165,20 @@ function Art({
 }
 
 function LeafMark({ size = 44 }: { size?: number }) {
+    const mark = CALM_ART.mark;
+
+    if (mark) {
+        return (
+            <span className="block flex-none" style={{ height: size }}>
+                <Illustration
+                    image={mark}
+                    className="block h-full"
+                    imgClassName="h-full w-auto"
+                />
+            </span>
+        );
+    }
+
     return (
         <span className="text-(--calm-sage)">
             <CalmIcon icon="leaf" size={size} />
@@ -376,7 +397,9 @@ function CalmHero({
                     />
                     <Art
                         slot="hero"
-                        className="absolute inset-0"
+                        className="absolute inset-x-0 top-10 bottom-0 lg:top-16"
+                        fit="object-contain object-bottom"
+                        eager
                         fallback={
                             <div className="absolute inset-0 grid place-items-center text-(--calm-mint-line)">
                                 <CalmIcon icon="leaf" size={120} />
@@ -535,7 +558,8 @@ function CalmWhy({ landing }: { landing: PublicLanding }) {
                     <div className="relative h-[220px] lg:h-[300px]">
                         <Art
                             slot="why"
-                            className="h-full w-full"
+                            className="h-full w-[66%]"
+                            fit="object-contain object-left-bottom"
                             fallback={
                                 <div className="grid h-full w-full place-items-center rounded-[20px] bg-white/50 text-(--calm-sage)">
                                     <CalmIcon icon="heart" size={96} />
@@ -598,6 +622,7 @@ function CalmAbout({ landing }: { landing: PublicLanding }) {
                     <Art
                         slot="portrait"
                         className="size-[120px] flex-none overflow-hidden rounded-full lg:size-[140px]"
+                        fit="object-cover"
                         fallback={
                             <span className="grid size-full place-items-center rounded-full bg-(--calm-mint) font-(family-name:--calm-serif) text-4xl font-semibold text-(--calm-sage)">
                                 {initials}
@@ -637,6 +662,7 @@ function CalmAbout({ landing }: { landing: PublicLanding }) {
                 <Art
                     slot="about"
                     className="hidden h-[320px] overflow-hidden rounded-[24px] lg:block"
+                    fit="object-cover"
                     fallback={
                         <div className="grid h-full w-full place-items-center rounded-[24px] bg-(--calm-sand) text-(--calm-mint-line)">
                             <CalmIcon icon="leaf" size={96} />
@@ -860,7 +886,7 @@ function CalmContact({ profile }: { profile: PublicHomeProfile }) {
                 </div>
                 <Art
                     slot="contact"
-                    className="h-[180px] overflow-hidden rounded-[22px] lg:h-auto lg:min-h-[260px] lg:rounded-[24px]"
+                    className="h-[200px] overflow-hidden rounded-[22px] bg-(--calm-sand) p-4 lg:h-[260px] lg:self-center lg:rounded-[24px]"
                     fallback={
                         <div className="grid h-full min-h-[180px] w-full place-items-center rounded-[22px] bg-(--calm-sand) text-(--calm-mint-line) lg:min-h-[260px] lg:rounded-[24px]">
                             <CalmIcon icon="leaf" size={80} />
@@ -868,7 +894,12 @@ function CalmContact({ profile }: { profile: PublicHomeProfile }) {
                     }
                 />
                 {profile.email !== null && (
-                    <div className="flex flex-col justify-center gap-3 rounded-[22px] border border-(--calm-mint) bg-white p-6 lg:gap-4 lg:rounded-[24px] lg:p-8">
+                    <div className="relative flex flex-col justify-center gap-3 rounded-[22px] border border-(--calm-mint) bg-white p-6 lg:gap-4 lg:rounded-[24px] lg:p-8">
+                        <Art
+                            slot="leaves"
+                            className="pointer-events-none absolute -right-4 -bottom-3 hidden w-[120px] xl:block"
+                            fallback={null}
+                        />
                         <h3 className="text-[22px] font-semibold text-(--calm-sage) lg:text-[26px]">
                             {t('tenant.calm.question_title')}
                         </h3>

@@ -15,8 +15,8 @@ Implement: `Lelekut Landing.dc.html`
 ## Megvalósítás (SLO-238, 2026-09-13)
 
 **Daniel döntései:** újrahasználható **„calm" tenant landing-sablon** (nem egyszeri demo-oldal); a vélemény-szekció
-marad, a tenant saját tartalmából; a képeket Daniel a `temp/lelekut/` alá másolja (a design-projektből a 256 KB-os
-export-korlát miatt nem tölthetők le).
+marad, a tenant saját tartalmából; a képeket Daniel a `temp/lelekut/` alá másolta (a design-projektből a 256 KB-os
+export-korlát miatt nem tölthetők le); a budapesti utcakép nincs felhasználva (a designban nincs helye).
 
 | Mi | Hol |
 |---|---|
@@ -24,7 +24,7 @@ export-korlát miatt nem tölthetők le).
 | Oldal | `resources/js/components/tenant-landing/CalmLanding.tsx`, a `Tenant/Home` választja, ha `landing.template === 'calm'`. `PublicLayout bare`: a DEMO-sáv, a skip link, a márkaszín és a cookie-sáv marad, a fejlécet és a láblécet a sablon hozza. |
 | Adatforrás | **Valódi adat:** szolgáltatások (ár, időtartam, `requires_approval` → „Visszaigazolást igényel"), cím, telefon, e-mail, nyitvatartás. **Tenant-tartalom:** szlogen, kiemelések, buborékok, „Miért minket", Rólunk, vélemények, GYIK. **Lang (`tenant.calm.*`):** a sablon feliratai. Üres tartalomnál a szekció nem jelenik meg. |
 | Arculat | `.theme-calm` tokenek (`resources/css/app.css`), self-hostolt **Lora** + **Manrope** (+ Caveat), csak világos téma. |
-| Képek | `calmArt.ts` slotjai: `hero`, `why`, `portrait`, `about`, `contact`. Amíg nincs fájl, a szekció a design szerinti lágy háttérformát rajzolja. Beépítés: fájl a `resources/images/calm/` alá, import a `calmArt.ts`-be. |
+| Képek | `calmArt.ts` slotjai: `hero`, `why`, `portrait`, `about`, `contact`, `mark` (levél-logó), `leaves` (díszítés). A fájlok a `resources/images/calm/` alatt, forrásukat és a feldolgozást (beégetett sakktábla-háttér és szövegbuborék eltávolítva) a mappa `README.md`-je rögzíti. Slot fájl nélkül: a szekció a lágy háttérformát rajzolja. A „miért” buborék szövege a tenant tartalma, nem a képé. |
 | Demo | `PsychologistDemoPersona::landing()` tölti ki a Lélekút szövegeit (prodon az éjszakai `demo:reset` után jelenik meg). |
 | GDPR | A tenant-purge a `landing`-et is törli (a gyakorló neve, bemutatkozása, idézetek). |
 

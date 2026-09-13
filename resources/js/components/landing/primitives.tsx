@@ -72,10 +72,13 @@ export function Illustration({
     image,
     className = '',
     imgClassName = '',
+    eager = false,
 }: {
     image: LandingImage;
     className?: string;
     imgClassName?: string;
+    /** Above the fold: load it with the page, not on scroll. */
+    eager?: boolean;
 }) {
     return (
         <picture aria-hidden className={className}>
@@ -85,7 +88,7 @@ export function Illustration({
                 alt=""
                 width={image.width}
                 height={image.height}
-                loading="lazy"
+                loading={eager ? 'eager' : 'lazy'}
                 decoding="async"
                 draggable={false}
                 className={`block h-auto max-w-full select-none ${imgClassName}`}

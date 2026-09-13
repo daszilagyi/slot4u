@@ -98,7 +98,10 @@ it('server-renders a tenant calm landing, FAQ answers included (SLO-238)', funct
         // The answer is in the markup even while its accordion is closed — the
         // part of the page a crawler most wants.
         ->toContain('A belváros csendes utcájában.')
-        ->toContain('theme-calm');
+        ->toContain('theme-calm')
+        // The hero picture is the largest paint: bundled (so the apex docroot
+        // serves it, SLO-233) and eager, never waiting on a scroll.
+        ->toMatch('#<img[^>]+/build/assets/hero-session-[^>]+loading="eager"#');
 });
 
 it('server-renders the marketing hero, headline and widget included', function () {
