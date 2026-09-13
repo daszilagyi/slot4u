@@ -93,20 +93,21 @@ it('server-renders the marketing hero, headline and widget included', function (
     $rendered = renderedMarkupOnly($content);
 
     expect($rendered)
-        // Both halves of the headline — the accent span is a separate node, and
+        // Every line of the headline — the accent span is a separate node, and
         // splitting it wrongly is exactly the kind of slip that renders as one
-        // run-on sentence nobody notices in a diff.
-        ->toContain('Online foglalás, ami nem kerül semmibe,')
-        ->toContain('amíg nincs miből fizetned')
-        // The caption that answers the objection next to the button.
-        ->toContain('Nem kérünk bankkártyát')
-        // The slot widget is a component, not a picture (docs/21 §2) — which is
-        // only worth anything if it actually renders on the server too.
-        ->toContain('Szabad időpontok')
-        ->toContain('11:15')
+        // run-on sentence nobody notices in a diff (SLO-229 design).
+        ->toContain('Te pihenj,')
+        ->toContain('a foglalást')
+        ->toContain('mi intézzük.')
+        // The reassurance next to the buttons.
+        ->toContain('Nincs bankkártya')
+        // The slot card is markup, not a picture — which is only worth anything
+        // if it actually renders on the server too.
+        ->toContain('Foglalás sikeres!')
+        ->toContain('10:30')
         // Header nav and the footer's own copy: the shell around the hero.
         ->toContain('Funkciók')
-        ->toContain('Magyar fejlesztés');
+        ->toContain('Online időpontfoglaló rendszer kisvállalkozásoknak.');
 });
 
 it('server-renders the middle of the landing page too', function () {
@@ -120,18 +121,17 @@ it('server-renders the middle of the landing page too', function () {
     $rendered = renderedMarkupOnly($content);
 
     expect($rendered)
-        // The assurance strip — and ⚠️ specifically NOT a customer count or a
-        // tenant logo. Every claim here is one that holds with zero customers.
-        ->toContain('Adataid az EU-ban')
-        ->toContain('Nincs havidíj')
-        // Three steps, and the product showcase behind them.
-        ->toContain('Három lépés')
-        ->toContain('Kiteszed a linked')
-        ->toContain('A naptár, ami helyetted figyel')
-        // Two of the six feature blocks, including one of the pair added to
-        // reach the 2×3 grid — both are shipped features, not promises.
-        ->toContain('Ütközésmentes naptár')
-        ->toContain('Online fizetés');
+        // The audience strip — trades, and ⚠️ specifically NOT a customer count
+        // or a tenant logo. It holds with zero customers.
+        ->toContain('Szépségszalonok')
+        // Three steps, the tools, the booking modes and the calendar (SLO-229).
+        ->toContain('Hogyan működik?')
+        ->toContain('Beállítod a szolgáltatásaidat')
+        ->toContain('Automatikus értesítések')
+        ->toContain('Ajánlatkérés alapú szolgáltatás')
+        ->toContain('Napi és heti nézet')
+        // The pricing the design did not have and the page keeps.
+        ->toContain('fizetsz, ha keresel');
 });
 
 it('server-renders the demo section without loading the demo itself', function () {
@@ -187,7 +187,7 @@ it('server-renders the closing block, FAQ answers included', function () {
         // towards turnover (docs/10 §3). A surprise line on the first invoice
         // costs more trust than this sentence does.
         ->toContain('no-show és a 24 órán belüli lemondás viszont beleszámít')
-        ->toContain('A regisztráció ingyenes');
+        ->toContain('Készen állsz, hogy egyszerűbb legyen a foglalás?');
 
     // The structured data ships with the answers, so a search result can show
     // them without a click.

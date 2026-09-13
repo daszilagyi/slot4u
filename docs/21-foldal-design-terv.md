@@ -1,6 +1,9 @@
 # slot4u — főoldal design-terv (arculat, képek, animációk, Claude Design → Claude Code átadás)
 
 > Státusz: ÉRVÉNYES, 2026-09-03. Felülírja a korábbi teal/violet arculati irányt.
+> ⚠️ **2026-09-13 (SLO-229): a marketing felület új vizuális iránya a „Slot4u Landing" Claude Design** —
+> a megvalósítás és a döntések a doksi végén, a **6. fejezetben**. Az 1. fejezet tokenjei az admin és a
+> tenant felületekre továbbra is érvényesek; a `MarketingLayout` saját tokeneket kap (`.theme-landing`).
 > ⚠️ **Stack-korrekció (2026-09-06):** ez a doksi eredetileg Astrót és `tailwind.config`-ot
 > feltételezett. A valóság: **Inertia v3 + React 19 SSR** (CLAUDE.md — egy kódbázis, nincs külön
 > frontend) és **Tailwind CSS 4**, ahol nincs `tailwind.config`: a tokenek a `resources/css/app.css`
@@ -301,3 +304,48 @@ Claude Code nem „látja” a Claude Design-vásznat, fájlokat lát. Ezért az
 6. **Ellenőrzés.** Claude Code Playwright-screenshotot készít 1440 és 390 px-en, egymás mellé teszi az exporttal; eltérésnél a tervet követi, nem a saját ízlését.
 
 Ha Claude Design nem ad HTML-exportot, a PNG + ez a doksi + a tokenek együtt bőven elég: a táblázat mondja meg a szerkezetet, a kép a vizuált, a config a színt.
+
+
+2026.09.13
+Use the claude_design MCP (https://api.anthropic.com/v1/design/mcp, auth via /design-login) to import this project:
+https://claude.ai/design/p/5aa70114-9269-4c1c-9f4a-b303de237a7d?file=Slot4u+Landing.dc.html
+
+Focus on these files (the whole project is readable):
+- `Slot4u Landing.dc.html`
+
+Also read these files the selection imports:
+- `image-slot.js`
+- `support.js`
+
+Implement: `Slot4u Landing.dc.html`
+
+---
+
+## 6. Megvalósítás: „Slot4u Landing" (SLO-229, 2026-09-13)
+
+A fenti import-utasítás (Claude Design projekt, `Slot4u Landing.dc.html`) alapján készült. A design az
+oldal **szerkezetét és vizuális nyelvét** adja; ahol ütközött a kóddal vagy egy korábbi döntéssel, Daniel
+döntött (2026-09-13):
+
+| Kérdés | Döntés | Hol él |
+|---|---|---|
+| Szín és font | **Csak a marketing felületen** az új look: navy `#0f2547`, sárga `#f6c34a`, krém `#fbe7b4`, **Nunito** + kézírásos **Caveat**. Az admin és a tenant oldalak az 1. fejezet tokenjein maradnak. A fontok self-hostoltak (`@fontsource`, docs/19: nincs Google Fonts CDN). | `resources/css/app.css` `.theme-landing` · `MarketingLayout` |
+| Árazás | **Marad**, új stílusban. A designban nincs árazás-szekció, a termék ajánlata viszont maga az ár (docs/10). | `components/landing/Pricing.tsx` |
+| „Próbáld ki élőben" | A design **elrendezése** (persona-kártyák, kapcsoló, böngésző-keret), de a keretben az **élő iframe** fut (2.1), nem a design kitalált áraival rajzolt makett. | `components/landing/TryItLive.tsx` |
+| Lajhár-illusztrációk | A design helyőrzőinek **szerveroldali slotok** felelnek meg: `public/brand/{slot}.{svg,webp,png}`. Ami nem létezik, az nem renderelődik, se üres keret, se 404 (`App\Support\MarketingArt`). Slotok: `hero`, `step-register`, `step-setup`, `step-bookings`, `sofa`, `peek`, `cta`. | SLO-202 szállítja az asseteket |
+| Nem létező oldalak | A footer Blog / Karrier / Rólunk / Tudástár linkjei és a közösségi ikonok **kimaradnak**; a nav „Referenciák" helyett „Próbáld ki" (#demo). | `MarketingLayout` |
+
+**Szöveg-korrekciók** (a design javaslat volt, nem szerződés):
+
+* „Max csomagban online fizetés és Számlázz.hu" → a csomagok megszűntek (docs/10), a számlázó integráció a **Billingo**.
+* „Napi, heti és havi nézet" → az admin naptárnak **napi és heti** nézete van.
+* „Teljes funkcionalitás", „Bármikor lemondható" → ellenőrizhető állításra cserélve („Nincs havidíj", „Adataid az EU-ban").
+* A „14 nap ingyenes próba" a `CreateNewUser::TRIAL_DAYS` értéke; ha az változik, a lang-sor is.
+
+**Szekciók sorrendje:** Nav · Hero · Célcsoport-sáv · Hogyan működik · Eszközök · Rugalmas foglalási módok ·
+Naptár-bemutató · **Árazás** · Próbáld ki élőben · GYIK · Záró sáv · Footer.
+
+⚠️ A `/autoszerviz` vertikális landing ugyanazt a layoutot, demo-szekciót és GYIK-et használja, ezért a
+fejléc, a footer, a színek és a font ott is az új. A vertikális oldal saját szekcióinak újrarajzolása
+külön feladat.
+

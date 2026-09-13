@@ -1,4 +1,13 @@
-import { ExternalLink, LayoutDashboard } from 'lucide-react';
+import {
+    Brain,
+    Dumbbell,
+    ExternalLink,
+    LayoutDashboard,
+    PartyPopper,
+    Scissors,
+    Store,
+    Wrench,
+} from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import { trackDemo } from '@/lib/analytics';
@@ -24,11 +33,20 @@ import type { DemoPersona } from '@/types';
  *  - the whole demo is rebuilt at 03:00, so nothing a visitor breaks outlasts
  *    the night (`demo:reset`, SLO-191).
  *
- * ⚠️ No yellow in here. The palette allows one highlight CTA per screen and this
- * page spends both of its on the hero and the closing block (docs/21 §1); the
- * yellow that does appear is a 3px marker on the selected card, which is the one
- * use the spec carves out.
+ * Drawn in the "Slot4u Landing" look (SLO-229): yellow-bordered selected card,
+ * yellow icon tiles, a navy browser frame. The design's frame showed a static
+ * mock with invented prices; this one keeps the running demo inside it (Daniel,
+ * 2026-09-13), so nothing in it has to be kept in sync by hand.
  */
+
+/** A persona's icon tile. Unknown slugs get a shopfront rather than nothing. */
+const PERSONA_ICONS: Record<string, typeof Store> = {
+    'demo-pszichologus': Brain,
+    'demo-szepsegszalon': Scissors,
+    'demo-fitnesz': Dumbbell,
+    'demo-rendezvenyhaz': PartyPopper,
+    'demo-autoszerviz': Wrench,
+};
 
 /**
  * Tailwind's `lg` breakpoint, in JS.
@@ -89,7 +107,9 @@ export default function TryItLive({
     // Both gates, not either: in view AND on a screen the frame is shown on.
     const framed = seen && desktop;
 
-    const shown = only ? personas.filter((item) => item.slug === only) : personas;
+    const shown = only
+        ? personas.filter((item) => item.slug === only)
+        : personas;
 
     const [selected, setSelected] = useState(0);
     const [adminView, setAdminView] = useState(false);
@@ -123,7 +143,10 @@ export default function TryItLive({
 
     /** Every event this section reports, tagged with the landing it happened on. */
     const track: typeof trackDemo = (event, params = {}) =>
-        trackDemo(event, vertical === undefined ? params : { ...params, vertical });
+        trackDemo(
+            event,
+            vertical === undefined ? params : { ...params, vertical },
+        );
 
     const select = (index: number, slug: string) => {
         setSelected(index);
@@ -144,7 +167,9 @@ export default function TryItLive({
     const adminLinkStale = (): boolean =>
         Date.parse(persona.admin_url_expires_at) - Date.now() < 60_000;
 
-    const refreshForAdmin = (event: { preventDefault: () => void }): boolean => {
+    const refreshForAdmin = (event: {
+        preventDefault: () => void;
+    }): boolean => {
         if (!adminLinkStale()) {
             return false;
         }
@@ -156,21 +181,19 @@ export default function TryItLive({
     };
 
     return (
-        <section
-            id="demo"
-            // The 1px ice hairline along the top edge — ice is a line colour in
-            // this identity and never a fill (docs/21 §1).
-            className="border-t border-ice/60 bg-brand-100/50"
-        >
-            <div className="mx-auto w-full max-w-5xl px-4 py-16 sm:px-6 sm:py-20">
-                <h2 className="text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
+        <section id="demo" className="scroll-mt-20 bg-canvas">
+            <div className="mx-auto w-full max-w-[1440px] px-4 pt-16 pb-[72px] sm:px-8 lg:px-14">
+                <h2 className="mb-2.5 text-3xl font-black text-balance text-navy sm:text-4xl">
                     {title ?? t('welcome.demo_title')}
                 </h2>
-                <p className="mt-3 max-w-2xl text-ink-muted">
+                <p className="max-w-[620px] text-base leading-relaxed text-ink-muted">
                     {lead ?? t('welcome.demo_lead')}
                 </p>
 
-                <div ref={ref} className="mt-10 grid gap-6 lg:grid-cols-[5fr_7fr] lg:items-start">
+                <div
+                    ref={ref}
+                    className="mt-8 grid gap-8 lg:grid-cols-[0.8fr_1.2fr] lg:items-start"
+                >
                     {showList && (
                         <>
                             {/* Mobile: a scrollable chip row. The full cards carry
@@ -183,10 +206,10 @@ export default function TryItLive({
                                         type="button"
                                         onClick={() => select(index, item.slug)}
                                         aria-pressed={index === selected}
-                                        className={`ease-brand shrink-0 rounded-full border px-4 py-2 text-sm whitespace-nowrap transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-ice focus-visible:outline-none ${
+                                        className={`shrink-0 rounded-full border-2 px-4 py-2 text-sm font-bold whitespace-nowrap transition-colors duration-200 ease-brand focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none ${
                                             index === selected
-                                                ? 'border-navy bg-navy text-canvas'
-                                                : 'border-line bg-card text-ink-muted'
+                                                ? 'border-navy bg-navy text-white'
+                                                : 'border-line bg-white text-navy'
                                         }`}
                                     >
                                         {item.name}
@@ -194,7 +217,7 @@ export default function TryItLive({
                                 ))}
                             </div>
 
-                            <div className="hidden flex-col gap-3 lg:flex">
+                            <div className="hidden flex-col gap-3.5 lg:flex">
                                 {shown.map((item, index) => (
                                     <PersonaCard
                                         key={item.slug}
@@ -202,17 +225,25 @@ export default function TryItLive({
                                         size={copy(item.slug, 'size')}
                                         tryThis={copy(item.slug, 'try')}
                                         selected={index === selected}
-                                        onSelect={() => select(index, item.slug)}
+                                        onSelect={() =>
+                                            select(index, item.slug)
+                                        }
                                         onAdminClick={refreshForAdmin}
-                                        bookLabel={t('welcome.demo_book_as_customer')}
-                                        adminLabel={t('welcome.demo_view_admin')}
+                                        bookLabel={t(
+                                            'welcome.demo_book_as_customer',
+                                        )}
+                                        adminLabel={t(
+                                            'welcome.demo_view_admin',
+                                        )}
                                     />
                                 ))}
                             </div>
                         </>
                     )}
 
-                    <div className={showList ? '' : 'lg:col-span-2'}>
+                    <div
+                        className={`lg:sticky lg:top-24 ${showList ? '' : 'lg:col-span-2'}`}
+                    >
                         <ViewToggle
                             adminView={adminView}
                             onChange={(value) => {
@@ -223,16 +254,25 @@ export default function TryItLive({
                                 }
 
                                 setAdminView(value);
-                                track(value ? 'demo_open_admin' : 'demo_open_public', {
-                                    persona: persona.slug,
-                                    surface: 'frame',
-                                });
+                                track(
+                                    value
+                                        ? 'demo_open_admin'
+                                        : 'demo_open_public',
+                                    {
+                                        persona: persona.slug,
+                                        surface: 'frame',
+                                    },
+                                );
                             }}
                             customerLabel={t('welcome.demo_view_customer')}
                             adminLabel={t('welcome.demo_view_admin')}
                         />
 
-                        <BrowserFrame host={host} live={framed} typed={!reduced}>
+                        <BrowserFrame
+                            host={host}
+                            live={framed}
+                            typed={!reduced}
+                        >
                             {framed ? (
                                 <div
                                     // Keyed on the URL, so switching persona or
@@ -242,7 +282,7 @@ export default function TryItLive({
                                     // button into something nobody expects. The
                                     // remount is also what replays the entrance.
                                     key={frameUrl}
-                                    className="h-full w-full animate-in fade-in slide-in-from-bottom-2 duration-[250ms]"
+                                    className="h-full w-full animate-in duration-[250ms] fade-in slide-in-from-bottom-2"
                                 >
                                     <iframe
                                         src={frameUrl}
@@ -272,7 +312,7 @@ export default function TryItLive({
                             )}
                         </BrowserFrame>
 
-                        <p className="mt-3 text-[13px] text-ink-muted">
+                        <p className="mt-3.5 text-xs text-ink-muted">
                             {caption ?? t('welcome.demo_caption')}
                         </p>
 
@@ -290,7 +330,7 @@ export default function TryItLive({
                                     surface: 'mobile',
                                 })
                             }
-                            className="ease-brand mt-4 block rounded-[10px] bg-primary px-4 py-3 text-center font-medium text-primary-foreground transition-transform duration-200 hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-ice focus-visible:outline-none lg:hidden"
+                            className="mt-4 block rounded-[10px] bg-navy px-4 py-3 text-center font-extrabold text-white transition-colors duration-200 hover:bg-[var(--navy-soft)] focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none lg:hidden"
                         >
                             {t('welcome.demo_open')}
                         </a>
@@ -321,43 +361,67 @@ function PersonaCard({
     bookLabel: string;
     adminLabel: string;
 }) {
+    const Icon = PERSONA_ICONS[persona.slug] ?? Store;
+
+    // The lang line reads "Próbáld: …" — the design sets the lead-in in bold.
+    const [tryLead, ...tryRest] = (tryThis ?? '').split(':');
+    const tryBody = tryRest.join(':').trim();
+
     return (
         <div
-            className={`ease-brand rounded-[14px] border p-4 transition-colors duration-200 ${
+            className={`rounded-[18px] border-2 px-6 py-5 shadow-[0_4px_16px_rgba(15,37,71,.05)] transition-colors duration-200 ease-brand ${
                 selected
-                    ? // The 3px yellow marker docs/21 §2.1 calls for — a marker,
-                      // not a fill. `border-l-[3px]` on every state keeps the
-                      // text from shifting 2px sideways on selection.
-                      'border-line border-l-[3px] border-l-highlight bg-card'
-                    : 'border-line border-l-[3px] border-l-transparent bg-transparent hover:bg-card/60'
+                    ? 'border-highlight bg-white'
+                    : 'border-line bg-canvas/50 hover:bg-white'
             }`}
         >
             <button
                 type="button"
                 onClick={onSelect}
                 aria-pressed={selected}
-                className="w-full text-left focus-visible:ring-2 focus-visible:ring-ice focus-visible:outline-none"
+                className="grid w-full gap-2 text-left focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none"
             >
-                <div className="flex items-baseline justify-between gap-3">
-                    <p className="font-medium text-ink">{persona.name}</p>
+                <span className="flex items-center gap-3">
+                    <span
+                        className="grid size-10 shrink-0 place-items-center rounded-xl bg-highlight text-navy"
+                        aria-hidden
+                    >
+                        <Icon className="size-5" strokeWidth={2} />
+                    </span>
+                    <strong className="text-[17px] text-navy">
+                        {persona.name}
+                    </strong>
                     {size !== null && (
-                        <span className="shrink-0 rounded-full bg-brand-100 px-2 py-0.5 text-[11px] text-brand">
+                        <span className="ml-auto shrink-0 rounded-full bg-brand-200 px-2.5 py-1 text-[11px] font-extrabold whitespace-nowrap text-brand">
                             {size}
                         </span>
                     )}
-                </div>
+                </span>
                 {persona.description !== null && (
-                    <p className="mt-1 text-sm text-ink-muted">{persona.description}</p>
+                    <span className="text-sm leading-normal text-ink-muted">
+                        {persona.description}
+                    </span>
                 )}
                 {tryThis !== null && (
-                    <p className="mt-2 text-[13px] text-ink-muted">{tryThis}</p>
+                    <span className="text-[13px] leading-normal text-ink-muted">
+                        {tryBody !== '' ? (
+                            <>
+                                <strong className="text-navy">
+                                    {tryLead}:
+                                </strong>{' '}
+                                {tryBody}
+                            </>
+                        ) : (
+                            tryThis
+                        )}
+                    </span>
                 )}
             </button>
 
             {/* Two ways out of the card, both to a new tab: the visitor came here
                 to compare, and a demo that replaces the landing page is a demo
                 they have to find their way back from. */}
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap gap-2.5">
                 <a
                     href={persona.public_url}
                     target="_blank"
@@ -368,9 +432,13 @@ function PersonaCard({
                             surface: 'card',
                         })
                     }
-                    className="ease-brand inline-flex items-center gap-1.5 rounded-[10px] bg-primary px-3 py-2 text-sm font-medium text-primary-foreground transition-transform duration-200 hover:-translate-y-px focus-visible:ring-2 focus-visible:ring-ice focus-visible:outline-none"
+                    className="inline-flex items-center gap-2 rounded-[10px] bg-navy px-4 py-2.5 text-[13px] font-extrabold whitespace-nowrap text-white transition-colors duration-200 hover:bg-[var(--navy-soft)] focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none"
                 >
-                    <ExternalLink className="size-4" strokeWidth={1.75} aria-hidden />
+                    <ExternalLink
+                        className="size-3.5"
+                        strokeWidth={2}
+                        aria-hidden
+                    />
                     {bookLabel}
                 </a>
                 <a
@@ -387,9 +455,13 @@ function PersonaCard({
                             surface: 'card',
                         });
                     }}
-                    className="ease-brand inline-flex items-center gap-1.5 rounded-[10px] border border-line px-3 py-2 text-sm font-medium text-ink transition-colors duration-200 hover:border-navy focus-visible:ring-2 focus-visible:ring-ice focus-visible:outline-none"
+                    className="inline-flex items-center gap-2 rounded-[10px] border-2 border-line bg-white px-4 py-2 text-[13px] font-extrabold whitespace-nowrap text-navy transition-colors duration-200 hover:border-navy focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none"
                 >
-                    <LayoutDashboard className="size-4" strokeWidth={1.75} aria-hidden />
+                    <LayoutDashboard
+                        className="size-3.5"
+                        strokeWidth={2}
+                        aria-hidden
+                    />
                     {adminLabel}
                 </a>
             </div>
@@ -409,7 +481,7 @@ function ViewToggle({
     adminLabel: string;
 }) {
     return (
-        <div className="mb-3 hidden w-fit rounded-[10px] border border-line bg-card p-1 lg:flex">
+        <div className="mb-3.5 hidden w-fit gap-1 rounded-xl border-2 border-line bg-white p-1 lg:flex">
             {[
                 { admin: false, label: customerLabel },
                 { admin: true, label: adminLabel },
@@ -419,10 +491,10 @@ function ViewToggle({
                     type="button"
                     onClick={() => onChange(option.admin)}
                     aria-pressed={adminView === option.admin}
-                    className={`ease-brand rounded-[8px] px-3 py-1.5 text-sm transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-ice focus-visible:outline-none ${
+                    className={`rounded-[9px] px-4 py-2 text-[13px] font-extrabold transition-colors duration-200 ease-brand focus-visible:ring-2 focus-visible:ring-brand focus-visible:outline-none ${
                         adminView === option.admin
-                            ? 'bg-primary text-primary-foreground'
-                            : 'text-ink-muted hover:text-ink'
+                            ? 'bg-navy text-white'
+                            : 'text-navy hover:bg-canvas'
                     }`}
                 >
                     {option.label}
@@ -446,11 +518,20 @@ function BrowserFrame({
     const shownHost = useTypedText(host, typed);
 
     return (
-        <div className="shadow-float hidden overflow-hidden rounded-[14px] border border-line bg-card lg:block">
-            <div className="flex items-center gap-2 bg-navy px-4 py-2.5">
-                <span className="size-2.5 rounded-full bg-canvas/25" aria-hidden />
-                <span className="size-2.5 rounded-full bg-canvas/25" aria-hidden />
-                <span className="size-2.5 rounded-full bg-canvas/25" aria-hidden />
+        <div className="hidden overflow-hidden rounded-[18px] bg-navy shadow-[0_30px_60px_rgba(15,37,71,.2)] lg:block">
+            <div className="flex items-center gap-2 border-b border-white/10 px-4 py-3">
+                <span
+                    className="size-2.5 rounded-full bg-ink-muted"
+                    aria-hidden
+                />
+                <span
+                    className="size-2.5 rounded-full bg-ink-muted"
+                    aria-hidden
+                />
+                <span
+                    className="size-2.5 rounded-full bg-ink-muted"
+                    aria-hidden
+                />
                 {/*
                     The address bar carries the real host, and that is the whole
                     point: `demo-fitnesz.slot4u.hu` is what the visitor's own
@@ -460,7 +541,7 @@ function BrowserFrame({
                     character by character on every switch, and announcing each
                     frame of that would read the URL aloud a dozen times.
                 */}
-                <p className="ml-2 truncate font-mono text-[11px] text-canvas/70">
+                <p className="ml-3 truncate font-mono text-xs text-mist">
                     {shownHost}
                 </p>
                 {/* "Live", said with a green dot — the section's entire claim in

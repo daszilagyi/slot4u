@@ -48,8 +48,13 @@ function hasQuestion(consent: ConsentSharedProps): boolean {
     return consent.askable.length > 0 || consent.decided;
 }
 
-/** The "cookie settings" affordance for a footer. */
-export function CookieSettingsLink() {
+/**
+ * The "cookie settings" affordance for a footer. `className` replaces the
+ * default look — a navy footer needs a light hover, not the page's ink.
+ */
+export function CookieSettingsLink({
+    className = 'text-xs underline underline-offset-2 hover:text-foreground',
+}: { className?: string } = {}) {
     const t = useTranslations();
     const { consent } = usePage().props;
 
@@ -61,7 +66,7 @@ export function CookieSettingsLink() {
         <button
             type="button"
             onClick={openCookieSettings}
-            className="text-xs underline underline-offset-2 hover:text-foreground"
+            className={className}
         >
             {t('consent.settings')}
         </button>
