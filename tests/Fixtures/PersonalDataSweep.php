@@ -53,8 +53,17 @@ final class PersonalDataSweep
                     continue;
                 }
 
+                // ⚠️ Both spellings. A JSON column stores "Nagy Béla" as
+                // "Nagy B\u00e9la" (json_encode escapes non-ASCII by default),
+                // so a plain LIKE never finds an accented name inside one — and
+                // until SLO-238 this sweep was blind to every JSON column for
+                // exactly the Hungarian names its fixtures use.
                 $found = DB::table($table)
-                    ->where($column['name'], 'like', '%'.$needle.'%')
+                    ->where(function ($query) use ($column, $needle): void {
+                        foreach (self::spellings($needle) as $spelling) {
+                            $query->orWhere($column['name'], 'like', '%'.$spelling.'%');
+                        }
+                    })
                     ->exists();
 
                 if ($found) {
@@ -72,6 +81,16 @@ final class PersonalDataSweep
      * match on the test database, and the sweep would quietly search the queue
      * tables too.
      */
+    /**
+     * The needle as written, and as json_encode() writes it inside a JSON column.
+     *
+     * @return list<string>
+     */
+    private static function spellings(string $needle): array
+    {
+        return array_values(array_unique([$needle, substr((string) json_encode($needle), 1, -1)]));
+    }
+
     private static function bare(string $table): string
     {
         return str_contains($table, '.') ? substr($table, strrpos($table, '.') + 1) : $table;

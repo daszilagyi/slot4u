@@ -293,6 +293,9 @@ final class PurgeTenant
         $tenant->forceFill([
             'settings' => $settings,
             'branding' => null,
+            // The landing page's words: the practitioner's name and bio, the
+            // clients quoted on it (SLO-238). About people, so they go.
+            'landing' => null,
             'invoicing' => null,
         ])->saveQuietly();
     }

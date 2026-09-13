@@ -638,6 +638,33 @@ export type PublicHomeService = {
     duration_minutes: number | null;
     price_minor: number;
     currency: string;
+    /** Confirmed by hand before it is accepted (SLO-238 badges it). */
+    requires_approval: boolean;
+};
+
+/** An icon the calm landing template can draw (TenantLanding::ICONS). */
+export type LandingIcon = 'leaf' | 'heart' | 'people' | 'shield' | 'calendar';
+
+/** A tenant's landing template and its content (SLO-238, TenantLanding). */
+export type PublicLanding = {
+    template: 'default' | 'calm';
+    brand_title: string | null;
+    brand_subtitle: string | null;
+    tagline: string | null;
+    lead: string | null;
+    highlights: { icon: LandingIcon; label: string }[];
+    bubbles: string[];
+    motto: string | null;
+    why_quote: string | null;
+    why_items: { icon: LandingIcon; title: string; text: string }[];
+    about: {
+        name: string | null;
+        title: string | null;
+        bio: string | null;
+        chips: string[];
+    };
+    testimonials: { name: string; text: string }[];
+    faq: { q: string; a: string }[];
 };
 
 export type PublicHomeCategory = {

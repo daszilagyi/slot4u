@@ -10,7 +10,8 @@ Minden tenant-tulajdonú táblán: `tenant_id` (indexelt, FK), `created_at/updat
 
 ```
 tenants            id, name, slug(subdomain), status(trial|active|suspended|archived),
-                   timezone, locale, branding(json: logó, színek), settings(json)
+                   timezone, locale, branding(json: logó, színek), settings(json),
+                   landing(json, nullable: landing-sablon + tartalom, SLO-238 — NEM a settings-ben, mert azt a beállítások-oldal újraírja)
 tenant_domains     id, tenant_id, domain(UNIQUE), verification_token, verified_at,
                    is_primary, last_checked_at, last_error,              -- egyedi domain (feature_custom_domain, SLO-42)
                    provider_hostname_id, provisioning_status(pending|active|failed),

@@ -24,6 +24,13 @@
  */
 @import '@fontsource-variable/nunito';
 @import '@fontsource/caveat/700.css';
+/*
+ * The calm tenant landing template's faces (SLO-238, docs/25): Lora for
+ * headings, Manrope for text. Self-hosted like the rest; they only download
+ * on a page that uses them.
+ */
+@import '@fontsource-variable/lora';
+@import '@fontsource-variable/manrope';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
@@ -360,6 +367,46 @@
     --primary: var(--navy);
 
     font-family: var(--display-family);
+}
+
+/*
+ * The calm tenant landing template (SLO-238, docs/25) — warm paper, deep sage,
+ * a serif for headings. Scoped to the template's wrapper, and light-only: the
+ * design has no dark version, and a tenant's visitor should see the page the
+ * practice chose regardless of the toggle on the app's own screens.
+ */
+.theme-calm {
+    --calm-paper: #faf6ef;
+    --calm-sand: #f1e9db;
+    --calm-cream: #f6eee0;
+    --calm-sage: #2f5d4a;
+    --calm-sage-deep: #264d3d;
+    --calm-mint: #dce8dd;
+    --calm-mint-line: #b9cdbd;
+    --calm-rule: #e6e0d3;
+    --calm-text: #5a544c;
+    --calm-muted: #7a736a;
+    --calm-blush: #f3d9cf;
+    --calm-rose: #d97c7c;
+    --calm-amber: #b0692f;
+    --calm-amber-soft: #fbebdd;
+    --calm-star: #e2a93b;
+
+    --calm-serif: 'Lora Variable', 'Lora', Georgia, 'Times New Roman', serif;
+    --calm-sans:
+        'Manrope Variable', 'Manrope', ui-sans-serif, system-ui, sans-serif;
+
+    background-color: var(--calm-paper);
+    color: var(--calm-text);
+    font-family: var(--calm-sans);
+    color-scheme: light;
+}
+
+.theme-calm h1,
+.theme-calm h2,
+.theme-calm h3 {
+    font-family: var(--calm-serif);
+    letter-spacing: normal;
 }
 
 /* The landing's two loops: the mascot's slow hover, and one pop on the picked

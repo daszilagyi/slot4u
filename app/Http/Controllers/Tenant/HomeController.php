@@ -9,6 +9,7 @@ use App\Models\Service;
 use App\Models\ServiceCategory;
 use App\Services\Seo\OgImageGenerator;
 use App\Settings\TenantBranding;
+use App\Settings\TenantLanding;
 use App\Settings\TenantSettings;
 use App\Tenancy\TenantManager;
 use App\Tenancy\TenantPublicUrl;
@@ -65,6 +66,9 @@ class HomeController extends Controller
             ],
             'categories' => $this->serviceCatalogue(),
             'locations' => $this->locations(),
+            // Which home page to draw and its words (SLO-238). The template is
+            // chosen per tenant; anything but `calm` keeps the default page.
+            'landing' => TenantLanding::fromArray($tenant->landing)->toProps(),
         ]);
     }
 
@@ -80,7 +84,7 @@ class HomeController extends Controller
         $services = Service::query()
             ->where('active', true)
             ->orderBy('name')
-            ->get(['id', 'category_id', 'name', 'description', 'booking_mode', 'duration_minutes', 'price_minor', 'currency']);
+            ->get(['id', 'category_id', 'name', 'description', 'booking_mode', 'duration_minutes', 'price_minor', 'currency', 'requires_approval']);
 
         /** @var Collection<int|string, Collection<int, Service>> $byCategory */
         $byCategory = $services->groupBy(fn (Service $service) => $service->category_id ?? 'none');
@@ -128,6 +132,9 @@ class HomeController extends Controller
             'duration_minutes' => $service->duration_minutes,
             'price_minor' => (int) $service->price_minor,
             'currency' => $service->currency,
+            // The calm template badges a service that is confirmed by hand
+            // (SLO-238) — a first consultation is screened before it is accepted.
+            'requires_approval' => (bool) $service->requires_approval,
         ];
     }
 

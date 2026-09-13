@@ -101,6 +101,17 @@ abstract class DemoPersona
     }
 
     /**
+     * The tenant's landing template and its content (`tenants.landing`,
+     * SLO-238) — null keeps the default public home page.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function landing(): ?array
+    {
+        return null;
+    }
+
+    /**
      * The admin's email. A non-deliverable domain by design (docs/20 §2): even
      * with the SLO-182 mail guardrail removed, there is no mailbox on the other
      * end of these addresses.
@@ -132,6 +143,7 @@ abstract class DemoPersona
         // `is_demo` is deliberately not fillable (SLO-182) — it lifts
         // restrictions, so it is set on a model in hand, never from an array.
         $tenant->is_demo = true;
+        $tenant->landing = $this->landing();
         $tenant->save();
 
         // Seeders normally run with model events muted, which would skip

@@ -181,6 +181,10 @@ it('serves a public page a visitor can actually book on', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->where('profile.name', 'Lélekút Pszichológiai Rendelő')
+            // The calm landing template, with the practice's own words (SLO-238).
+            ->where('landing.template', 'calm')
+            ->where('landing.about.name', 'dr. Vas Emese')
+            ->has('landing.faq', 5)
             // Four services across the two categories.
             ->where('categories.0.services.0.name', 'Egyéni konzultáció'));
 
