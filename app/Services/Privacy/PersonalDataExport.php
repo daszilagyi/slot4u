@@ -169,7 +169,8 @@ final class PersonalDataExport
     {
         return WaitlistEntry::query()
             ->with(['service:id,name', 'event:id,starts_at'])
-            ->where('customer_id', $user->id)
+            // A place held as a guest under the same address is theirs too (SLO-228).
+            ->where(fn ($query) => $this->matchesSubject($query, $user))
             ->orderBy('id')
             ->get()
             ->map(fn (WaitlistEntry $entry): array => [
@@ -180,6 +181,9 @@ final class PersonalDataExport
                 // service, identified by when it starts (docs/04 §3).
                 'event_starts_at' => $entry->event?->starts_at->toIso8601String(),
                 'party_size' => $entry->party_size,
+                'guest_name' => $entry->guest_name,
+                'guest_email' => $entry->guest_email,
+                'guest_phone' => $entry->guest_phone,
                 'created_at' => $entry->created_at?->toIso8601String(),
             ])
             ->all();

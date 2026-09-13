@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\WaitlistStatus;
 use App\Models\Concerns\BelongsToTenant;
+use App\Models\Concerns\HasGuestContact;
 use App\Services\Booking\WaitlistService;
 use Database\Factories\WaitlistEntryFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -17,11 +18,17 @@ use Illuminate\Support\Carbon;
  * action + {@see WaitlistService}, never mass-assigned from
  * request input. Tenant-isolated via BelongsToTenant.
  *
+ * The waiter is either a customer account or an account-less guest whose
+ * contact details live on the entry (SLO-228, as on bookings — SLO-128).
+ *
  * @property int $id
  * @property int $tenant_id
  * @property int|null $event_id
  * @property int|null $service_id
- * @property int $customer_id
+ * @property int|null $customer_id
+ * @property string|null $guest_name
+ * @property string|null $guest_email
+ * @property string|null $guest_phone
  * @property int $party_size
  * @property int $position
  * @property WaitlistStatus $status
@@ -30,7 +37,7 @@ use Illuminate\Support\Carbon;
 class WaitlistEntry extends Model
 {
     /** @use HasFactory<WaitlistEntryFactory> */
-    use BelongsToTenant, HasFactory;
+    use BelongsToTenant, HasFactory, HasGuestContact;
 
     /**
      * @var list<string>
@@ -39,6 +46,9 @@ class WaitlistEntry extends Model
         'event_id',
         'service_id',
         'customer_id',
+        'guest_name',
+        'guest_email',
+        'guest_phone',
         'party_size',
     ];
 

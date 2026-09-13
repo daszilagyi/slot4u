@@ -125,6 +125,13 @@ function erasureFixture(): array
     WaitlistEntry::factory()->forTenant($tenant)->forEvent($event)->create([
         'customer_id' => $customer->id,
     ]);
+    // A place held as a guest under the same address (SLO-228).
+    WaitlistEntry::factory()->forTenant($tenant)->forEvent($event)->position(2)->create([
+        'customer_id' => null,
+        'guest_name' => ERASURE_NAME,
+        'guest_email' => ERASURE_EMAIL,
+        'guest_phone' => ERASURE_PHONE,
+    ]);
 
     NotificationLog::factory()->forTenant($tenant)->create(['recipient' => ERASURE_EMAIL]);
     NotificationLog::factory()->forTenant($tenant)->create(['recipient' => ERASURE_PHONE, 'channel' => 'sms']);
@@ -234,11 +241,15 @@ it('erases the guest booking made with the same email', function () {
 it('deletes the waitlist places so no offer can reach the erased account', function () {
     [$tenant, $customer] = erasureFixture();
 
-    expect(WaitlistEntry::query()->where('customer_id', $customer->id)->count())->toBe(1);
+    expect(WaitlistEntry::query()->where('customer_id', $customer->id)->count())->toBe(1)
+        ->and(WaitlistEntry::query()->where('guest_email', ERASURE_EMAIL)->count())->toBe(1);
 
     app(AnonymizeCustomer::class)->erase($customer, $tenant);
 
-    expect(WaitlistEntry::query()->where('customer_id', $customer->id)->count())->toBe(0);
+    // The guest place goes too: an offer mail to that address is exactly what
+    // the erasure promises will not happen (SLO-228).
+    expect(WaitlistEntry::query()->where('customer_id', $customer->id)->count())->toBe(0)
+        ->and(WaitlistEntry::query()->where('tenant_id', $tenant->id)->count())->toBe(0);
 });
 
 it('redacts the send ledger without dropping its rows', function () {

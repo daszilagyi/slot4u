@@ -80,7 +80,7 @@ class CustomerNotifier
         Tenant $tenant,
         NotificationType $type,
         string $dedupeKey,
-        Booking|QuoteRequest $record,
+        Booking|QuoteRequest|WaitlistEntry $record,
         RecordsDelivery $notification,
     ): ?NotificationLog {
         if (! $record->isGuest()) {

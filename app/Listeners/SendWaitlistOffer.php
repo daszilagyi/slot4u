@@ -29,11 +29,12 @@ class SendWaitlistOffer
             return;
         }
 
-        $this->notifier->sendToCustomer(
+        // To the customer account, or to the guest's own address (SLO-228).
+        $this->notifier->sendToContact(
             tenant: $tenant,
             type: NotificationType::WaitlistOffer,
             dedupeKey: 'waitlist_entry:'.$entry->getKey(),
-            customer: $entry->customer,
+            record: $entry,
             notification: new WaitlistOfferNotification($entry, $tenant),
         );
     }

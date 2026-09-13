@@ -6,10 +6,12 @@ use App\Enums\PrivacyRequestType;
 use App\Enums\Role;
 use App\Models\AuditLog;
 use App\Models\Booking;
+use App\Models\Event;
 use App\Models\PrivacyRequest;
 use App\Models\Service;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Models\WaitlistEntry;
 use App\Tenancy\TenantManager;
 use Database\Seeders\BasePlanSeeder;
 use Database\Seeders\PermissionSeeder;
@@ -150,6 +152,26 @@ it('includes guest bookings made with the customer email', function () {
         ->and($payload['bookings'][0]['guest_email'])->toBe('anna@example.test');
 });
 
+it('includes waitlist places held as a guest under the customer email (SLO-228)', function () {
+    $tenant = privacyTenant();
+    $me = privacyCustomer($tenant, ['email' => 'anna@example.test']);
+    $service = Service::factory()->forTenant($tenant)->create();
+    $event = Event::factory()->forTenant($tenant)->create(['service_id' => $service->id]);
+
+    WaitlistEntry::factory()->forTenant($tenant)->forEvent($event)->create([
+        'customer_id' => null,
+        'guest_name' => 'Kovács Anna',
+        'guest_email' => 'anna@example.test',
+    ]);
+
+    $payload = $this->actingAs($me)
+        ->get(tenantHost('acme', '/my/privacy/export'))
+        ->json();
+
+    expect($payload['waitlist_entries'])->toHaveCount(1)
+        ->and($payload['waitlist_entries'][0]['guest_email'])->toBe('anna@example.test');
+});
+
 it('never exports another tenant customer data', function () {
     $mine = privacyTenant('acme');
     $me = privacyCustomer($mine, ['email' => 'anna@example.test']);
@@ -167,6 +189,14 @@ it('never exports another tenant customer data', function () {
         'guest_email' => 'anna@example.test',
         'notes' => 'Másik tenant adata',
     ]);
+    // …and a waitlist place held there as a guest under the same address
+    // (SLO-228) — the export matches guest places by email too.
+    WaitlistEntry::factory()->forTenant($other)->forEvent(
+        Event::factory()->forTenant($other)->create(['service_id' => $otherService->id]),
+    )->create([
+        'customer_id' => null,
+        'guest_email' => 'anna@example.test',
+    ]);
 
     app(TenantManager::class)->set($mine);
     app(PermissionRegistrar::class)->setPermissionsTeamId($mine->getKey());
@@ -175,7 +205,8 @@ it('never exports another tenant customer data', function () {
         ->get(tenantHost('acme', '/my/privacy/export'))
         ->json();
 
-    expect($payload['bookings'])->toBeEmpty();
+    expect($payload['bookings'])->toBeEmpty()
+        ->and($payload['waitlist_entries'])->toBeEmpty();
 });
 
 it('records the export in the register and the audit trail', function () {

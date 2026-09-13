@@ -72,7 +72,7 @@ tranzakcióban:
 | `bookings` | `guest_name/email/phone`, `notes`, `cancel_reason`, `reject_reason` → `null`. **Idő, szolgáltatás, státusz, ár marad.** |
 | `quote_requests` | guest mezők, `internal_notes`, `parameters` → `null` |
 | `quote_request_messages` | az ügyfél saját üzeneteinek szövege helyettesítő szövegre cserélve (a szál szerkezete marad) |
-| `waitlist_entries` | **törölve** — egy várólista-hely élő ígéret arra, hogy valakit megkeresünk |
+| `waitlist_entries` | **törölve** — egy várólista-hely élő ígéret arra, hogy valakit megkeresünk. A fiókhoz kötött és az **ugyanazzal az emaillel vendégként** tartott hely is (SLO-228), mint a vendég-foglalásoknál |
 | `notifications_log` | `recipient` → `redacted`; a sor marad (a dedup-kulcsokat viszi, törlésük feltámaszthatna egy értesítést) |
 
 ⚠️ **A user sort nem töröljük.** A `bookings.customer_id` FK törlése magával
