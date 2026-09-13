@@ -208,9 +208,14 @@ export default function CalendarShowcase() {
 }
 
 /**
- * The sloth peeking over the section's bottom edge (docs/24 §2.3): its lower
- * third hangs into the next section, above it in the stacking order. It slides
- * up once when it comes into view.
+ * The sloth peeking over the section's bottom edge (docs/24 §2.3), above the
+ * next section in the stacking order. It slides up once when it comes into view.
+ *
+ * ⚠️ 53%, not the doc's 35%: in the artwork the forearms lie across rows
+ * ~235–300 of 502, and the section edge has to run along their top so the
+ * sloth rests ON the ledge with its fingers hanging over. At 35% the edge fell
+ * below the arms and the sloth floated above it (measured from the image's
+ * alpha profile; reported by Daniel on prod, 2026-09-13).
  *
  * Desktop only. On a phone there is no room beside the text, and a figure
  * straddling two sections reads as a layout bug at that width.
@@ -227,7 +232,7 @@ function PeekingSloth({ cheer }: { cheer: string }) {
             aria-hidden
             // The overhang lives on this wrapper; the motion below animates its
             // own transform, and the two must not fight over one element.
-            className="absolute right-[4%] bottom-0 z-20 hidden w-[260px] translate-y-[35%] lg:block"
+            className="absolute right-[4%] bottom-0 z-20 hidden w-[260px] translate-y-[53%] lg:block"
         >
             <motion.div
                 initial={false}
