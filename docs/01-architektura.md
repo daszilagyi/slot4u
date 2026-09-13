@@ -532,6 +532,23 @@ Két külön profil fut: a **dev/CI referencia-stack** (Docker Compose) és az *
     `PublicSsrSmokeTest` két tesztje („global SSR"), és így megy ki. Ennek ezen a hoszton
     ára van: oldalanként egy CDN-kör (~114 ms, `docs/16` §6.9). Cserébe az admin első
     festése sem vár a JS-re. **Nyitva: SLO-223** — mérés alapján eldöntendő.
+  - ⚠️ **Dev módban NINCS szerver-render, és ezt a log kimondja** (SLO-222). Amíg a Vite hot,
+    az Inertia nem az `INERTIA_SSR_URL`-t hívja, hanem a dev szerver `__inertia_ssr` végpontját
+    — `localhost:5173` viszont az `app` konténerből nem a `vite` konténer. A
+    `WarnWhenSsrFellBack` middleware ezért **minden nem-prod kérésnél warningot ír**, ha a lap
+    `data-server-rendered` nélkül ment ki, és megnevezi az okot (hot mód / hiányzó bundle /
+    nem válaszoló renderelő). Prodon szándékosan hallgat: ott a füstteszt a kapu.
+  - **Valódi SSR-t lokálisan így látsz** (és így futnak le a `PublicSsrSmokeTest` tesztjei, amik
+    egyébként mind skip-elnek):
+
+    ```bash
+    docker compose exec vite npm run build   # a bundle legyen friss
+    docker compose restart ssr               # a Node vegye fel
+    mv public/hot public/hot.disabled        # hot nélkül a bundle-út megy
+    docker compose exec -T app php artisan test tests/Feature/Ssr/PublicSsrSmokeTest.php
+    mv public/hot.disabled public/hot
+    ```
+
   - Deploy-integráció (a bundle feltöltése, restart, füstteszt) és az élesítés: `docs/16` §6.6–6.9.
 - **Deploy-sajátosságok:** `storage:link` helyett shell `ln -s` (a PHP `symlink()` tiltott); Vite build lokálisan/CI-ban, csak a build-output megy fel; scheduler cron `schedule:run` percenként.
 - Backup: napi DB dump + storage sync, visszaállási teszt negyedévente.

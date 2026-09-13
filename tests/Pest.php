@@ -26,6 +26,23 @@ pest()->extend(TestCase::class)
 // (SLO-108). Delivery-status logging is covered by driving the listener directly.
 pest()->beforeEach(fn () => Notification::fake())->in('Feature');
 
+// ⚠️ Server rendering OFF for the whole suite, here rather than in phpunit.xml
+// — because the setting there does not take (SLO-222). `phpunit.xml` has said
+// `INERTIA_SSR_ENABLED=false force="true"` for months, and `.env`'s `true` wins
+// anyway: `config('inertia.ssr.enabled')` reads TRUE inside a test.
+//
+// The consequence was not a failure, which is why nobody saw it. Whenever
+// `public/hot` happened to exist, Inertia sent every full-page render to the
+// Vite dev server, got a refused connection and fell back in microseconds — the
+// suite ran in 17 minutes. Whenever the file happened to be missing, the same
+// renders went to the docker `ssr` service, which answers a health check in
+// ~4 seconds, and the suite ran past 45 minutes and was killed. The suite's
+// runtime depended on whether a file existed.
+//
+// A test that wants a real renderer turns it back on in its own beforeEach,
+// which runs after this one.
+pest()->beforeEach(fn () => config()->set('inertia.ssr.enabled', false))->in('Feature');
+
 /*
 |--------------------------------------------------------------------------
 | Expectations
