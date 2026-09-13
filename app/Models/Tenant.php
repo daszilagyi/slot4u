@@ -25,6 +25,7 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $trial_ends_at
  * @property array<string, mixed>|null $branding
  * @property array<string, mixed>|null $settings
+ * @property array<string, mixed>|null $landing the public landing template and its content (SLO-238)
  * @property array<string, mixed>|null $invoicing seller details + provider API key (encrypted at rest)
  * @property array<string, mixed>|null $analytics the tenant's own GA4 / Meta measurement config (encrypted at rest)
  * @property string|null $signup_utm_source which campaign brought this tenant to us (SLO-210) — NOT the tenant's own campaign
@@ -86,6 +87,8 @@ class Tenant extends Model
             'purged_at' => 'datetime',
             'branding' => 'array',
             'settings' => 'array',
+            // The public landing template and its content (SLO-238).
+            'landing' => 'array',
             // Encrypted at rest: it carries the invoicing provider's API key.
             'invoicing' => 'encrypted:array',
             // Same treatment (SLO-56): the measurement ids are public, but they

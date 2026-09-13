@@ -442,6 +442,51 @@ return [
         // Demo tenant jelzések (SLO-192, docs/21 §2.1). ⚠️ A sáv minden demo
         // oldalon látszik: a personák valósághűek — ez a lényegük —, és épp
         // ezért ki kell mondani, hogy nem valódi vállalkozások.
+        // A „calm" landing-sablon feliratai (SLO-238, docs/25). ⚠️ Csak a sablon
+        // SAJÁT szövegei: a tenant tartalma (szlogen, GYIK, vélemények) a
+        // `tenants.landing` oszlopban él, és ahogy a tenant megírta, úgy jelenik meg.
+        'calm' => [
+            'nav' => [
+                'home' => 'Főoldal',
+                'services' => 'Szolgáltatások',
+                'about' => 'Rólunk',
+                'faq' => 'Gyakori kérdések',
+                'contact' => 'Kapcsolat',
+                'menu' => 'Menü',
+            ],
+            'book' => 'Időpontfoglalás',
+            'book_short' => 'Foglalás',
+            'book_cta' => 'Időpontot foglalok',
+            'services_cta' => 'Szolgáltatásaink',
+            'services_eyebrow' => 'Szolgáltatásaink',
+            'services_title' => 'Miben segíthetünk?',
+            'services_lead' => 'Válaszd ki a számodra megfelelő szolgáltatást, és foglalj időpontot pár kattintással.',
+            'services_all' => 'Összes szolgáltatás',
+            'approval_badge' => 'Visszaigazolást igényel',
+            'cta_request' => 'Időpontot kérek',
+            'cta_book' => 'Időpontot foglalok',
+            'cta_order' => 'Igénylést indítok',
+            'cta_quote' => 'Ajánlatot kérek',
+            'minutes' => ':count perc',
+            'no_slot' => 'nincs időpont',
+            'why_title' => 'Miért válassz minket?',
+            'about_eyebrow' => 'Rólunk',
+            'testimonials_eyebrow' => 'Rólunk mondták',
+            'testimonials_title' => 'Figyelem, nyugalom, rugalmasság',
+            'testimonials_prev' => 'Előző vélemények',
+            'testimonials_next' => 'Következő vélemények',
+            'faq_eyebrow' => 'Gyakori kérdések',
+            'faq_title' => 'Minden, amit a foglalásról tudni érdemes',
+            'faq_lead' => 'Ha nem találod a válaszod, írj nekünk – szívesen segítünk.',
+            'contact_title' => 'Elérhetőségünk',
+            'question_title' => 'Kérdésed van?',
+            'question_lead' => 'Írj nekünk, szívesen segítünk a megfelelő szolgáltatás kiválasztásában.',
+            'question_cta' => 'Üzenetet küldök',
+            'final_title' => 'Foglalj időpontot pár kattintással',
+            'final_lead' => 'Válassz szabad időpontot, add meg az adataidat – a többit mi intézzük.',
+            'powered_by' => 'Powered by',
+        ],
+
         'demo' => [
             'banner' => 'DEMO · fiktív adatok · nem küldünk e-mailt és SMS-t · hajnali 3-kor minden visszaáll',
             'cta_title' => 'Tetszett? Ilyet te is kapsz, 5 perc alatt.',

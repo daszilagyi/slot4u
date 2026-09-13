@@ -78,6 +78,29 @@ it('leaves the public home root non-empty (SSR actually ran, not a client shell)
     expect($rendered)->toContain('Kapcsolat'); // tenant.home.contact_title, rendered
 });
 
+it('server-renders a tenant calm landing, FAQ answers included (SLO-238)', function () {
+    Tenant::factory()->active()->create([
+        'slug' => 'csendkert',
+        'name' => 'Csendkert Coaching',
+        'landing' => [
+            'template' => 'calm',
+            'brand_title' => 'Csendkert',
+            'tagline' => 'Lassan, figyelemmel.',
+            'faq' => [['q' => 'Hol vagytok?', 'a' => 'A belváros csendes utcájában.']],
+        ],
+    ]);
+
+    $rendered = renderedMarkupOnly($this->get(tenantHost('csendkert'))->assertOk()->getContent());
+
+    expect($rendered)
+        ->toContain('Csendkert')
+        ->toContain('Lassan, figyelemmel.')
+        // The answer is in the markup even while its accordion is closed — the
+        // part of the page a crawler most wants.
+        ->toContain('A belváros csendes utcájában.')
+        ->toContain('theme-calm');
+});
+
 it('server-renders the marketing hero, headline and widget included', function () {
     // ⚠️ The hero is the LCP element (SLO-203): the H1 has to arrive WITH the
     // document, not after React boots, or the largest paint waits on JavaScript

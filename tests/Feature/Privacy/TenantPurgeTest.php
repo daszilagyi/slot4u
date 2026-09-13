@@ -77,6 +77,9 @@ function purgeFixture(int $archivedDaysAgo = 91): array
         'slug' => 'acme',
         'settings' => ['phone' => PURGE_TENANT_PHONE, 'email' => 'iroda@acme.test', 'slot_interval_minutes' => 30],
         'invoicing' => ['provider' => 'szamlazzhu', 'api_key' => 'secret-agent-key'],
+        // The landing page's words name the practitioner (SLO-238) — in the
+        // fixture so the sweep below proves the purge reaches this column too.
+        'landing' => ['template' => 'calm', 'about' => ['name' => PURGE_STAFF_NAME, 'bio' => PURGE_STAFF_NAME.' bemutatkozása']],
     ]);
 
     app(TenantManager::class)->set($tenant);

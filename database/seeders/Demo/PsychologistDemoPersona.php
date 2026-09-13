@@ -156,6 +156,61 @@ final class PsychologistDemoPersona extends DemoPersona
         ];
     }
 
+    /**
+     * The calm landing template (SLO-238, docs/25), with the Lélekút words from
+     * its Claude Design.
+     *
+     * ⚠️ The class rule holds here too: nothing health-related. The FAQ is about
+     * booking, the quotes are about how the visit felt and how the booking went
+     * — never why anyone came. The testimonials are fiction, like every name in
+     * a demo tenant, and the DEMO banner above the page says so.
+     *
+     * @return array<string, mixed>
+     */
+    public function landing(): array
+    {
+        return [
+            'template' => 'calm',
+            'brand_title' => 'Lélekút',
+            'brand_subtitle' => 'Pszichológiai Rendelő',
+            'tagline' => 'Egy nyugodt hely, ahol van idő rád.',
+            'lead' => 'Szakmai támogatás, elfogadó légkör és valódi figyelem. Együtt találjuk meg a hozzád vezető utat.',
+            'highlights' => [
+                ['icon' => 'leaf', 'label' => 'Biztonságos környezet'],
+                ['icon' => 'heart', 'label' => 'Empatikus hozzáállás'],
+                ['icon' => 'people', 'label' => 'Személyre szabott támogatás'],
+            ],
+            'bubbles' => ['Mesélj nyugodtan, itt nincs rohanás.', 'Néha jó csak kimondani…'],
+            'motto' => 'Kis lépések, nagy változások',
+            'why_quote' => 'A mentális egészség ugyanolyan fontos, mint a fizikai.',
+            'why_items' => [
+                ['icon' => 'shield', 'title' => 'Szakmai biztonság', 'text' => 'Tapasztalt, diplomás szakember.'],
+                ['icon' => 'heart', 'title' => 'Empatikus légkör', 'text' => 'Ítéletmentes, támogató hozzáállás.'],
+                ['icon' => 'calendar', 'title' => 'Rugalmas időpontok', 'text' => 'Online és személyes lehetőségek.'],
+                ['icon' => 'leaf', 'title' => 'Valódi fejlődés', 'text' => 'Együtt a változásért, lépésről lépésre.'],
+            ],
+            'about' => [
+                'name' => $this->adminName(),
+                'title' => 'pszichológus',
+                'bio' => 'Több mint tíz éve dolgozom felnőttekkel, személyesen és online. Fontosnak tartom, hogy a rendelőben mindenki azt érezze: van ideje, van tere, és nem kell megfelelnie senkinek. A közös munkában a te tempód számít – lépésről lépésre haladunk, ítélkezés nélkül.',
+                'chips' => ['Okleveles pszichológus', 'Felnőtt konzultáció', 'Online és személyes', 'Magyar · angol'],
+            ],
+            'testimonials' => [
+                ['name' => 'K. Anna', 'text' => 'Már az első alkalom után éreztem, hogy jó helyen vagyok. Nyugodt, figyelmes, támogató közeg.'],
+                ['name' => 'T. Márton', 'text' => 'Az online foglalás pár kattintás volt, és az időpontot is könnyen át tudtam tenni, amikor közbejött valami.'],
+                ['name' => 'Sz. Lilla', 'text' => 'Online konzultációval kezdtem, ami nagy rugalmasságot adott. Ugyanazt a figyelmet kaptam, mint személyesen.'],
+                ['name' => 'B. Dóra', 'text' => 'Itt tényleg nincs rohanás. Az ötven perc az enyém, és ezt minden alkalommal érzem.'],
+            ],
+            'faq' => [
+                ['q' => 'Hogyan foglalhatok időpontot?', 'a' => 'Kattints bármelyik „Időpontot foglalok” gombra, válassz szolgáltatást és szabad időpontot, majd add meg a nevedet és elérhetőségedet. Regisztráció nem szükséges.'],
+                ['q' => 'Hogyan tudom lemondani vagy áttenni az időpontot?', 'a' => 'Az időpont előtt 24 óráig díjmentesen lemondhatod a foglalás visszaigazoló oldalán. Ha fiókkal foglaltál, a fiókodban át is teheted egy másik szabad időpontra.'],
+                ['q' => 'Mi történik az első alkalmon?', 'a' => 'Az első konzultáció ismerkedő beszélgetés: megismerjük egymást, és közösen tisztázzuk, miben és hogyan tudok segíteni.'],
+                ['q' => 'Mik az online konzultáció technikai feltételei?', 'a' => 'Egy stabil internetkapcsolat, kamera és mikrofon elég. A hívás linkjét az időpont előtt e-mailben küldjük.'],
+                ['q' => 'Kapok visszaigazoló e-mailt?', 'a' => 'Igen, a foglalás után azonnal, valamint az időpont előtt egy nappal emlékeztetőt is küldünk. (A demóban ezek nem kerülnek kiküldésre.)'],
+            ],
+        ];
+    }
+
     protected function build(Tenant $tenant, User $admin, DemoDataFactory $data): void
     {
         // The models below are tenant-scoped; bind the tenant so BelongsToTenant

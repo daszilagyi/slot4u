@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { ClockIcon, MailIcon, MapPinIcon, PhoneIcon } from 'lucide-react';
 
 import PublicLayout from '@/Layouts/PublicLayout';
+import CalmLanding from '@/components/tenant-landing/CalmLanding';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatMoney } from '@/lib/format';
@@ -12,6 +13,7 @@ import type {
     PublicHomeCategory,
     PublicHomeLocation,
     PublicHomeProfile,
+    PublicLanding,
 } from '@/types';
 
 type HomeProps = {
@@ -19,6 +21,8 @@ type HomeProps = {
     branding: PublicHomeBranding;
     categories: PublicHomeCategory[];
     locations: PublicHomeLocation[];
+    /** The tenant's landing template and content (SLO-238). */
+    landing: PublicLanding;
     og_image?: string;
     og_url?: string;
     canonical_url?: string;
@@ -43,6 +47,7 @@ export default function TenantHome({
     branding,
     categories,
     locations,
+    landing,
     og_image,
     og_url,
     canonical_url,
@@ -56,72 +61,88 @@ export default function TenantHome({
     const socialEntries = Object.entries(profile.social);
     const profileAddress = formatAddress(profile.address);
 
+    const head = (
+        <Head title={profile.name}>
+            {/* The page also answers on a verified custom domain (SLO-42);
+                the canonical link names the tenant's primary host so the
+                two do not compete as duplicate content. */}
+            {canonical_url ? (
+                <link
+                    head-key="canonical"
+                    rel="canonical"
+                    href={canonical_url}
+                />
+            ) : null}
+            <meta
+                head-key="description"
+                name="description"
+                content={metaDescription}
+            />
+            <meta
+                head-key="og:title"
+                property="og:title"
+                content={profile.name}
+            />
+            <meta
+                head-key="og:description"
+                property="og:description"
+                content={metaDescription}
+            />
+            <meta head-key="og:type" property="og:type" content="website" />
+            {og_url ? (
+                <meta head-key="og:url" property="og:url" content={og_url} />
+            ) : null}
+            {og_image ? (
+                <meta
+                    head-key="og:image"
+                    property="og:image"
+                    content={og_image}
+                />
+            ) : null}
+            <meta
+                head-key="twitter:card"
+                name="twitter:card"
+                content="summary_large_image"
+            />
+            <meta
+                head-key="twitter:title"
+                name="twitter:title"
+                content={profile.name}
+            />
+            <meta
+                head-key="twitter:description"
+                name="twitter:description"
+                content={metaDescription}
+            />
+            {og_image ? (
+                <meta
+                    head-key="twitter:image"
+                    name="twitter:image"
+                    content={og_image}
+                />
+            ) : null}
+        </Head>
+    );
+
+    // A tenant that chose the calm template gets its own page (SLO-238). The
+    // head — canonical link, meta, Open Graph — is shared: which template draws
+    // the page changes nothing about what a crawler or a link preview reads.
+    if (landing.template === 'calm') {
+        return (
+            <PublicLayout bare>
+                {head}
+                <CalmLanding
+                    profile={profile}
+                    categories={categories}
+                    landing={landing}
+                />
+            </PublicLayout>
+        );
+    }
+
     return (
         <PublicLayout>
-            <Head title={profile.name}>
-                {/* The page also answers on a verified custom domain (SLO-42);
-                    the canonical link names the tenant's primary host so the
-                    two do not compete as duplicate content. */}
-                {canonical_url ? (
-                    <link
-                        head-key="canonical"
-                        rel="canonical"
-                        href={canonical_url}
-                    />
-                ) : null}
-                <meta
-                    head-key="description"
-                    name="description"
-                    content={metaDescription}
-                />
-                <meta
-                    head-key="og:title"
-                    property="og:title"
-                    content={profile.name}
-                />
-                <meta
-                    head-key="og:description"
-                    property="og:description"
-                    content={metaDescription}
-                />
-                <meta head-key="og:type" property="og:type" content="website" />
-                {og_url ? (
-                    <meta
-                        head-key="og:url"
-                        property="og:url"
-                        content={og_url}
-                    />
-                ) : null}
-                {og_image ? (
-                    <meta
-                        head-key="og:image"
-                        property="og:image"
-                        content={og_image}
-                    />
-                ) : null}
-                <meta
-                    head-key="twitter:card"
-                    name="twitter:card"
-                    content="summary_large_image"
-                />
-                <meta
-                    head-key="twitter:title"
-                    name="twitter:title"
-                    content={profile.name}
-                />
-                <meta
-                    head-key="twitter:description"
-                    name="twitter:description"
-                    content={metaDescription}
-                />
-                {og_image ? (
-                    <meta
-                        head-key="twitter:image"
-                        name="twitter:image"
-                        content={og_image}
-                    />
-                ) : null}
-            </Head>
+            {head}
 
             {/* Hero */}
             <section className="relative overflow-hidden border-b border-border">
