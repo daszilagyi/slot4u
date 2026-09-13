@@ -99,6 +99,8 @@ it('passes against an application that is really serving the expected release', 
         ->toContain('serving commit 1234567')
         ->toContain('no pending migrations')
         ->toContain('security headers present')
+        ->toContain('/img/og-image.png is served as an image')
+        ->toContain('/img/favicon-32.png is served as an image')
         ->toContain('Smoke test passed');
 });
 
@@ -251,4 +253,35 @@ it('says nothing about SSR when the release has it turned off', function () {
     expect($result->output())
         ->not->toContain('SSR')
         ->toContain('Smoke test passed');
+});
+
+// --- Static files on the bridge docroot (SLO-233) ---------------------------
+
+it('⚠️ fails when the images the pages point at answer 404 — the shape production had', function () {
+    // Measured on 2026-09-13: https://slot4u.hu/img/og-image.png answered 404,
+    // text/html, from Laravel. Every page still rendered, every other check was
+    // green, and every link preview went out without its image.
+    $result = runSmokeScript('healthy', ['SMOKE_FAKE_STATIC' => 'missing']);
+
+    expect($result->exitCode())->toBe(1);
+    expect($result->output())
+        ->toContain('/img/og-image.png returned HTTP 404 (text/html; charset=utf-8), not an image')
+        ->toContain('deploy/link-docroot.sh');
+});
+
+it('is not satisfied by a 200 that is not an image', function () {
+    // A catch-all rewrite answering every path with a page: the status alone
+    // would call it served.
+    $result = runSmokeScript('healthy', ['SMOKE_FAKE_STATIC' => 'html200']);
+
+    expect($result->exitCode())->toBe(1);
+    expect($result->output())->toContain('/img/og-image.png returned HTTP 200 (text/html; charset=UTF-8), not an image');
+});
+
+it('checks files that really exist in public/', function () {
+    // The two paths the smoke test asks for must be real files, or the check
+    // would fail every deploy for a reason that has nothing to do with the host.
+    foreach (['img/og-image.png', 'img/favicon-32.png'] as $file) {
+        expect(is_file(public_path($file)))->toBeTrue("missing: public/{$file}");
+    }
 });

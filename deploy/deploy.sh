@@ -362,6 +362,18 @@ fi
 # host (docs/13) — but the shell's ln can. Idempotent.
 ln -sfn "${APP_DIR}/storage/app/public" "${APP_DIR}/public/storage"
 
+# The apex domain is served from the bridge docroot, not from public/ — so the
+# app's static files (og-image, favicon, icons) only reach the web through a
+# link there (SLO-233). Run from the checked-out tree, so it is the version of
+# the script this release ships with.
+#
+# ⚠️ Not fatal. The site is down for maintenance at this point, and a missing
+# favicon is no reason to keep it down; the smoke test checks the result from
+# the outside and fails the deploy loudly if the images still do not load.
+log "Linking static files into the docroot (${DOCROOT})"
+bash "${APP_DIR}/deploy/link-docroot.sh" "${APP_DIR}/public" "${DOCROOT}" \
+    || echo "WARNING: linking static files into ${DOCROOT} failed — see above; the smoke test will say what is missing" >&2
+
 log "Rebuilding caches"
 "${PHP}" artisan config:cache
 "${PHP}" artisan route:cache
