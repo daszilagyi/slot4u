@@ -2,9 +2,11 @@
 
 use App\Http\Middleware\WarnWhenSsrFellBack;
 use App\Models\Tenant;
+use Illuminate\Foundation;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Vite;
+use Illuminate\Support\HtmlString;
 
 /*
 |--------------------------------------------------------------------------
@@ -33,8 +35,33 @@ beforeEach(function () {
     // immediately; a made-up hostname would cost a DNS timeout per test.
     config()->set('inertia.ssr.url', 'http://127.0.0.1:1');
 
-    Vite::useHotFile(sys_get_temp_dir().'/slot4u-no-such-hot-file');
+    ssrFallbackUseHotFile(sys_get_temp_dir().'/slot4u-no-such-hot-file');
 });
+
+/**
+ * Point Vite at the given hot file — for real.
+ *
+ * ⚠️ `Vite::useHotFile()` alone does NOTHING in this suite. TestCase calls
+ * `withoutVite()`, whose fake overrides `useHotFile()` with a no-op, so the hot
+ * flag silently fell back to whether `public/hot` existed on the machine. On a
+ * developer box it does (the vite container writes it) and the hot-mode test
+ * passed; in CI it does not, and the same test failed on every run. This binds a
+ * real Vite whose only fake is the tag rendering, which needs a build manifest
+ * CI does not have — the hot-file lookup the middleware relies on stays genuine.
+ */
+function ssrFallbackUseHotFile(string $path): void
+{
+    $vite = new class extends Foundation\Vite
+    {
+        public function __invoke($entrypoints, $buildDirectory = null)
+        {
+            return new HtmlString('');
+        }
+    };
+
+    app()->instance(Foundation\Vite::class, $vite->useHotFile($path));
+    Vite::clearResolvedInstance();
+}
 
 it('⚠️ warns when a page went out without server-rendered markup', function () {
     Log::spy();
@@ -85,13 +112,12 @@ it('names the Vite dev server when that is what took the render', function () {
     // The commonest case by far, and the one nobody could diagnose from the
     // symptom: the page is simply empty, and the reason is a URL in another
     // container that Inertia chose without being asked.
-    // ⚠️ A temp file, not storage/framework/testing — that directory exists on
-    // some runs and not others, and when the write failed silently the hot flag
-    // stayed false, the middleware named a different cause, and this test failed
-    // only inside the full suite. `tempnam` cannot half-exist.
+    // A temp file, so the test owns it and cleans it up. (It was once blamed for
+    // this test failing in CI; the real cause was the no-op `useHotFile()` — see
+    // ssrFallbackUseHotFile above.)
     $hot = tempnam(sys_get_temp_dir(), 'slot4u-hot');
     file_put_contents($hot, 'http://localhost:5173');
-    Vite::useHotFile($hot);
+    ssrFallbackUseHotFile($hot);
 
     Log::spy();
 
