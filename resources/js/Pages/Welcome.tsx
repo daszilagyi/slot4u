@@ -6,6 +6,7 @@ import ClosingCta from '@/components/landing/ClosingCta';
 import Faq from '@/components/landing/Faq';
 import FlexibleModes from '@/components/landing/FlexibleModes';
 import HowItWorks from '@/components/landing/HowItWorks';
+import { SLOTH_FULL } from '@/components/landing/heroSlothAssets';
 import LandingHero from '@/components/landing/LandingHero';
 import Pricing, { type CommissionTerms } from '@/components/landing/Pricing';
 import Tools from '@/components/landing/Tools';
@@ -16,7 +17,6 @@ import type { DemoPersona } from '@/types';
 
 /** Slot => URL of the sloth illustration, or null until it exists (MarketingArt). */
 type Art = {
-    hero: string | null;
     'step-register': string | null;
     'step-setup': string | null;
     'step-bookings': string | null;
@@ -83,9 +83,19 @@ export default function Welcome({
                 <meta property="og:image:height" content="630" />
                 <meta name="twitter:card" content="summary_large_image" />
                 <meta name="twitter:image" content={og_image} />
+                {/* The hero sloth's composite is the largest image above the
+                    fold: fetch it with the document, not after the CSS
+                    (docs/23 §4). `type` lets a browser without WebP skip it. */}
+                <link
+                    rel="preload"
+                    as="image"
+                    type="image/webp"
+                    href={SLOTH_FULL.webp}
+                    fetchPriority="high"
+                />
             </Head>
 
-            <LandingHero art={art.hero} demoHref={demoHref} />
+            <LandingHero demoHref={demoHref} />
             <AudienceStrip />
             <HowItWorks
                 art={{

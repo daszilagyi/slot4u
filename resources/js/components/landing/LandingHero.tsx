@@ -1,10 +1,7 @@
 import { ArrowRight, Check, Play } from 'lucide-react';
 
-import {
-    Art,
-    HandNote,
-    highlightButton,
-} from '@/components/landing/primitives';
+import HeroSloth from '@/components/landing/HeroSloth';
+import { HandNote, highlightButton } from '@/components/landing/primitives';
 import { useTranslations } from '@/lib/i18n';
 
 /** The slot grid in the hero card. Illustration, not live availability. */
@@ -12,8 +9,6 @@ const SLOTS = ['09:00', '09:30', '10:00', '10:30', '11:00', '11:30'];
 const PICKED = '10:00';
 
 type Props = {
-    /** The flying sloth, when its artwork exists (MarketingArt). */
-    art: string | null;
     /** Where "see it working" goes: the live demo section, or null for none. */
     demoHref: string | null;
 };
@@ -23,11 +18,11 @@ type Props = {
  * headline on the left, a tilted slot card with a "booking done" sticker on the
  * right, and a wave into the audience strip.
  *
- * ⚠️ The H1 is the LCP element and it is server-rendered text — nothing
- * decorative here is an image the headline waits for. The sloth, when it
- * exists, loads eagerly but sits behind the card and does not move the layout.
+ * ⚠️ The headline is server-rendered text and waits for no image. The sloth
+ * (HeroSloth, docs/23) sits in a fixed-ratio box behind the card, so it cannot
+ * move the layout when it arrives.
  */
-export default function LandingHero({ art, demoHref }: Props) {
+export default function LandingHero({ demoHref }: Props) {
     const t = useTranslations();
 
     return (
@@ -112,7 +107,7 @@ export default function LandingHero({ art, demoHref }: Props) {
                     </ul>
                 </div>
 
-                <HeroVisual art={art} />
+                <HeroVisual />
             </div>
 
             {/* The wave into the audience strip, in that strip's colour. */}
@@ -131,16 +126,18 @@ export default function LandingHero({ art, demoHref }: Props) {
     );
 }
 
-function HeroVisual({ art }: { art: string | null }) {
+function HeroVisual() {
     const t = useTranslations();
 
     return (
-        <div className="relative mx-auto mb-24 h-[380px] w-full max-w-[520px] sm:h-[440px] lg:mb-0 lg:h-[520px] lg:max-w-none">
-            {art !== null && (
-                <div className="absolute top-[-10px] left-0 hidden h-[440px] w-[420px] animate-[landing-float_4s_ease-in-out_infinite] lg:block">
-                    <Art src={art} eager />
-                </div>
-            )}
+        <div className="relative mx-auto mb-24 h-[610px] w-full max-w-[520px] sm:h-[440px] lg:mb-0 lg:h-[520px] lg:max-w-none">
+            {/* The sloth behind the card (docs/23): ~410px wide on desktop
+                with the card over its fist; on a phone (~260px) it flies above
+                the card instead, which would otherwise cover it whole. */}
+            <HeroSloth
+                priority
+                className="absolute top-12 left-0 w-[260px] sm:top-0 sm:w-[340px] lg:top-[-10px] lg:w-[420px]"
+            />
 
             <div className="absolute top-0 right-6 z-20 flex -rotate-[4deg] items-center gap-2.5 rounded-[14px] bg-white px-4 py-3 text-base font-extrabold text-navy shadow-[0_12px_30px_rgba(0,0,0,.25)] sm:right-[120px]">
                 <span
@@ -153,7 +150,7 @@ function HeroVisual({ art }: { art: string | null }) {
             </div>
 
             <div
-                className="absolute top-[80px] right-2 z-10 w-[270px] -rotate-6 rounded-[22px] bg-white p-6 shadow-[0_24px_60px_rgba(0,0,0,.3)] sm:top-[110px] sm:right-5 sm:w-[290px]"
+                className="absolute top-[270px] right-2 z-10 w-[270px] -rotate-6 rounded-[22px] bg-white p-6 shadow-[0_24px_60px_rgba(0,0,0,.3)] sm:top-[110px] sm:right-5 sm:w-[290px]"
                 role="img"
                 aria-label={t('welcome.hero.slots_label')}
             >
