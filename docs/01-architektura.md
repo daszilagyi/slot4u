@@ -374,6 +374,21 @@ nem lehet elgépelni az oszlopot, és **auditba kerül** — egy kézzel írt UP
 kényelem: egy 2FA nélküli superadmin olyan állapot, amit a prod ezentúl nem szolgál ki, tehát
 egy ilyen fixture nem létező felhasználót tesztelne.
 
+## Jelszócsere = a többi munkamenet vége (SLO-99)
+
+Az `AuthenticateSession` a `web` csoportban fut: minden munkamenet megjegyzi, milyen jelszó-hash
+alatt nyílt, és **a következő kérésénél kilépteti magát**, ha a hash már nem egyezik. Egy
+jelszócsere tehát — akár a members area-ban (`/my/password`), akár az elfelejtett-jelszó
+flow-n — **minden más eszközt kiléptet**, azt is, amelyik ellopott session-sütit használ.
+Pont ez az eset, ami miatt valaki jelszót cserél.
+
+* **A cserét végző munkamenet megmarad:** a middleware a kérés végén az új hash-t menti el.
+* **A saját remember-me süti újra kiadódik** (`Auth::logoutOtherDevices()` a
+  `MyProfileController`-ben). A süti is hordozza a hash-t (HMAC-ként); enélkül a cserét végző
+  eszköz is kiesne, amikor legközelebb a sütivel jönne vissza.
+* **Deploykor senki nem esik ki:** egy olyan munkamenet, amelyben még nincs tárolt hash, az első
+  kérésnél megkapja.
+
 ## Eseménybekötés (SLO-174)
 
 **A listenerek EXPLICIT módon vannak bekötve**, az `AppServiceProvider::boot()`-ban, és a

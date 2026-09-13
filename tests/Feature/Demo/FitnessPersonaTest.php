@@ -114,9 +114,15 @@ it('builds two studios, a team of six and three roles behind the desk', function
 
     // And the roles actually differ where it shows: only the owner reaches the
     // settings, and only the owner and the manager reach the reports.
+    // ⚠️ A fresh session per person: the session remembers the password hash it
+    // was opened under (AuthenticateSession, SLO-99), and each demo account has
+    // its own hash — switching users inside one session reads as a password
+    // change and signs the second person out with a 302.
     $this->actingAs($owner)->get(tenantHost($slug, '/settings'))->assertOk();
+    $this->flushSession();
     $this->actingAs($manager)->get(tenantHost($slug, '/settings'))->assertForbidden();
     $this->actingAs($manager)->get(tenantHost($slug, '/reports'))->assertOk();
+    $this->flushSession();
     $this->actingAs($employee)->get(tenantHost($slug, '/reports'))->assertForbidden();
 
     // --- features ----------------------------------------------------------

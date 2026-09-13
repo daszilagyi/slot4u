@@ -28,6 +28,7 @@ use Illuminate\Foundation\Http\Middleware\HandlePrecognitiveRequests;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Routing\Middleware\ThrottleRequestsWithRedis;
+use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
@@ -129,6 +130,14 @@ return Application::configure(basePath: dirname(__DIR__))
             // props reflect the resolved locale. On tenant domains IdentifyTenant
             // (route middleware) runs after and overrides with the tenant locale.
             SetLocale::class,
+            // A session remembers the password hash it was opened under, and
+            // ends itself when the hash no longer matches (SLO-99). So a
+            // password change — or a reset through the forgotten-password flow —
+            // signs out every OTHER device on its next request, including one
+            // holding a stolen session cookie. The session that made the change
+            // survives: the middleware stores the new hash on the way out.
+            // Before HandleInertiaRequests, so a session it ends shares no user.
+            AuthenticateSession::class,
             HandleInertiaRequests::class,
             // Versioned consent (SLO-161). In the web group rather than on the
             // tenant chain: a signed-in user with an outstanding acceptance must
