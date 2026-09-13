@@ -9,7 +9,7 @@ import {
     type SlothImage,
 } from '@/components/landing/heroSlothAssets';
 import { useTranslations } from '@/lib/i18n';
-import { useReducedMotion } from '@/lib/motion';
+import { useDocumentVisible, useReducedMotion } from '@/lib/motion';
 
 /** Where the cape hangs from: canvas point (490, 360) of 1024 × 920 (docs/23 §2). */
 const CAPE_ORIGIN = '47.9% 39.1%';
@@ -245,22 +245,6 @@ function Layer({ image }: { image: SlothImage }) {
             />
         </picture>
     );
-}
-
-/** Whether the tab is in front. False while hidden, so loops can stop. */
-function useDocumentVisible(): boolean {
-    const [visible, setVisible] = useState(true);
-
-    useEffect(() => {
-        const update = () => setVisible(document.visibilityState !== 'hidden');
-
-        update();
-        document.addEventListener('visibilitychange', update);
-
-        return () => document.removeEventListener('visibilitychange', update);
-    }, []);
-
-    return visible;
 }
 
 const noSubscription = () => () => {};

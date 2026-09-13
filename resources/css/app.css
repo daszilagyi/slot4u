@@ -374,6 +374,17 @@
     }
 }
 
+/* The hero clouds' drift (docs/23 §3b): a strip twice the hero's width,
+ * holding the same drawing twice, slides by exactly half — seamless. */
+@keyframes hero-cloud-drift {
+    from {
+        transform: translateX(0);
+    }
+    to {
+        transform: translateX(-50%);
+    }
+}
+
 @keyframes landing-pop {
     0%,
     100% {
