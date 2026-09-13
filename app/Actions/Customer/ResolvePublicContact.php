@@ -4,6 +4,8 @@ namespace App\Actions\Customer;
 
 use App\Models\Customer;
 use App\Models\User;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 /**
  * Resolves the visitor behind a public booking / quote request (SLO-128) — the
@@ -22,8 +24,15 @@ use App\Models\User;
  * account"), which both blocked a legitimate visitor who simply did not want to
  * log in and confirmed to an anonymous caller that the address exists on the
  * platform (the SLO-106 enumeration oracle). All three branches now return the
- * same shape and produce the same HTTP response, so the public surface no longer
- * answers the question "does this email exist?".
+ * same shape and produce the same HTTP response.
+ *
+ * ⚠️ Same shape was not yet same TIME (SLO-230). Only branch 2 creates an
+ * account, and creating one hashes a password — bcrypt, deliberately slow, the
+ * largest single cost of the request. A caller timing the response could still
+ * tell "unknown address" (slow) from "exists somewhere" (fast). Branches 1 and 3
+ * therefore pay for one hash of their own, of a random string that is thrown
+ * away, so every branch spends the same bcrypt work. What remains between them
+ * is a handful of queries, which is noise next to the hash.
  */
 class ResolvePublicContact
 {
@@ -34,12 +43,16 @@ class ResolvePublicContact
         $existing = Customer::tenantScoped()->where('email', $email)->first();
 
         if ($existing !== null) {
+            $this->spendAccountCreationHashCost();
+
             return PublicContact::forCustomer($existing);
         }
 
         // Taken elsewhere (users.email is globally unique in the MVP auth model) →
         // no account can be minted for this tenant; proceed as a guest.
         if (User::query()->where('email', $email)->exists()) {
+            $this->spendAccountCreationHashCost();
+
             return PublicContact::forGuest($name, $email, $phone);
         }
 
@@ -48,5 +61,15 @@ class ResolvePublicContact
             'email' => $email,
             'phone' => $phone,
         ]));
+    }
+
+    /**
+     * The one bcrypt hash {@see CreateCustomer} performs for a new account,
+     * spent on a throwaway value (SLO-230). Same hasher, same configured cost,
+     * so it tracks BCRYPT_ROUNDS instead of guessing a delay.
+     */
+    private function spendAccountCreationHashCost(): void
+    {
+        Hash::make(Str::random(40));
     }
 }
