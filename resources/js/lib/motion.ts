@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import {
+    useCallback,
+    useEffect,
+    useRef,
+    useState,
+    useSyncExternalStore,
+} from 'react';
 
 /**
  * The motion primitives every animated section is built on (SLO-201, docs/21 §2).
@@ -122,7 +128,11 @@ type InViewOptions = {
 export function useInView<T extends HTMLElement>(
     options: InViewOptions = {},
 ): [React.RefObject<T | null>, boolean] {
-    const { threshold = 0.15, rootMargin = '0px 0px -10% 0px', once = true } = options;
+    const {
+        threshold = 0.15,
+        rootMargin = '0px 0px -10% 0px',
+        once = true,
+    } = options;
 
     const ref = useRef<T>(null);
     const [inView, setInView] = useState(false);
@@ -193,4 +203,24 @@ export function useInView<T extends HTMLElement>(
  */
 export function stagger(index: number, step = 80, reduced = false): number {
     return reduced ? 0 : index * step;
+}
+
+/**
+ * Whether the tab is in front. False while it is hidden, so a loop can stop
+ * instead of spending CPU on frames nobody sees (docs/23 §3 — the hero sloth
+ * and its clouds).
+ */
+export function useDocumentVisible(): boolean {
+    const [visible, setVisible] = useState(true);
+
+    useEffect(() => {
+        const update = () => setVisible(document.visibilityState !== 'hidden');
+
+        update();
+        document.addEventListener('visibilitychange', update);
+
+        return () => document.removeEventListener('visibilitychange', update);
+    }, []);
+
+    return visible;
 }

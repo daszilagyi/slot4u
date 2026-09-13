@@ -16,6 +16,12 @@
 >    eltakarná. Desktopon a design szerinti átfedés marad.
 >
 > Komponens: `resources/js/components/landing/HeroSloth.tsx`, URL-ek: `heroSlothAssets.ts`.
+>
+> **Felhők (§3b, SLO-234):** `HeroClouds.tsx`. A felhő-alak Daniel `temp/cloud.svg`-jéből jön (a hivatkozott
+> `docs/design/foldal/hero-clouds-demo.html` nincs a repóban). **Eltérés:** a csík nem 200 % széles, hanem
+> **fix 1920 × 640 px-es periódus kétszer**, a hero aljához igazítva. A százalékos + `slice` méretezés
+> keskeny/magas mobil-heróban a széleken levágta a felhőket, és a periódushatáron egyenes vágás látszott.
+> Pixelméretben a loop ugyanúgy varratmentes (a `-50%` pont egy periódus), és 1920 px-ig nincs rés.
 
 ---
 
@@ -125,6 +131,39 @@ A placeholder `<picture>` az animált csoport megjelenésekor `opacity: 0`-ra v�
 
 ---
 
+## 3b. Felhők — a repülés illúziója (SVG + CSS, a lajhár MÖGÖTT)
+
+A koncepció-képen felhők vannak; ezek **nem képek, hanem inline SVG**, és CSS-sel úsznak jobbról balra — ettől olvasható, hogy a lajhár *repül*, miközben ő maga csak lebeg. Referencia-megvalósítás: `docs/design/foldal/hero-clouds-demo.html` (önálló HTML, böngészőben megnyitható; ez a §3b forrása, a kód belőle átemelhető).
+
+**Egyetlen felhő-alak**, `<symbol id="cloud" viewBox="0 0 200 80">` — 4 ellipszis + 1 lekerekített téglalap, `fill="currentColor"`. Minden felhő ebből `<use>` más mérettel/pozícióval. Nincs külön asset-fájl, nincs raszter, nincs `filter: blur` a nagy rétegen (GPU-drága; a hátsó rétegen legfeljebb `blur(1px)`).
+
+**Két réteg, parallax:**
+
+| Réteg | Méret | Sebesség (1 teljes kör) | Opacitás | z-index |
+|---|---|---|---|---|
+| `back` | kicsi (140–200 px) | 70 s | 0.10 | a lajhár és a szöveg mögött |
+| `front` | nagy (300–460 px), a hero alsó élén "ülnek" | 38 s | 0.16 | szintén a lajhár mögött — a lajhár mindig a felhők **előtt** |
+
+**Varratmentes loop:** a réteg egy 200 % széles csík (`display:flex`), benne **ugyanaz az SVG kétszer**; a csík `translateX(0 → -50%)`-ot animál `linear infinite` időzítéssel. Amikor a második példány pont az első helyére ér, újraindul — nincs ugrás. Ezért a felhők elhelyezése a `viewBox`-on belül tetszőleges, csak a két példány legyen azonos.
+
+```css
+.strip{position:absolute;inset:0;width:200%;display:flex;animation:drift var(--t) linear infinite;color:#fff}
+.strip>svg{width:50%;height:100%;flex:none}
+@keyframes drift{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+```
+
+**Színek:** a felhő `currentColor` = fehér, az opacitás adja a navy-ba olvadó árnyalatot. A `docs/21` `ice` (`#7CC4F5`) használható a hátsó rétegre 8 %-on, ha a "tech" érzet kell — de nem kötelező.
+
+**Mobil (390):** a `front` réteg marad, a `back` elrejthető (`hidden md:block`), a sebesség ugyanaz.
+
+**Reduced-motion:** `animation: none` — a felhők állnak, de látszanak (a kompozíció nem szegényedik el).
+
+**Teljesítmény:** tisztán `transform`-animáció, compositor-szálon fut; a hero `overflow:hidden`. A felhőréteg `pointer-events:none`, `aria-hidden="true"`. A `useInView`/`visibilitychange` szüneteltetés a §3-ból erre is vonatkozik (`animation-play-state: paused` egy osztállyal).
+
+**Hol legyen a kódban:** külön kis komponens, `HeroClouds.tsx`, a hero szekció háttér-rétegeként a `HeroSloth` és a szöveg **alatt** (DOM-sorrendben előttük). Ha az SLO-229 hero-jában már van hullám/felhő elem a design-ból, azzal **egyeztetni** kell: a statikus design-felhők maradnak a helyükön, ez a mozgó réteg mögéjük kerül halványabban, vagy a design-felhők cserélődnek erre — Claude Code döntsön a vizuális eredmény alapján, és a PR-ben screenshot mutassa mindkét változatot, ha nem egyértelmű.
+
+---
+
 ## 4. Teljesítmény-követelmények
 
 - LCP-elem a `sloth-full.webp` marad (`fetchpriority="high"`, `<link rel="preload" as="image">` a hero oldalon, `imagesrcset` WebP-vel). Az animált rétegek a placeholder után töltődnek, nem blokkolják az LCP-t.
@@ -140,6 +179,7 @@ A placeholder `<picture>` az animált csoport megjelenésekor `opacity: 0`-ra v�
 - [ ] Playwright screenshot 1440 és 390 px-en: a lajhár a design szerinti helyen és méretben, a köpeny a test **mögött**, nincs kilátszó köpenyvég, nincs fehér haló navy-n.
 - [ ] `page.emulateMedia({ reducedMotion: 'reduce' })` → csak a statikus kép renderelődik, nincs `motion` réteg a DOM-ban.
 - [ ] SSR smoke: a szerver-oldali HTML tartalmazza a placeholder `<img>`-et a `sloth-full` forrással, és **nem** tartalmazza a réteg-képeket.
+- [ ] Felhők (§3b): két réteg, eltérő sebességgel, jobbról balra; **nincs látható ugrás** a loop újraindulásakor (nézd végig egy teljes 70 s-os kört); a lajhár mindig a felhők előtt; reduced-motion esetén állnak, de látszanak.
 - [ ] 30 mp-es megfigyelés: legalább 3 kacsintás történik, eltérő időközökkel; a lebegés és a köpeny nem egy ütemre mozog.
 - [ ] Háttérfülre váltva (DevTools → Performance) nincs folyamatos CPU-terhelés; visszaváltva folytatódik.
 - [ ] Lighthouse mobil: LCP nem romlik az SLO-229 állapotához képest (mérés a PR-ben dokumentálva).
@@ -158,6 +198,8 @@ Első lépés: az assetek a repó temp/sloth/ mappájában vannak — mozgasd ő
 Utána az SLO-229-ben elkészült hero lajhár-helyőrzőjét cseréld le a docs/23 §3 szerinti HeroSloth komponensre:
 három PNG/WebP réteg (public/brand/sloth/), Framer Motion lebegés + köpenylengés + véletlen kacsintás,
 SSR-ben és prefers-reduced-motion esetén statikus sloth-full placeholder. Nincs új npm-függőség.
+A lajhár mögé a docs/23 §3b szerinti HeroClouds réteget is tedd be (inline SVG symbol, két csík, CSS drift,
+varratmentes loop) — a referencia docs/design/foldal/hero-clouds-demo.html, onnan emeld át a felhő-alakot és a CSS-t.
 A docs/23 §5 minden pontját ellenőrizd le és a PR-leírásban tételesen jelöld, melyik hogyan lett igazolva.
 Ha bármi eltér a docs/23 és a kód között, a docs nyer — az eltérést Linear-kommentben jelezd.
 ```

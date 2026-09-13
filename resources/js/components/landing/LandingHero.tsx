@@ -1,5 +1,6 @@
 import { ArrowRight, Check, Play } from 'lucide-react';
 
+import HeroClouds from '@/components/landing/HeroClouds';
 import HeroSloth from '@/components/landing/HeroSloth';
 import { HandNote, highlightButton } from '@/components/landing/primitives';
 import { useTranslations } from '@/lib/i18n';
@@ -33,6 +34,10 @@ export default function LandingHero({ demoHref }: Props) {
                     'radial-gradient(ellipse at 70% 30%, var(--navy-soft) 0%, var(--navy) 45%, var(--navy-deep) 100%)',
             }}
         >
+            {/* Drifting clouds behind everything, so the sloth reads as
+                flying (docs/23 §3b). First in the DOM, under the content. */}
+            <HeroClouds />
+
             <div className="relative z-10 mx-auto grid w-full max-w-[1440px] gap-10 px-4 pt-12 sm:px-8 sm:pt-16 lg:grid-cols-[1.05fr_1fr] lg:px-14">
                 <div className="pb-16 lg:pb-28">
                     <p className="inline-flex items-center gap-2 text-xs font-bold tracking-[0.12em] text-mist uppercase">

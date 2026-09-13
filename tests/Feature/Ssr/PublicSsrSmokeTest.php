@@ -126,6 +126,12 @@ it('server-renders the hero sloth as one still image, never its animation layers
         ->not->toMatch('#/assets/eyes-closed-[^"]*\.(webp|png)#')
         ->not->toContain('data-hero-sloth-layers');
 
+    // The clouds behind it are plain markup and CSS (docs/23 §3b), so they are in
+    // the server HTML from the first byte — decorative, hidden from assistive tech.
+    expect($rendered)
+        ->toMatch('#<div[^>]*aria-hidden="true"[^>]*data-hero-clouds#')
+        ->toContain('<symbol id="hero-cloud"');
+
     // …and its composite is preloaded with the document (docs/23 §4).
     expect($content)->toMatch('#<link[^>]+rel="preload"[^>]+as="image"[^>]+/sloth-full-[^"]*\.webp#');
 });
