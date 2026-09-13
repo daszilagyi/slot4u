@@ -8,7 +8,9 @@ namespace App\Support;
  * The illustrations the landing page has a place for (SLO-229), and which of
  * them actually exist.
  *
- * The "Slot4u Landing" design leaves room for the sloth in five poses. The
+ * The "Slot4u Landing" design leaves room for the sloth in several poses. The
+ * flying hero sloth is not one of these slots any more: it ships with the
+ * bundle as animated layers (HeroSloth, docs/23). The
  * artwork is its own deliverable (SLO-202), so the page cannot assume it: a
  * slot whose file is missing is reported as null and the section lays out
  * without it, instead of shipping a broken-image icon or a visible empty frame.
@@ -28,7 +30,6 @@ final class MarketingArt
      * whoever produces the artwork).
      */
     public const SLOTS = [
-        'hero' => 'Superhero sloth, flying (transparent)',
         'step-register' => 'Laptop illustration',
         'step-setup' => 'Calendar + cog illustration',
         'step-bookings' => 'Celebrating sloth',

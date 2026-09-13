@@ -73,6 +73,9 @@ return [
             'check_card' => 'Nincs bankkártya',
             'check_quick' => 'Pár perc alatt beállítható',
             'sticker' => 'Foglalás sikeres!',
+            // A hero-lajhár képének leírása (docs/23). A kulcs a hero többi
+            // szövege mellett él, nem `marketing.hero` alatt: itt ez a konvenció.
+            'sloth_alt' => 'A slot4u hős-lajhár kabala repül, mögötte egy sikeres foglalás',
             'slots_label' => 'Szabad időpontok',
             'note_lead' => 'Több idő',
             'note_tail' => 'a fontos dolgokra',

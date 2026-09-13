@@ -215,16 +215,18 @@ it('offers no sloth illustration until its file exists (SLO-229)', function () {
 
     try {
         $this->get(centralUrl())->assertInertia(fn (Assert $page) => $page
-            ->where('art.hero', null)
+            ->where('art.sofa', null)
             ->where('art.cta', null)
+            // The hero sloth is bundled and animated (docs/23), not a slot.
+            ->missing('art.hero')
         );
 
-        file_put_contents($public.'/brand/hero.png', 'png');
+        file_put_contents($public.'/brand/sofa.png', 'png');
         file_put_contents($public.'/brand/cta.svg', '<svg/>');
         file_put_contents($public.'/brand/cta.png', 'png');
 
         $this->get(centralUrl())->assertInertia(fn (Assert $page) => $page
-            ->where('art.hero', fn (string $url) => str_starts_with($url, '/brand/hero.png?v='))
+            ->where('art.sofa', fn (string $url) => str_starts_with($url, '/brand/sofa.png?v='))
             // The vector wins over the bitmap when both are there.
             ->where('art.cta', fn (string $url) => str_starts_with($url, '/brand/cta.svg?v='))
             ->where('art.peek', null)

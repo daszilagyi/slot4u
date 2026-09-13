@@ -110,6 +110,26 @@ it('server-renders the marketing hero, headline and widget included', function (
         ->toContain('Online időpontfoglaló rendszer kisvállalkozásoknak.');
 });
 
+it('server-renders the hero sloth as one still image, never its animation layers (SLO-232)', function () {
+    // docs/23 §5: the server and a reduced-motion visitor get the composite and
+    // nothing else. The three layers (cape, body, closed eye) exist only after
+    // hydration — in server HTML they would be three more images on the LCP path
+    // and four `<img>` a screen reader announces for one sloth.
+    $content = $this->get('http://'.config('tenancy.central_domain'))->assertOk()->getContent();
+    $rendered = renderedMarkupOnly($content);
+
+    expect($rendered)
+        ->toMatch('#<img[^>]+src="[^"]*/sloth-full-[^"]*\.png"[^>]*alt="A slot4u hős-lajhár#')
+        ->toMatch('#srcSet="[^"]*/sloth-full-[^"]*\.webp"#i')
+        ->not->toMatch('#/assets/cape-[^"]*\.(webp|png)#')
+        ->not->toMatch('#/assets/body-[^"]*\.(webp|png)#')
+        ->not->toMatch('#/assets/eyes-closed-[^"]*\.(webp|png)#')
+        ->not->toContain('data-hero-sloth-layers');
+
+    // …and its composite is preloaded with the document (docs/23 §4).
+    expect($content)->toMatch('#<link[^>]+rel="preload"[^>]+as="image"[^>]+/sloth-full-[^"]*\.webp#');
+});
+
 it('server-renders the middle of the landing page too', function () {
     // The sections below the fold are the ones a crawler reads and a visitor
     // scrolls to (SLO-204). They animate on scroll, which is exactly the shape
