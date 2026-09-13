@@ -17,9 +17,16 @@ All decorative: `alt=""`, `aria-hidden`, real `width`/`height`; only the hero lo
 
 ## Sources and processing
 
-- The illustrations were generated for the Lélekút design (Daniel, 2026-09-13); the
-  photos are from Pexels (free licence): `pexels-mart-production-7699304` (portrait)
-  and `pexels-mart-production-7699458` (about, cropped to the empty chaise).
+- The illustrations were generated for the Lélekút design (Daniel, 2026-09-13).
+- The photos are from Pexels, both by **MART PRODUCTION**, under the
+  [Pexels licence](https://www.pexels.com/license/) (free to use, attribution not
+  required):
+  - `portrait` — https://www.pexels.com/photo/7699304/
+  - `about-room` — https://www.pexels.com/photo/7699458/ (cropped to the empty chaise)
+
+  ⚠️ The licence forbids implying that an identifiable person endorses a product.
+  The portrait stands in for a **fictional** practitioner on a demo tenant (behind
+  the DEMO banner). Do not reuse it as the face of a real tenant's staff.
 - The sloth-with-heart source had its speech bubble baked in; it was removed
   (connected components right of the sloth) so the text stays tenant content.
 - The room source had a fake transparency checkerboard painted into it; it was
