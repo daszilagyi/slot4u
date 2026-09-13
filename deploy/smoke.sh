@@ -322,6 +322,36 @@ else
     fi
 fi
 
+# --- 4. The static files the pages point at are on the web ----------------
+#
+# ⚠️ SLO-233. On this host the apex domain's docroot is a bridge, not public/,
+# so a file under public/ exists on the server and still answers 404 on the
+# web — and a 404 for an image is invisible: the page renders, only the link
+# preview goes out bare and the tab has no icon. It had been that way since the
+# day the og-image was added, with every check green.
+#
+# A static file is answered by the web server, not the application, so there is
+# no CSP to prove authorship with. The proof here is the content type: the 404
+# production actually returned was `text/html` from Laravel (a route miss), and
+# only the real file comes back as `image/png`.
+image_ok() {
+    [[ "${STATUS}" == "200" ]] && grep -qiE '^content-type:[[:space:]]*image/png' "${HEADERS}"
+}
+
+echo "==> Static files"
+for asset in /img/og-image.png /img/favicon-32.png; do
+    if probe_until "${BASE_URL}${asset}" image_ok; then
+        pass "${asset} is served as an image"
+    elif challenged; then
+        fail_challenge "cannot read ${asset}"
+    else
+        content_type="$(grep -iE '^content-type:' "${HEADERS}" | head -n 1 | tr -d '\r' | cut -d: -f2- | sed 's/^[[:space:]]*//')"
+        fail "${asset} returned HTTP ${STATUS:-000} (${content_type:-no content type}), not an image.
+       The file is in public/ but the web server does not serve it — on the bridge
+       docroot it needs a link there (deploy/link-docroot.sh, docs/16 §6.10)."
+    fi
+done
+
 echo
 if [[ "${failures}" -gt 0 ]]; then
     echo "SMOKE TEST FAILED (${failures} check(s))" >&2

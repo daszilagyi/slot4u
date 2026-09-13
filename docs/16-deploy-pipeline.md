@@ -494,6 +494,34 @@ Mindhárom megkerüléshez vagy a hoszt `.htaccess`-ébe kellene nyúlni (nem a 
 vagy tanúsítvány-ellenőrzést kikapcsolni, vagy saját Inertia `Gateway`-t forkolni. Külön
 issue-ba tartozik, nem ebbe.
 
+### 6.10 ⚠️ Statikus fájlok a bridge docrooton (SLO-233)
+
+Az apex `slot4u.hu` docrootja a **`~/public_html` bridge** (saját `index.php` + `.htaccess`), **nem** a
+`~/slot4u/public`. Ami a `public/`-ban él és nem PHP-route, az ezért magától **nem kerül ki a webre**. Mérve
+2026-09-13-án: a `/img/og-image.png`, a `/img/favicon-32.png` és az apple-touch-icon az apex domainen **404**
+(`text/html`, Laravel) — a tenant-aldomaineken (docroot = `~/slot4u/public`) ugyanezek 200-at adtak. Minden
+megosztott link előnézete kép nélkül ment ki, és a böngészőfülön nem volt ikon — úgy, hogy minden check zöld volt.
+
+**A deploy innentől karbantartja** (`deploy/link-docroot.sh`, a checkout után, az `artisan up` előtt): a
+`public/` minden felső szintű eleméhez symlinket tesz a docrootba.
+
+| A docrootban | Mit tesz |
+|---|---|
+| hiányzik | symlink |
+| már a `public/` ugyanazon elemére mutató link (pl. a kézzel készült `build`) | frissíti |
+| **valódi fájl/könyvtár** (a tárhelyé) | **békén hagyja**, figyelmeztet |
+| link máshova | békén hagyja, figyelmeztet |
+| link a `public/` egy már törölt elemére | törli |
+
+Soha nem nyúl a bridge `index.php`-jához és `.htaccess`-éhez, sem a `hot`-hoz. **Nem fatális**: a site ekkor
+karbantartásban áll, és egy hiányzó favicon miatt nem maradhat lent — a hibát a füstteszt jelzi kívülről.
+
+**Füstteszt:** a `/img/og-image.png` és a `/img/favicon-32.png` **200 + `image/png`** kell legyen. A státusz
+önmagában nem elég: egy catch-all rewrite 200-at adna HTML-lel.
+
+⚠️ **Frontend-asset (JS-ből hivatkozott kép) továbbra se a `public/`-ba menjen**, hanem Vite-importtal a
+`resources/images/` alól — az a `/build/assets/`-be kerül hash-sel, és nem függ a docroot-linkektől (docs/23, docs/24).
+
 ## 7. Karbantartási ablak
 
 `artisan down` és `artisan up` között csak ez van: checkout → (composer, ha a lock változott)

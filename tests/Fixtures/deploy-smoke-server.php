@@ -21,6 +21,15 @@
 |   challenge_body  — the same interstitial with no telltale header at all
 |   challenge_title — the static block page, recognisable only by its title
 |   parked          — a 200 HTML page that is simply not us (parked domain)
+| Static files (SMOKE_FAKE_STATIC, SLO-233), for /img/og-image.png and
+| /img/favicon-32.png:
+|   served  (default) — the web server hands out the PNG: 200 image/png, and no
+|                       CSP, because the application never saw the request
+|   missing           — what production answered on the apex domain before the
+|                       docroot links: the request fell through to Laravel,
+|                       which returned its 404 page (text/html, with a CSP)
+|   html200           — a 200 that is not the image (a catch-all rewrite)
+|
 |   edge_requires_token
 |                   — the app, but only for a caller presenting the smoke
 |                     test's own header; anything else is challenged. Green here
@@ -98,6 +107,37 @@ if ($scenario === 'parked') {
 
 if ($scenario === 'edge_requires_token' && $presented !== $token) {
     $serveChallenge($challengeBody, true);
+
+    return;
+}
+
+// --- Static files, answered by the web server (SLO-233) ----------------------
+
+if (in_array($path, ['/img/og-image.png', '/img/favicon-32.png'], true)) {
+    $static = getenv('SMOKE_FAKE_STATIC') ?: 'served';
+
+    if ($static === 'served') {
+        http_response_code(200);
+        header('Content-Type: image/png');
+        // An 8-byte PNG signature is enough: the check reads the type, not pixels.
+        echo "\x89PNG\r\n\x1a\n";
+
+        return;
+    }
+
+    if ($static === 'html200') {
+        http_response_code(200);
+        header('Content-Type: text/html; charset=UTF-8');
+        echo '<!DOCTYPE html><html><body>not an image</body></html>';
+
+        return;
+    }
+
+    // `missing`: the shape measured on production — Laravel's 404, headers included.
+    http_response_code(404);
+    $appHeaders();
+    header('Content-Type: text/html; charset=utf-8');
+    echo '<!DOCTYPE html><html><head><title>Not Found</title></head><body>404</body></html>';
 
     return;
 }
