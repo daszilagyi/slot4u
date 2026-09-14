@@ -7,6 +7,7 @@ namespace App\Services\Privacy;
 use App\Models\Booking;
 use App\Models\Invoice;
 use App\Models\LegalConsent;
+use App\Models\Message;
 use App\Models\NotificationLog;
 use App\Models\Payment;
 use App\Models\PrivacyRequest;
@@ -48,6 +49,7 @@ final class PersonalDataExport
             'subject' => $this->profile($user),
             'bookings' => $this->bookings($user),
             'quote_requests' => $this->quoteRequests($user),
+            'messages' => $this->messages($user),
             'waitlist_entries' => $this->waitlistEntries($user),
             'payments' => $this->payments($user),
             'invoices' => $this->invoices($user),
@@ -158,6 +160,30 @@ final class PersonalDataExport
                         'at' => $message->created_at?->toIso8601String(),
                     ])
                     ->all(),
+            ])
+            ->all();
+    }
+
+    /**
+     * The customer's thread with the tenant (SLO-36): both sides, like the quote
+     * thread — the replies are about the customer too. Staff names are left
+     * out; who at the business answered is not the subject's data.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private function messages(User $user): array
+    {
+        return Message::query()
+            ->with('booking:id,code')
+            ->where('customer_id', $user->id)
+            ->orderBy('id')
+            ->get()
+            ->map(fn (Message $message): array => [
+                'from_customer' => $message->from_customer,
+                'body' => $message->body,
+                'booking' => $message->booking?->code,
+                'read_at' => $message->read_at?->toIso8601String(),
+                'at' => $message->created_at?->toIso8601String(),
             ])
             ->all();
     }

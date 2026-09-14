@@ -13,6 +13,7 @@ use App\Settings\TenantBranding;
 use App\Support\ConsentScope;
 use App\Support\CookieConsent;
 use App\Support\MarketingSurface;
+use App\Support\MessageVisibility;
 use App\Tenancy\TenantManager;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -91,6 +92,11 @@ class HandleInertiaRequests extends Middleware
             // the `identify.tenant` route middleware binds the tenant, so the
             // closure is evaluated at render time when the tenant is available.
             'features' => fn (): array => $this->enabledFeatures(),
+            // Unread messages for the nav badge (SLO-36): customer replies across
+            // the threads a staff member may answer, or staff replies in a
+            // customer's own thread. Null when the tenant has no messaging or the
+            // user cannot use it, so the badge never hints at a hidden section.
+            'messages_unread' => fn (): ?int => $this->unreadMessages($user),
             // Current tenant identity for admin branding (name/slug in the
             // sidebar). Null outside tenant context (central/admin domains).
             'tenant' => fn (): ?array => $this->tenantIdentity(),
@@ -195,6 +201,25 @@ class HandleInertiaRequests extends Middleware
         return $this->enabledFeatures = $tenant === null
             ? []
             : $this->features->enabledCodes($tenant);
+    }
+
+    /** Unread message count for the signed-in user's nav badge (SLO-36). */
+    private function unreadMessages(?User $user): ?int
+    {
+        if ($user === null
+            || $this->tenants->current() === null
+            || (int) $user->tenant_id !== (int) $this->tenants->id()
+            || ! in_array(Feature::Messages->value, $this->enabledFeatures(), true)) {
+            return null;
+        }
+
+        if (! $user->isStaff()) {
+            return MessageVisibility::unreadForCustomer($user);
+        }
+
+        return $user->can(Permission::MessageSend->value)
+            ? MessageVisibility::unreadForStaff($user)
+            : null;
     }
 
     /**

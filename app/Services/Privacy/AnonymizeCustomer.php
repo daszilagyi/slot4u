@@ -8,6 +8,7 @@ use App\Actions\Waitlist\JoinWaitlist;
 use App\Enums\AuditAction;
 use App\Models\AnalyticsConversion;
 use App\Models\Booking;
+use App\Models\Message;
 use App\Models\NotificationLog;
 use App\Models\QuoteRequest;
 use App\Models\QuoteRequestMessage;
@@ -70,6 +71,7 @@ final class AnonymizeCustomer
             $this->eraseConversions($user, $tenant, $originalEmail);
             $this->eraseBookings($user, $tenant, $originalEmail);
             $this->eraseQuoteRequests($user, $tenant, $originalEmail);
+            $this->eraseMessages($user, $tenant);
             $this->eraseWaitlistEntries($user, $tenant, $originalEmail);
             $this->redactNotificationLog($tenant, $originalEmail, $originalPhone);
             $this->eraseProfile($user, $tenant);
@@ -171,6 +173,20 @@ final class AnonymizeCustomer
         QuoteRequestMessage::query()
             ->whereIn('quote_request_id', $requestIds)
             ->where('user_id', $user->id)
+            ->update(['body' => $this->placeholder('erased_message', $tenant)]);
+    }
+
+    /**
+     * The customer's own words in their message thread (SLO-36) are replaced,
+     * the tenant's replies stay — the same rule as the quote thread above, so
+     * the conversation still reads as the tenant's record of what it said.
+     */
+    private function eraseMessages(User $user, Tenant $tenant): void
+    {
+        Message::query()
+            ->where('tenant_id', $tenant->id)
+            ->where('customer_id', $user->id)
+            ->where('from_customer', true)
             ->update(['body' => $this->placeholder('erased_message', $tenant)]);
     }
 

@@ -11,6 +11,7 @@ use App\Models\CommissionInvoice;
 use App\Models\Event;
 use App\Models\Invoice;
 use App\Models\Location;
+use App\Models\Message;
 use App\Models\NotificationLog;
 use App\Models\Payment;
 use App\Models\PrivacyRequest;
@@ -140,6 +141,11 @@ function purgeFixture(int $archivedDaysAgo = 91): array
         'user_id' => $customer->id,
         'body' => 'Üdv, '.PURGE_CUSTOMER_NAME.' vagyok',
     ]);
+
+    // Both sides of a message thread (SLO-36): the tenant's reply names the
+    // customer too, so it cannot survive the purge either.
+    Message::factory()->fromCustomer($customer)->create(['body' => 'Üdv, '.PURGE_CUSTOMER_NAME.' vagyok']);
+    Message::factory()->fromStaff($customer, $employee)->create(['body' => 'Kedves '.PURGE_CUSTOMER_NAME.', várunk!']);
 
     $event = Event::factory()->forTenant($tenant)->create(['service_id' => $service->id]);
     WaitlistEntry::factory()->forTenant($tenant)->forEvent($event)->create(['customer_id' => $customer->id]);

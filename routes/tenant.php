@@ -14,6 +14,7 @@ use App\Http\Controllers\Admin\EventController;
 use App\Http\Controllers\Admin\InvoicingSettingsController;
 use App\Http\Controllers\Admin\LegalDocumentController;
 use App\Http\Controllers\Admin\LocationController;
+use App\Http\Controllers\Admin\MessageController;
 use App\Http\Controllers\Admin\MessageTemplateController;
 use App\Http\Controllers\Admin\PrivacyRequestController;
 use App\Http\Controllers\Admin\QuoteRequestController;
@@ -39,6 +40,7 @@ use App\Http\Controllers\Tenant\DemoLoginController;
 use App\Http\Controllers\Tenant\HomeController as TenantHomeController;
 use App\Http\Controllers\Tenant\MyBookingController;
 use App\Http\Controllers\Tenant\MyInvoiceController;
+use App\Http\Controllers\Tenant\MyMessageController;
 use App\Http\Controllers\Tenant\MyPaymentController;
 use App\Http\Controllers\Tenant\MyPrivacyController;
 use App\Http\Controllers\Tenant\MyProfileController;
@@ -330,6 +332,18 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
             Route::put('/customers/{customer}', [CustomerController::class, 'update'])->name('tenant.customers.update');
         });
 
+        // Message inbox (SLO-36): one thread per customer. feature_messages +
+        // message.send (docs/03). {customer} binds through CustomerVisibility, so
+        // an employee opening a colleague's customer 404s. Sending is throttled
+        // like every other free-text write that mails someone.
+        Route::middleware(['ensure.feature:'.Feature::Messages->value, 'can:'.Permission::MessageSend->value])->group(function () {
+            Route::get('/messages', [MessageController::class, 'index'])->name('tenant.messages.index');
+            Route::get('/messages/{customer}', [MessageController::class, 'show'])->name('tenant.messages.show');
+            Route::post('/messages/{customer}', [MessageController::class, 'store'])
+                ->middleware('throttle:30,1')
+                ->name('tenant.messages.store');
+        });
+
         // Company profile + branding settings (SLO-21). Gated by settings.edit
         // (tenant-admin per docs/03). Update is POST (multipart logo/cover upload);
         // the branding section is feature-gated in SettingsRequest.
@@ -497,6 +511,14 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
         Route::get('/my/payments', [MyPaymentController::class, 'index'])
             ->middleware('ensure.feature:'.Feature::OnlinePayment->value)
             ->name('tenant.my.payments');
+        // My conversation with the tenant (SLO-36). No id anywhere: the thread is
+        // the signed-in customer's own.
+        Route::middleware('ensure.feature:'.Feature::Messages->value)->group(function () {
+            Route::get('/my/messages', [MyMessageController::class, 'index'])->name('tenant.my.messages');
+            Route::post('/my/messages', [MyMessageController::class, 'store'])
+                ->middleware('throttle:30,1')
+                ->name('tenant.my.messages.store');
+        });
         // My invoices (SLO-133). Self-scoped through the booking; the PDF is
         // streamed from the private disk behind this same scope.
         Route::middleware('ensure.feature:'.Feature::Invoicing->value)->group(function () {

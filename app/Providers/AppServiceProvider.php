@@ -7,6 +7,7 @@ use App\Events\BookingCreated;
 use App\Events\BookingPriceChanged;
 use App\Events\BookingStatusChanged;
 use App\Events\CommissionInvoiceIssued;
+use App\Events\MessageSent;
 use App\Events\QuoteRequestStatusChanged;
 use App\Events\WaitlistOffered;
 use App\Listeners\Analytics\RecordConversionContext;
@@ -19,6 +20,7 @@ use App\Listeners\SendBookingCancellation;
 use App\Listeners\SendBookingConfirmation;
 use App\Listeners\SendBookingRejection;
 use App\Listeners\SendCommissionInvoiceIssued;
+use App\Listeners\SendMessageNotifications;
 use App\Listeners\SendQuoteReady;
 use App\Listeners\SendWaitlistOffer;
 use App\Models\Room;
@@ -199,6 +201,7 @@ class AppServiceProvider extends ServiceProvider
         Event::listen(BookingCanceled::class, SendBookingCancellation::class);
         Event::listen(WaitlistOffered::class, SendWaitlistOffer::class);
         Event::listen(QuoteRequestStatusChanged::class, SendQuoteReady::class);
+        Event::listen(MessageSent::class, SendMessageNotifications::class);
         Event::listen(NotificationSent::class, [RecordNotificationDelivery::class, 'sent']);
         Event::listen(NotificationFailed::class, [RecordNotificationDelivery::class, 'failed']);
 

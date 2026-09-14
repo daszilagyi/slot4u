@@ -18,4 +18,6 @@ enum NotificationType: string
     case Reminder24h = 'reminder_24h';
     case PaymentSuccess = 'payment_success';
     case PaymentFailed = 'payment_failed';
+    // The tenant replied in the customer's message thread (SLO-36).
+    case MessageReceived = 'message_received';
 }

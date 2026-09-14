@@ -4,6 +4,7 @@ namespace App\Services\Notification;
 
 use App\Enums\NotificationType;
 use App\Models\Booking;
+use App\Models\Message;
 use App\Models\NotificationLog;
 use App\Models\QuoteRequest;
 use App\Models\Tenant;
@@ -44,7 +45,7 @@ class CustomerNotifier
      * its public surface answers 503/404 (EnsureTenantActive), so every link in the
      * mail would be dead.
      */
-    public function operationalTenant(Booking|QuoteRequest|WaitlistEntry $owner): ?Tenant
+    public function operationalTenant(Booking|QuoteRequest|WaitlistEntry|Message $owner): ?Tenant
     {
         $tenantId = (int) $owner->tenant_id;
 
@@ -55,7 +56,7 @@ class CustomerNotifier
         return $this->tenants[$tenantId];
     }
 
-    private function resolveOperationalTenant(Booking|QuoteRequest|WaitlistEntry $owner): ?Tenant
+    private function resolveOperationalTenant(Booking|QuoteRequest|WaitlistEntry|Message $owner): ?Tenant
     {
         $tenant = $owner->tenant()->withTrashed()->first();
 
