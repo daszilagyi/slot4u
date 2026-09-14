@@ -7,6 +7,7 @@ use App\Actions\Fortify\DisableTwoFactorAuthentication;
 use App\Actions\Fortify\ResetUserPassword;
 use App\Http\Responses\LoginResponse;
 use App\Http\Responses\RegisterResponse;
+use App\Http\Responses\TwoFactorLoginResponse;
 use App\Http\Responses\VerifyEmailResponse;
 use App\Tenancy\TenantHostResolver;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -19,6 +20,7 @@ use Inertia\Inertia;
 use Laravel\Fortify\Actions\DisableTwoFactorAuthentication as FortifyDisableTwoFactorAuthentication;
 use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
 use Laravel\Fortify\Contracts\RegisterResponse as RegisterResponseContract;
+use Laravel\Fortify\Contracts\TwoFactorLoginResponse as TwoFactorLoginResponseContract;
 use Laravel\Fortify\Contracts\VerifyEmailResponse as VerifyEmailResponseContract;
 use Laravel\Fortify\Fortify;
 
@@ -29,9 +31,11 @@ class FortifyServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        // Domain-aware post-login / post-registration / post-verification
-        // redirect (super-admin → admin panel, tenant user → their subdomain).
+        // Domain-aware post-login / post-2FA / post-registration /
+        // post-verification redirect (super-admin → admin panel, tenant user →
+        // their subdomain).
         $this->app->singleton(LoginResponseContract::class, LoginResponse::class);
+        $this->app->singleton(TwoFactorLoginResponseContract::class, TwoFactorLoginResponse::class);
         $this->app->singleton(RegisterResponseContract::class, RegisterResponse::class);
         $this->app->singleton(VerifyEmailResponseContract::class, VerifyEmailResponse::class);
     }

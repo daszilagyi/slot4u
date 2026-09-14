@@ -182,9 +182,62 @@ it('signs in with a code from the authenticator', function () {
     $this->post(tenantHost('acme', '/login'), ['email' => $user->email, 'password' => 'password']);
     // The NEXT code, as a real user would read after waiting — see totpCode().
     $this->post(tenantHost('acme', '/two-factor-challenge'), ['code' => totpCode($user, 1)])
-        ->assertRedirect();
+        ->assertRedirect(tenantHost('acme', '/dashboard'));
 
     $this->assertAuthenticatedAs($user);
+});
+
+/**
+ * A user whose second factor is already confirmed, without the setup dance —
+ * the sign-in tests below are about where the challenge lands, not setup.
+ */
+function withConfirmedTwoFactor(User $user): User
+{
+    $user->forceFill([
+        'two_factor_secret' => encrypt(app(Google2FA::class)->generateSecretKey()),
+        'two_factor_recovery_codes' => encrypt(json_encode(['recovery-code-one'])),
+        'two_factor_confirmed_at' => now(),
+    ])->save();
+
+    return $user->refresh();
+}
+
+// SLO-248: Fortify's default sent the second half of every sign-in to
+// `/dashboard` on the current host — a 404 wherever that host has none.
+it('lands the superadmin on the admin panel after the second factor, not a /dashboard 404', function () {
+    $superadmin = withConfirmedTwoFactor(superAdmin());
+
+    $this->post(superUrl('/login'), ['email' => $superadmin->email, 'password' => 'password'])
+        ->assertRedirect('/two-factor-challenge');
+
+    $this->post(superUrl('/two-factor-challenge'), ['code' => totpCode($superadmin)])
+        ->assertRedirect(superUrl('/'));
+
+    $this->assertAuthenticatedAs($superadmin);
+});
+
+it('sends a tenant admin who signs in on the central domain to their own dashboard after the second factor', function () {
+    $admin = withConfirmedTwoFactor(twoFactorAdmin());
+    $central = 'http://'.config('tenancy.central_domain');
+
+    $this->post($central.'/login', ['email' => $admin->email, 'password' => 'password']);
+
+    $this->post($central.'/two-factor-challenge', ['code' => totpCode($admin)])
+        ->assertRedirect(tenantHost('acme', '/dashboard'));
+});
+
+it('hands an Inertia challenge a full-page visit to the other host', function () {
+    // The challenge form posts through Inertia. A 302 to another origin inside
+    // that XHR is a CORS failure, not a navigation — it has to be a location visit.
+    $admin = withConfirmedTwoFactor(twoFactorAdmin());
+    $central = 'http://'.config('tenancy.central_domain');
+
+    $this->post($central.'/login', ['email' => $admin->email, 'password' => 'password']);
+
+    $this->withHeaders(['X-Inertia' => 'true'])
+        ->post($central.'/two-factor-challenge', ['code' => totpCode($admin)])
+        ->assertStatus(409)
+        ->assertHeader('X-Inertia-Location', tenantHost('acme', '/dashboard'));
 });
 
 it('signs in with a recovery code when the authenticator is gone', function () {
