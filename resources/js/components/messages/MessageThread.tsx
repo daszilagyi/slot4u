@@ -150,7 +150,7 @@ export default function MessageThread({
                         form.setData('body', event.target.value)
                     }
                     aria-invalid={form.errors.body ? true : undefined}
-                    className="rounded-md border border-input bg-transparent px-3 py-2 text-sm"
+                    className="rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                 />
                 {form.errors.body ? (
                     <p className="text-sm text-destructive">
@@ -173,7 +173,7 @@ export default function MessageThread({
                                         event.target.value,
                                     )
                                 }
-                                className="h-9 max-w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-sm"
+                                className="h-9 max-w-full rounded-md border border-input bg-transparent px-3 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                             >
                                 <option value="">
                                     {t('messages.booking_none')}

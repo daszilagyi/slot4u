@@ -158,7 +158,7 @@ function BookingSection({
                                 </span>
                             </div>
 
-                            <div className="flex shrink-0 items-center gap-2">
+                            <div className="flex shrink-0 flex-wrap items-center gap-2">
                                 <Button asChild variant="outline" size="sm">
                                     <a href={`/my/bookings/${booking.id}/ics`}>
                                         <CalendarPlusIcon className="size-4" />
