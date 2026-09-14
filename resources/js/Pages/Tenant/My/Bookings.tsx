@@ -1,5 +1,10 @@
 import { Head, useForm, usePage } from '@inertiajs/react';
-import { CalendarPlusIcon, PencilIcon, XCircleIcon } from 'lucide-react';
+import {
+    CalendarPlusIcon,
+    MessageCircleIcon,
+    PencilIcon,
+    XCircleIcon,
+} from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -7,6 +12,7 @@ import PublicLayout from '@/Layouts/PublicLayout';
 import ConfirmDialog from '@/components/admin/ConfirmDialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { useFeatures } from '@/lib/features';
 import { useTranslations } from '@/lib/i18n';
 import type { MyBooking } from '@/types';
 
@@ -23,8 +29,9 @@ export default function Bookings({ upcoming, past }: BookingsProps) {
 
     // A cancellation past the deadline comes back as a `cancel` validation error
     // on the shared errors bag (CancelBooking online guard), not a field error.
-    const cancelError = (page.props.errors as Record<string, string> | undefined)
-        ?.cancel;
+    const cancelError = (
+        page.props.errors as Record<string, string> | undefined
+    )?.cancel;
 
     const cancel = (booking: MyBooking) => {
         form.post(`/my/bookings/${booking.id}/cancel`, {
@@ -110,6 +117,7 @@ function BookingSection({
     muted = false,
 }: SectionProps) {
     const t = useTranslations();
+    const canMessage = useFeatures()('feature_messages');
 
     return (
         <section className="flex flex-col gap-3">
@@ -142,9 +150,7 @@ function BookingSection({
                                 <span className="text-sm text-muted-foreground">
                                     {booking.starts_local ??
                                         t('tenant.my.bookings.no_time')}
-                                    {booking.staff
-                                        ? ` · ${booking.staff}`
-                                        : ''}
+                                    {booking.staff ? ` · ${booking.staff}` : ''}
                                 </span>
                                 <span className="font-mono text-xs tracking-widest text-muted-foreground">
                                     {t('tenant.my.bookings.code_label')}:{' '}
@@ -152,17 +158,23 @@ function BookingSection({
                                 </span>
                             </div>
 
-                            <div className="flex shrink-0 items-center gap-2">
-                                <Button
-                                    asChild
-                                    variant="outline"
-                                    size="sm"
-                                >
+                            <div className="flex shrink-0 flex-wrap items-center gap-2">
+                                <Button asChild variant="outline" size="sm">
                                     <a href={`/my/bookings/${booking.id}/ics`}>
                                         <CalendarPlusIcon className="size-4" />
                                         {t('tenant.my.bookings.ics')}
                                     </a>
                                 </Button>
+                                {canMessage ? (
+                                    <Button asChild variant="outline" size="sm">
+                                        <a
+                                            href={`/my/messages?booking=${booking.id}`}
+                                        >
+                                            <MessageCircleIcon className="size-4" />
+                                            {t('messages.ask_about_booking')}
+                                        </a>
+                                    </Button>
+                                ) : null}
                                 {booking.can_reschedule ? (
                                     <Button asChild variant="outline" size="sm">
                                         <a

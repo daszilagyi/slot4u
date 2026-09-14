@@ -30,6 +30,7 @@ class MessageTemplateCatalog
         'waitlist_offer' => ['intro', 'service', 'when', 'deadline', 'outro'],
         'reminder_24h' => ['intro', 'service', 'when', 'code', 'outro'],
         'quote_ready' => ['intro', 'service', 'price', 'valid_until', 'outro'],
+        'message_received' => ['intro', 'outro'],
     ];
 
     /**

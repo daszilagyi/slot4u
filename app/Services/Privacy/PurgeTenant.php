@@ -9,6 +9,7 @@ use App\Enums\TenantStatus;
 use App\Models\AnalyticsConversion;
 use App\Models\Booking;
 use App\Models\Location;
+use App\Models\Message;
 use App\Models\NotificationLog;
 use App\Models\PrivacyRequest;
 use App\Models\QuoteRequest;
@@ -88,6 +89,7 @@ final class PurgeTenant
             $this->eraseAccounts($locked);
             $this->eraseBookings($locked);
             $this->eraseQuoteRequests($locked);
+            $this->eraseMessages($locked);
             $this->eraseWaitlist($locked);
             $this->eraseConversions($locked);
             $this->redactNotificationLog($locked);
@@ -197,6 +199,17 @@ final class PurgeTenant
         // replies so the thread still reads as a record, nothing here needs to
         // stay readable: the tenant itself is gone.
         QuoteRequestMessage::query()
+            ->where('tenant_id', $tenant->getKey())
+            ->update(['body' => $this->profiles->placeholder('erased_message', $tenant)]);
+    }
+
+    /**
+     * Every message body, from either side (SLO-36): as with the quote thread
+     * above, nothing needs to stay readable once the tenant itself is gone.
+     */
+    private function eraseMessages(Tenant $tenant): void
+    {
+        Message::query()
             ->where('tenant_id', $tenant->getKey())
             ->update(['body' => $this->profiles->placeholder('erased_message', $tenant)]);
     }

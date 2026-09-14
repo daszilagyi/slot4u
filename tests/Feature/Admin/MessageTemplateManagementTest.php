@@ -45,7 +45,7 @@ it('lists the editable templates for a tenant admin', function () {
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('Admin/Templates/Index')
-            ->has('templates', 7)
+            ->has('templates', 8)
             ->where('templates.0.key', 'booking_confirmed')
             ->where('templates.0.override', null)
             ->has('templates.0.variables'));

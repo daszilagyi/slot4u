@@ -83,6 +83,7 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
                     const active =
                         url === item.href || url.startsWith(`${item.href}/`);
+                    const count = item.badge ? (props[item.badge] ?? 0) : 0;
 
                     return (
                         <Link
@@ -98,7 +99,12 @@ export default function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
                             )}
                         >
                             <Icon className="size-4" />
-                            {t(item.labelKey)}
+                            <span className="flex-1">{t(item.labelKey)}</span>
+                            {count > 0 ? (
+                                <Badge className="px-1.5 text-[10px]">
+                                    {count}
+                                </Badge>
+                            ) : null}
                         </Link>
                     );
                 })}

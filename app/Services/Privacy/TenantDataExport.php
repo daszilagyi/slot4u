@@ -8,6 +8,7 @@ use App\Models\Booking;
 use App\Models\CommissionInvoice;
 use App\Models\Invoice;
 use App\Models\Location;
+use App\Models\Message;
 use App\Models\Payment;
 use App\Models\QuoteRequest;
 use App\Models\QuoteRequestMessage;
@@ -126,6 +127,7 @@ final class TenantDataExport
             'bookings' => Booking::query()->where('tenant_id', $id)->orderBy('id'),
             'quote_requests' => QuoteRequest::query()->where('tenant_id', $id)->orderBy('id'),
             'quote_request_messages' => QuoteRequestMessage::query()->where('tenant_id', $id)->orderBy('id'),
+            'messages' => Message::query()->where('tenant_id', $id)->orderBy('id'),
             'waitlist_entries' => WaitlistEntry::query()->where('tenant_id', $id)->orderBy('id'),
             'payments' => Payment::query()->where('tenant_id', $id)->orderBy('id'),
             'invoices' => Invoice::query()->where('tenant_id', $id)->orderBy('id'),

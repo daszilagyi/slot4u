@@ -640,6 +640,7 @@ return [
             'my_quotes' => 'Ajánlatkéréseim',
             'my_payments' => 'Fizetéseim',
             'my_invoices' => 'Számláim',
+            'my_messages' => 'Üzeneteim',
             'my_profile' => 'Profilom',
             'my_privacy' => 'Adataim',
             'login' => 'Belépés',
@@ -651,6 +652,11 @@ return [
             'event' => 'Alkalom',
             'offer_deadline' => 'Ajánlat érvényes eddig:',
             'party_size' => 'Létszám: :count fő',
+        ],
+        'my_messages' => [
+            'title' => 'Üzeneteim',
+            'subtitle' => 'Írj nekünk bármikor, itt látod a válaszainkat is.',
+            'empty' => 'Még nem váltottunk üzenetet. Kérdésed van? Írj nekünk!',
         ],
         'my_quotes' => [
             'title' => 'Ajánlatkéréseim',
@@ -1235,6 +1241,7 @@ return [
             'calendar' => 'Naptár',
             'reports' => 'Statisztika',
             'customers' => 'Ügyfelek',
+            'messages' => 'Üzenetek',
             'billing' => 'Számlázás',
             'templates' => 'Email sablonok',
             'roles' => 'Jogosultságok',
@@ -2122,6 +2129,15 @@ return [
                 'wrong_mode' => 'Ez a szolgáltatás nem ajánlatkérés módú.',
             ],
         ],
+        'messages' => [
+            'title' => 'Üzenetek',
+            'subtitle' => 'Beszélgetések az ügyfeleiddel, ügyfelenként egy szálban.',
+            'empty' => 'Még nem érkezett üzenet. Az ügyfelek a fiókjukból írhatnak neked, te pedig az ügyféladatlapról kezdhetsz beszélgetést.',
+            'unread' => ':count olvasatlan',
+            'open_customer' => 'Ügyféladatlap',
+            'back' => 'Vissza az üzenetekhez',
+            'thread_empty' => 'Még nincs üzenet ebben a szálban. Írj elsőként!',
+        ],
         'customers' => [
             'title' => 'Ügyfelek',
             'subtitle' => 'A cég ügyfeleinek nyilvántartása és foglalási előzményei.',
@@ -2259,6 +2275,7 @@ return [
                 'waitlist_offer' => 'Felszabadult hely (várólista)',
                 'reminder_24h' => 'Emlékeztető (24 órával előtte)',
                 'quote_ready' => 'Árajánlat elkészült',
+                'message_received' => 'Új üzenet érkezett',
             ],
         ],
         'domains' => [
@@ -2373,6 +2390,20 @@ return [
         // értelmes különbség köztük, mindkettő olyan ember, akit a platform
         // már nem ismer (SLO-160).
         'erased_user' => 'Törölt felhasználó',
+    ],
+    'messages' => [
+        'you' => 'Te',
+        'placeholder' => 'Írd ide az üzeneted…',
+        'send' => 'Küldés',
+        'booking_label' => 'Foglaláshoz kapcsolom (nem kötelező)',
+        'booking_none' => 'Nem kapcsolódik foglaláshoz',
+        'booking_chip' => 'Foglalás: :code',
+        'booking_invalid' => 'Ez a foglalás nem ehhez a beszélgetéshez tartozik.',
+        'read' => 'Olvasva',
+        'body_label' => 'Üzenet',
+        'no_email_hint' => 'Az üzenet szövegét nem küldjük el emailben, csak értesítést kap a címzett, hogy új üzenete érkezett.',
+        'message_customer' => 'Üzenet küldése',
+        'ask_about_booking' => 'Kérdésem van',
     ],
     'locale' => [
         'hu' => 'Magyar',
@@ -2672,6 +2703,19 @@ return [
             'valid_until' => 'Az ajánlat érvényes: :date',
             'action' => 'Ajánlat megtekintése',
             'outro' => 'Az ajánlatot a fenti gombbal tudod megtekinteni és elfogadni.',
+        ],
+        'message_received' => [
+            'subject' => 'Új üzeneted érkezett – :tenant',
+            'greeting' => 'Szia :name!',
+            'intro' => 'A(z) :tenant új üzenetet küldött neked.',
+            'action' => 'Üzenet megtekintése',
+            'outro' => 'Az üzenetet a fiókodban olvashatod el, és ott tudsz válaszolni is.',
+        ],
+        'customer_message' => [
+            'subject' => 'Új üzenet :customer ügyféltől',
+            'greeting' => 'Szia :name!',
+            'intro' => ':customer új üzenetet írt a(z) :tenant fiókjába.',
+            'action' => 'Beszélgetés megnyitása',
         ],
         'commission_invoice' => [
             'issued' => [

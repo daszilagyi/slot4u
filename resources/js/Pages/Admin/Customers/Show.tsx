@@ -4,6 +4,7 @@ import {
     CalendarCheckIcon,
     CalendarIcon,
     MailIcon,
+    MessagesSquareIcon,
     PhoneIcon,
     WalletIcon,
 } from 'lucide-react';
@@ -12,8 +13,11 @@ import AdminLayout from '@/Layouts/AdminLayout';
 import PageHeader from '@/components/admin/PageHeader';
 import StatCard from '@/components/admin/StatCard';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { useFeatures } from '@/lib/features';
 import { formatDateTime, formatMoney } from '@/lib/format';
 import { useTranslations } from '@/lib/i18n';
+import { usePermissions } from '@/lib/permissions';
 import type { CustomerCard } from '@/types';
 
 type ShowProps = {
@@ -23,6 +27,8 @@ type ShowProps = {
 
 export default function CustomerShow({ customer }: ShowProps) {
     const t = useTranslations();
+    const can = usePermissions();
+    const feature = useFeatures();
 
     return (
         <AdminLayout
@@ -56,6 +62,20 @@ export default function CustomerShow({ customer }: ShowProps) {
                                     <PhoneIcon className="size-3.5" />
                                     {customer.phone}
                                 </span>
+                            ) : null}
+                            {can('message.send') &&
+                            feature('feature_messages') ? (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="mt-1"
+                                    asChild
+                                >
+                                    <Link href={`/messages/${customer.id}`}>
+                                        <MessagesSquareIcon className="size-4" />
+                                        {t('messages.message_customer')}
+                                    </Link>
+                                </Button>
                             ) : null}
                         </div>
                     }

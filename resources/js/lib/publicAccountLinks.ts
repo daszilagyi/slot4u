@@ -11,7 +11,7 @@ import { useTranslations } from '@/lib/i18n';
 export function usePublicAccountLinks(): { href: string; label: string }[] {
     const t = useTranslations();
     const feature = useFeatures();
-    const { auth } = usePage().props;
+    const { auth, messages_unread } = usePage().props;
 
     const accountLinks: { href: string; label: string }[] =
         auth.user && !auth.user.is_staff
@@ -46,6 +46,17 @@ export function usePublicAccountLinks(): { href: string; label: string }[] {
                             {
                                 href: '/my/invoices',
                                 label: t('tenant.nav.my_invoices'),
+                            },
+                        ]
+                      : []),
+                  ...(feature('feature_messages')
+                      ? [
+                            {
+                                href: '/my/messages',
+                                label:
+                                    messages_unread && messages_unread > 0
+                                        ? `${t('tenant.nav.my_messages')} (${messages_unread})`
+                                        : t('tenant.nav.my_messages'),
                             },
                         ]
                       : []),

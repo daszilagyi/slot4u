@@ -916,6 +916,36 @@ export type MyQuoteRequest = {
     created_local: string | null;
 };
 
+/** One message in a tenant ↔ customer thread (SLO-36). */
+export type ThreadMessage = {
+    id: number;
+    body: string;
+    from_customer: boolean;
+    sender_id: number | null;
+    sender_name: string | null;
+    booking_code: string | null;
+    created_local: string | null;
+    read: boolean;
+};
+
+/** A booking a message can be attached to (SLO-36). */
+export type MessageBookingOption = {
+    id: number;
+    code: string;
+    label: string;
+};
+
+/** One row of the admin inbox: a customer's thread (SLO-36). */
+export type MessageThreadSummary = {
+    customer_id: number;
+    customer_name: string | null;
+    customer_email: string | null;
+    preview: string;
+    last_from_customer: boolean;
+    last_local: string | null;
+    unread: number;
+};
+
 /** One legal document in force, as shared to every page (SLO-161). */
 type LegalDocumentSummary = {
     id: number;
@@ -958,6 +988,8 @@ declare module '@inertiajs/core' {
         translations: Translations;
         auth: Auth;
         features: string[];
+        /** Unread messages for the nav badge; null without messaging (SLO-36). */
+        messages_unread: number | null;
         status: string | null;
         impersonation: ImpersonationState | null;
         tenant: TenantIdentity | null;

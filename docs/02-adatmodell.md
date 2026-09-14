@@ -224,9 +224,11 @@ Szenzitív adat (kártya, API kulcs) maszkolva; retention 90 nap. Részletek: `0
 ```
 message_templates  id, tenant_id, key(booking_confirmed|booking_modified|booking_canceled|
                    booking_rejected|waitlist_offer|quote_ready|
-                   reminder_24h|payment_success|payment_failed), channel(email|sms),
+                   reminder_24h|payment_success|payment_failed|message_received), channel(email|sms),
                    locale, subject, body, enabled
-messages           id, tenant_id, sender_id, recipient_id, booking_id(nullable), body, read_at
+messages           id, tenant_id, customer_id, sender_id(nullable), from_customer(bool),
+                   booking_id(nullable), body, read_at(nullable), timestamps
+                   — egy szál = egy ügyfél (SLO-36), l. lent
 notifications_log  id, tenant_id, type, channel, recipient, status(pending|sent|failed),
                    dedupe_key(nullable), sent_at, error, timestamps
                    — type: a message_templates key-ekkel azonos halmaz (NotificationType enum)
@@ -236,6 +238,25 @@ notifications_log  id, tenant_id, type, channel, recipient, status(pending|sent|
                    (SLO-108/SLO-109)
 audit_logs         id, tenant_id(nullable), user_id(nullable), action, auditable_type/id(nullable), old_values/new_values(json), ip_address, created_at(immutable, nincs updated_at)
 ```
+
+### Üzenetek (SLO-36)
+
+**Egy szál = egy ügyfél.** Az ügyfél a **tenantnak** ír (közös postafiók), nem egy konkrét
+dolgozónak, ezért a szál kulcsa a `customer_id`, és **nincs `recipient_id`** (az eredeti vázlat
+eltérése). Az irányt a `from_customer` hordozza explicit módon, nem a `sender_id`-ből levezetve:
+a `sender_id` null lesz, ha egy staff-fiók megszűnik. A `booking_id` opcionális kontextus; csak
+az adott ügyfél foglalása lehet, korlátozott aktornál a `BookingVisibility` szerint is.
+
+* **Olvasottság:** a `read_at` azt jelzi, amikor **a másik oldal** megnyitotta a szálat. A tenant
+  oldala közös: ha bármelyik jogosult staff megnyitja, az ügyfél üzenetei az egész tenantnak
+  olvasottak (`MarkThreadRead`).
+* **Email:** a tenant válaszáról az ügyfél sablonos levelet kap (`message_received`, szerkeszthető,
+  dedup-kulcs `message:{id}`), az ügyfél üzenetéről a jogosult staff kap levelet
+  (`CustomerMessageNotification`). ⚠️ **Egyik levélben sincs benne az üzenet szövege**: a
+  platformon pszichológus és rendelő is dolgozik, ahol a szöveg maga egészségügyi adat.
+  **Összevonva:** csak a szál első olvasatlan üzenete indít levelet, a sorozat nem.
+* **Ajánlatkérés:** a kérés beszélgetése marad a saját `quote_request_messages` tábláján.
+* **Nem MVP:** Reverb élő frissítés, csatolmány.
 
 ### Számlázási adatok a foglaláson (SLO-168)
 
