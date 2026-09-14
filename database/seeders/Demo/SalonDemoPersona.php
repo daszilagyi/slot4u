@@ -154,6 +154,57 @@ final class SalonDemoPersona extends DemoPersona
         ];
     }
 
+    /**
+     * The glam landing template (SLO-241, docs/26), with the GlamZone words from
+     * its Claude Design.
+     *
+     * ⚠️ The names below are matched against the real catalogue and team seeded
+     * in {@see self::buildFor()} — rename a service or a stylist there and its
+     * card quietly drops off the landing. The design's own sample team (Nóra,
+     * Lili, Eszter) is not used: the page shows the salon's real people.
+     *
+     * Bence has no card. The template draws three people beside the "anyone"
+     * card, and the photo set has no portrait for him; he is still bookable, and
+     * "Összes szakember" leads to all four.
+     *
+     * @return array<string, mixed>
+     */
+    public function landing(): array
+    {
+        return [
+            'template' => 'glam',
+            'brand_title' => 'GlamZone',
+            'brand_subtitle' => 'Szépségszalon',
+            'tagline' => 'Szépség. Gondosan. Neked.',
+            'headline' => ['Ragyogj.', 'Mi intézzük', 'az időpontot.'],
+            'lead' => 'Haj, köröm és kozmetika egy helyen. Válaszd ki a szolgáltatást, és foglalj időpontot néhány kattintással.',
+            'highlights' => [
+                ['icon' => 'calendar', 'label' => 'Online foglalás 0–24'],
+                ['icon' => 'sparkles', 'label' => 'Azonnali visszaigazolás'],
+                ['icon' => 'heart', 'label' => 'Egyszerű módosítás'],
+            ],
+            'neon' => ["Good\nHair\nGood\nMood", 'Beauty Looks Good On You'],
+            'bubbles' => ["RÁD\nMINDIG VAN IDŐNK!\n(időpontunk)"],
+            'categories' => [
+                ['name' => 'Fodrászat', 'subtitle' => 'Vágás · festés · styling', 'icon' => 'scissors', 'photo' => 'cat-hair'],
+                ['name' => 'Kozmetika', 'subtitle' => 'Arckezelés · szemöldök', 'icon' => 'flower', 'photo' => 'cat-beauty'],
+                ['name' => 'Kéz és láb', 'subtitle' => 'Géllakk · műköröm · pedikűr', 'icon' => 'hand', 'photo' => 'cat-nails'],
+            ],
+            'featured' => [
+                ['name' => 'Női hajvágás', 'badge' => 'Népszerű', 'description' => 'Friss fazon, személyre szabva.', 'photo' => 'svc-cut'],
+                ['name' => 'Festés + vágás', 'description' => 'Új szín, új lendület.', 'photo' => 'svc-colour'],
+                ['name' => 'Arckezelés', 'description' => 'Tiszta, üde és ragyogó bőr.', 'photo' => 'svc-facial'],
+                ['name' => 'Géllakk', 'description' => 'Tartós szépség a hétköznapokra.', 'photo' => 'svc-gel'],
+            ],
+            'team' => [
+                ['name' => 'Kovács Réka', 'skills' => 'Vágás · festés · balayage', 'photo' => 'staff-1'],
+                ['name' => 'Szabó Nóra', 'skills' => 'Arckezelés · szemöldök', 'photo' => 'staff-2'],
+                ['name' => 'Kiss Dorina', 'skills' => 'Géllakk · műköröm · pedikűr', 'photo' => 'staff-3'],
+            ],
+            'quick_service' => 'Hajmosás + szárítás',
+        ];
+    }
+
     protected function build(Tenant $tenant, User $admin, DemoDataFactory $data): void
     {
         app(TenantManager::class)->set($tenant);

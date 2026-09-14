@@ -643,11 +643,21 @@ export type PublicHomeService = {
 };
 
 /** An icon the calm landing template can draw (TenantLanding::ICONS). */
-export type LandingIcon = 'leaf' | 'heart' | 'people' | 'shield' | 'calendar';
+export type LandingIcon =
+    | 'leaf'
+    | 'heart'
+    | 'people'
+    | 'shield'
+    | 'calendar'
+    | 'scissors'
+    | 'flower'
+    | 'sparkles'
+    | 'hand'
+    | 'foot';
 
 /** A tenant's landing template and its content (SLO-238, TenantLanding). */
 export type PublicLanding = {
-    template: 'default' | 'calm';
+    template: 'default' | 'calm' | 'glam';
     brand_title: string | null;
     brand_subtitle: string | null;
     tagline: string | null;
@@ -665,6 +675,41 @@ export type PublicLanding = {
     };
     testimonials: { name: string; text: string }[];
     faq: { q: string; a: string }[];
+    /** The glam template's content (SLO-241). */
+    headline: string[];
+    neon: string[];
+    categories: {
+        name: string;
+        subtitle: string;
+        icon: LandingIcon;
+        photo: string | null;
+    }[];
+    featured: {
+        name: string;
+        badge: string | null;
+        description: string | null;
+        photo: string | null;
+    }[];
+};
+
+/** The glam landing's live half: real team cards and free times (SLO-241). */
+export type GlamLandingData = {
+    team: {
+        id: number;
+        name: string;
+        title: string | null;
+        skills: string | null;
+        photo: string | null;
+    }[];
+    quick: {
+        service_id: number;
+        service_name: string;
+        duration_minutes: number | null;
+        date: string;
+        is_today: boolean;
+        is_tomorrow: boolean;
+        times: string[];
+    } | null;
 };
 
 export type PublicHomeCategory = {
