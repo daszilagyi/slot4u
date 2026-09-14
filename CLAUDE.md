@@ -85,6 +85,8 @@ Az issue acceptance criteriája teljesül, ÉS: tesztek zöldek, Pint/Larastan/E
 | `docs/20-demo-tenantok-es-seed.md` | M9: a 4 demo persona, az `is_demo` guardrailek és a `demo:seed`/`demo:reset` keretrendszer |
 | `docs/21-foldal-design-terv.md` | Arculati tokenek (navy/sárga), a főoldal 11 szekciója, animációk, kabala-pózok — a landing-redesign forrása |
 | `docs/22-autoszerviz-persona-es-vertikalis-landing.md` | Az 5. demo persona (autószerviz) és a vertikális landing-sablon (`/autoszerviz`) |
+| `docs/25-pszihologus-tenant-demo-landing.md` | A „calm” tenant landing-sablon és a Lélekút demo oldala |
+| `docs/26-fodrasz-szalon-landing.md` | A „glam” tenant landing-sablon és a GlamZone demo szalon oldala |
 
 A docs az igazság forrása. Viselkedésbeli változás = docs-frissítés ugyanabban a PR-ben.
 
