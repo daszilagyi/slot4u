@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Location;
 use App\Models\Service;
 use App\Models\ServiceCategory;
+use App\Services\Landing\GlamLandingData;
 use App\Services\Seo\OgImageGenerator;
 use App\Settings\TenantBranding;
 use App\Settings\TenantLanding;
@@ -45,6 +46,7 @@ class HomeController extends Controller
         // canonical. Share and canonical URLs therefore point at the tenant's
         // primary public host, not at whichever host this request arrived on.
         $canonical = app(TenantPublicUrl::class)->to($tenant, '/');
+        $landing = TenantLanding::fromArray($tenant->landing);
 
         return Inertia::render('Tenant/Home', [
             'og_image' => $ogImage,
@@ -68,7 +70,11 @@ class HomeController extends Controller
             'locations' => $this->locations(),
             // Which home page to draw and its words (SLO-238). The template is
             // chosen per tenant; anything but `calm` keeps the default page.
-            'landing' => TenantLanding::fromArray($tenant->landing)->toProps(),
+            'landing' => $landing->toProps(),
+            // The glam template's live half (SLO-241): its team cards and the
+            // next free times. Only computed for that template — the availability
+            // lookup is not free, and no other page draws it.
+            'glam' => $landing->usesGlam() ? app(GlamLandingData::class)->for($tenant, $landing) : null,
         ]);
     }
 

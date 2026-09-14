@@ -21,8 +21,14 @@ use App\Enums\LandingTemplate;
  */
 final class TenantLanding
 {
-    /** Icons the calm template can draw; anything else falls back to the leaf. */
-    public const ICONS = ['leaf', 'heart', 'people', 'shield', 'calendar'];
+    /**
+     * Icons a template can draw; anything else falls back to the leaf. The glam
+     * set (SLO-241) sits in the same list — each template maps what it knows.
+     */
+    public const ICONS = ['leaf', 'heart', 'people', 'shield', 'calendar', 'scissors', 'flower', 'sparkles', 'hand', 'foot'];
+
+    /** A template art slot name (`cat-hair`, `staff-1`): never a path or a URL. */
+    private const PHOTO_PATTERN = '/^[a-z0-9][a-z0-9-]{0,39}$/';
 
     /**
      * @param  list<array{icon: string, label: string}>  $highlights
@@ -31,6 +37,11 @@ final class TenantLanding
      * @param  list<string>  $aboutChips
      * @param  list<array{name: string, text: string}>  $testimonials
      * @param  list<array{q: string, a: string}>  $faq
+     * @param  list<string>  $headline
+     * @param  list<string>  $neon
+     * @param  list<array{name: string, subtitle: string, icon: string, photo: string|null}>  $categoryCards
+     * @param  list<array{name: string, badge: string|null, description: string|null, photo: string|null}>  $featured
+     * @param  list<array{name: string, skills: string|null, photo: string|null}>  $team
      */
     private function __construct(
         public readonly LandingTemplate $template,
@@ -49,6 +60,12 @@ final class TenantLanding
         public readonly array $aboutChips,
         public readonly array $testimonials,
         public readonly array $faq,
+        public readonly array $headline = [],
+        public readonly array $neon = [],
+        public readonly array $categoryCards = [],
+        public readonly array $featured = [],
+        public readonly array $team = [],
+        public readonly ?string $quickService = null,
     ) {}
 
     /**
@@ -89,12 +106,41 @@ final class TenantLanding
                 'q' => $q,
                 'a' => $a,
             ]),
+            // The glam template's content (SLO-241). The names on category,
+            // featured and team entries are matched against the tenant's REAL
+            // categories, services and staff — the landing only adds a photo
+            // and a line of copy to something that exists.
+            headline: self::strings($data['headline'] ?? null, 3),
+            neon: self::strings($data['neon'] ?? null, 2),
+            categoryCards: self::records($data['categories'] ?? null, 8, fn (array $item) => ($name = self::str($item['name'] ?? null)) === null ? null : [
+                'name' => $name,
+                'subtitle' => self::str($item['subtitle'] ?? null) ?? '',
+                'icon' => self::icon($item['icon'] ?? null),
+                'photo' => self::photo($item['photo'] ?? null),
+            ]),
+            featured: self::records($data['featured'] ?? null, 8, fn (array $item) => ($name = self::str($item['name'] ?? null)) === null ? null : [
+                'name' => $name,
+                'badge' => self::str($item['badge'] ?? null),
+                'description' => self::str($item['description'] ?? null),
+                'photo' => self::photo($item['photo'] ?? null),
+            ]),
+            team: self::records($data['team'] ?? null, 6, fn (array $item) => ($name = self::str($item['name'] ?? null)) === null ? null : [
+                'name' => $name,
+                'skills' => self::str($item['skills'] ?? null),
+                'photo' => self::photo($item['photo'] ?? null),
+            ]),
+            quickService: self::str($data['quick_service'] ?? null),
         );
     }
 
     public function usesCalm(): bool
     {
         return $this->template === LandingTemplate::Calm;
+    }
+
+    public function usesGlam(): bool
+    {
+        return $this->template === LandingTemplate::Glam;
     }
 
     /**
@@ -123,6 +169,10 @@ final class TenantLanding
             ],
             'testimonials' => $this->testimonials,
             'faq' => $this->faq,
+            'headline' => $this->headline,
+            'neon' => $this->neon,
+            'categories' => $this->categoryCards,
+            'featured' => $this->featured,
         ];
     }
 
@@ -135,6 +185,11 @@ final class TenantLanding
         $value = trim($value);
 
         return $value === '' ? null : $value;
+    }
+
+    private static function photo(mixed $value): ?string
+    {
+        return is_string($value) && preg_match(self::PHOTO_PATTERN, $value) === 1 ? $value : null;
     }
 
     private static function icon(mixed $value): string
@@ -155,7 +210,7 @@ final class TenantLanding
     }
 
     /**
-     * @template T of array<string, string>
+     * @template T of array<string, string|null>
      *
      * @param  callable(array<string, mixed>): (T|null)  $map
      * @return list<T>

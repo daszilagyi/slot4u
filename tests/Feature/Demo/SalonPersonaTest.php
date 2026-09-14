@@ -12,6 +12,7 @@ use App\Models\MessageTemplate;
 use App\Models\Room;
 use App\Models\Schedule;
 use App\Models\Service;
+use App\Models\ServiceCategory;
 use App\Models\Staff;
 use App\Models\Tenant;
 use App\Models\User;
@@ -167,6 +168,29 @@ it('builds the salon the data sheet describes, branded and staffed', function ()
 });
 
 // --- It can be booked on ---------------------------------------------------
+
+it('draws the glam landing from the salon\'s real team and catalogue', function () {
+    $tenant = glamzone();
+    $content = (new SalonDemoPersona)->landing();
+
+    // ⚠️ The landing names what it features; a renamed service or stylist would
+    // otherwise drop off the page without a single red test.
+    $services = Service::withoutGlobalScopes()->where('tenant_id', $tenant->getKey())->pluck('name')->all();
+    $categories = ServiceCategory::withoutGlobalScopes()->where('tenant_id', $tenant->getKey())->pluck('name')->all();
+
+    expect(array_diff(array_column($content['featured'], 'name'), $services))->toBe([])
+        ->and(array_diff(array_column($content['categories'], 'name'), $categories))->toBe([])
+        ->and($services)->toContain($content['quick_service']);
+
+    $this->get(tenantHost($tenant->slug, '/'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('landing.template', 'glam')
+            ->where('landing.brand_title', 'GlamZone')
+            ->has('glam.team', 3)
+            ->where('glam.team.0.name', 'Kovács Réka')
+            ->where('glam.team.0.title', 'senior fodrász'));
+});
 
 it('lets a visitor pick a stylist or leave it to the salon', function () {
     $tenant = glamzone();
