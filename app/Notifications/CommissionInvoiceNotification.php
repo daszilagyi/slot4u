@@ -76,12 +76,14 @@ class CommissionInvoiceNotification extends Notification
         return $this->invoice->due_at?->copy()->setTimezone($this->tenant->timezone)->isoFormat('LL') ?? '';
     }
 
-    /** The tenant admin's billing area on the tenant subdomain. */
+    /**
+     * The tenant admin's billing area on the tenant subdomain. Built from the
+     * route: the hand-written `/admin/billing` it replaced was a 404 (SLO-240).
+     * The route sits outside ensure.tenant.active, so the suspension mail's
+     * button still reaches it (SLO-120).
+     */
     private function billingUrl(): string
     {
-        $scheme = parse_url((string) config('app.url'), PHP_URL_SCHEME) ?: 'https';
-        $host = $this->tenant->slug.'.'.config('tenancy.central_domain');
-
-        return sprintf('%s://%s/admin/billing', $scheme, $host);
+        return route('tenant.billing.index', ['tenant' => $this->tenant->slug]);
     }
 }
