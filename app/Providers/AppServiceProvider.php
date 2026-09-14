@@ -26,6 +26,7 @@ use App\Listeners\SendWaitlistOffer;
 use App\Models\Room;
 use App\Models\Staff;
 use App\Models\User;
+use App\Notifications\Platform\AuthMailMessages;
 use App\Policies\RolePolicy;
 use App\Policies\TenantUserPolicy;
 use App\Services\Backup\BackupShell;
@@ -38,6 +39,7 @@ use App\Services\Feature\FeatureResolver;
 use App\Services\Monitoring\Heartbeats;
 use App\Ssr\SsrCredentials;
 use App\Support\Analytics\PageAnalytics;
+use App\Support\Mail\MailBrand;
 use App\Tenancy\CustomDomainResolver;
 use App\Tenancy\TenantManager;
 use App\Tenancy\TenantPublicUrl;
@@ -143,6 +145,14 @@ class AppServiceProvider extends ServiceProvider
         // (SLO-212). Registered here rather than in a custom Gateway because
         // Inertia's HttpGateway offers no header hook — see App\Ssr\SsrCredentials.
         Http::globalRequestMiddleware(SsrCredentials::attach(...));
+
+        // Every system email in one slot4u frame (SLO-244). Bound, not a
+        // singleton: a long-running queue worker must pick up the brand the
+        // superadmin sets (SLO-245) without a restart.
+        $this->app->bind(MailBrand::class, fn (): MailBrand => MailBrand::defaults());
+
+        // Verification and password-reset mail in Hungarian, not Laravel's English.
+        AuthMailMessages::register();
 
         // Platform super-admins bypass all tenant permission checks.
         Gate::before(fn ($user) => $user instanceof User && $user->isSuperAdmin() ? true : null);

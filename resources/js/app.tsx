@@ -20,6 +20,13 @@ startErrorReporting();
 // analytics sees, every tenant subdomain, and all of dev and CI.
 startAnalytics();
 
+// Email-only assets (SLO-244). No page renders them, but the mail frame asks
+// `Vite::asset()` for their URL, and only a file the build imports gets a
+// manifest entry. Eager makes each one a string — no chunk to load — and
+// `?no-inline` keeps a small file a real file: under 4 KB Vite would inline a
+// data: URI, which Gmail does not display.
+void import.meta.glob('../images/mail/*.png', { eager: true, query: '?no-inline', import: 'default' });
+
 createInertiaApp({
     title: (title) => (title ? `${title} · slot4u` : 'slot4u'),
     resolve: (name) =>

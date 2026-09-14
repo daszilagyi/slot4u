@@ -120,6 +120,10 @@ abstract class TenantMailNotification extends Notification implements RecordsDel
     {
         $mail->from((string) config('mail.from.address'), $this->tenant->name);
 
+        // The slot4u frame names the tenant in the header, the sign-off and the
+        // footer (SLO-244) — the same reason the display name does.
+        $mail->viewData['tenantName'] = $this->tenant->name;
+
         $replyTo = $this->tenantReplyAddress();
 
         if ($replyTo !== null) {
