@@ -4,11 +4,13 @@ import { ClockIcon, MailIcon, MapPinIcon, PhoneIcon } from 'lucide-react';
 
 import PublicLayout from '@/Layouts/PublicLayout';
 import CalmLanding from '@/components/tenant-landing/CalmLanding';
+import GlamLanding from '@/components/tenant-landing/GlamLanding';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { formatMoney } from '@/lib/format';
 import { useTranslations } from '@/lib/i18n';
 import type {
+    GlamLandingData,
     PublicHomeBranding,
     PublicHomeCategory,
     PublicHomeLocation,
@@ -23,6 +25,8 @@ type HomeProps = {
     locations: PublicHomeLocation[];
     /** The tenant's landing template and content (SLO-238). */
     landing: PublicLanding;
+    /** The glam template's team and free times; null for every other page (SLO-241). */
+    glam: GlamLandingData | null;
     og_image?: string;
     og_url?: string;
     canonical_url?: string;
@@ -48,6 +52,7 @@ export default function TenantHome({
     categories,
     locations,
     landing,
+    glam,
     og_image,
     og_url,
     canonical_url,
@@ -135,6 +140,20 @@ export default function TenantHome({
                     profile={profile}
                     categories={categories}
                     landing={landing}
+                />
+            </PublicLayout>
+        );
+    }
+
+    if (landing.template === 'glam' && glam !== null) {
+        return (
+            <PublicLayout bare>
+                {head}
+                <GlamLanding
+                    profile={profile}
+                    categories={categories}
+                    landing={landing}
+                    glam={glam}
                 />
             </PublicLayout>
         );

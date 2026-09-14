@@ -31,6 +31,11 @@
  */
 @import '@fontsource-variable/lora';
 @import '@fontsource-variable/manrope';
+/*
+ * The glam tenant landing template's display face (SLO-241, docs/26): Playfair
+ * Display for headings. Text stays Inter, the handwritten neon stays Caveat.
+ */
+@import '@fontsource-variable/playfair-display';
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
@@ -400,6 +405,67 @@
     color: var(--calm-text);
     font-family: var(--calm-sans);
     color-scheme: light;
+}
+
+/*
+ * The glam landing template (SLO-241, docs/26): a dark salon at night, pink
+ * neon. One look on purpose — the design has no light variant, so the tokens
+ * are not redefined per theme and the page paints its own ground.
+ */
+.theme-glam {
+    --glam-ink: #0e0c11;
+    --glam-ink-deep: #0b090e;
+    --glam-surface: #171420;
+    --glam-surface-2: #120f16;
+    --glam-pink: #f3b8c6;
+    --glam-pink-hover: #f8cbd6;
+    --glam-neon: #ffd5e0;
+    --glam-berry: #e79db1;
+    --glam-on-pink: #2a1520;
+    --glam-on-pink-soft: #5a3040;
+    --glam-text: #f6f1f3;
+    --glam-body: #d9c8cf;
+    --glam-muted: #b9a4ad;
+    --glam-faint: #8e7a84;
+    --glam-line: rgb(243 184 198 / 0.18);
+
+    --glam-serif:
+        'Playfair Display Variable', 'Playfair Display', Georgia,
+        'Times New Roman', serif;
+    --glam-sans:
+        'Inter Variable', 'Inter', ui-sans-serif, system-ui, sans-serif;
+
+    background-color: var(--glam-ink);
+    color: var(--glam-text);
+    font-family: var(--glam-sans);
+    color-scheme: dark;
+}
+
+.theme-glam h1,
+.theme-glam h2,
+.theme-glam h3 {
+    font-family: var(--glam-serif);
+    font-weight: 500;
+    letter-spacing: normal;
+}
+
+.glam-neon {
+    color: var(--glam-neon);
+    text-shadow:
+        0 0 12px var(--glam-pink),
+        0 0 30px var(--glam-pink),
+        0 0 60px rgb(243 184 198 / 0.7);
+    animation: glam-neon 4s ease-in-out infinite;
+}
+
+@keyframes glam-neon {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.86;
+    }
 }
 
 .theme-calm h1,
