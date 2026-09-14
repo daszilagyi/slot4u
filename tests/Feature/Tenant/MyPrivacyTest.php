@@ -119,6 +119,7 @@ it('exports every section the app can hold data in', function () {
         'subject',
         'bookings',
         'quote_requests',
+        'messages',
         'waitlist_entries',
         'payments',
         'invoices',
