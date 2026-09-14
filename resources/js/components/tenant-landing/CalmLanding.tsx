@@ -220,27 +220,27 @@ function CalmHeader({
 
     return (
         <header className="border-b border-(--calm-rule) bg-(--calm-paper)">
-            <Container className="flex items-center justify-between gap-6 py-3.5 lg:py-5">
-                <a href="#top" className="flex items-center gap-2.5 lg:gap-3">
-                    <span className="lg:hidden">
+            <Container className="flex items-center justify-between gap-6 py-3.5 xl:py-5">
+                <a href="#top" className="flex items-center gap-2.5 xl:gap-3">
+                    <span className="xl:hidden">
                         <LeafMark size={34} />
                     </span>
-                    <span className="hidden lg:inline">
+                    <span className="hidden xl:inline">
                         <LeafMark />
                     </span>
                     <span className="flex flex-col leading-[1.05]">
-                        <span className="font-(family-name:--calm-serif) text-xl font-semibold text-(--calm-sage) lg:text-[26px]">
+                        <span className="font-(family-name:--calm-serif) text-xl font-semibold text-(--calm-sage) xl:text-[26px]">
                             {title}
                         </span>
                         {subtitle !== null && (
-                            <span className="text-[10px] font-medium text-(--calm-muted) lg:text-xs">
+                            <span className="text-[10px] font-medium text-(--calm-muted) xl:text-xs">
                                 {subtitle}
                             </span>
                         )}
                     </span>
                 </a>
 
-                <nav className="hidden items-center gap-8 text-[15px] font-semibold lg:flex">
+                <nav className="hidden items-center gap-8 text-[15px] font-semibold xl:flex">
                     {nav.map((link) => (
                         <a
                             key={link.href}
@@ -264,16 +264,16 @@ function CalmHeader({
                 <div className="flex items-center gap-2">
                     <Link
                         href="/book"
-                        className={`${sageButton} h-11 px-3.5 text-[13px] lg:h-auto lg:px-5.5 lg:py-3.5 lg:text-[15px]`}
+                        className={`${sageButton} h-11 px-3.5 text-[13px] xl:h-auto xl:px-5.5 xl:py-3.5 xl:text-[15px]`}
                     >
                         <CalendarDays
-                            className="size-4 lg:size-[18px]"
+                            className="size-4 xl:size-[18px]"
                             aria-hidden
                         />
-                        <span className="lg:hidden">
+                        <span className="xl:hidden">
                             {t('tenant.calm.book_short')}
                         </span>
-                        <span className="hidden lg:inline">
+                        <span className="hidden xl:inline">
                             {t('tenant.calm.book')}
                         </span>
                     </Link>
@@ -282,7 +282,7 @@ function CalmHeader({
                         onClick={() => setOpen((value) => !value)}
                         aria-expanded={open}
                         aria-label={t('tenant.calm.nav.menu')}
-                        className="grid size-11 place-items-center rounded-xl border-[1.5px] border-(--calm-mint-line) bg-white text-(--calm-sage) lg:hidden"
+                        className="grid size-11 place-items-center rounded-xl border-[1.5px] border-(--calm-mint-line) bg-white text-(--calm-sage) xl:hidden"
                     >
                         {open ? (
                             <X className="size-5" aria-hidden />
@@ -294,7 +294,7 @@ function CalmHeader({
             </Container>
 
             {open && (
-                <nav className="border-t border-(--calm-rule) bg-white px-4 py-2 lg:hidden">
+                <nav className="border-t border-(--calm-rule) bg-white px-4 py-2 xl:hidden">
                     {nav.map((link) => (
                         <a
                             key={link.href}
@@ -335,8 +335,8 @@ function CalmHero({
 
     return (
         <section id="top" className="overflow-hidden">
-            <div className="mx-auto grid w-full max-w-[1440px] items-center gap-6 pt-8 lg:grid-cols-[560px_minmax(0,1fr)] lg:gap-12 lg:pt-14 lg:pl-16">
-                <div className="flex flex-col gap-4.5 px-5 sm:px-8 lg:gap-6 lg:px-0 lg:pb-14">
+            <div className="mx-auto grid w-full max-w-[1440px] items-center gap-6 pt-8 xl:grid-cols-[560px_minmax(0,1fr)] xl:gap-12 xl:pt-14 xl:pl-16">
+                <div className="flex flex-col gap-4.5 px-5 sm:px-8 lg:px-16 xl:gap-6 xl:px-0 xl:pb-14">
                     {landing.tagline !== null && (
                         <p className="text-[11px] font-bold tracking-[0.16em] text-(--calm-text) uppercase lg:text-[13px] lg:tracking-[0.18em]">
                             {landing.tagline}
@@ -390,14 +390,14 @@ function CalmHero({
                     )}
                 </div>
 
-                <div className="relative h-[300px] sm:h-[420px] lg:h-[560px]">
+                <div className="relative h-[300px] sm:h-[420px] xl:h-[560px]">
                     <div
                         aria-hidden
-                        className="absolute inset-x-0 top-5 bottom-0 rounded-t-[150px] bg-(--calm-sand) lg:top-6 lg:right-0 lg:left-0 lg:rounded-[280px_0_0_280px]"
+                        className="absolute inset-x-0 top-5 bottom-0 rounded-t-[150px] bg-(--calm-sand) xl:top-6 xl:right-0 xl:left-0 xl:rounded-[280px_0_0_280px]"
                     />
                     <Art
                         slot="hero"
-                        className="absolute inset-x-0 top-10 bottom-0 lg:top-16"
+                        className="absolute inset-x-0 top-10 bottom-0 xl:top-16"
                         fit="object-contain object-bottom"
                         eager
                         fallback={
@@ -407,7 +407,7 @@ function CalmHero({
                         }
                     />
                     {firstBubble !== undefined && (
-                        <Bubble className="absolute top-7 left-5 max-w-[240px] lg:top-11 lg:left-[120px]">
+                        <Bubble className="absolute top-7 left-5 max-w-[240px] xl:top-11 xl:left-[120px]">
                             {firstBubble}{' '}
                             <span className="text-(--calm-rose)">♥</span>
                         </Bubble>
@@ -415,7 +415,7 @@ function CalmHero({
                     {secondBubble !== undefined && (
                         <Bubble
                             tail="right"
-                            className="absolute top-[220px] right-20 hidden max-w-[220px] lg:block"
+                            className="absolute top-[220px] right-20 hidden max-w-[220px] xl:block"
                         >
                             {secondBubble}
                         </Bubble>
@@ -423,7 +423,7 @@ function CalmHero({
                     {landing.motto !== null && (
                         <p
                             aria-hidden
-                            className="absolute top-10 right-[150px] hidden h-[150px] w-[120px] place-items-center rounded-md border-[6px] border-[#e9dcc9] bg-(--calm-cream) p-2.5 text-center text-xs leading-snug font-semibold tracking-[0.06em] break-words hyphens-auto text-[#a8998a] uppercase lg:grid"
+                            className="absolute top-10 right-[90px] hidden h-[150px] w-[120px] place-items-center rounded-md border-[6px] border-[#e9dcc9] bg-(--calm-cream) p-2.5 text-center text-xs leading-snug font-semibold tracking-[0.06em] break-words hyphens-auto text-[#a8998a] uppercase min-[1400px]:right-[150px] xl:grid"
                         >
                             {landing.motto}
                         </p>
@@ -476,7 +476,7 @@ function CalmServices({ services }: { services: PublicHomeService[] }) {
                     </Link>
                 </div>
 
-                <ul className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+                <ul className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
                     {shown.map((service, index) => {
                         const decor =
                             SERVICE_DECOR[index % SERVICE_DECOR.length];
@@ -554,7 +554,7 @@ function CalmWhy({ landing }: { landing: PublicLanding }) {
     return (
         <section>
             <Container className="py-4 lg:py-8">
-                <div className="grid items-center gap-8 overflow-hidden rounded-[28px] bg-(--calm-mint) px-6 py-8 lg:grid-cols-[400px_minmax(0,1fr)] lg:gap-10 lg:px-12 lg:py-10">
+                <div className="grid items-center gap-8 overflow-hidden rounded-[28px] bg-(--calm-mint) px-6 py-8 lg:gap-10 lg:px-12 lg:py-10 xl:grid-cols-[400px_minmax(0,1fr)]">
                     <div className="relative h-[220px] lg:h-[300px]">
                         <Art
                             slot="why"
@@ -567,7 +567,7 @@ function CalmWhy({ landing }: { landing: PublicLanding }) {
                             }
                         />
                         {landing.why_quote !== null && (
-                            <Bubble className="absolute top-2 right-0 max-w-[210px] lg:-right-2">
+                            <Bubble className="absolute top-2 right-0 max-w-[210px] xl:-right-2">
                                 {landing.why_quote}
                             </Bubble>
                         )}
@@ -617,7 +617,7 @@ function CalmAbout({ landing }: { landing: PublicLanding }) {
 
     return (
         <section id="rolunk" className="scroll-mt-4">
-            <Container className="grid items-center gap-8 py-10 lg:grid-cols-[minmax(0,1fr)_440px] lg:gap-12 lg:pt-14 lg:pb-8">
+            <Container className="grid items-center gap-8 py-10 lg:gap-12 lg:pt-14 lg:pb-8 xl:grid-cols-[minmax(0,1fr)_440px]">
                 <div className="flex flex-col gap-6 sm:flex-row sm:items-start sm:gap-7">
                     <Art
                         slot="portrait"
@@ -661,7 +661,7 @@ function CalmAbout({ landing }: { landing: PublicLanding }) {
                 </div>
                 <Art
                     slot="about"
-                    className="hidden h-[320px] overflow-hidden rounded-[24px] lg:block"
+                    className="hidden h-[320px] overflow-hidden rounded-[24px] xl:block"
                     fit="object-cover"
                     fallback={
                         <div className="grid h-full w-full place-items-center rounded-[24px] bg-(--calm-sand) text-(--calm-mint-line)">

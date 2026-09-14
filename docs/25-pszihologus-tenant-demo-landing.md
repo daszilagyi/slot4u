@@ -33,6 +33,7 @@ export-korlát miatt nem tölthetők le); a budapesti utcakép nincs felhasznál
 * **GYIK, lemondás:** a design e-mail-linkes átütemezést ígért. Vendégként csak a visszaigazoló oldalon lehet lemondani, átütemezni fiókkal lehet, ezért a szöveg ennek megfelelő.
 * **Footer:** Adatvédelem/ÁSZF a tenant jogi dokumentumaiból, sütibeállítások; közösségi ikonok nincsenek (nincs adat mögöttük).
 * **A szolgáltatások sorrendje** a valódi katalógusé (név szerint), nem a design statikus sorrendje.
+* **Töréspontok (SLO-239):** a design két nézetet ad (1440 és 390). Az asztali elrendezés (fejléc-menü, kétoszlopos hero, motto-keret, második buborék, 4 oszlopos kártyarács, kétoszlopos „Miért” és „Rólunk”) `xl`-től (1280) él, alatta a tablet-elrendezés marad: a fix pixeles mértékek 1024-en egymásra csúsztak. A motto-keret 1400 px alatt 90 px-re áll a jobb szélről (150 helyett), különben 1280-on rátakar az első buborékra.
 
 **Nem scope:** admin-felület a tartalom szerkesztéséhez, képfeltöltés a sablonhoz.
 
