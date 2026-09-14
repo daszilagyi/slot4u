@@ -81,4 +81,11 @@ enum AuditAction: string
      * a later question ("who unlocked that account, and when?") will be about.
      */
     case TwoFactorReset = 'user.two_factor_reset';
+
+    /*
+     * The look of every system email (SLO-245). Platform-wide, so both land
+     * with a null tenant: one change reaches every tenant's customers.
+     */
+    case MailBrandUpdated = 'platform.mail_brand_updated';
+    case MailBrandReset = 'platform.mail_brand_reset';
 }

@@ -446,6 +446,11 @@ export default function SuperDashboard({ statistics, filters }: DashboardProps) 
                         <Button asChild variant="outline">
                             <Link href="/audit-logs">{t('super.dashboard.audit_link')}</Link>
                         </Button>
+                        <Button asChild variant="outline">
+                            <Link href="/emails/design">
+                                {t('super.dashboard.mail_brand_link')}
+                            </Link>
+                        </Button>
                     </div>
                 </section>
             </div>

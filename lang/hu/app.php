@@ -916,6 +916,53 @@ return [
         ],
     ],
     'super' => [
+        // Minden rendszerlevél közös kinézete (SLO-245, docs/27).
+        'mail_brand' => [
+            'title' => 'Email-design',
+            'subtitle' => 'Minden rendszerlevél ezzel a kinézettel megy ki: a slot4u saját levelei és a tenantok ügyfeleinek küldött visszaigazolások, emlékeztetők is. A módosítás azonnal minden tenantra érvényes.',
+            'customised' => 'Egyedi beállítás',
+            'default' => 'Alapértelmezett',
+            'fields' => [
+                'header_background' => 'Fejléc színe',
+                'button_background' => 'Gomb színe',
+                'canvas' => 'Háttérszín',
+                'footer_text' => 'Lábléc szövege',
+                'logo' => 'Logó',
+            ],
+            'hints' => [
+                'header_background' => 'A levél tetején lévő sáv. A rajta lévő szöveg színét a rendszer választja, hogy mindig olvasható legyen.',
+                'button_background' => 'A fő gomb (pl. „Foglalás megtekintése”). A gombfelirat színe automatikus.',
+                'canvas' => 'A levélkártya körüli háttér. A lábléc szövege ezen áll, ezért nem lehet túl sötét.',
+                'footer_text' => 'Opcionális, pl. cégadatok. Minden levél alján megjelenik.',
+                'logo' => 'PNG vagy JPG, legfeljebb 512 KB, négyzetes kép ajánlott. A slot4u saját levelein jelenik meg; tenant-levélen a tenant neve áll a fejlécben.',
+            ],
+            'use_default' => 'Alap',
+            'logo_custom' => 'Feltöltött logó',
+            'logo_default' => 'slot4u logó (alapértelmezett)',
+            'logo_choose' => 'Logó feltöltése',
+            'logo_remove' => 'Vissza a slot4u logóra',
+            'logo_pending' => 'Új logó: :name',
+            'canvas_contrast' => 'Ezen a háttéren a lábléc szövege nem olvasható (kontraszt :ratio:1, legalább 4,5:1 kell). Válassz világosabb hátteret.',
+            'contrast_ok' => 'Lábléc kontrasztja: :ratio:1',
+            'contrast_low' => 'Lábléc kontrasztja: :ratio:1 — túl alacsony, így nem menthető.',
+            'save' => 'Mentés',
+            'saved' => 'Az email-design elmentve. A következő levél már így megy ki.',
+            'reset' => 'Visszaállítás alapértelmezettre',
+            'reset_confirm' => 'Biztosan visszaállítod az alapértelmezett slot4u designt? A feltöltött logó törlődik.',
+            'reset_done' => 'Az email-design visszaállt az alapértelmezettre.',
+            'preview' => [
+                'title' => 'Élő előnézet',
+                'tab_platform' => 'slot4u levél',
+                'tab_tenant' => 'Tenant levél',
+                'loading' => 'Előnézet frissítése…',
+                'failed' => 'Az előnézet nem töltődött be.',
+                'frame_title' => 'A levél előnézete',
+                'sample_tenant' => 'Minta Szalon',
+                'sample_customer' => 'Kovács Anna',
+                'sample_service' => 'Hajvágás és szárítás',
+                'sample_when' => '2026. október 3., szombat 10:00',
+            ],
+        ],
         'dashboard' => [
             'title' => 'Superadmin vezérlőpult',
             'subtitle' => 'A platform jutalék-üzletének áttekintése: havi bevétel, aktiválási tölcsér, top tenantok és felfüggesztés-kockázat.',
@@ -924,6 +971,7 @@ return [
             'commission_link' => 'Jutalék-beállítások',
             'invoices_link' => 'Jutalékszámlák',
             'audit_link' => 'Audit napló',
+            'mail_brand_link' => 'Email-design',
             'nav_heading' => 'Kezelőfelületek',
             // Period filter
             'period_label' => 'Időszak',
@@ -2549,6 +2597,11 @@ return [
             // mögött; shellhez nyúlni valaki második faktorának eltávolításáért
             // nem rutin, és később pont erre kérdez rá valaki.
             'two_factor_reset' => 'Kétlépcsős azonosítás visszaállítva (konzolról)',
+        ],
+        // Levél-design (SLO-245) — platform-szintű, minden tenant leveleire hat.
+        'platform' => [
+            'mail_brand_updated' => 'Email-design módosítva',
+            'mail_brand_reset' => 'Email-design visszaállítva az alapértelmezettre',
         ],
         // Nested for the same dot-path reason (SLO-159).
         'privacy' => [

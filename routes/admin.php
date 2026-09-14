@@ -7,6 +7,7 @@ use App\Http\Controllers\Super\CommissionInvoiceController;
 use App\Http\Controllers\Super\DashboardController;
 use App\Http\Controllers\Super\ImpersonationController;
 use App\Http\Controllers\Super\LegalDocumentController;
+use App\Http\Controllers\Super\MailBrandController;
 use App\Http\Controllers\Super\StatisticsController;
 use App\Http\Controllers\Super\TenantController;
 use Illuminate\Support\Facades\Route;
@@ -60,6 +61,14 @@ Route::middleware(['auth', 'ensure.superadmin'])->group(function () {
         // version here sends every tenant admin through the re-acceptance screen.
         Route::get('/legal', [LegalDocumentController::class, 'index'])->name('super.legal.index');
         Route::post('/legal', [LegalDocumentController::class, 'store'])->name('super.legal.store');
+
+        // The look of every system email (SLO-245, docs/27). A POST for the save
+        // because it carries the logo upload; the preview is throttled because
+        // the page asks for it on every edit.
+        Route::get('/emails/design', [MailBrandController::class, 'edit'])->name('super.mail-brand.edit');
+        Route::post('/emails/design', [MailBrandController::class, 'update'])->name('super.mail-brand.update');
+        Route::delete('/emails/design', [MailBrandController::class, 'destroy'])->name('super.mail-brand.destroy');
+        Route::post('/emails/design/preview', [MailBrandController::class, 'preview'])->middleware('throttle:120,1')->name('super.mail-brand.preview');
 
         Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('super.audit-logs.index');
 

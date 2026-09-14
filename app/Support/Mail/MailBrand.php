@@ -2,6 +2,7 @@
 
 namespace App\Support\Mail;
 
+use App\Settings\TenantBranding;
 use Illuminate\Foundation\Vite;
 use Throwable;
 
@@ -21,6 +22,9 @@ use Throwable;
  */
 final readonly class MailBrand
 {
+    /** The slot4u tile as a PNG, relative to the project root (a Vite input). */
+    public const string DEFAULT_LOGO = 'resources/images/mail/brand-tile.png';
+
     public function __construct(
         public string $headerBackground,
         public string $headerText,
@@ -55,14 +59,60 @@ final readonly class MailBrand
     }
 
     /**
+     * The brand as the superadmin set it (SLO-245). Only the three colours, the
+     * footer and the logo are chosen; the text on the header and on the button
+     * is derived, so a colour choice cannot make either unreadable.
+     */
+    public static function fromSettings(MailBrandSettings $settings, ?string $logoUrl): self
+    {
+        $defaults = self::defaults();
+
+        return new self(
+            headerBackground: $settings->headerBackground,
+            headerText: self::readableTextOn($settings->headerBackground),
+            buttonBackground: $settings->buttonBackground,
+            buttonText: self::readableTextOn($settings->buttonBackground),
+            canvas: $settings->canvas,
+            surface: $defaults->surface,
+            ink: $defaults->ink,
+            inkMuted: MailBrandSettings::FOOTER_INK,
+            link: $defaults->link,
+            line: $defaults->line,
+            logoUrl: $logoUrl,
+            footerText: $settings->footerText,
+        );
+    }
+
+    /**
+     * White, navy or black — the first that reads at WCAG AA (4.5:1) on `$hex`.
+     *
+     * Navy before black so the default yellow button keeps its navy label.
+     * Black last because it always clears where the other two do not: on a
+     * mid grey white reaches 4.48:1 and navy 3.8:1, while the better of black
+     * and white never drops below 4.58:1.
+     */
+    public static function readableTextOn(string $hex): string
+    {
+        foreach (['#FFFFFF', '#0D1B2A'] as $candidate) {
+            if (TenantBranding::contrast($candidate, $hex) >= 4.5) {
+                return $candidate;
+            }
+        }
+
+        return TenantBranding::contrast('#000000', $hex) >= TenantBranding::contrast('#FFFFFF', $hex)
+            ? '#000000'
+            : '#FFFFFF';
+    }
+
+    /**
      * Absolute URL of the PNG tile, or null when no build is available (a test
      * run without assets) — the header then shows the wordmark alone rather than
      * a broken image.
      */
-    private static function defaultLogoUrl(): ?string
+    public static function defaultLogoUrl(): ?string
     {
         try {
-            return app(Vite::class)->asset('resources/images/mail/brand-tile.png');
+            return app(Vite::class)->asset(self::DEFAULT_LOGO);
         } catch (Throwable) {
             return null;
         }

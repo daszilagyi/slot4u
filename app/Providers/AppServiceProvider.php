@@ -36,6 +36,7 @@ use App\Services\Domain\DnsResolver;
 use App\Services\Domain\NullCustomHostnameProvisioner;
 use App\Services\Domain\SystemDnsResolver;
 use App\Services\Feature\FeatureResolver;
+use App\Services\Mail\MailBrandStore;
 use App\Services\Monitoring\Heartbeats;
 use App\Ssr\SsrCredentials;
 use App\Support\Analytics\PageAnalytics;
@@ -47,6 +48,7 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Contracts\View\View as ViewContract;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Events\DiagnosingHealth;
 use Illuminate\Http\Request;
 use Illuminate\Notifications\Events\NotificationFailed;
@@ -146,10 +148,21 @@ class AppServiceProvider extends ServiceProvider
         // Inertia's HttpGateway offers no header hook — see App\Ssr\SsrCredentials.
         Http::globalRequestMiddleware(SsrCredentials::attach(...));
 
-        // Every system email in one slot4u frame (SLO-244). Bound, not a
-        // singleton: a long-running queue worker must pick up the brand the
-        // superadmin sets (SLO-245) without a restart.
-        $this->app->bind(MailBrand::class, fn (): MailBrand => MailBrand::defaults());
+        // Every system email in one slot4u frame (SLO-244), in the brand the
+        // superadmin sets (SLO-245). Bound, not a singleton: a long-running
+        // queue worker must pick up a change without a restart (the store
+        // caches the row in the shared cache). If the settings cannot be read —
+        // a deploy between code switch and migration — the mail still goes out,
+        // in the built-in brand.
+        $this->app->bind(MailBrand::class, function (): MailBrand {
+            try {
+                return $this->app->make(MailBrandStore::class)->current();
+            } catch (QueryException $e) {
+                report($e);
+
+                return MailBrand::defaults();
+            }
+        });
 
         // Verification and password-reset mail in Hungarian, not Laravel's English.
         AuthMailMessages::register();
