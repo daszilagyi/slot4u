@@ -2655,6 +2655,35 @@ return [
     'mail' => [
         // Shared greeting used when a tenant email template override is rendered.
         'greeting' => 'Szia :name!',
+        // A közös levélkeret szövegei (SLO-244): a Laravel alapsablonjának angol
+        // „Hello!”, „Regards,” és a gomb alatti tartalék-link mondata helyett.
+        'layout' => [
+            'greeting' => 'Szia!',
+            'greeting_error' => 'Hoppá!',
+            'salutation' => 'Üdvözlettel,',
+            'subcopy' => 'Ha a(z) „:actionText” gomb nem működik, másold be ezt a címet a böngésződbe:',
+            'sent_by_tenant' => 'Ezt a levelet a(z) :tenant küldte a :brand foglalási rendszerén keresztül.',
+            'tagline' => 'online időpontfoglalás',
+        ],
+        // Regisztráció utáni email-megerősítés (SLO-244) — eddig a Laravel angol
+        // alapszövegével ment ki.
+        'verify_email' => [
+            'subject' => 'Erősítsd meg az email címed',
+            'greeting' => 'Szia :name!',
+            'intro' => 'Köszönjük, hogy regisztráltál a slot4u-ra! Egy kattintás, és kész: erősítsd meg, hogy ez a te email címed.',
+            'action' => 'Email cím megerősítése',
+            'expire' => 'A link :count percig érvényes.',
+            'outro' => 'Ha nem te regisztráltál, nyugodtan hagyd figyelmen kívül ezt a levelet.',
+        ],
+        // Elfelejtett jelszó (SLO-244) — eddig a Laravel angol alapszövegével.
+        'reset_password' => [
+            'subject' => 'Új jelszó beállítása',
+            'greeting' => 'Szia :name!',
+            'intro' => 'Azért kaptad ezt a levelet, mert új jelszót kértél a fiókodhoz.',
+            'action' => 'Új jelszó beállítása',
+            'expire' => 'A link :count percig érvényes.',
+            'outro' => 'Ha nem te kérted, nincs teendőd, a jelszavad nem változik.',
+        ],
         // A záró sor MINDEN tenant-levélen (SLO-171). Azért közös, mert ugyanaz
         // dönti el, mint a `Reply-To` fejlécet: hét külön kulcsban szétszórva
         // pont az történt, hogy a szöveg választ kért, a fejléc meg nem tudta

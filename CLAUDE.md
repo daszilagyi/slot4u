@@ -87,6 +87,7 @@ Az issue acceptance criteriája teljesül, ÉS: tesztek zöldek, Pint/Larastan/E
 | `docs/22-autoszerviz-persona-es-vertikalis-landing.md` | Az 5. demo persona (autószerviz) és a vertikális landing-sablon (`/autoszerviz`) |
 | `docs/25-pszihologus-tenant-demo-landing.md` | A „calm” tenant landing-sablon és a Lélekút demo oldala |
 | `docs/26-fodrasz-szalon-landing.md` | A „glam” tenant landing-sablon és a GlamZone demo szalon oldala |
+| `docs/27-email-rendszer-es-design.md` | Rendszerlevelek: egységes slot4u levélkeret (`MailBrand`), magyar auth-levelek, superadmin-szerkeszthetőség terve |
 
 A docs az igazság forrása. Viselkedésbeli változás = docs-frissítés ugyanabban a PR-ben.
 

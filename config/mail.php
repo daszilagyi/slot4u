@@ -115,4 +115,23 @@ return [
         'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Laravel')),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Markdown Mail Settings
+    |--------------------------------------------------------------------------
+    |
+    | Every system email renders through the slot4u frame (SLO-244): the
+    | overridden components in resources/views/vendor/mail and the `slot4u`
+    | theme (resources/views/mail/slot4u.blade.php), coloured by MailBrand.
+    |
+    */
+
+    'markdown' => [
+        'theme' => 'slot4u',
+
+        'paths' => [
+            resource_path('views/vendor/mail'),
+        ],
+    ],
+
 ];
