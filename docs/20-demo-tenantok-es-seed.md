@@ -89,9 +89,9 @@ A klasszikus KKV-ügyfél: fodrász, kozmetikus, körmös egy fedél alatt. Itt 
 >    (ebből lesz a statisztika hat hónapos görbéje, §2.2 AC), ezért a névsor nőtt a volumenhez —
 >    így a „törzsvendég" havi rendszerességet jelent, nem képtelenséget. Teszt őrzi mindkét irányban.
 > 3. **Az üzenetváltás kimaradt.** A testreszabott `message_template` megvan; az általános
->    tenant↔ügyfél üzenetszál viszont **nincs megépítve** (csak `quote_request_messages` létezik,
->    ajánlatkéréshez kötve) — a hiányzó darab az **SLO-36** (M5). A lefedettségi mátrix
->    „Üzenetküldés ✔" cellája a szalonnál addig nem pipálható.
+>    tenant↔ügyfél üzenetszál a persona írásakor **nem volt megépítve**. Az **SLO-36** óta a
+>    funkció létezik (`messages`, docs/02), a szalon seedje viszont még nem ír üzenetet, így a
+>    lefedettségi mátrix „Üzenetküldés ✔" cellája addig nem pipálható.
 >
 > **A branding nem a `branding` jsontól látszik:** a `feature_branding` a `base` planen alapból
 > kikapcsolt, ezért a persona a superadmin per-tenant felülírását (`tenant_features`) is megírja —

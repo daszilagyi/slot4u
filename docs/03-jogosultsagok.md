@@ -52,6 +52,14 @@ Egyedi felülírás: user-szintű direct permission (spatie `model_has_permissio
 
 **Helyiségnek nincs tulajdonosa.** A „saját" scope tengelye a `staff.user_id === Auth::id()` kötés; helyiségre ilyen nincs, ezért korlátozott aktor **egyetlen helyiség munkarendjét sem** látja — azé is a `schedule.manage_all` kell. A `ScheduleVisibility` egy helyen tartja a listaszűrést, a per-rekord ellenőrzést és a beküldött `schedulable` ellenőrzését, hogy a három ne csúszhasson szét. A megtagadás alakja a szokásos: **létező rekordra 404** (route binding, rejtett létezés — mint a cross-tenant id-nél), **űrlapmezőben érkező idegen erőforrásra validációs hiba**.
 
+**`message.send` „saját ügyfeleknek" (SLO-36):** egy üzenetszál maga az ügyfél, ezért a scope
+**azonos a `CustomerVisibility`-vel**, nem külön szabály (`MessageVisibility` delegál): az
+employee csak azoknak az ügyfeleknek a szálát látja és válaszolja meg, akiknek foglalása van a
+hozzá kötött staffnál. Idegen ügyfél szála **404** (a `Customer` route binding), a nav-jelvény
+és az emailértesítés címzettjei ugyanerre szűkülnek. Az ügyfél oldalon („tenant felé") nincs
+azonosító: a `/my/messages` mindig a bejelentkezett ügyfél saját szála, így csak a saját
+tenantjával levelezhet. Az egész `feature_messages` mögött.
+
 **`privacy.manage` (SLO-159):** az ügyfelek adatexport- és törlési kérelmeinek elbírálása a `/settings/privacy` oldalon. A seed **csak a tenant-adminnak** adja — új, visszafordíthatatlan képesség, egy hónapokkal korábban beállított manager/employee role-ra ráörökíteni néma jogosultság-bővítés lenne. **Nem admin-fenntartott** viszont (szemben a `billing.*` / `role.manage` kódokkal): a GDPR-megfelelés tipikusan egy megnevezett személy feladata, és ha a kód fenntartott lenne, azt a személyt a *teljes* tenant-admin role-ba kellene tenni — a számlázással együtt. Így a tenant a role-szerkesztőben **szándékosan** delegálhatja. Részletek: `docs/19`.
 
 **`booking.create` „saját naptárba" (SLO-178):** a mátrix cellája **írás-oldali scope**, nem külön permission-kód — az olvasás-oldali párja a `BookingVisibility` (SLO-85: az employee csak a hozzá kötött staff foglalásait látja). Az `App\Support\BookingVisibility::ownsStaffId` dönt, és három Form Request használja (`BookingRequest` létrehozás, `RescheduleBookingRequest` mozgatás + naptár drag-and-drop, `ProposeBookingRequest` alternatíva-ajánlás) — a staff-választó a felületen már szűkített volt, de a választó díszlet: az id a kérés törzsében érkezik, és a szerveren semmi nem mondta, hogy a sajátjának kell lennie.

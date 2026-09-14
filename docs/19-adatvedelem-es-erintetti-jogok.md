@@ -26,7 +26,8 @@ tenantnak saját megőrzési kötelezettsége lehet.
 
 * **Hol:** members area → `/my/privacy` → „Adataim letöltése" (`GET /my/privacy/export`)
 * **Mit ad:** egy JSON fájl, benne a profil, foglalások (+ státusz-előzmény),
-  ajánlatkérések + üzenetek, várólista-helyek, fizetések + visszatérítések,
+  ajánlatkérések + üzenetek, az ügyfél üzenetszála a tenanttal (SLO-36, mindkét
+  oldal, staff-nevek nélkül), várólista-helyek, fizetések + visszatérítések,
   számla-metaadatok, a címzettre küldött értesítések, és a korábbi adatvédelmi
   kérelmek. Építője: `App\Services\Privacy\PersonalDataExport`.
 * **Azonnal, nem emailben.** Az adatkészlet egy ügyfél saját rekordjai, tehát
@@ -72,6 +73,7 @@ tranzakcióban:
 | `bookings` | `guest_name/email/phone`, `notes`, `cancel_reason`, `reject_reason` → `null`. **Idő, szolgáltatás, státusz, ár marad.** |
 | `quote_requests` | guest mezők, `internal_notes`, `parameters` → `null` |
 | `quote_request_messages` | az ügyfél saját üzeneteinek szövege helyettesítő szövegre cserélve (a szál szerkezete marad) |
+| `messages` | ugyanígy: az ügyfél saját üzeneteinek szövege helyettesítő szövegre cserélve, a tenant válaszai maradnak (SLO-36). Tenant-purge-nél **mindkét oldal** szövege cserélődik |
 | `waitlist_entries` | **törölve** — egy várólista-hely élő ígéret arra, hogy valakit megkeresünk. A fiókhoz kötött és az **ugyanazzal az emaillel vendégként** tartott hely is (SLO-228), mint a vendég-foglalásoknál |
 | `notifications_log` | `recipient` → `redacted`; a sor marad (a dedup-kulcsokat viszi, törlésük feltámaszthatna egy értesítést) |
 
@@ -211,7 +213,7 @@ A 90 nap csak akkor tisztességes, ha a tenant **el tudja vinni a sajátját**.
 * **Tenant oldalon:** `/settings/privacy` → „Adatexport letöltése"
   (`GET /settings/privacy/export`), `privacy.manage` mögött. Egy streamelt JSON:
   helyszínek, termek, dolgozók, kategóriák, szolgáltatások, ügyfelek,
-  foglalások, ajánlatkérések + üzenetek, várólista, fizetések, számlák és a
+  foglalások, ajánlatkérések + üzenetek, ügyfél-üzenetszálak, várólista, fizetések, számlák és a
   jutalékszámlák. Kurzorból íródik, soronként — egy forgalmas tenant története
   nem az a dolog, amit egy osztott tárhelyen memóriában rakunk össze.
 * **Nincs benne:** a `tenants.invoicing` (a modell dekódolná a szolgáltatói API
