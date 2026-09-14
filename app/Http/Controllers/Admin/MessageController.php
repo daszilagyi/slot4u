@@ -88,7 +88,10 @@ class MessageController extends Controller
                 'name' => $customer->name,
                 'email' => $customer->email,
             ],
-            'messages' => $presenter->messages($customer),
+            'messages' => $presenter->messages(
+                $customer,
+                fn ($booking): bool => BookingVisibility::owns($actor, $booking),
+            ),
             'bookings' => $presenter->bookingOptions(
                 $customer,
                 fn ($query) => BookingVisibility::apply($query, $actor),

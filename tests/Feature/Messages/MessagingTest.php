@@ -289,6 +289,59 @@ it('refuses an employee pinning a colleague\'s booking to the thread', function 
         ->assertSessionHasErrors('booking_id');
 });
 
+it('hides a colleague\'s booking code from an employee reading the thread', function () {
+    $tenant = msgTenant();
+    [$employee, $customer, $ownBooking] = msgEmployeeWithCustomer($tenant);
+    $colleagues = Booking::factory()->forTenant($tenant)->create([
+        'customer_id' => $customer->id,
+        'staff_id' => Staff::factory()->forTenant($tenant)->create()->id,
+    ]);
+    Message::factory()->fromCustomer($customer)->create(['booking_id' => $colleagues->id]);
+    Message::factory()->fromCustomer($customer)->create(['booking_id' => $ownBooking->id]);
+    app(TenantManager::class)->forget();
+
+    $this->actingAs($employee)
+        ->get(tenantHost('acme', "/messages/{$customer->id}"))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('messages.0.booking_code', null)
+            ->where('messages.1.booking_code', $ownBooking->code));
+});
+
+it('keeps another tenant\'s threads out of the inbox and the badge', function () {
+    $other = msgTenant('other');
+    $otherCustomer = msgUser($other, Role::Customer);
+    Message::factory()->count(4)->fromCustomer($otherCustomer)->create();
+
+    $tenant = msgTenant('acme');
+    $admin = msgUser($tenant, Role::TenantAdmin);
+    $mine = msgUser($tenant, Role::Customer);
+    Message::factory()->fromCustomer($mine)->create();
+    app(TenantManager::class)->forget();
+
+    $this->actingAs($admin)
+        ->get(tenantHost('acme', '/messages'))
+        ->assertInertia(fn (Assert $page) => $page
+            ->has('threads.data', 1)
+            ->where('threads.data.0.customer_id', $mine->id)
+            ->where('messages_unread', 1));
+});
+
+it('refuses a staff reply pinning another tenant\'s booking', function () {
+    $other = msgTenant('other');
+    $foreignBooking = Booking::factory()->forTenant($other)->create();
+
+    $tenant = msgTenant('acme');
+    $admin = msgUser($tenant, Role::TenantAdmin);
+    $customer = msgUser($tenant, Role::Customer);
+    $foreignBooking->forceFill(['customer_id' => $customer->id])->saveQuietly();
+    app(TenantManager::class)->forget();
+
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', "/messages/{$customer->id}"), ['body' => 'Szia', 'booking_id' => $foreignBooking->id])
+        ->assertSessionHasErrors('booking_id');
+});
+
 it('marks the customer\'s messages read when staff open the thread', function () {
     $tenant = msgTenant();
     $admin = msgUser($tenant, Role::TenantAdmin);

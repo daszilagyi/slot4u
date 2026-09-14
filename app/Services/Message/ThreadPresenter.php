@@ -25,13 +25,19 @@ class ThreadPresenter
     public function __construct(private readonly TenantManager $tenants) {}
 
     /**
+     * The thread, oldest first. `$seesBooking` hides the code of an attached
+     * booking the reader may not see — an employee reading a thread their
+     * customer also has with a colleague must not learn that colleague's
+     * booking through it.
+     *
+     * @param  (callable(Booking): bool)|null  $seesBooking
      * @return list<array{id: int, body: string, from_customer: bool, sender_id: int|null, sender_name: string|null, booking_code: string|null, created_local: string|null, read: bool}>
      */
-    public function messages(User $customer): array
+    public function messages(User $customer, ?callable $seesBooking = null): array
     {
         $messages = Message::query()
             ->where('customer_id', $customer->getKey())
-            ->with(['sender:id,name', 'booking:id,code'])
+            ->with(['sender:id,name', 'booking:id,code,staff_id'])
             ->orderByDesc('id')
             ->limit(self::THREAD_LIMIT)
             ->get()
@@ -43,7 +49,9 @@ class ThreadPresenter
             'from_customer' => $message->from_customer,
             'sender_id' => $message->sender_id,
             'sender_name' => $message->sender?->name,
-            'booking_code' => $message->booking?->code,
+            'booking_code' => $message->booking !== null && ($seesBooking === null || $seesBooking($message->booking))
+                ? $message->booking->code
+                : null,
             'created_local' => $this->local($message->created_at),
             'read' => $message->read_at !== null,
         ])->values()->all();
