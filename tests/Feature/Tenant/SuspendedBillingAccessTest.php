@@ -5,6 +5,7 @@ use App\Enums\Role;
 use App\Models\CommissionInvoice;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Notifications\CommissionInvoiceNotification;
 use App\Tenancy\TenantManager;
 use Database\Seeders\BasePlanSeeder;
 use Database\Seeders\PermissionSeeder;
@@ -119,6 +120,29 @@ it('redirects a guest from the suspended billing page to login', function () {
     $this->get(tenantHost('acme', '/billing'))
         ->assertRedirectContains('/login');
 });
+
+it('points every commission mail button at the billing page a suspended admin can open (SLO-240)', function (string $variant) {
+    $tenant = Tenant::factory()->suspended()->create(['slug' => 'acme']);
+    $admin = suspendedBillingUser($tenant, Role::TenantAdmin);
+    $invoice = CommissionInvoice::factory()->create([
+        'tenant_id' => $tenant->id,
+        'status' => CommissionInvoiceStatus::Overdue,
+    ]);
+
+    $actionUrl = (new CommissionInvoiceNotification($invoice, $tenant, $variant))->toMail($admin)->actionUrl;
+
+    expect($actionUrl)->toBe(route('tenant.billing.index', ['tenant' => 'acme']));
+
+    // Follow the link itself, not a path written again here: the button must land.
+    $this->actingAs($admin)
+        ->get($actionUrl)
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page->component('Admin/Billing/Index'));
+})->with([
+    CommissionInvoiceNotification::ISSUED,
+    CommissionInvoiceNotification::OVERDUE,
+    CommissionInvoiceNotification::SUSPENDED,
+]);
 
 it('offers a billing link on the suspended page to a logged-in member', function () {
     $tenant = Tenant::factory()->suspended()->create(['slug' => 'acme']);
