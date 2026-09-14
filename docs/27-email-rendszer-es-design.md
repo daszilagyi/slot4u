@@ -1,6 +1,6 @@
 # 27 — Rendszerlevelek: egységes design és szerkeszthetőség
 
-> Forrás: SLO-243 (szülő), SLO-244 (1. lépés, **kész**), SLO-245 (2. lépés), SLO-246 (3. lépés).
+> Forrás: SLO-243 (szülő), SLO-244 (1. lépés, **kész**), SLO-245 (2. lépés, **kész**), SLO-246 (3. lépés).
 > Daniel döntései, 2026-09-14: minden tenant rendszerlevele és emlékeztetője egységes design-t mutasson, és ez a superadmin felületen szerkeszthető legyen.
 
 ## 1. Cél és döntések
@@ -34,7 +34,7 @@ Minden levél `MailMessage`-alapú notification, tehát **mind ugyanazon a keret
 - **Felülírt komponensek** (`resources/views/vendor/`): `mail/html/layout` (a navy fejléc a kártya első sora), `mail/html/header` (tile + szó, vagy a tenant neve), `mail/html/message` és `mail/text/message` (lábléc), `notifications/email` (köszönés, aláírás, a gomb alatti tartalék-link). A többi framework-komponens változatlan, ezért nincs publikálva.
 - **Szövegek:** a framework angol sorai („Hello!”, „Regards,”, „If you're having trouble…”, „All rights reserved”) helyett `app.mail.layout.*`. A megerősítő és a jelszó-visszaállító levél `app.mail.verify_email.*` / `app.mail.reset_password.*` (`App\Notifications\Platform\AuthMailMessages`, `toMailUsing`). A linkek a frameworkéi maradnak.
 - **Tenant név:** a `TenantMailNotification::addressAsTenant()` a `viewData['tenantName']`-be teszi. Ettől a fejléc, az aláírás és a lábléc a tenantot nevezi meg.
-- **`MailBrand`** (`app/Support/Mail/MailBrand.php`): a fejléc háttere és szövegszíne, a gomb háttere és szövegszíne, canvas, surface, ink, ink-muted, link, vonal, logó URL, lábléc-szöveg. Az alapértékek a docs/21 tokenjei (navy `#0D1B2A` fejléc, sárga `#F4B942` gomb navy szöveggel). Az `AppServiceProvider` **`bind`**-dal köti be, nem singletonnal: egy futó queue worker újraindítás nélkül is az aktuális márkát kell hogy használja. A 2. lépés ezt a bindingot cseréli az adatbázisban tárolt értékre.
+- **`MailBrand`** (`app/Support/Mail/MailBrand.php`): a fejléc háttere és szövegszíne, a gomb háttere és szövegszíne, canvas, surface, ink, ink-muted, link, vonal, logó URL, lábléc-szöveg. Az alapértékek a docs/21 tokenjei (navy `#0D1B2A` fejléc, sárga `#F4B942` gomb navy szöveggel). Az `AppServiceProvider` **`bind`**-dal köti be, nem singletonnal: egy futó queue worker újraindítás nélkül is az aktuális márkát kell hogy használja. Az SLO-245 óta a binding a `MailBrandStore::current()`-et adja (l. §4).
 
 ### ⚠️ Logó
 
@@ -43,7 +43,33 @@ Minden levél `MailMessage`-alapú notification, tehát **mind ugyanazon a keret
 - **`?no-inline`:** 4 KB alatt a Vite data-URI-t csinálna a képből, és azt a Gmail nem mutatja.
 - **Ha nincs build** (pl. tesztfutás assetek nélkül), a `logoUrl` null, és a fejlécben csak a szó áll, törött kép nélkül.
 
-## 4. Következő lépések
+## 4. Superadmin márka-beállítások (SLO-245)
 
-- **SLO-245:** superadmin márka-beállítások (logó-feltöltés, színek, lábléc, kontraszt-ellenőrzés, élő előnézet). Platform-szintű tárolás, audit-log.
+**Hol:** `admin.{central}/emails/design` (a superadmin vezérlőpult „Email-design” linkje). Csak superadmin: a host (`ensure.superadmin` + `ensure.2fa`) és a `PlatformSettingPolicy::manage` is véd, tenant admin minden jogosultsággal is 403.
+
+**Mit állít:**
+
+| Mező | Megjegyzés |
+|---|---|
+| Fejléc színe | A fejlécszöveg színe **származtatott** (`MailBrand::readableTextOn`): fehér, navy vagy fekete, amelyik elsőként eléri a 4,5:1-et. Rossz választás így nem lehet. |
+| Gomb színe | A gombfelirat színe ugyanígy származtatott (az alap sárgán navy marad). |
+| Háttérszín | A lábléc fix `#5B6B7C` szövege ezen áll. **Mentési szabály: legalább 4,5:1**, különben validációs hiba. |
+| Lábléc szövege | Opcionális, max. 300 karakter, sima szöveg (escapelve). |
+| Logó | PNG/JPG, max. 512 KB, 40–1200 px. SVG-t és WebP-t nem fogad (a levelezők eldobják). A `public` diszkre kerül (`platform/mail/…`), a levélben `APP_URL/storage/...` URL-lel. Csere vagy törlés után a régi fájl a commit **után** törlődik. Logó nélkül a slot4u tile marad. A logó csak a slot4u saját levelein látszik, tenant-levélen a tenant neve áll a fejlécben. |
+
+**Tárolás:** `platform_settings` tábla (`key` unique, `value` JSON, `updated_by`), `mail_brand` kulcs. **Nem `BelongsToTenant`**: minden tenant levele ezt olvassa, tenant-kontextusban is. A `MailBrandStore` a sort a megosztott cache-ben tartja (`rememberForever`), és íráskor a commit után felejti el. Így egy futó queue worker újraindítás nélkül a következő levéltől az új márkát használja.
+
+**Audit:** `platform.mail_brand_updated` / `platform.mail_brand_reset`, régi és új értékkel, `tenant_id = null`.
+
+**Visszaállítás:** a sor és a feltöltött logó törlődik, a levelek a kódbeli alapra esnek vissza.
+
+**Élő előnézet:** a `POST /emails/design/preview` (throttle 120/perc) a **valódi levélkeretet** rendereli a piszkozat-márkával. A kérés idejére `app()->instance()` cseréli a bindingot, utána visszaáll. A válasz: `{html, footer_contrast, footer_contrast_ok}`. A React oldal 300 ms debounce-szal kéri le, és egy `sandbox=""` iframe `srcdoc`-jába teszi.
+- **Két minta:** slot4u levél (megerősítés) és tenant levél (foglalás-visszaigazolás „Minta Szalon” névvel).
+- **Rossz kontraszt:** az előnézet ilyenkor is kirajzolja a levelet, figyelmeztetéssel, a mentés gomb pedig tiltott.
+- ⚠️ **Logó az előnézetben data-URI-ként:** az admin host CSP-je (`img-src 'self' data:`) nem engedi az apex `/storage` URL-t. Valódi levélben data-URI sosem megy ki.
+
+**Hibatűrés:** ha a beállítás nem olvasható (pl. deploy a kódváltás és a migráció között), a binding `QueryException`-re a kódbeli alapmárkát adja, és a levél kimegy.
+
+## 5. Következő lépés
+
 - **SLO-246:** superadmin levélszöveg-szerkesztő, a fenti feloldási sorrenddel. A tenant szerkesztő (SLO-114) alapértékként a platform szöveget mutatja.

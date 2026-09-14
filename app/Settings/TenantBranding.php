@@ -174,8 +174,11 @@ final class TenantBranding
         return 0.2126 * $channel($rgb[0]) + 0.7152 * $channel($rgb[1]) + 0.0722 * $channel($rgb[2]);
     }
 
-    /** Contrast ratio between two `#rrggbb` colours; 1.0 when either is malformed. */
-    private static function contrast(string $a, string $b): float
+    /**
+     * Contrast ratio between two `#rrggbb` colours; 1.0 when either is malformed.
+     * Public since the mail brand (SLO-245) checks its colours with the same math.
+     */
+    public static function contrast(string $a, string $b): float
     {
         $first = self::luminance($a);
         $second = self::luminance($b);

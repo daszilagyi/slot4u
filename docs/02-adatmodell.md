@@ -229,6 +229,9 @@ message_templates  id, tenant_id, key(booking_confirmed|booking_modified|booking
 messages           id, tenant_id, customer_id, sender_id(nullable), from_customer(bool),
                    booking_id(nullable), body, read_at(nullable), timestamps
                    — egy szál = egy ügyfél (SLO-36), l. lent
+platform_settings  id, key(unique), value(json), updated_by(nullable → users), timestamps
+                   — platform-szintű, NEM tenant-adat (SLO-245); első kulcs: `mail_brand`
+                   (a rendszerlevelek fejléc-/gombszíne, háttere, lábléce, logója — docs/27 §4)
 notifications_log  id, tenant_id, type, channel, recipient, status(pending|sent|failed),
                    dedupe_key(nullable), sent_at, error, timestamps
                    — type: a message_templates key-ekkel azonos halmaz (NotificationType enum)
