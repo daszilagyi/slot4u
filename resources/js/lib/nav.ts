@@ -11,6 +11,7 @@ import {
     LayoutDashboardIcon,
     MailIcon,
     MapPinIcon,
+    MessagesSquareIcon,
     ReceiptTextIcon,
     SettingsIcon,
     ScrollTextIcon,
@@ -33,6 +34,8 @@ export type NavItem = {
     feature?: string;
     /** Whether the destination page exists yet; not-ready items render disabled. */
     ready: boolean;
+    /** A shared-prop counter shown as a badge next to the label. */
+    badge?: 'messages_unread';
 };
 
 /**
@@ -120,6 +123,18 @@ export const navItems: NavItem[] = [
         icon: ContactIcon,
         permission: 'customer.view',
         ready: true,
+    },
+    {
+        // The message inbox (SLO-36). The badge counts unread customer
+        // messages across the threads this user may answer.
+        key: 'messages',
+        labelKey: 'admin.nav.messages',
+        href: '/messages',
+        icon: MessagesSquareIcon,
+        permission: 'message.send',
+        feature: 'feature_messages',
+        ready: true,
+        badge: 'messages_unread',
     },
     {
         key: 'billing',
