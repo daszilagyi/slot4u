@@ -27,13 +27,7 @@ class MailTextPreviewRenderer
         // `:word` it does not have must show in the preview the way it would
         // go out — literally.
         $vars = array_intersect_key($samples, array_flip($this->catalog->variables($key)));
-        $label = $this->catalog->actionLabel($key);
-
-        $mail = $draft->applyTo(
-            (new MailMessage)->greeting((string) __('app.mail.greeting', ['name' => $vars['name'] ?? ''])),
-            $vars,
-            $label === null ? null : [$label, '#'],
-        );
+        $mail = $draft->applyTo(new MailMessage, $vars, $this->catalog->hasButton($key) ? '#' : null);
 
         if ($this->catalog->group($key) === MailTextCatalog::GROUP_CUSTOMER) {
             $mail->line((string) __('app.mail.reply.invite', ['tenant' => $samples['tenant'] ?? '']));

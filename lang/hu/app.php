@@ -989,6 +989,12 @@ return [
     ],
     'super' => [
         // Minden rendszerlevél közös kinézete (SLO-245, docs/27).
+        'mail_nav' => [
+            'label' => 'Email-beállítások',
+            'back' => 'Vissza a vezérlőpultra',
+            'design' => 'Email-design',
+            'texts' => 'Levélszövegek (:count levél)',
+        ],
         'mail_brand' => [
             'title' => 'Email-design',
             'subtitle' => 'Minden rendszerlevél ezzel a kinézettel megy ki: a slot4u saját levelei és a tenantok ügyfeleinek küldött visszaigazolások, emlékeztetők is. A módosítás azonnal minden tenantra érvényes.',
@@ -1039,9 +1045,9 @@ return [
         // az ügyféllevelek alapszövege. A tenant saját felülírása ezt felülírja.
         'mail_texts' => [
             'title' => 'Levélszövegek',
-            'subtitle' => 'A rendszerlevelek tárgya és szövege. Az ügyféllevelek szövege minden olyan tenantnál érvényes, amelyik nem írta át a sajátját. A köszönés, a gomb és a levél kerete nem szerkeszthető.',
+            'subtitle' => 'Minden rendszerlevél, amit a slot4u kiküld: tárgy, köszönés, szöveg, gombfelirat és a gomb utáni szöveg. Az ügyféllevelek szövege minden olyan tenantnál érvényes, amelyik nem írta át a sajátját. A gomb címe és a levél kerete nem szerkeszthető — a keret az Email-design oldalon állítható.',
             'groups' => [
-                'platform' => 'slot4u levelei',
+                'platform' => 'Tenantnak, dolgozóknak, fiókhoz',
                 'customer' => 'Ügyféllevelek (alapszöveg)',
             ],
             'names' => [
@@ -1055,6 +1061,7 @@ return [
                 'social_email_confirmation' => 'Facebook-belépés: e-mail megerősítése',
                 'social_account_linked' => 'Google/Facebook-belépés hozzáadva',
                 'social_account_unlinked' => 'Google/Facebook-belépés eltávolítva',
+                'customer_message' => 'Dolgozónak: ügyfél üzenetet írt',
                 'booking_confirmed' => 'Foglalás visszaigazolva',
                 'booking_modified' => 'Foglalás módosítva',
                 'booking_canceled' => 'Foglalás lemondva',
@@ -1068,13 +1075,18 @@ return [
             'default' => 'Alapszöveg',
             'fields' => [
                 'subject' => 'Tárgy',
+                'greeting' => 'Köszönés',
                 'body' => 'Szöveg',
+                'action_label' => 'Gombfelirat',
                 'outro' => 'Szöveg a gomb után',
             ],
             'hints' => [
                 'body' => 'Minden sor külön bekezdés. Formázás: **félkövér**, [link szövege](https://…), felsorolás „- ” kezdetű sorokkal. HTML és kép nem használható.',
                 'body_customer' => 'A gomb és a „válaszolj erre az emailre” záró sor automatikusan a szöveg után kerül.',
                 'no_button' => 'Ennek a levélnek nincs gombja.',
+                'greeting' => 'A levél címsora, pl. „Szia :name!”.',
+                'action_label' => 'A gomb szövege. A gomb címét a rendszer adja, nem módosítható.',
+                'greeting_customer' => 'A köszönés és a gombfelirat akkor is ez marad, ha a tenant saját tárgyat és szöveget ír.',
             ],
             'variables' => 'Használható változók',
             'variables_hint' => 'Kattints egy változóra, és a kurzor helyére kerül abban a mezőben, ahol utoljára gépeltél. Más kettősponttal kezdődő szó nem használható, mert szó szerint menne ki.',
@@ -1102,6 +1114,7 @@ return [
             // Az előnézet mintaértékei, változónként.
             'samples' => [
                 'name' => 'Kovács Anna',
+                'customer' => 'Szabó Márta',
                 'provider' => 'Google',
                 'tenant' => 'Minta Szalon',
                 'count' => '60',

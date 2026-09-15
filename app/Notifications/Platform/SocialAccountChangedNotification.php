@@ -38,9 +38,8 @@ class SocialAccountChangedNotification extends Notification
 
         // The superadmin's wording if edited (SLO-246), else the lang default.
         return app(MailTextStore::class)->resolve($key, app()->getLocale())->applyTo(
-            (new MailMessage)->greeting(__("app.mail.{$key}.greeting", ['name' => $notifiable->name])),
+            new MailMessage,
             ['name' => $notifiable->name, 'tenant' => $this->siteName, 'provider' => $this->provider],
-            null,
         );
     }
 }

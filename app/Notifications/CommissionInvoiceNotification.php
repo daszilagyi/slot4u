@@ -50,7 +50,7 @@ class CommissionInvoiceNotification extends Notification
 
         // The superadmin's wording if edited (SLO-246), else the lang default.
         $mail = app(MailTextStore::class)->resolve("commission_invoice_{$variant}", $this->tenant->locale)->applyTo(
-            (new MailMessage)->greeting(__("app.mail.commission_invoice.{$variant}.greeting", ['name' => $notifiable->name])),
+            new MailMessage,
             [
                 'name' => $notifiable->name,
                 'tenant' => $this->tenant->name,
@@ -58,7 +58,7 @@ class CommissionInvoiceNotification extends Notification
                 'amount' => $this->money($this->invoice->total_gross_minor),
                 'due' => $this->dueDate(),
             ],
-            [__('app.mail.commission_invoice.action'), $this->billingUrl()],
+            $this->billingUrl(),
         );
 
         return $this->suppressWhenDemo($mail, $this->tenant);

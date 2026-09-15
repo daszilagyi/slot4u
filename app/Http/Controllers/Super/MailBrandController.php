@@ -8,6 +8,7 @@ use App\Http\Requests\Super\UpdateMailBrandRequest;
 use App\Models\PlatformSetting;
 use App\Services\Mail\MailBrandStore;
 use App\Services\Mail\MailPreviewRenderer;
+use App\Services\Mail\MailTextCatalog;
 use App\Support\Mail\MailBrandSettings;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -25,7 +26,7 @@ class MailBrandController extends Controller
 {
     public function __construct(private readonly MailBrandStore $store) {}
 
-    public function edit(): Response
+    public function edit(MailTextCatalog $catalog): Response
     {
         Gate::authorize('manage', PlatformSetting::class);
 
@@ -46,6 +47,7 @@ class MailBrandController extends Controller
                 'canvas' => $defaults->canvas,
             ],
             'customised' => $this->store->isCustomised(),
+            'mail_count' => count($catalog->keys()),
         ]);
     }
 

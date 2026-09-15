@@ -4,6 +4,7 @@ import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import AppLayout from '@/Layouts/AppLayout';
+import MailSettingsNav from '@/components/super/MailSettingsNav';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,7 +14,9 @@ import { useTranslations } from '@/lib/i18n';
 
 type Text = {
     subject: string;
+    greeting: string;
     body: string;
+    action_label: string | null;
     outro: string | null;
 };
 
@@ -31,7 +34,7 @@ type IndexProps = {
     mails: Mail[];
 };
 
-type Field = 'subject' | 'body' | 'outro';
+type Field = 'subject' | 'greeting' | 'body' | 'action_label' | 'outro';
 
 type Preview = { subject: string; html: string };
 
@@ -39,7 +42,8 @@ const textareaClass =
     'rounded-md border border-input bg-transparent px-3 py-2 font-mono text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50';
 
 /**
- * The words of every system email (SLO-246, docs/27 §5), one mail at a time.
+ * The words of every system email (SLO-246, SLO-258, docs/27 §5), one mail at
+ * a time: subject, greeting, body, button label and the lines after it.
  *
  * Like the design page, the preview is the server's real render of the draft —
  * with sample values and the current brand — not a React lookalike.
@@ -65,6 +69,8 @@ export default function SuperMailTextsIndex({ mails }: IndexProps) {
             <Head title={t('super.mail_texts.title')} />
 
             <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-8 sm:px-6">
+                <MailSettingsNav current="texts" mailCount={mails.length} />
+
                 <header className="flex flex-col gap-2">
                     <h1 className="text-xl font-semibold tracking-tight">
                         {t('super.mail_texts.title')}
@@ -144,14 +150,12 @@ function Editor({
     const t = useTranslations();
     const initial = mail.stored ?? mail.default;
 
-    const form = useForm({
-        subject: initial.subject,
-        body: initial.body,
-        outro: initial.outro ?? '',
-    });
+    const form = useForm(formValues(initial));
 
     const subjectRef = useRef<HTMLInputElement>(null);
+    const greetingRef = useRef<HTMLInputElement>(null);
     const bodyRef = useRef<HTMLTextAreaElement>(null);
+    const actionLabelRef = useRef<HTMLInputElement>(null);
     const outroRef = useRef<HTMLTextAreaElement>(null);
     const lastField = useRef<Field>('body');
 
@@ -161,7 +165,7 @@ function Editor({
     >('loading');
     const request = useRef(0);
 
-    const { subject, body, outro } = form.data;
+    const { subject, greeting, body, action_label, outro } = form.data;
 
     useEffect(() => {
         onDirtyChange(form.isDirty);
@@ -174,7 +178,9 @@ function Editor({
 
             const data = new FormData();
             data.append('subject', subject);
+            data.append('greeting', greeting);
             data.append('body', body);
+            data.append('action_label', action_label);
             data.append('outro', outro);
 
             try {
@@ -194,7 +200,7 @@ function Editor({
         }, 300);
 
         return () => window.clearTimeout(timer);
-    }, [mail.key, subject, body, outro]);
+    }, [mail.key, subject, greeting, body, action_label, outro]);
 
     function submit(event: FormEvent) {
         event.preventDefault();
@@ -214,11 +220,7 @@ function Editor({
         form.delete(`/emails/templates/${mail.key}`, {
             preserveScroll: true,
             onSuccess: () => {
-                const next = {
-                    subject: mail.default.subject,
-                    body: mail.default.body,
-                    outro: mail.default.outro ?? '',
-                };
+                const next = formValues(mail.default);
                 form.setDefaults(next);
                 form.setData(next);
                 toast.success(t('super.mail_texts.reset_done'));
@@ -230,7 +232,9 @@ function Editor({
         const field = lastField.current;
         const element = {
             subject: subjectRef.current,
+            greeting: greetingRef.current,
             body: bodyRef.current,
+            action_label: actionLabelRef.current,
             outro: outroRef.current,
         }[field];
         const token = `:${name}`;
@@ -295,6 +299,33 @@ function Editor({
                 </div>
 
                 <div className="flex flex-col gap-2">
+                    <Label htmlFor="mt-greeting">
+                        {t('super.mail_texts.fields.greeting')}
+                    </Label>
+                    <Input
+                        id="mt-greeting"
+                        ref={greetingRef}
+                        value={greeting}
+                        maxLength={255}
+                        onFocus={() => (lastField.current = 'greeting')}
+                        onChange={(e) =>
+                            form.setData('greeting', e.target.value)
+                        }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                        {t('super.mail_texts.hints.greeting')}
+                        {mail.group === 'customer'
+                            ? ` ${t('super.mail_texts.hints.greeting_customer')}`
+                            : null}
+                    </p>
+                    {form.errors.greeting ? (
+                        <p className="text-sm text-destructive">
+                            {form.errors.greeting}
+                        </p>
+                    ) : null}
+                </div>
+
+                <div className="flex flex-col gap-2">
                     <Label htmlFor="mt-body">
                         {t('super.mail_texts.fields.body')}
                     </Label>
@@ -320,6 +351,32 @@ function Editor({
                         </p>
                     ) : null}
                 </div>
+
+                {mail.has_button ? (
+                    <div className="flex flex-col gap-2">
+                        <Label htmlFor="mt-action-label">
+                            {t('super.mail_texts.fields.action_label')}
+                        </Label>
+                        <Input
+                            id="mt-action-label"
+                            ref={actionLabelRef}
+                            value={action_label}
+                            maxLength={120}
+                            onFocus={() => (lastField.current = 'action_label')}
+                            onChange={(e) =>
+                                form.setData('action_label', e.target.value)
+                            }
+                        />
+                        <p className="text-xs text-muted-foreground">
+                            {t('super.mail_texts.hints.action_label')}
+                        </p>
+                        {form.errors.action_label ? (
+                            <p className="text-sm text-destructive">
+                                {form.errors.action_label}
+                            </p>
+                        ) : null}
+                    </div>
+                ) : null}
 
                 {mail.has_outro ? (
                     <div className="flex flex-col gap-2">
@@ -444,4 +501,14 @@ function Editor({
             </section>
         </div>
     );
+}
+
+function formValues(text: Text) {
+    return {
+        subject: text.subject,
+        greeting: text.greeting,
+        body: text.body,
+        action_label: text.action_label ?? '',
+        outro: text.outro ?? '',
+    };
 }

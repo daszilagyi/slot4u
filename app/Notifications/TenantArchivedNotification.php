@@ -51,7 +51,7 @@ class TenantArchivedNotification extends Notification
     {
         // The superadmin's wording if edited (SLO-246), else the lang default.
         $mail = app(MailTextStore::class)->resolve('tenant_archived', $this->tenant->locale)->applyTo(
-            (new MailMessage)->greeting(__('app.mail.tenant_archived.greeting', ['name' => $notifiable->name])),
+            new MailMessage,
             ['name' => $notifiable->name, 'tenant' => $this->tenant->name, 'date' => $this->deadline()],
         );
 

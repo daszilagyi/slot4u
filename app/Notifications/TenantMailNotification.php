@@ -10,6 +10,7 @@ use App\Notifications\Concerns\TracksDelivery;
 use App\Services\Mail\MailTextStore;
 use App\Services\Notification\MessageTemplateRenderer;
 use App\Settings\TenantSettings;
+use App\Support\Mail\MailText;
 use App\Tenancy\TenantPublicUrl;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -95,13 +96,13 @@ abstract class TenantMailNotification extends Notification implements RecordsDel
         $override = app(MessageTemplateRenderer::class)
             ->resolve($this->tenant, $this->templateType(), $this->locale);
 
-        $platform = $override === null
-            ? app(MailTextStore::class)->stored($this->templateType()->value, (string) $this->locale)
-            : null;
+        // The superadmin's text also supplies the greeting and the button label
+        // under a tenant's override: a tenant edits subject and body only (SLO-258).
+        $platform = app(MailTextStore::class)->stored($this->templateType()->value, (string) $this->locale);
 
         $mail = match (true) {
-            $override !== null => $this->renderFromTemplate($override->subject, $override->body, $notifiable),
-            $platform !== null => $this->renderFromTemplate($platform->subject, $platform->body, $notifiable),
+            $override !== null => $this->renderFromTemplate($override->subject, $override->body, $notifiable, $platform),
+            $platform !== null => $this->renderFromTemplate($platform->subject, $platform->body, $notifiable, $platform),
             default => $this->defaultMail($notifiable),
         };
 
@@ -205,18 +206,20 @@ abstract class TenantMailNotification extends Notification implements RecordsDel
 
     /**
      * Build the mail from an edited wording — a tenant override or the
-     * superadmin's base text: subject + body with placeholders substituted, an
-     * automatic greeting, and the fixed CTA button.
+     * superadmin's base text: subject + body with placeholders substituted, the
+     * greeting and the button label (the superadmin's when edited, SLO-258), and
+     * the CTA's fixed URL.
      */
-    protected function renderFromTemplate(string $subject, string $body, object $notifiable): MailMessage
+    protected function renderFromTemplate(string $subject, string $body, object $notifiable, ?MailText $platform = null): MailMessage
     {
         $renderer = app(MessageTemplateRenderer::class);
         $vars = $this->templateVars($notifiable);
         [$actionLabel, $actionUrl] = $this->templateAction();
+        $actionLabel = $renderer->substitute($platform->actionLabel ?? $actionLabel, $vars);
 
         $mail = (new MailMessage)
             ->subject($renderer->substitute($subject, $vars))
-            ->greeting($renderer->substitute(__('app.mail.greeting'), $vars));
+            ->greeting($renderer->substitute($platform->greeting ?? __('app.mail.greeting'), $vars));
 
         foreach ($renderer->bodyLines($renderer->substitute($body, $vars)) as $line) {
             $mail->line($line);
