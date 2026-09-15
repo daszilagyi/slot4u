@@ -51,6 +51,10 @@ class LegalController extends Controller
         }
 
         return Inertia::render('Legal/Show', [
+            // The central domain has no tenant to brand the page with: its own
+            // slot4u shell there, the tenant's public shell on a tenant host
+            // (SLO-255).
+            'onPlatform' => $tenantId === null,
             'document' => [
                 'type' => $document->type->value,
                 'version' => $document->version,

@@ -1,9 +1,13 @@
 import { Head } from '@inertiajs/react';
+import type { PropsWithChildren } from 'react';
 
+import MarketingLayout from '@/Layouts/MarketingLayout';
 import PublicLayout from '@/Layouts/PublicLayout';
 import { useTranslations } from '@/lib/i18n';
 
 type ShowProps = {
+    /** Rendered on the central domain (no tenant): the slot4u shell (SLO-255). */
+    onPlatform?: boolean;
     document: {
         type: 'terms' | 'privacy';
         version: string;
@@ -24,13 +28,13 @@ type ShowProps = {
  * arrives from a tenant admin's textarea, and rendering that as markup would put
  * an XSS hole in the one page every visitor is told to open.
  */
-export default function Show({ document }: ShowProps) {
+export default function Show({ document, onPlatform = false }: ShowProps) {
     const t = useTranslations();
 
     const effective = new Date(document.effectiveFrom).toLocaleDateString();
 
     return (
-        <PublicLayout>
+        <Shell onPlatform={onPlatform}>
             <Head title={document.title} />
 
             <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-4 py-12 sm:px-6">
@@ -48,10 +52,26 @@ export default function Show({ document }: ShowProps) {
                     </p>
                 </header>
 
-                <article className="whitespace-pre-wrap rounded-xl border border-border bg-card p-5 text-sm leading-relaxed">
+                <article className="rounded-xl border border-border bg-card p-5 text-sm leading-relaxed whitespace-pre-wrap">
                     {document.body}
                 </article>
             </div>
-        </PublicLayout>
+        </Shell>
+    );
+}
+
+/**
+ * The tenant's public shell on a tenant host; on the central domain, where
+ * there is no tenant, the slot4u marketing shell — otherwise the header shows a
+ * placeholder initial and the footer an empty "©" (SLO-255).
+ */
+function Shell({
+    onPlatform,
+    children,
+}: PropsWithChildren<{ onPlatform: boolean }>) {
+    return onPlatform ? (
+        <MarketingLayout homeLink>{children}</MarketingLayout>
+    ) : (
+        <PublicLayout>{children}</PublicLayout>
     );
 }
