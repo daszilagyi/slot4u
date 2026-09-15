@@ -155,6 +155,8 @@ it('builds the salon the data sheet describes, branded and staffed', function ()
         ->and($template->enabled)->toBeTrue()
         ->and($template->subject)->toContain('GlamZone');
 
+    expectDemoMailTemplatesToRender($tenant);
+
     // --- the receptionist, and what she cannot reach ------------------------
     $manager = User::withoutGlobalScopes()->where('email', 'recepcio@'.$tenant->slug.'.demo.slot4u.hu')->sole();
     app(PermissionRegistrar::class)->setPermissionsTeamId($id);
