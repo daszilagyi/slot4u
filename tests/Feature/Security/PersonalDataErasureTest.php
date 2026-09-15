@@ -10,6 +10,7 @@ use App\Models\Payment;
 use App\Models\QuoteRequest;
 use App\Models\QuoteRequestMessage;
 use App\Models\Service;
+use App\Models\SocialAccount;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Models\WaitlistEntry;
@@ -70,6 +71,12 @@ function erasureFixture(): array
         'phone' => ERASURE_PHONE,
     ]);
     $customer->assignRole(Role::Customer->value);
+
+    // A Google link carrying the provider's copy of the profile (SLO-251).
+    SocialAccount::factory()->linkedTo($customer)->create([
+        'name' => ERASURE_NAME,
+        'email' => ERASURE_EMAIL,
+    ]);
 
     $service = Service::factory()->forTenant($tenant)->create();
 

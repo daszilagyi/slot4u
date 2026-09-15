@@ -37,7 +37,8 @@ final class AnonymizeUserProfile
      * - `password` becomes a random unknown-to-anyone value rather than null,
      *   because a null hash is a login attempt away from an unexpected outcome;
      * - the session rows go, so the erasure logs the person out everywhere
-     *   instead of leaving a live session on an erased account.
+     *   instead of leaving a live session on an erased account;
+     * - the linked Google / Facebook identities are deleted (SLO-251).
      */
     public function erase(User $user, Tenant $tenant, string $labelKey): bool
     {
@@ -46,6 +47,11 @@ final class AnonymizeUserProfile
         }
 
         $this->deleteSessions($user);
+
+        // The Google / Facebook links go outright (SLO-251): an erased account
+        // must not be reachable through a provider, and the stored provider
+        // profile is personal data like the columns below.
+        $user->socialAccounts()->withoutGlobalScopes()->delete();
 
         $user->forceFill([
             'name' => $this->placeholder($labelKey, $tenant),

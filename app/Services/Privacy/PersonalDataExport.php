@@ -12,6 +12,7 @@ use App\Models\NotificationLog;
 use App\Models\Payment;
 use App\Models\PrivacyRequest;
 use App\Models\QuoteRequest;
+use App\Models\SocialAccount;
 use App\Models\User;
 use App\Models\WaitlistEntry;
 use Illuminate\Database\Eloquent\Builder;
@@ -73,6 +74,21 @@ final class PersonalDataExport
             'email_verified_at' => $user->email_verified_at?->toIso8601String(),
             'registered_at' => $user->created_at?->toIso8601String(),
             'anonymized_at' => $user->anonymized_at?->toIso8601String(),
+            // The Google / Facebook identities the account signs in with
+            // (SLO-251) and the provider profile stored with each.
+            'linked_accounts' => $user->socialAccounts()
+                ->withoutGlobalScopes()
+                ->orderBy('id')
+                ->get()
+                ->map(fn (SocialAccount $account): array => [
+                    'provider' => $account->provider->value,
+                    'provider_user_id' => $account->provider_user_id,
+                    'email' => $account->email,
+                    'name' => $account->name,
+                    'avatar_url' => $account->avatar_url,
+                    'linked_at' => $account->created_at?->toIso8601String(),
+                ])
+                ->all(),
         ];
     }
 

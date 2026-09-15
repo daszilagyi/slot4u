@@ -9,6 +9,7 @@ use App\Models\Booking;
 use App\Models\Event;
 use App\Models\PrivacyRequest;
 use App\Models\Service;
+use App\Models\SocialAccount;
 use App\Models\Tenant;
 use App\Models\User;
 use App\Models\WaitlistEntry;
@@ -151,6 +152,20 @@ it('includes guest bookings made with the customer email', function () {
 
     expect($payload['bookings'])->toHaveCount(1)
         ->and($payload['bookings'][0]['guest_email'])->toBe('anna@example.test');
+});
+
+it('includes the linked Google and Facebook identities (SLO-251)', function () {
+    $tenant = privacyTenant();
+    $me = privacyCustomer($tenant, ['email' => 'anna@example.test']);
+    SocialAccount::factory()->linkedTo($me)->create(['provider_user_id' => 'g-1']);
+    SocialAccount::factory()->linkedTo($me)->facebook()->create(['provider_user_id' => 'fb-1']);
+
+    $payload = $this->actingAs($me)
+        ->get(tenantHost('acme', '/my/privacy/export'))
+        ->json();
+
+    expect(collect($payload['subject']['linked_accounts'])->pluck('provider_user_id')->all())
+        ->toBe(['g-1', 'fb-1']);
 });
 
 it('includes waitlist places held as a guest under the customer email (SLO-228)', function () {
