@@ -75,6 +75,24 @@ class MailTextCatalog
             'outro' => null,
             'variables' => ['name', 'tenant', 'date'],
         ],
+        'social_email_confirmation' => [
+            'subject' => 'social_email_confirmation.subject',
+            'body' => ['social_email_confirmation.intro'],
+            'outro' => ['social_email_confirmation.expire', 'social_email_confirmation.outro'],
+            'variables' => ['name', 'tenant', 'count'],
+        ],
+        'social_account_linked' => [
+            'subject' => 'social_account_linked.subject',
+            'body' => ['social_account_linked.intro', 'social_account_linked.warning'],
+            'outro' => null,
+            'variables' => ['name', 'tenant', 'provider'],
+        ],
+        'social_account_unlinked' => [
+            'subject' => 'social_account_unlinked.subject',
+            'body' => ['social_account_unlinked.intro', 'social_account_unlinked.warning'],
+            'outro' => null,
+            'variables' => ['name', 'tenant', 'provider'],
+        ],
     ];
 
     public function __construct(private readonly MessageTemplateCatalog $customer) {}
@@ -110,7 +128,7 @@ class MailTextCatalog
         }
 
         return match ($key) {
-            'tenant_archived' => null,
+            'tenant_archived', 'social_account_linked', 'social_account_unlinked' => null,
             'commission_invoice_issued', 'commission_invoice_overdue', 'commission_invoice_suspended' => $this->lang('commission_invoice.action'),
             default => $this->lang($key.'.action'),
         };

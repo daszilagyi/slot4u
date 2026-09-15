@@ -79,7 +79,7 @@ it('lists every editable mail with its default for the superadmin', function () 
         ->assertOk()
         ->assertInertia(fn (Assert $page) => $page
             ->component('Super/MailTexts/Index')
-            ->has('mails', 15)
+            ->has('mails', 18)
             ->where('mails.0.key', 'verify_email')
             ->where('mails.0.group', 'platform')
             ->where('mails.0.has_outro', true)
@@ -88,8 +88,8 @@ it('lists every editable mail with its default for the superadmin', function () 
             ->where('mails.0.variables', ['name', 'count'])
             ->where('mails.6.key', 'tenant_archived')
             ->where('mails.6.has_button', false)
-            ->where('mails.7.key', 'booking_confirmed')
-            ->where('mails.7.group', 'customer'));
+            ->where('mails.10.key', 'booking_confirmed')
+            ->where('mails.10.group', 'customer'));
 });
 
 it('keeps a tenant admin out of the mail texts, even holding every permission', function () {
