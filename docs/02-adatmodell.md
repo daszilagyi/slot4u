@@ -232,6 +232,10 @@ messages           id, tenant_id, customer_id, sender_id(nullable), from_custome
 platform_settings  id, key(unique), value(json), updated_by(nullable → users), timestamps
                    — platform-szintű, NEM tenant-adat (SLO-245); első kulcs: `mail_brand`
                    (a rendszerlevelek fejléc-/gombszíne, háttere, lábléce, logója — docs/27 §4)
+platform_mail_texts id, key, locale, subject, body(text), outro(text, nullable), updated_by(nullable → users), timestamps
+                   — unique(key, locale); platform-szintű, NEM tenant-adat (SLO-246)
+                   — a rendszerlevelek superadmin-szövege; ügyféllevélnél a tenant
+                   message_templates felülírása előtte, a lang default utána (docs/27 §5)
 notifications_log  id, tenant_id, type, channel, recipient, status(pending|sent|failed),
                    dedupe_key(nullable), sent_at, error, timestamps
                    — type: a message_templates key-ekkel azonos halmaz (NotificationType enum)

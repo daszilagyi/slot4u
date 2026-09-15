@@ -71,7 +71,10 @@ type DashboardProps = {
  * computed server-side; this page only renders and lets the superadmin pick the
  * reporting month.
  */
-export default function SuperDashboard({ statistics, filters }: DashboardProps) {
+export default function SuperDashboard({
+    statistics,
+    filters,
+}: DashboardProps) {
     const t = useTranslations();
     const currency = statistics.currency;
 
@@ -79,7 +82,11 @@ export default function SuperDashboard({ statistics, filters }: DashboardProps) 
 
     function applyFilter(event: FormEvent) {
         event.preventDefault();
-        router.get('/', { period }, { preserveState: true, preserveScroll: true, replace: true });
+        router.get(
+            '/',
+            { period },
+            { preserveState: true, preserveScroll: true, replace: true },
+        );
     }
 
     const stuckRatio =
@@ -87,7 +94,9 @@ export default function SuperDashboard({ statistics, filters }: DashboardProps) 
             ? new Intl.NumberFormat('hu-HU', {
                   style: 'percent',
                   maximumFractionDigits: 0,
-              }).format(statistics.stuck_tenants / statistics.tenants_with_turnover)
+              }).format(
+                  statistics.stuck_tenants / statistics.tenants_with_turnover,
+              )
             : '—';
 
     return (
@@ -109,23 +118,34 @@ export default function SuperDashboard({ statistics, filters }: DashboardProps) 
                         </p>
                     </div>
 
-                    <form onSubmit={applyFilter} className="flex items-end gap-2">
+                    <form
+                        onSubmit={applyFilter}
+                        className="flex items-end gap-2"
+                    >
                         <div className="flex flex-col gap-1">
-                            <Label htmlFor="period">{t('super.dashboard.period_label')}</Label>
+                            <Label htmlFor="period">
+                                {t('super.dashboard.period_label')}
+                            </Label>
                             <Input
                                 id="period"
                                 value={period}
                                 onChange={(e) => setPeriod(e.target.value)}
-                                placeholder={t('super.dashboard.period_placeholder')}
+                                placeholder={t(
+                                    'super.dashboard.period_placeholder',
+                                )}
                                 className="w-32"
                             />
                         </div>
-                        <Button type="submit">{t('super.dashboard.period_apply')}</Button>
+                        <Button type="submit">
+                            {t('super.dashboard.period_apply')}
+                        </Button>
                     </form>
                 </div>
 
                 <p className="mb-4 text-xs text-muted-foreground">
-                    {t('super.dashboard.period_hint', { period: statistics.period })}
+                    {t('super.dashboard.period_hint', {
+                        period: statistics.period,
+                    })}
                 </p>
 
                 {!statistics.configured ? (
@@ -145,7 +165,10 @@ export default function SuperDashboard({ statistics, filters }: DashboardProps) 
                                 {t('super.dashboard.revenue_net')}
                             </div>
                             <div className="mt-1 text-3xl font-semibold tabular-nums">
-                                {formatMoney(statistics.commission_net_minor, currency)}
+                                {formatMoney(
+                                    statistics.commission_net_minor,
+                                    currency,
+                                )}
                             </div>
                             <p className="mt-2 text-xs text-muted-foreground">
                                 {t('super.dashboard.revenue_net_hint')}
@@ -157,7 +180,10 @@ export default function SuperDashboard({ statistics, filters }: DashboardProps) 
                                 <>
                                     <div className="mt-4 flex flex-wrap gap-x-6 gap-y-1 text-xs">
                                         <span>
-                                            {t('super.dashboard.revenue_accrued')}:{' '}
+                                            {t(
+                                                'super.dashboard.revenue_accrued',
+                                            )}
+                                            :{' '}
                                             <span className="tabular-nums">
                                                 {formatMoney(
                                                     statistics.commission_accrued_minor,
@@ -166,7 +192,10 @@ export default function SuperDashboard({ statistics, filters }: DashboardProps) 
                                             </span>
                                         </span>
                                         <span className="text-amber-400">
-                                            {t('super.dashboard.revenue_correction')}:{' '}
+                                            {t(
+                                                'super.dashboard.revenue_correction',
+                                            )}
+                                            :{' '}
                                             <span className="tabular-nums">
                                                 {formatMoney(
                                                     statistics.correction_total_minor,
@@ -176,7 +205,9 @@ export default function SuperDashboard({ statistics, filters }: DashboardProps) 
                                         </span>
                                     </div>
                                     <p className="mt-2 text-xs text-muted-foreground">
-                                        {t('super.dashboard.revenue_correction_hint')}
+                                        {t(
+                                            'super.dashboard.revenue_correction_hint',
+                                        )}
                                     </p>
                                 </>
                             ) : null}
@@ -188,25 +219,37 @@ export default function SuperDashboard({ statistics, filters }: DashboardProps) 
                                 <span>
                                     {t('super.dashboard.revenue_open')}:{' '}
                                     <span className="tabular-nums">
-                                        {formatMoney(statistics.commission_open_minor, currency)}
+                                        {formatMoney(
+                                            statistics.commission_open_minor,
+                                            currency,
+                                        )}
                                     </span>
                                 </span>
                                 <span>
                                     {t('super.dashboard.revenue_invoiced')}:{' '}
-                                    <span className="tabular-nums text-blue-400">
-                                        {formatMoney(statistics.commission_invoiced_minor, currency)}
+                                    <span className="text-blue-400 tabular-nums">
+                                        {formatMoney(
+                                            statistics.commission_invoiced_minor,
+                                            currency,
+                                        )}
                                     </span>
                                 </span>
                                 <span>
                                     {t('super.dashboard.revenue_paid')}:{' '}
-                                    <span className="tabular-nums text-green-400">
-                                        {formatMoney(statistics.commission_paid_minor, currency)}
+                                    <span className="text-green-400 tabular-nums">
+                                        {formatMoney(
+                                            statistics.commission_paid_minor,
+                                            currency,
+                                        )}
                                     </span>
                                 </span>
                                 <span>
                                     {t('super.dashboard.revenue_overdue')}:{' '}
-                                    <span className="tabular-nums text-red-400">
-                                        {formatMoney(statistics.commission_overdue_minor, currency)}
+                                    <span className="text-red-400 tabular-nums">
+                                        {formatMoney(
+                                            statistics.commission_overdue_minor,
+                                            currency,
+                                        )}
                                     </span>
                                 </span>
                             </div>
@@ -216,7 +259,10 @@ export default function SuperDashboard({ statistics, filters }: DashboardProps) 
                                 {t('super.dashboard.revenue_turnover')}
                             </div>
                             <div className="mt-1 text-3xl font-semibold tabular-nums">
-                                {formatMoney(statistics.turnover_total_minor, currency)}
+                                {formatMoney(
+                                    statistics.turnover_total_minor,
+                                    currency,
+                                )}
                             </div>
                         </div>
                     </div>
@@ -247,12 +293,16 @@ export default function SuperDashboard({ statistics, filters }: DashboardProps) 
                             label={t('super.dashboard.funnel_stuck')}
                             value={statistics.stuck_tenants}
                             accent="text-amber-400"
-                            hint={t('super.dashboard.funnel_stuck_hint', { ratio: stuckRatio })}
+                            hint={t('super.dashboard.funnel_stuck_hint', {
+                                ratio: stuckRatio,
+                            })}
                         />
                     </div>
                     <div className="mt-4 rounded-xl border border-border bg-card px-5 py-3 text-sm">
                         {t('super.dashboard.funnel_cap_reached')}:{' '}
-                        <span className="font-semibold tabular-nums">{statistics.cap_reached_tenants}</span>
+                        <span className="font-semibold tabular-nums">
+                            {statistics.cap_reached_tenants}
+                        </span>
                     </div>
                 </section>
 
@@ -275,7 +325,9 @@ export default function SuperDashboard({ statistics, filters }: DashboardProps) 
                                         {t('super.dashboard.top_col_turnover')}
                                     </th>
                                     <th className="px-4 py-3 text-right font-medium">
-                                        {t('super.dashboard.top_col_commission')}
+                                        {t(
+                                            'super.dashboard.top_col_commission',
+                                        )}
                                     </th>
                                 </tr>
                             </thead>
@@ -291,7 +343,10 @@ export default function SuperDashboard({ statistics, filters }: DashboardProps) 
                                     </tr>
                                 ) : (
                                     statistics.top_tenants.map((tenant) => (
-                                        <tr key={tenant.tenant_id} className="border-t border-border">
+                                        <tr
+                                            key={tenant.tenant_id}
+                                            className="border-t border-border"
+                                        >
                                             <td className="px-4 py-3">
                                                 <Link
                                                     href={`/tenants/${tenant.tenant_id}`}
@@ -301,7 +356,9 @@ export default function SuperDashboard({ statistics, filters }: DashboardProps) 
                                                 </Link>
                                                 {tenant.cap_reached ? (
                                                     <span className="ml-2 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-400">
-                                                        {t('super.dashboard.top_cap_badge')}
+                                                        {t(
+                                                            'super.dashboard.top_cap_badge',
+                                                        )}
                                                     </span>
                                                 ) : null}
                                             </td>
@@ -309,23 +366,35 @@ export default function SuperDashboard({ statistics, filters }: DashboardProps) 
                                                 <span
                                                     className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusBadgeClass(tenant.tenant_status)}`}
                                                 >
-                                                    {t(`tenant_status.${tenant.tenant_status}`)}
+                                                    {t(
+                                                        `tenant_status.${tenant.tenant_status}`,
+                                                    )}
                                                 </span>
                                             </td>
                                             <td className="px-4 py-3 text-right tabular-nums">
-                                                {formatMoney(tenant.turnover_minor, currency)}
+                                                {formatMoney(
+                                                    tenant.turnover_minor,
+                                                    currency,
+                                                )}
                                             </td>
                                             <td className="px-4 py-3 text-right tabular-nums">
-                                                {formatMoney(tenant.net_minor, currency)}
+                                                {formatMoney(
+                                                    tenant.net_minor,
+                                                    currency,
+                                                )}
                                                 {/* A credited period bills less than it accrued (§8.2). */}
-                                                {tenant.correction_minor !== 0 ? (
+                                                {tenant.correction_minor !==
+                                                0 ? (
                                                     <div className="text-xs text-amber-400">
-                                                        {t('super.dashboard.top_correction', {
-                                                            amount: formatMoney(
-                                                                tenant.correction_minor,
-                                                                currency,
-                                                            ),
-                                                        })}
+                                                        {t(
+                                                            'super.dashboard.top_correction',
+                                                            {
+                                                                amount: formatMoney(
+                                                                    tenant.correction_minor,
+                                                                    currency,
+                                                                ),
+                                                            },
+                                                        )}
                                                     </div>
                                                 ) : null}
                                             </td>
@@ -351,7 +420,10 @@ export default function SuperDashboard({ statistics, filters }: DashboardProps) 
                             <p className="mb-3 text-sm text-red-400">
                                 {t('super.dashboard.risk_summary', {
                                     count: statistics.overdue_count,
-                                    total: formatMoney(statistics.overdue_total_minor, currency),
+                                    total: formatMoney(
+                                        statistics.overdue_total_minor,
+                                        currency,
+                                    ),
                                 })}
                             </p>
                             <div className="overflow-x-auto rounded-xl border border-border">
@@ -359,63 +431,90 @@ export default function SuperDashboard({ statistics, filters }: DashboardProps) 
                                     <thead className="bg-muted/50 text-muted-foreground">
                                         <tr>
                                             <th className="px-4 py-3 font-medium">
-                                                {t('super.dashboard.risk_col_tenant')}
+                                                {t(
+                                                    'super.dashboard.risk_col_tenant',
+                                                )}
                                             </th>
                                             <th className="px-4 py-3 font-medium">
-                                                {t('super.dashboard.risk_col_period')}
+                                                {t(
+                                                    'super.dashboard.risk_col_period',
+                                                )}
                                             </th>
                                             <th className="px-4 py-3 text-right font-medium">
-                                                {t('super.dashboard.risk_col_gross')}
+                                                {t(
+                                                    'super.dashboard.risk_col_gross',
+                                                )}
                                             </th>
                                             <th className="px-4 py-3 font-medium">
-                                                {t('super.dashboard.risk_col_due')}
+                                                {t(
+                                                    'super.dashboard.risk_col_due',
+                                                )}
                                             </th>
                                             <th className="px-4 py-3 font-medium">
-                                                {t('super.dashboard.risk_col_suspend')}
+                                                {t(
+                                                    'super.dashboard.risk_col_suspend',
+                                                )}
                                             </th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {statistics.overdue_invoices.map((invoice) => (
-                                            <tr
-                                                key={invoice.invoice_id}
-                                                className="border-t border-border"
-                                            >
-                                                <td className="px-4 py-3">
-                                                    {invoice.tenant_name ? (
-                                                        <Link
-                                                            href={`/tenants/${invoice.tenant_id}`}
-                                                            className="hover:underline"
-                                                        >
-                                                            {invoice.tenant_name}
-                                                        </Link>
-                                                    ) : (
-                                                        '—'
-                                                    )}
-                                                </td>
-                                                <td className="px-4 py-3 tabular-nums">
-                                                    {invoice.period}
-                                                </td>
-                                                <td className="px-4 py-3 text-right tabular-nums">
-                                                    {formatMoney(invoice.total_gross_minor, invoice.currency)}
-                                                </td>
-                                                <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">
-                                                    {formatDate(invoice.due_at)}
-                                                </td>
-                                                <td className="px-4 py-3 whitespace-nowrap">
-                                                    <span className="text-muted-foreground">
-                                                        {formatDate(invoice.suspend_at)}
-                                                    </span>
-                                                    <span className="ml-2 text-red-400">
-                                                        {invoice.days_until_suspension > 0
-                                                            ? t('super.dashboard.risk_suspend_in', {
-                                                                  days: invoice.days_until_suspension,
-                                                              })
-                                                            : t('super.dashboard.risk_suspend_due')}
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        ))}
+                                        {statistics.overdue_invoices.map(
+                                            (invoice) => (
+                                                <tr
+                                                    key={invoice.invoice_id}
+                                                    className="border-t border-border"
+                                                >
+                                                    <td className="px-4 py-3">
+                                                        {invoice.tenant_name ? (
+                                                            <Link
+                                                                href={`/tenants/${invoice.tenant_id}`}
+                                                                className="hover:underline"
+                                                            >
+                                                                {
+                                                                    invoice.tenant_name
+                                                                }
+                                                            </Link>
+                                                        ) : (
+                                                            '—'
+                                                        )}
+                                                    </td>
+                                                    <td className="px-4 py-3 tabular-nums">
+                                                        {invoice.period}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right tabular-nums">
+                                                        {formatMoney(
+                                                            invoice.total_gross_minor,
+                                                            invoice.currency,
+                                                        )}
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap text-muted-foreground">
+                                                        {formatDate(
+                                                            invoice.due_at,
+                                                        )}
+                                                    </td>
+                                                    <td className="px-4 py-3 whitespace-nowrap">
+                                                        <span className="text-muted-foreground">
+                                                            {formatDate(
+                                                                invoice.suspend_at,
+                                                            )}
+                                                        </span>
+                                                        <span className="ml-2 text-red-400">
+                                                            {invoice.days_until_suspension >
+                                                            0
+                                                                ? t(
+                                                                      'super.dashboard.risk_suspend_in',
+                                                                      {
+                                                                          days: invoice.days_until_suspension,
+                                                                      },
+                                                                  )
+                                                                : t(
+                                                                      'super.dashboard.risk_suspend_due',
+                                                                  )}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            ),
+                                        )}
                                     </tbody>
                                 </table>
                             </div>
@@ -430,13 +529,19 @@ export default function SuperDashboard({ statistics, filters }: DashboardProps) 
                     </h2>
                     <div className="flex flex-wrap gap-3">
                         <Button asChild variant="outline">
-                            <Link href="/tenants">{t('super.dashboard.tenants_link')}</Link>
+                            <Link href="/tenants">
+                                {t('super.dashboard.tenants_link')}
+                            </Link>
                         </Button>
                         <Button asChild variant="outline">
-                            <Link href="/statistics">{t('super.dashboard.statistics_link')}</Link>
+                            <Link href="/statistics">
+                                {t('super.dashboard.statistics_link')}
+                            </Link>
                         </Button>
                         <Button asChild variant="outline">
-                            <Link href="/commission">{t('super.dashboard.commission_link')}</Link>
+                            <Link href="/commission">
+                                {t('super.dashboard.commission_link')}
+                            </Link>
                         </Button>
                         <Button asChild variant="outline">
                             <Link href="/commission-invoices">
@@ -444,11 +549,18 @@ export default function SuperDashboard({ statistics, filters }: DashboardProps) 
                             </Link>
                         </Button>
                         <Button asChild variant="outline">
-                            <Link href="/audit-logs">{t('super.dashboard.audit_link')}</Link>
+                            <Link href="/audit-logs">
+                                {t('super.dashboard.audit_link')}
+                            </Link>
                         </Button>
                         <Button asChild variant="outline">
                             <Link href="/emails/design">
                                 {t('super.dashboard.mail_brand_link')}
+                            </Link>
+                        </Button>
+                        <Button asChild variant="outline">
+                            <Link href="/emails/templates">
+                                {t('super.dashboard.mail_texts_link')}
                             </Link>
                         </Button>
                     </div>
@@ -472,8 +584,14 @@ function FunnelTile({
     return (
         <div className="rounded-xl border border-border bg-card p-5">
             <div className="text-xs text-muted-foreground">{label}</div>
-            <div className={`mt-1 text-3xl font-semibold tabular-nums ${accent ?? ''}`}>{value}</div>
-            {hint ? <p className="mt-2 text-xs text-muted-foreground">{hint}</p> : null}
+            <div
+                className={`mt-1 text-3xl font-semibold tabular-nums ${accent ?? ''}`}
+            >
+                {value}
+            </div>
+            {hint ? (
+                <p className="mt-2 text-xs text-muted-foreground">{hint}</p>
+            ) : null}
         </div>
     );
 }

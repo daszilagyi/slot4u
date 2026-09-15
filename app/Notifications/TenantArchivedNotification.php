@@ -7,6 +7,7 @@ namespace App\Notifications;
 use App\Http\Controllers\Super\TenantController;
 use App\Models\Tenant;
 use App\Notifications\Concerns\SuppressedForDemoTenant;
+use App\Services\Mail\MailTextStore;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -48,13 +49,11 @@ class TenantArchivedNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        $mail = (new MailMessage)
-            ->subject(__('app.mail.tenant_archived.subject', ['tenant' => $this->tenant->name]))
-            ->greeting(__('app.mail.tenant_archived.greeting', ['name' => $notifiable->name]))
-            ->line(__('app.mail.tenant_archived.intro', ['tenant' => $this->tenant->name]))
-            ->line(__('app.mail.tenant_archived.deadline', ['date' => $this->deadline()]))
-            ->line(__('app.mail.tenant_archived.kept'))
-            ->line(__('app.mail.tenant_archived.export'));
+        // The superadmin's wording if edited (SLO-246), else the lang default.
+        $mail = app(MailTextStore::class)->resolve('tenant_archived', $this->tenant->locale)->applyTo(
+            (new MailMessage)->greeting(__('app.mail.tenant_archived.greeting', ['name' => $notifiable->name])),
+            ['name' => $notifiable->name, 'tenant' => $this->tenant->name, 'date' => $this->deadline()],
+        );
 
         return $this->suppressWhenDemo($mail, $this->tenant);
     }

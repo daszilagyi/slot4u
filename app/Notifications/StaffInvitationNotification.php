@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Models\Tenant;
 use App\Notifications\Concerns\SuppressedForDemoTenant;
+use App\Services\Mail\MailTextStore;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -35,12 +36,12 @@ class StaffInvitationNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        $mail = (new MailMessage)
-            ->subject(__('app.mail.staff_invitation.subject', ['tenant' => $this->tenant->name]))
-            ->greeting(__('app.mail.staff_invitation.greeting', ['name' => $notifiable->name]))
-            ->line(__('app.mail.staff_invitation.intro', ['tenant' => $this->tenant->name]))
-            ->action(__('app.mail.staff_invitation.action'), $this->invitationUrl($notifiable))
-            ->line(__('app.mail.staff_invitation.outro'));
+        // The superadmin's wording if edited (SLO-246), else the lang default.
+        $mail = app(MailTextStore::class)->resolve('staff_invitation', $this->tenant->locale)->applyTo(
+            (new MailMessage)->greeting(__('app.mail.staff_invitation.greeting', ['name' => $notifiable->name])),
+            ['name' => $notifiable->name, 'tenant' => $this->tenant->name],
+            [__('app.mail.staff_invitation.action'), $this->invitationUrl($notifiable)],
+        );
 
         return $this->suppressWhenDemo($mail, $this->tenant);
     }

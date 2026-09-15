@@ -1,6 +1,6 @@
 # 27 — Rendszerlevelek: egységes design és szerkeszthetőség
 
-> Forrás: SLO-243 (szülő), SLO-244 (1. lépés, **kész**), SLO-245 (2. lépés, **kész**), SLO-246 (3. lépés).
+> Forrás: SLO-243 (szülő), SLO-244 (1. lépés, **kész**), SLO-245 (2. lépés, **kész**), SLO-246 (3. lépés, **kész**).
 > Daniel döntései, 2026-09-14: minden tenant rendszerlevele és emlékeztetője egységes design-t mutasson, és ez a superadmin felületen szerkeszthető legyen.
 
 ## 1. Cél és döntések
@@ -70,6 +70,37 @@ Minden levél `MailMessage`-alapú notification, tehát **mind ugyanazon a keret
 
 **Hibatűrés:** ha a beállítás nem olvasható (pl. deploy a kódváltás és a migráció között), a binding `QueryException`-re a kódbeli alapmárkát adja, és a levél kimegy.
 
-## 5. Következő lépés
+## 5. Superadmin levélszöveg-szerkesztő (SLO-246)
 
-- **SLO-246:** superadmin levélszöveg-szerkesztő, a fenti feloldási sorrenddel. A tenant szerkesztő (SLO-114) alapértékként a platform szöveget mutatja.
+**Hol:** `admin.{central}/emails/templates` (a vezérlőpult „Levélszövegek” linkje). Jogosultság: host (`ensure.superadmin` + `ensure.2fa`) + `PlatformMailTextPolicy::manage`. Tenant admin minden jogosultsággal is 403, ismeretlen levélkulcs 404.
+
+**Mit szerkeszt** (`App\Services\Mail\MailTextCatalog`):
+
+| Csoport | Levelek | Szerkeszthető rész |
+|---|---|---|
+| slot4u levelei | `verify_email`, `reset_password`, `staff_invitation`, `commission_invoice_issued` / `_overdue` / `_suspended`, `tenant_archived` | tárgy, szöveg a gomb **előtt**, szöveg a gomb **után** (az archiválásnál nincs gomb → nincs „után” rész) |
+| Ügyféllevelek (alapszöveg) | a tenant szerkesztő (SLO-114) 8 típusa: `booking_confirmed`, `booking_modified`, `booking_canceled`, `booking_rejected`, `waitlist_offer`, `reminder_24h`, `quote_ready`, `message_received` | tárgy + szöveg, ugyanaz az alak, mint a tenant felülírásé |
+
+**Nem szerkeszthető:** a köszönés, a gomb felirata és URL-je, az ügyféllevél záró „válaszolj erre” sora (SLO-171), és a keret. Így szövegszerkesztéssel link és elrendezés nem rontható el. A `customer_message` (staffnak szóló értesítő) nincs a listában.
+
+**Feloldási sorrend ügyféllevélnél** (`TenantMailNotification::toMail`): tenant engedélyezett felülírása → a superadmin szövege a tenant nyelvén → a notification beépített `defaultMail`-je. ⚠️ Csak a beépített alapnak vannak feltételes sorai (lemondási tipp, „ugyanezt az email címet add meg”). A szerkesztett szöveg egy fix törzs, pontosan úgy, ahogy a tenant felülírása is mindig volt.
+
+**Platformlevélnél** a `MailTextStore::resolve()` a tárolt szöveget vagy a lang alapot adja. A lang alapból soronként ugyanaz a levél jön ki, mint a szerkesztő előtt.
+
+**A tenant szerkesztő alapértéke** (SLO-114) mostantól a superadmin szövege, ha van. Ezt kapják a tenant ügyfelei felülírás nélkül.
+
+**Formátum:** minden nem üres sor külön bekezdés. A keret a sorokat HTML-escapelés után CommonMarkon engedi át (`allow_unsafe_links: false`), így a `**félkövér**`, a `[link](https://…)` és a `- ` kezdetű felsorolás megjelenik. **Mentési szabályok** (`UpdateMailTextRequest`):
+- nincs HTML: escapelve szó szerint látszana;
+- nincs kép (`![`): nem „egyszerű formázás”, és minden tenant levelében követőpixel lenne;
+- csak a levél saját `:változó`-i: más `:szó` szó szerint menne ki.
+Az előnézet ezeket nem tiltja, hanem megmutatja.
+
+**Változók:** platformlevélnél explicit lista a katalógusban (pl. jutalékszámla: `name, tenant, period, amount, due`). Ügyféllevélnél a lang alap szövegéből olvasva, ugyanúgy, mint a tenant szerkesztőben. ⚠️ A `booking_modified.previous` sor korábban `:when`-t használt a RÉGI időpontra, ezért minden szerkesztett változat kétszer írta ki az újat. Most `:previous`.
+
+**Nyelv:** a superadmin a platform nyelvén (`app.locale`) szerkeszt. Más nyelvű tenant sort nem talál, ezért a saját nyelve lang alapját kapja.
+
+**Tárolás:** `platform_mail_texts` (`key` + `locale` unique, `subject`, `body`, `outro` nullable, `updated_by`). **Nem `BelongsToTenant`**. Nyelvenként egy cache-bejegyzés (`rememberForever`), íráskor a commit után felejtődik. Ha a tábla nem olvasható, minden levél a lang alapon megy ki.
+
+**Audit:** `platform.mail_text_updated` / `platform.mail_text_reset` (kulcs, nyelv, régi és új szöveg), `tenant_id = null`. Soha nem szerkesztett levél visszaállítása nem naplóz.
+
+**Élő előnézet:** `POST /emails/templates/{key}/preview` (throttle 120/perc) → `{subject, html}`. A valódi keretben renderel, az aktuális email-designnal, mintaértékekkel (`app.super.mail_texts.samples`), csak a levél saját változóival. Ügyféllevélnél a „Minta Szalon” név a fejlécben és a záró sor is megjelenik. A React oldal 300 ms debounce-szal kéri, `sandbox=""` iframe-be teszi.

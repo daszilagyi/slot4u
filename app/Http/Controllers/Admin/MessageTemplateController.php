@@ -7,6 +7,7 @@ use App\Enums\NotificationType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Admin\MessageTemplateRequest;
 use App\Models\MessageTemplate;
+use App\Services\Mail\MailTextStore;
 use App\Services\Notification\MessageTemplateCatalog;
 use App\Tenancy\TenantManager;
 use Illuminate\Http\RedirectResponse;
@@ -28,6 +29,7 @@ class MessageTemplateController extends Controller
     public function __construct(
         private readonly TenantManager $tenants,
         private readonly MessageTemplateCatalog $catalog,
+        private readonly MailTextStore $texts,
     ) {}
 
     public function index(): Response
@@ -42,14 +44,17 @@ class MessageTemplateController extends Controller
             ->get()
             ->keyBy(fn (MessageTemplate $template): string => $template->key->value);
 
-        $templates = array_map(function (NotificationType $type) use ($overrides): array {
+        $templates = array_map(function (NotificationType $type) use ($overrides, $tenant): array {
             $override = $overrides->get($type->value);
+            // The default a tenant sees is what its customers get without an
+            // override: the superadmin's base text if there is one (SLO-246).
+            $default = $this->texts->resolve($type->value, $tenant->locale);
 
             return [
                 'key' => $type->value,
                 'default' => [
-                    'subject' => $this->catalog->defaultSubject($type),
-                    'body' => $this->catalog->defaultBody($type),
+                    'subject' => $default->subject,
+                    'body' => $default->body,
                 ],
                 'override' => $override === null ? null : [
                     'subject' => $override->subject,

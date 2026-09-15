@@ -57,7 +57,7 @@ class BookingRescheduledNotification extends TenantMailNotification
 
         if ($this->original->starts_at !== null) {
             $mail->line(__('app.mail.booking_modified.previous', [
-                'when' => $this->tenantTime($this->original->starts_at),
+                'previous' => $this->tenantTime($this->original->starts_at),
             ]));
         }
 
