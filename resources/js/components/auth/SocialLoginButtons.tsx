@@ -3,14 +3,18 @@ import { usePage } from '@inertiajs/react';
 import { useTranslations } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
-type SocialProvider = 'google' | 'facebook';
+export type SocialProvider = 'google' | 'facebook';
 
 type SocialLoginButtonsProps = {
     /** The providers the server offers on this host (`socialProviders` prop). */
     providers: string[];
-    intent?: 'login' | 'booking';
+    intent?: 'login' | 'booking' | 'link';
     /** A path on this host to come back to after signing in. */
     returnPath?: string;
+    /** Runs just before the browser leaves for the provider (e.g. save a draft). */
+    onBeforeNavigate?: () => void;
+    /** Show `errors.social` above the buttons (off where the page shows it). */
+    showErrors?: boolean;
     className?: string;
 };
 
@@ -31,6 +35,8 @@ export function SocialLoginButtons({
     providers,
     intent = 'login',
     returnPath,
+    onBeforeNavigate,
+    showErrors = true,
     className,
 }: SocialLoginButtonsProps) {
     const t = useTranslations();
@@ -55,7 +61,7 @@ export function SocialLoginButtons({
 
     return (
         <div className={cn('flex flex-col gap-3', className)}>
-            {errors?.social ? (
+            {showErrors && errors?.social ? (
                 <p role="alert" className="text-sm text-red-500">
                     {errors.social}
                 </p>
@@ -65,6 +71,7 @@ export function SocialLoginButtons({
                 <a
                     key={provider}
                     href={href(provider)}
+                    onClick={() => onBeforeNavigate?.()}
                     className={cn(
                         'inline-flex h-10 w-full items-center justify-center gap-3 rounded-md border px-4 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:outline-none',
                         provider === 'google'
@@ -73,7 +80,11 @@ export function SocialLoginButtons({
                     )}
                 >
                     {provider === 'google' ? <GoogleMark /> : <FacebookMark />}
-                    <span>{t(`auth.social.continue_with.${provider}`)}</span>
+                    <span>
+                        {intent === 'link'
+                            ? t(`auth.social.link_with.${provider}`)
+                            : t(`auth.social.continue_with.${provider}`)}
+                    </span>
                 </a>
             ))}
         </div>

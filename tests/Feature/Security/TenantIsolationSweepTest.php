@@ -18,6 +18,7 @@ use App\Models\Schedule;
 use App\Models\ScheduleException;
 use App\Models\Service;
 use App\Models\ServiceCategory;
+use App\Models\SocialAccount;
 use App\Models\Staff;
 use App\Models\Tenant;
 use App\Models\TenantDomain;
@@ -126,6 +127,9 @@ function sweepRecords(Tenant $tenant): array
         'room' => $room,
         'schedule' => Schedule::factory()->forTenant($tenant)->forSchedulable($staff)->create(),
         'service' => $service,
+        // A linked Google / Facebook sign-in (SLO-252), owned by this tenant's
+        // own customer.
+        'socialAccount' => SocialAccount::factory()->linkedTo($customer)->create(),
         'staff' => $staff,
         'tenantDomain' => TenantDomain::factory()->create(['tenant_id' => $tenant->id]),
         'user' => $customer,
