@@ -857,6 +857,25 @@ return [
             'password' => 'Jelszó',
             'submit' => 'Megerősítés',
         ],
+        // Google / Facebook belépés (SLO-251, docs/28).
+        'social' => [
+            'divider' => 'vagy',
+            'continue_with' => [
+                'google' => 'Folytatás Google-fiókkal',
+                'facebook' => 'Folytatás Facebookkal',
+            ],
+            'errors' => [
+                'expired' => 'A belépés megszakadt vagy lejárt. Kérjük, próbáld újra.',
+                'cancelled' => 'A belépést megszakítottad.',
+                'provider_error' => 'Nem sikerült kapcsolódni a szolgáltatóhoz. Kérjük, próbáld újra.',
+                'no_email' => 'A szolgáltató nem adott meg e-mail címet, ezért így nem tudunk beléptetni. Kérjük, regisztrálj e-mail címmel.',
+                'email_unverified' => 'Ennél a fióknál a szolgáltató nem erősítette meg az e-mail címet, ezért így nem tudunk beléptetni.',
+                'no_account' => 'Ehhez a fiókhoz nem tartozik slot4u-hozzáférés. Ügyfélként a foglalási oldalon tudsz regisztrálni.',
+                'not_available' => 'Ezzel a fiókkal itt nem lehet belépni.',
+                'unavailable' => 'Ez a foglalási oldal jelenleg nem fogad belépést.',
+                'try_again' => 'Valami közbejött. Kérjük, próbáld újra.',
+            ],
+        ],
         'login' => [
             'title' => 'Bejelentkezés',
             'subtitle' => 'Lépj be a fiókodba.',

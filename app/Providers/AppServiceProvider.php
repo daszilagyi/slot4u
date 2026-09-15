@@ -289,6 +289,13 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('demo-login', fn (Request $request) => Limit::perMinute(10)
             ->by((string) $request->ip()));
 
+        // Social sign-in (SLO-251): starting a flow writes a cache row, the
+        // callback calls the provider, and consuming hands out a session. By IP,
+        // because the three steps run on different hosts (the callback on the
+        // central domain) and a per-host bucket would triple the allowance.
+        RateLimiter::for('social', fn (Request $request) => Limit::perMinute(20)
+            ->by((string) $request->ip()));
+
         // Checkout is tighter: every attempt opens a payment row.
         RateLimiter::for('checkout', fn (Request $request) => Limit::perMinute(20)
             ->by($this->publicRateLimitKey($request)));
