@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Enums\SchedulableType;
 use App\Events\BookingCanceled;
 use App\Events\BookingCreated;
 use App\Events\BookingPriceChanged;
@@ -23,8 +24,6 @@ use App\Listeners\SendCommissionInvoiceIssued;
 use App\Listeners\SendMessageNotifications;
 use App\Listeners\SendQuoteReady;
 use App\Listeners\SendWaitlistOffer;
-use App\Models\Room;
-use App\Models\Staff;
 use App\Models\User;
 use App\Notifications\Platform\AuthMailMessages;
 use App\Policies\RolePolicy;
@@ -138,10 +137,7 @@ class AppServiceProvider extends ServiceProvider
         // 'staff'/'room' in schedulable_type instead of the FQCN, matching the
         // docs/02 schema and surviving class renames. Non-enforcing so other
         // polymorphic types (e.g. audit_logs auditable) keep their FQCN.
-        Relation::morphMap([
-            'staff' => Staff::class,
-            'room' => Room::class,
-        ]);
+        Relation::morphMap(SchedulableType::morphMap());
 
         // Every render request to the SSR renderer carries the shared secret
         // (SLO-212). Registered here rather than in a custom Gateway because

@@ -1,7 +1,10 @@
 <?php
 
+use App\Enums\BookingStatus;
 use App\Enums\Role;
+use App\Enums\SchedulableType;
 use App\Enums\ScheduleExceptionType;
+use App\Models\Booking;
 use App\Models\Location;
 use App\Models\Room;
 use App\Models\Schedule;
@@ -9,9 +12,12 @@ use App\Models\ScheduleException;
 use App\Models\Staff;
 use App\Models\Tenant;
 use App\Models\User;
+use App\Services\Schedule\FutureScheduleConflicts;
 use App\Tenancy\TenantManager;
 use Database\Seeders\BasePlanSeeder;
 use Database\Seeders\PermissionSeeder;
+use Illuminate\Database\Eloquent\Relations\Relation;
+use Illuminate\Support\Carbon;
 use Inertia\Testing\AssertableInertia as Assert;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -540,3 +546,84 @@ it('forbids overlapping bands on the same day even across different locations (S
         ]))
         ->assertSessionHasErrors('start_time');
 });
+
+// --- SLO-81 -----------------------------------------------------------------------
+
+it('lists the future and the last three months of exceptions, not every past holiday', function () {
+    Carbon::setTestNow('2026-09-15 10:00:00');
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme', 'timezone' => 'Europe/Budapest']);
+    $admin = scheduleUser($tenant, Role::TenantAdmin);
+    $staff = Staff::factory()->forTenant($tenant)->create();
+
+    foreach (['2024-12-24', '2026-06-14', '2026-06-15', '2026-09-01', '2026-12-24'] as $date) {
+        ScheduleException::factory()->forTenant($tenant)->forSchedulable($staff)->create(['date' => $date]);
+    }
+
+    $this->actingAs($admin)
+        ->get(tenantHost('acme', '/schedule'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('exceptionsSince', '2026-06-15')
+            ->where('exceptions', fn ($exceptions) => collect($exceptions)->pluck('date')->all() === ['2026-06-15', '2026-09-01', '2026-12-24']));
+
+    Carbon::setTestNow();
+});
+
+it('counts the exception window from the tenant\'s today, not the server\'s', function () {
+    // 23:30 UTC on the 15th is already the 16th in Budapest.
+    Carbon::setTestNow('2026-09-15 23:30:00');
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme', 'timezone' => 'Europe/Budapest']);
+    $admin = scheduleUser($tenant, Role::TenantAdmin);
+
+    $this->actingAs($admin)
+        ->get(tenantHost('acme', '/schedule'))
+        ->assertInertia(fn (Assert $page) => $page->where('exceptionsSince', '2026-06-16'));
+
+    Carbon::setTestNow();
+});
+
+it('⚠️ names a conflicting booking in the tenant\'s time, not the stored UTC', function () {
+    // The warning printed the raw column: a Budapest admin was told about a
+    // 10:00 booking as "08:00" all summer.
+    Carbon::setTestNow('2026-07-01 09:00:00');
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme', 'timezone' => 'Europe/Budapest']);
+    app(TenantManager::class)->set($tenant);
+    $staff = Staff::factory()->forTenant($tenant)->create();
+    Booking::factory()->forTenant($tenant)->create([
+        'staff_id' => $staff->id,
+        'code' => 'NYAR01',
+        'status' => BookingStatus::Confirmed,
+        'starts_at' => '2026-07-20 08:00:00',
+        'ends_at' => '2026-07-20 09:00:00',
+    ]);
+
+    $conflicts = app(FutureScheduleConflicts::class)->forSchedulable(SchedulableType::Staff->value, $staff->id);
+
+    expect($conflicts)->toHaveCount(1)
+        ->and($conflicts[0]['code'])->toBe('NYAR01')
+        ->and($conflicts[0]['starts_at'])->toBe('2026-07-20 10:00');
+
+    Carbon::setTestNow();
+});
+
+it('maps each schedulable kind to its table, booking column and model in one place', function () {
+    expect(SchedulableType::Staff->table())->toBe('staff')
+        ->and(SchedulableType::Room->table())->toBe('rooms')
+        ->and(SchedulableType::Room->bookingColumn())->toBe('room_id')
+        ->and(SchedulableType::morphMap())->toBe(['staff' => Staff::class, 'room' => Room::class])
+        ->and(Relation::getMorphedModel('room'))->toBe(Room::class);
+});
+
+it('refuses a schedulable kind that does not exist, on every schedule write', function (string $path, array $payload) {
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
+    $admin = scheduleUser($tenant, Role::TenantAdmin);
+    $staff = Staff::factory()->forTenant($tenant)->create();
+
+    $this->actingAs($admin)
+        ->post(tenantHost('acme', $path), array_merge($payload, ['schedulable_type' => 'desk', 'schedulable_id' => $staff->id]))
+        ->assertSessionHasErrors('schedulable_type');
+})->with([
+    'band' => ['/schedule/entries', ['day_of_week' => 1, 'start_time' => '09:00', 'end_time' => '17:00']],
+    'exception' => ['/schedule/exceptions', ['date' => '2026-12-24', 'type' => 'off']],
+    'copy day' => ['/schedule/copy-day', ['source_day' => 1, 'target_days' => [2]]],
+]);
