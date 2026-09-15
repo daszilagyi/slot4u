@@ -5,6 +5,7 @@ use App\Models\Service;
 use App\Models\Tenant;
 use App\Models\TenantFeature;
 use App\Services\Seo\OgImageGenerator;
+use App\Settings\TenantBranding;
 use App\Tenancy\TenantManager;
 use Illuminate\Support\Facades\Storage;
 
@@ -112,6 +113,52 @@ it('derives a stable cacheKey that changes only when branding changes', function
 
     $tenant->update(['branding' => ['primary_color' => '#abcdef']]);
     expect(app(OgImageGenerator::class)->cacheKey($tenant->fresh()))->not->toBe($key);
+});
+
+it('picks the share image text colour by the same rule as the booking page', function (string $hex) {
+    // Two formulas used to answer "what text is readable on this brand?" — the
+    // page's (WCAG luminance > 0.3) and the share image's own (raw > 0.6). On
+    // orange (#FF8800) they disagreed: black buttons on the page, white text on
+    // the share image at 2.3:1, cached until the tenant rebranded (SLO-180).
+    // image, cached until the tenant rebranded (SLO-180).
+    expect(app(OgImageGenerator::class)->usesDarkText($hex))
+        ->toBe(TenantBranding::readableForeground($hex) === '#000000');
+})->with(['#FF8800', '#0099FF', '#FFA000', '#6366f1', '#22DECB', '#0D1B2A', '#F4B942', '#E0457B', '#FFFFFF', '#000000']);
+
+it('⚠️ draws near-black text on an orange brand, where it used to draw white', function () {
+    Storage::fake('public');
+    $tenant = seoTenant('narancs', ['name' => 'Narancs Stúdió', 'branding' => ['primary_color' => '#FF8800']]);
+    seoEnableBranding($tenant);
+
+    $this->get(tenantHost('narancs', '/og-image.png'))->assertOk();
+
+    $relative = 'og/'.$tenant->id.'-'.app(OgImageGenerator::class)->cacheKey($tenant->fresh()).'.png';
+    $img = imagecreatefromstring(Storage::disk('public')->get($relative));
+
+    $dark = 0;
+    $white = 0;
+    for ($x = 0; $x < imagesx($img); $x += 2) {
+        for ($y = 0; $y < imagesy($img); $y += 2) {
+            $rgb = imagecolorat($img, $x, $y);
+            $dark += (int) ($rgb === 0x111111);
+            $white += (int) ($rgb === 0xFFFFFF);
+        }
+    }
+
+    expect($dark)->toBeGreaterThan(100)
+        ->and($white)->toBe(0);
+});
+
+it('versions the cache key, so a change in how the image is drawn reaches every cached file', function () {
+    Storage::fake('public');
+    $tenant = seoTenant('acme', ['name' => 'Acme', 'branding' => ['primary_color' => '#FF8800']]);
+    seoEnableBranding($tenant);
+
+    // The pre-SLO-180 key: branding inputs only. Keeping it would serve the
+    // white-on-orange file forever to a tenant that never rebrands.
+    $unversioned = substr(sha1('Acme|#FF8800|'), 0, 12);
+
+    expect(app(OgImageGenerator::class)->cacheKey($tenant->fresh()))->not->toBe($unversioned);
 });
 
 it('gates the OG image branding behind feature_branding (default look when off)', function () {
