@@ -29,7 +29,9 @@ tenantnak saját megőrzési kötelezettsége lehet.
   ajánlatkérések + üzenetek, az ügyfél üzenetszála a tenanttal (SLO-36, mindkét
   oldal, staff-nevek nélkül), várólista-helyek, fizetések + visszatérítések,
   számla-metaadatok, a címzettre küldött értesítések, és a korábbi adatvédelmi
-  kérelmek. Építője: `App\Services\Privacy\PersonalDataExport`.
+  kérelmek, valamint a kapcsolt Google/Facebook fiókok és a szolgáltatótól
+  kapott profil (`subject.linked_accounts`, SLO-251). Építője:
+  `App\Services\Privacy\PersonalDataExport`.
 * **Azonnal, nem emailben.** Az adatkészlet egy ügyfél saját rekordjai, tehát
   kicsi; egy emailben küldött link viszont egy továbbítás után már valaki másé.
 * **Egy tenant, egy fájl.** Ugyanaz a személy több tenantnál is lehet ügyfél —
@@ -70,6 +72,7 @@ tranzakcióban:
 |---|---|
 | `users` sor | név → a lang fájl helyettesítő szövege, email → `anonymized-{id}@invalid` (RFC 2606, kézbesíthetetlen), telefon → `null`, jelszó → véletlen (senki nem ismeri), `email_verified_at`/`remember_token` → `null`, `anonymized_at` → most |
 | `sessions` | a user sorai törölve — a törlés kilépteti mindenhonnan |
+| `social_accounts` | **törölve** — egy törölt fiók nem lehet elérhető Google/Facebook-belépéssel, és a tárolt szolgáltatói profil is személyes adat (SLO-251) |
 | `bookings` | `guest_name/email/phone`, `notes`, `cancel_reason`, `reject_reason` → `null`. **Idő, szolgáltatás, státusz, ár marad.** |
 | `quote_requests` | guest mezők, `internal_notes`, `parameters` → `null` |
 | `quote_request_messages` | az ügyfél saját üzeneteinek szövege helyettesítő szövegre cserélve (a szál szerkezete marad) |

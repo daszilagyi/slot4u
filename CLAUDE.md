@@ -88,6 +88,7 @@ Az issue acceptance criteriája teljesül, ÉS: tesztek zöldek, Pint/Larastan/E
 | `docs/25-pszihologus-tenant-demo-landing.md` | A „calm” tenant landing-sablon és a Lélekút demo oldala |
 | `docs/26-fodrasz-szalon-landing.md` | A „glam” tenant landing-sablon és a GlamZone demo szalon oldala |
 | `docs/27-email-rendszer-es-design.md` | Rendszerlevelek: egységes slot4u levélkeret (`MailBrand`), magyar auth-levelek, superadmin-szerkeszthetőség terve |
+| `docs/28-social-login.md` | Google/Facebook belépés: központi callback + token-handoff, szerepkör-szabályok, `.env` kulcsok, Google/Meta konzol-beállítás |
 
 A docs az igazság forrása. Viselkedésbeli változás = docs-frissítés ugyanabban a PR-ben.
 

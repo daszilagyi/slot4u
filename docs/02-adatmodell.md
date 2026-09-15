@@ -35,7 +35,12 @@ tenant_features    tenant_id, feature_code, enabled, overridden_by       -- supe
 
 ```
 users              id, tenant_id(nullable — superadminnál NULL), name, email, phone,
-                   password, locale, last_login_at
+                   password(nullable — Google/FB-bel regisztrált ügyfélnél NULL, SLO-251),
+                   locale, last_login_at
+social_accounts    id, tenant_id, user_id, provider(google|facebook), provider_user_id,
+                   email, name, avatar_url, timestamps
+                   -- unique(provider, provider_user_id), unique(user_id, provider)
+                   -- access/refresh token NINCS tárolva (docs/28)
 -- spatie táblák: roles(tenant scoped), permissions(globális kódok), model_has_roles,
 --                role_has_permissions, model_has_permissions(egyedi user-felülírás)
 ```
