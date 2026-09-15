@@ -31,6 +31,7 @@ use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Admin\UserRbacController;
 use App\Http\Controllers\Admin\WaitlistController;
 use App\Http\Controllers\Auth\SocialConsumeController;
+use App\Http\Controllers\Auth\SocialEmailController;
 use App\Http\Controllers\Auth\SocialRedirectController;
 use App\Http\Controllers\ConsentController;
 use App\Http\Controllers\CookieConsentController;
@@ -48,6 +49,7 @@ use App\Http\Controllers\Tenant\MyPaymentController;
 use App\Http\Controllers\Tenant\MyPrivacyController;
 use App\Http\Controllers\Tenant\MyProfileController;
 use App\Http\Controllers\Tenant\MyRequestsController;
+use App\Http\Controllers\Tenant\MySocialAccountController;
 use App\Http\Controllers\Tenant\PaymentController;
 use App\Http\Controllers\Tenant\SeoController;
 use Illuminate\Support\Facades\Route;
@@ -82,6 +84,12 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
     // (routes/web.php).
     Route::middleware('throttle:social')->group(function () {
         Route::get('/auth/social/consume', SocialConsumeController::class)->name('tenant.social.consume');
+        // The address step when the provider gave none (SLO-252).
+        Route::get('/auth/social/email', [SocialEmailController::class, 'show'])->name('tenant.social.email');
+        Route::post('/auth/social/email', [SocialEmailController::class, 'store'])
+            ->middleware('throttle:6,1')
+            ->name('tenant.social.email.store');
+        Route::get('/auth/social/email/confirm', [SocialEmailController::class, 'confirm'])->name('tenant.social.email.confirm');
         Route::get('/auth/{provider}/redirect', SocialRedirectController::class)
             ->whereIn('provider', array_column(SocialProvider::cases(), 'value'))
             ->name('tenant.social.redirect');
@@ -496,6 +504,15 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
         Route::put('/my/password', [MyProfileController::class, 'updatePassword'])
             ->middleware('throttle:6,1')
             ->name('tenant.my.password.update');
+        // A first password for a social sign-up, by mail (SLO-252).
+        Route::post('/my/password/link', [MyProfileController::class, 'sendPasswordLink'])
+            ->middleware('throttle:6,1')
+            ->name('tenant.my.password.link');
+        // Unlinking a Google / Facebook sign-in (SLO-252). Linking goes through
+        // the social flow itself (`/auth/{provider}/redirect?intent=link`).
+        Route::delete('/my/social-accounts/{socialAccount}', [MySocialAccountController::class, 'destroy'])
+            ->middleware('throttle:6,1')
+            ->name('tenant.my.social_accounts.destroy');
 
         // Data protection self-service (SLO-159, docs/19): the art. 15 copy and
         // the art. 17 request. Not feature-gated — these are statutory rights,

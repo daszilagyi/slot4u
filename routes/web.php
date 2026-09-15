@@ -3,6 +3,7 @@
 use App\Enums\SocialProvider;
 use App\Http\Controllers\Auth\SocialCallbackController;
 use App\Http\Controllers\Auth\SocialConsumeController;
+use App\Http\Controllers\Auth\SocialEmailController;
 use App\Http\Controllers\Auth\SocialRedirectController;
 use App\Http\Controllers\ConsentController;
 use App\Http\Controllers\CookieConsentController;
@@ -55,6 +56,11 @@ Route::domain(config('tenancy.central_domain'))->group(function () {
     // is the single redirect URI Google and Meta accept.
     Route::middleware('throttle:social')->group(function () {
         Route::get('/auth/social/consume', SocialConsumeController::class)->name('social.consume');
+        Route::get('/auth/social/email', [SocialEmailController::class, 'show'])->name('social.email');
+        Route::post('/auth/social/email', [SocialEmailController::class, 'store'])
+            ->middleware('throttle:6,1')
+            ->name('social.email.store');
+        Route::get('/auth/social/email/confirm', [SocialEmailController::class, 'confirm'])->name('social.email.confirm');
         Route::get('/auth/{provider}/redirect', SocialRedirectController::class)
             ->whereIn('provider', array_column(SocialProvider::cases(), 'value'))
             ->name('social.redirect');

@@ -10,8 +10,14 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatMoney } from '@/lib/format';
 import { BillingFields } from '@/components/BillingFields';
+import { SocialLoginButtons } from '@/components/auth/SocialLoginButtons';
 import { LegalConsent } from '@/components/LegalConsent';
 import { useBillingFields } from '@/lib/billing';
+import {
+    restorableFields,
+    saveBookingDraft,
+    takeBookingDraft,
+} from '@/lib/bookingDraft';
 import { useFeatures } from '@/lib/features';
 import { trackBeginCheckout, trackViewItem } from '@/lib/analytics';
 import { useTranslations } from '@/lib/i18n';
@@ -49,6 +55,10 @@ type BookProps = {
     staff_options?: BookStaffOption[];
     room_options?: BookRoomOption[];
     location_options?: BookLocationOption[];
+    /** "Continue with Google / Facebook" providers — guests only (SLO-252). */
+    social_providers?: string[];
+    /** Name + address from a provider account that could not sign in here. */
+    social_prefill?: { name: string; email: string } | null;
 };
 
 /** The `start` query param (an ISO instant) marks the selected slot, if any. */
@@ -201,11 +211,12 @@ export default function Book(props: BookProps) {
     const feature = useFeatures();
     const legalFields = useLegalConsentFields();
     const billingFields = useBillingFields();
+    const prefill = props.social_prefill ?? null;
     const form = useForm({
         ...legalFields,
         ...billingFields,
-        name: authUser?.name ?? '',
-        email: authUser?.email ?? '',
+        name: authUser?.name ?? prefill?.name ?? '',
+        email: authUser?.email ?? prefill?.email ?? '',
         phone: '',
         notes: '',
     });
@@ -220,8 +231,8 @@ export default function Book(props: BookProps) {
         ...legalFields,
         ...billingFields,
         party_size: 1,
-        name: authUser?.name ?? '',
-        email: authUser?.email ?? '',
+        name: authUser?.name ?? prefill?.name ?? '',
+        email: authUser?.email ?? prefill?.email ?? '',
         phone: '',
     });
     const selectedEvent =
@@ -300,6 +311,12 @@ export default function Book(props: BookProps) {
     function guestFields(prefix: string) {
         return (
             <div className="flex flex-col gap-4">
+            {socialButtons()}
+            {prefill && !authUser ? (
+                <p className="rounded-md bg-muted px-3 py-2 text-sm">
+                    {t('auth.social.prefilled')}
+                </p>
+            ) : null}
             <div className="grid gap-4 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
                     <Label htmlFor={`${prefix}-name`}>
@@ -417,6 +434,70 @@ export default function Book(props: BookProps) {
     // array at submit time is what keeps it in step with the rendered fields.
     const [answers, setAnswers] = useState<Record<string, string>>({});
     const answerKey = (label: string, index: number) => `${index}:${label}`;
+
+    // Back from Google / Facebook (SLO-252): put back what the guest had typed
+    // before leaving. Once, on mount — the draft is removed as it is read.
+    const socialProviders = authUser ? [] : (props.social_providers ?? []);
+
+    useEffect(() => {
+        const draft = takeBookingDraft(page.url);
+
+        if (draft === null) {
+            return;
+        }
+
+        form.setData((current) => ({
+            ...current,
+            ...restorableFields(current, draft.form),
+        }));
+        eventForm.setData((current) => ({
+            ...current,
+            ...restorableFields(current, draft.eventForm),
+        }));
+
+        // ⚠️ Read after mount on purpose: sessionStorage does not exist during
+        // the server render, and a lazy useState initializer reading it would
+        // hydrate a different tree than the server sent.
+        if (draft.eventSelection) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
+            setEventSelection(draft.eventSelection);
+        }
+
+        setAnswers(draft.answers);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    function rememberDraft() {
+        saveBookingDraft({
+            path: page.url,
+            form: form.data,
+            eventForm: eventForm.data,
+            eventSelection,
+            answers,
+        });
+    }
+
+    /** The one-click alternative to typing the details (guests only). */
+    function socialButtons() {
+        if (socialProviders.length === 0) {
+            return null;
+        }
+
+        return (
+            <div className="flex flex-col gap-2">
+                <p className="text-sm text-muted-foreground">
+                    {t('auth.social.booking_hint')}
+                </p>
+                <SocialLoginButtons
+                    providers={socialProviders}
+                    intent="booking"
+                    returnPath={page.url}
+                    onBeforeNavigate={rememberDraft}
+                    className="sm:max-w-sm"
+                />
+            </div>
+        );
+    }
     // The field-count and feature errors are non-field errors on the shared bag.
     const quoteError = (page.props.errors as Record<string, string> | undefined)
         ?.quote;
@@ -937,6 +1018,8 @@ export default function Book(props: BookProps) {
                                                 {eventError}
                                             </p>
                                         ) : null}
+
+                                        {socialButtons()}
 
                                         <div className="grid gap-4 sm:grid-cols-2">
                                             <div className="flex flex-col gap-1.5">

@@ -14,6 +14,15 @@ enum SocialProvider: string
     case Google = 'google';
     case Facebook = 'facebook';
 
+    /** The brand name, as the provider writes it (not translated). */
+    public function label(): string
+    {
+        return match ($this) {
+            self::Google => 'Google',
+            self::Facebook => 'Facebook',
+        };
+    }
+
     /**
      * Whether the credentials are present. An unconfigured provider shows no
      * button and its routes 404, so dev, CI and a production host that has not

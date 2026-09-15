@@ -778,6 +778,17 @@ return [
                 'new_password_confirmation' => 'Új jelszó megerősítése',
                 'save_password' => 'Jelszó módosítása',
                 'password_saved' => 'A jelszavad frissítve.',
+                // SLO-252: Google/Facebook belépés a profilban.
+                'section_password_set' => 'Jelszó beállítása',
+                'password_set_hint' => 'Jelenleg Google- vagy Facebook-fiókkal lépsz be. Ha jelszót is szeretnél, küldünk egy jelszó-beállító linket a fiókod e-mail címére.',
+                'send_password_link' => 'Jelszó-beállító link küldése',
+                'password_link_sent' => 'Elküldtük a jelszó-beállító linket a fiókod e-mail címére.',
+                'section_social' => 'Kapcsolt fiókok',
+                'social_hint' => 'Ezekkel a fiókokkal egy kattintással léphetsz be.',
+                'social_linked_as' => 'Kapcsolva: :email',
+                'social_unlink' => 'Leválasztás',
+                'social_unlinked' => 'A fiók leválasztva.',
+                'social_none' => 'Még nincs kapcsolt fiókod.',
             ],
             'bookings' => [
                 'title' => 'Foglalásaim',
@@ -864,6 +875,23 @@ return [
                 'google' => 'Folytatás Google-fiókkal',
                 'facebook' => 'Folytatás Facebookkal',
             ],
+            'link_with' => [
+                'google' => 'Google-fiók összekapcsolása',
+                'facebook' => 'Facebook-fiók összekapcsolása',
+            ],
+            // SLO-252: a foglalási varázsló „adataid” része.
+            'booking_hint' => 'Gyorsabb: töltsd ki az adataidat egy kattintással.',
+            'prefilled' => 'Kitöltöttük a nevedet és az e-mail címedet. Ezen az oldalon vendégként foglalhatsz.',
+            'linked' => ':provider-fiók összekapcsolva.',
+            'email_step' => [
+                'title' => 'Add meg az e-mail címed',
+                'subtitle' => 'A(z) :provider-fiókodhoz nem tartozik e-mail cím. Add meg, és küldünk egy megerősítő linket.',
+                'email' => 'E-mail cím',
+                'submit' => 'Megerősítő link küldése',
+                'sent' => 'Elküldtük a megerősítő linket ide: :email. Nyisd meg ugyanebben a böngészőben, ahol most vagy.',
+                'resend' => 'Másik címet adok meg',
+                'back' => 'Vissza a bejelentkezéshez',
+            ],
             'errors' => [
                 'expired' => 'A belépés megszakadt vagy lejárt. Kérjük, próbáld újra.',
                 'cancelled' => 'A belépést megszakítottad.',
@@ -874,6 +902,11 @@ return [
                 'not_available' => 'Ezzel a fiókkal itt nem lehet belépni.',
                 'unavailable' => 'Ez a foglalási oldal jelenleg nem fogad belépést.',
                 'try_again' => 'Valami közbejött. Kérjük, próbáld újra.',
+                'identity_taken' => 'Ez a fiók már egy másik slot4u-fiókhoz van kapcsolva.',
+                'provider_already_linked' => 'Ehhez a szolgáltatóhoz már kapcsoltál egy fiókot. Előbb válaszd le azt.',
+                'too_many_emails' => 'Túl sok megerősítő levelet kértél. Kérjük, kezdd újra a belépést később.',
+                'email_link_invalid' => 'A megerősítő link lejárt, már felhasználták, vagy nem abban a böngészőben nyitottad meg, ahol a belépést kezdted. Kérjük, kezdd újra.',
+                'last_sign_in_method' => 'Ez az egyetlen belépési módod. Előbb állíts be jelszót vagy kapcsolj egy másik fiókot.',
             ],
         ],
         'login' => [
@@ -999,6 +1032,9 @@ return [
                 'commission_invoice_overdue' => 'Jutalékszámla lejárt',
                 'commission_invoice_suspended' => 'Fiók felfüggesztve (jutalékszámla)',
                 'tenant_archived' => 'Fiók archiválva',
+                'social_email_confirmation' => 'Facebook-belépés: e-mail megerősítése',
+                'social_account_linked' => 'Google/Facebook-belépés hozzáadva',
+                'social_account_unlinked' => 'Google/Facebook-belépés eltávolítva',
                 'booking_confirmed' => 'Foglalás visszaigazolva',
                 'booking_modified' => 'Foglalás módosítva',
                 'booking_canceled' => 'Foglalás lemondva',
@@ -1046,6 +1082,7 @@ return [
             // Az előnézet mintaértékei, változónként.
             'samples' => [
                 'name' => 'Kovács Anna',
+                'provider' => 'Google',
                 'tenant' => 'Minta Szalon',
                 'count' => '60',
                 'period' => '2026-08',
@@ -2856,6 +2893,26 @@ return [
         // fordított szöveg, nem beégetett angol placeholder.
         'deliverability_test' => [
             'recipient_name' => 'Kézbesíthetőségi teszt',
+        ],
+        'social_account_linked' => [
+            'subject' => ':provider-belépés hozzáadva – :tenant',
+            'greeting' => 'Szia :name!',
+            'intro' => 'A(z) :tenant oldalán lévő fiókodhoz egy :provider-fiókot kapcsoltak. Mostantól ezzel is be lehet lépni.',
+            'warning' => 'Ha nem te voltál, lépj be, a Profilom oldalon válaszd le a fiókot, és változtass jelszót.',
+        ],
+        'social_account_unlinked' => [
+            'subject' => ':provider-belépés eltávolítva – :tenant',
+            'greeting' => 'Szia :name!',
+            'intro' => 'A(z) :tenant oldalán lévő fiókodról leválasztották a :provider-belépést.',
+            'warning' => 'Ha nem te voltál, állíts be új jelszót az „Elfelejtetted a jelszavad?” linken, és kapcsold vissza a fiókot.',
+        ],
+        'social_email_confirmation' => [
+            'subject' => 'Erősítsd meg az e-mail címed – :tenant',
+            'greeting' => 'Szia :name!',
+            'intro' => 'Facebook-fiókkal kezdtél belépni a(z) :tenant oldalán. Az alábbi gombbal erősítsd meg, hogy ez az e-mail cím a tiéd.',
+            'action' => 'E-mail cím megerősítése',
+            'expire' => 'A link :count percig érvényes, és abban a böngészőben kell megnyitnod, ahol a belépést kezdted.',
+            'outro' => 'Ha nem te kezdtél belépni, nyugodtan hagyd figyelmen kívül ezt a levelet.',
         ],
         'staff_invitation' => [
             'subject' => 'Meghívás – :tenant',

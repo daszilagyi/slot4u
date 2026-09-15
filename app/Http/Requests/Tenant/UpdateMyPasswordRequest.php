@@ -9,7 +9,9 @@ use Illuminate\Validation\Rules\Password;
  * A customer changing their own password in the members area (SLO-96). The
  * current password must be confirmed (defence against session hijack / shared
  * devices), and the new password meets the default strength rules and must be
- * confirmed. Errors surface on `current_password` / `password`.
+ * confirmed. Errors surface on `current_password` / `password`. A passwordless
+ * (social sign-up) account has no current password to give: it gets a
+ * set-password link by mail instead (MyProfileController::sendPasswordLink).
  */
 class UpdateMyPasswordRequest extends FormRequest
 {
