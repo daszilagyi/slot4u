@@ -27,6 +27,16 @@ class ResetUserPassword implements ResetsUserPasswords
 
         $user->forceFill([
             'password' => Hash::make($input['password']),
-        ])->save();
+        ]);
+
+        // A reset link only works for whoever reads the mailbox, so using one
+        // proves the address (SLO-254) — the moment a staff invitation, an
+        // admin-created customer or a social sign-up's first password becomes
+        // verified.
+        if ($user->email_verified_at === null) {
+            $user->forceFill(['email_verified_at' => now()]);
+        }
+
+        $user->save();
     }
 }
