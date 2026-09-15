@@ -36,6 +36,10 @@ class EnsureLegalConsent
     private const EXEMPT = [
         'consent',
         'legal/*',
+        // Meta's data-deletion instructions and status (SLO-253): reading how
+        // your Facebook data was deleted cannot wait on accepting new terms.
+        'facebook/data-deletion',
+        'facebook/data-deletion/*',
         'logout',
         // Fortify's own session routes: being logged out or re-authenticating
         // must never depend on a decision the user has not been shown yet.

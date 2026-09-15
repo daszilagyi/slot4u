@@ -181,6 +181,9 @@ return Application::configure(basePath: dirname(__DIR__))
         // gateway adapter verifies before anything is written (SLO-130).
         $middleware->validateCsrfTokens(except: [
             'payments/webhook/*',
+            // Meta's user data deletion callback (SLO-253): signed with the
+            // app secret (signed_request), verified before anything is written.
+            'auth/facebook/data-deletion',
         ]);
 
         $middleware->alias([

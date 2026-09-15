@@ -1,6 +1,6 @@
 # 28 — Social login: Google + Facebook
 
-**Issue:** SLO-250 (epik) → SLO-251 (mag), SLO-252 (foglalási flow, profil, FB e-mail nélkül — §4–§5), SLO-253 (Meta data-deletion).
+**Issue:** SLO-250 (epik) → SLO-251 (mag), SLO-252 (foglalási flow, profil, FB e-mail nélkül — §4–§5), SLO-253 (Meta data-deletion — §6.1).
 **Csomag:** `laravel/socialite`.
 
 ## 1. A probléma, amit az architektúra megold
@@ -136,6 +136,21 @@ A levél szövege a superadminban szerkeszthető platformlevél (`social_email_c
 - **Törlés/anonimizálás:** a sorok törlődnek (`AnonymizeUserProfile`), a sweep-teszt ezt ellenőrzi.
 - **Tenant-purge:** az anonimizáláson át, és FK-cascade a tenantra.
 
+### 6.1 Meta „User data deletion” (SLO-253)
+
+A Meta akkor hívja, amikor valaki a Facebook-beállításaiban eltávolítja az appot. **Enélkül az app nem kapcsolható Live módba.**
+
+| Végpont | Mit csinál |
+|---|---|
+| `POST https://slot4u.hu/auth/facebook/data-deletion` | a Meta „Data deletion callback URL”-je — csak a központi domainen, CSRF-mentes (`bootstrap/app.php`), `throttle:webhook` |
+| `GET https://slot4u.hu/facebook/data-deletion` | instrukciós oldal (a Meta „Data deletion instructions URL”-jébe is ez írható) |
+| `GET https://slot4u.hu/facebook/data-deletion/{code}` | a callback válaszában visszaadott státuszoldal |
+
+- **Hitelesítés:** a `signed_request` = `base64url(aláírás).base64url(payload)`, az aláírás a **kódolt** payload HMAC-SHA256-ja az app secrettel (`FacebookSignedRequest`, `hash_equals`). Az `algorithm` mezőnek is `HMAC-SHA256`-nak kell lennie. Bármi más → `400 {"error":"invalid_signed_request"}`, és semmi nem íródik. Konfigurálatlan Facebook → 404.
+- **Mit töröl** (Daniel döntése, SLO-250): az adott Facebook-azonosító **minden** `social_accounts` sorát (minden cégnél) — vele a tárolt FB-azonosítót, nevet, e-mailt, avatar-hivatkozást. **Nem** törli az ügyfélfiókot és a foglalásokat: azoknak a vállalkozás az adatkezelője (docs/19 §1). A státusz- és az instrukciós oldal ezt kimondja, és a teljes törléshez a members area adatvédelmi oldalára (vagy a vállalkozáshoz) irányít. Ha a fióknak így nem marad belépési módja, jelszót az „Elfelejtetted a jelszavad?” úton állíthat be.
+- **Válasz:** `{"url": "https://slot4u.hu/facebook/data-deletion/{code}", "confirmation_code": "{code}"}` — a kód 20 karakteres, nagybetűs.
+- **Nyilvántartás:** `social_data_deletion_requests` (docs/02) — a Facebook-azonosító csak **sha256 hash**-ként, a törölt sorok száma, időpont. Ismeretlen vagy ismételt azonosítóra is kerül sor és kód („nem tároltunk semmit” is végleges válasz). A tábla platformszintű, nem tenant-adat.
+
 ## 7. Konfiguráció
 
 ### 7.1 `.env`
@@ -165,7 +180,8 @@ A redirect URI-t **nem** kell env-ben megadni: mindig `{APP_URL sémája}://{APP
 2. Facebook Login → Settings: **Valid OAuth Redirect URIs:** `https://slot4u.hu/auth/facebook/callback`; Client OAuth login és Web OAuth login bekapcsolva, „Enforce HTTPS” be.
 3. App settings → Basic: **App Domains:** `slot4u.hu`, Privacy Policy URL, Terms URL, kategória, ikon; az App ID / App secret → a szerver `.env`-je.
 4. Permissions: `email`, `public_profile` (alapból elérhetők, App Review nem kell hozzájuk).
-5. **User data deletion:** a „Data deletion callback URL” az SLO-253 végpontja lesz (`https://slot4u.hu/auth/facebook/data-deletion`). **Enélkül az app nem kapcsolható Live módba**, addig csak az app szerepkörrel rendelkező (admin/developer/tester) fiókok léphetnek be.
+5. **Settings → Advanced / App settings → Basic → „User data deletion”:** válaszd a „Data deletion callback URL”-t, értéke `https://slot4u.hu/auth/facebook/data-deletion` (§6.1). Az instrukciós oldal: `https://slot4u.hu/facebook/data-deletion`. **Enélkül az app nem kapcsolható Live módba**, addig csak az app szerepkörrel rendelkező (admin/developer/tester) fiókok léphetnek be.
+6. App Review nem kell (`email`, `public_profile`), utána az app **Live** módba kapcsolható.
 
 ### 7.4 Lokális fejlesztés
 
@@ -174,13 +190,15 @@ A Google `http://` redirect URI-t csak `localhost`-ra fogad el, a `slot4u.test` 
 ## 8. Deploy (Tárhely.Eu)
 
 - A `composer.lock` változik (Socialite) → a `deploy.sh` futtat `composer install --no-dev`-et. A Socialite `require`, nem `require-dev`.
-- Két migráció: `social_accounts` létrehozása, `users.password` nullable.
+- Migrációk: `social_accounts` létrehozása, `users.password` nullable (SLO-251), `social_data_deletion_requests` (SLO-253).
 - A kulcsokat a **szerver** `.env`-jébe kell írni (`~/slot4u/.env`), utána `php artisan optimize:clear` (ea-php84: `/opt/cpanel/ea-php84/root/usr/bin/php`), mert a config cache-elt.
 - Kulcs nélkül a release biztonságos: a gombok egyszerűen nem jelennek meg.
 
 ## 9. Tesztek
 
 `tests/Feature/Auth/SocialLoginTest.php` — ügyfél-regisztráció, e-mail link, két provider = egy user, kapcsolt identitás e-mail-váltás után, admin/staff belépés, **admin/staff létrehozás tiltása** (központi domain, szerep-paraméter), superadmin tiltás, admin host, 2FA, verifikálatlan e-mail, FB e-mail nélkül, másik tenant usere, pre-hijack, megszakított hozzájárulás, lejárt/újrajátszott state, konfigurálatlan provider, felfüggesztett tenant, **token egyszeri használat, lejárat, login-CSRF, tenant-csere**, return path (adatkészlettel), saját domain, jelszó nélküli login-üzenet, tenant-izoláció, felkínált gombok. Export: `MyPrivacyTest`, törlés: `PersonalDataErasureTest` (sweep).
+
+`tests/Feature/Auth/FacebookDataDeletionTest.php` (SLO-253) — a Facebook-azonosító sorai törlődnek (másik provider ugyanazzal az id-val, másik FB-user és a fiók marad), válasz url + kód, ismeretlen id-ra is kód, **hamis secret / meghamisított payload / más algoritmus / hiányzó user_id / szemét → 400 és semmi nem törlődik**, parser-határesetek, konfigurálatlan Facebook, csak központi domain, CSRF-mentesség, státusz- és instrukciós oldal.
 
 `tests/Feature/Auth/SocialLinkingTest.php` (SLO-252) — gombok csak vendégnek, visszatérés ugyanarra a lépésre, elutasítás a foglalási lépésen, **vendég-előtöltés más cég ügyfelének címével** (és login intentnél nem), kapcsolás e-mail nélküli identitással, vendég link-kísérlet, **másik fiók identitása**, második identitás ugyanannál a providernél, **közben kicserélt belépett user**, profil-propok, leválasztás jelszóval / másik providerrel, **utolsó belépési mód**, **más ügyfél fiókja 404** (tenanton belül és kívül), első jelszó beállítása és a jelenlegi jelszó megkövetelése, e-mail-lépés: oldal csak függő kísérlettel, regisztráció megerősítés után, meglévő fiókhoz kapcsolás, **másik böngészőben megnyitott link (átvétel-védelem)**, egyszeri link, lecserélt cím, lejárat, validáció, foglalás folytatása.
 

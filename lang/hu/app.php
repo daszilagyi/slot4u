@@ -3051,6 +3051,22 @@ return [
     // itt van: azt a tenant (illetve a platform ÁSZF-jénél a jogász) írja, és a
     // `legal_documents` táblában él verziószámmal. Itt csak a keret szövegei
     // vannak — a jelölőnégyzet, a hibaüzenetek és az újra-elfogadó képernyő.
+    // Meta „User data deletion” (SLO-253, docs/28 §6).
+    'facebook_data_deletion' => [
+        'title' => 'Facebook-adatok törlése',
+        'intro' => 'Ha Facebook-fiókkal léptél be egy slot4u-t használó foglalási oldalra, a Facebookból kapott adataidat bármikor töröltetheted.',
+        'what_title' => 'Mit törlünk',
+        'what' => 'A Facebook-fiókod kapcsolatát és a Facebooktól kapott adatokat: a Facebook-azonosítódat, a nevedet, az e-mail címedet és a profilképed hivatkozását, minden foglalási oldalon, ahol Facebookkal léptél be.',
+        'kept_title' => 'Mi marad meg',
+        'kept' => 'Az adott vállalkozásnál lévő ügyfélfiókod és a foglalásaid megmaradnak: ezeknek a vállalkozás az adatkezelője. Ha ezeket is törölnéd, lépj be a foglalási oldalon, és a Profilom → Adatvédelem oldalon kérd a törlést, vagy fordulj közvetlenül a vállalkozáshoz. Ha a fiókodhoz nincs jelszó, az „Elfelejtetted a jelszavad?” linkkel állíthatsz be egyet.',
+        'how_title' => 'Hogyan kérheted',
+        'how_facebook' => 'A Facebookon: Beállítások és adatvédelem → Beállítások → Alkalmazások és weboldalak → slot4u → Eltávolítás. A Facebook ekkor automatikusan értesít minket, és a törlést azonnal elvégezzük.',
+        'how_profile' => 'Vagy a foglalási oldalon: Profilom → Kapcsolt fiókok → Leválasztás.',
+        'status_title' => 'A törlési kérelmed állapota',
+        'status_code' => 'Megerősítő kód: :code',
+        'status_done' => 'Elvégezve: :date',
+        'status_deleted' => '{0} Nem tároltunk Facebook-adatot ehhez a fiókhoz.|{1} 1 kapcsolt fiók Facebook-adatait töröltük.|[2,*] :count kapcsolt fiók Facebook-adatait töröltük.',
+    ],
     'legal' => [
         'type' => [
             'terms' => 'Általános szerződési feltételek',

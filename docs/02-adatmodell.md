@@ -41,6 +41,9 @@ social_accounts    id, tenant_id, user_id, provider(google|facebook), provider_u
                    email, name, avatar_url, timestamps
                    -- unique(provider, provider_user_id), unique(user_id, provider)
                    -- access/refresh token NINCS tárolva (docs/28)
+social_data_deletion_requests  id, provider, provider_user_hash(sha256), confirmation_code(unique),
+                   deleted_accounts, completed_at, timestamps
+                   -- Meta data-deletion callback naplója, platformszintű (docs/28 §6.1)
 -- spatie táblák: roles(tenant scoped), permissions(globális kódok), model_has_roles,
 --                role_has_permissions, model_has_permissions(egyedi user-felülírás)
 ```

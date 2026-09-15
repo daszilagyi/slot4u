@@ -80,6 +80,8 @@ tranzakcióban:
 | `waitlist_entries` | **törölve** — egy várólista-hely élő ígéret arra, hogy valakit megkeresünk. A fiókhoz kötött és az **ugyanazzal az emaillel vendégként** tartott hely is (SLO-228), mint a vendég-foglalásoknál |
 | `notifications_log` | `recipient` → `redacted`; a sor marad (a dedup-kulcsokat viszi, törlésük feltámaszthatna egy értesítést) |
 
+> **Facebook-oldali törlés (SLO-253).** Ha valaki a Facebookon távolítja el az appot, a Meta callbackje csak a Facebook-kapcsolatot és a Facebooktól kapott profilt törli (`social_accounts`), a fiókot és a foglalásokat nem — azok a vállalkozás adatai, a teljes törlés az itt leírt, a vállalkozás felé intézett kérelem. docs/28 §6.1.
+
 ⚠️ **A user sort nem töröljük.** A `bookings.customer_id` FK törlése magával
 vinné a foglalásokat, azzal a tenant forgalmát — ami a **jutalék alapja**
 (docs/10 §3.1). Egy törlési kérelem így visszamenőleg átírná, mennyivel tartozik
