@@ -78,7 +78,7 @@ Minden levél `MailMessage`-alapú notification, tehát **mind ugyanazon a keret
 
 | Csoport | Levelek | Szerkeszthető rész |
 |---|---|---|
-| slot4u levelei | `verify_email`, `reset_password`, `staff_invitation`, `commission_invoice_issued` / `_overdue` / `_suspended`, `tenant_archived` | tárgy, szöveg a gomb **előtt**, szöveg a gomb **után** (az archiválásnál nincs gomb → nincs „után” rész) |
+| slot4u levelei | `verify_email`, `reset_password`, `staff_invitation`, `commission_invoice_issued` / `_overdue` / `_suspended`, `tenant_archived`, `social_email_confirmation`, `social_account_linked` / `_unlinked` (SLO-252, docs/28 §5) | tárgy, szöveg a gomb **előtt**, szöveg a gomb **után** (az archiválásnál nincs gomb → nincs „után” rész) |
 | Ügyféllevelek (alapszöveg) | a tenant szerkesztő (SLO-114) 8 típusa: `booking_confirmed`, `booking_modified`, `booking_canceled`, `booking_rejected`, `waitlist_offer`, `reminder_24h`, `quote_ready`, `message_received` | tárgy + szöveg, ugyanaz az alak, mint a tenant felülírásé |
 
 **Nem szerkeszthető:** a köszönés, a gomb felirata és URL-je, az ügyféllevél záró „válaszolj erre” sora (SLO-171), és a keret. Így szövegszerkesztéssel link és elrendezés nem rontható el. A `customer_message` (staffnak szóló értesítő) nincs a listában.
