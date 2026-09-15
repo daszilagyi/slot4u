@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\WaitlistStatus;
 use App\Models\Concerns\BelongsToTenant;
 use App\Models\Concerns\HasGuestContact;
+use App\Models\Concerns\HasPublicCode;
 use App\Services\Booking\WaitlistService;
 use Database\Factories\WaitlistEntryFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -22,6 +23,7 @@ use Illuminate\Support\Carbon;
  * contact details live on the entry (SLO-228, as on bookings — SLO-128).
  *
  * @property int $id
+ * @property string $code the public confirmation code (SLO-103), `/waitlisted/{code}`
  * @property int $tenant_id
  * @property int|null $event_id
  * @property int|null $service_id
@@ -37,7 +39,7 @@ use Illuminate\Support\Carbon;
 class WaitlistEntry extends Model
 {
     /** @use HasFactory<WaitlistEntryFactory> */
-    use BelongsToTenant, HasFactory, HasGuestContact;
+    use BelongsToTenant, HasFactory, HasGuestContact, HasPublicCode;
 
     /**
      * @var list<string>

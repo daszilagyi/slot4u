@@ -146,7 +146,10 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
         // tenant-scoped (BelongsToTenant → cross-tenant 404).
         Route::post('/events/{event}/book', [TenantBookingController::class, 'storeEvent'])->name('tenant.events.book');
         Route::post('/events/{event}/waitlist', [TenantBookingController::class, 'storeWaitlist'])->name('tenant.events.waitlist');
-        Route::get('/waitlisted', [TenantBookingController::class, 'waitlisted'])->name('tenant.waitlisted');
+        // The durable waitlist confirmation (SLO-103), addressed by the entry's
+        // public code like /booked/{code}. Tenant-scoped binding: another
+        // tenant's code 404s.
+        Route::get('/waitlisted/{waitlistEntry:code}', [TenantBookingController::class, 'waitlisted'])->name('tenant.waitlisted');
         // Public quote request (SLO-102, docs/04 §6). Gated by the same feature as
         // the admin quote flow; the mode is re-checked in the controller. Creates
         // no booking, so the confirmation is a flashed PRG page, not a code.

@@ -100,7 +100,8 @@ bookings           id, tenant_id, code(publikus azonosító), customer_id(users,
                    átütemezés lemondás+új foglalás pár, ez köti össze a kettőt; a
                    `booking_modified` értesítés is ezen dől el, SLO-109)
 booking_status_history id, booking_id, from, to, actor_id, created_at
-waitlist_entries   id, tenant_id, event_id|service_id, customer_id(nullable),
+waitlist_entries   id, code(unique, publikus — /waitlisted/{code}, SLO-103), tenant_id,
+                   event_id|service_id, customer_id(nullable),
                    guest_name/guest_email/guest_phone (nullable — vendég-várólista,
                    SLO-228), party_size, position,
                    status(waiting|offered|converted|expired), offered_until

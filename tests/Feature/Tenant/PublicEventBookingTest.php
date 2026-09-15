@@ -92,12 +92,15 @@ it('surfaces a full event on sign-up without creating a booking', function () {
 it('joins the waitlist of a full event and shows the position', function () {
     [, , $event] = bookEventService(['capacity' => 5, 'booked_count' => 5, 'waitlist_enabled' => true]);
 
-    $this->post(tenantHost('acme', "/events/{$event->id}/waitlist"), eventGuest(['party_size' => 1]))
-        ->assertRedirect(tenantHost('acme', '/waitlisted'))
-        ->assertSessionHas('waitlist');
+    $response = $this->post(tenantHost('acme', "/events/{$event->id}/waitlist"), eventGuest(['party_size' => 1]));
 
     $entry = WaitlistEntry::query()->where('event_id', $event->id)->sole();
-    expect($entry->position)->toBe(1)
+
+    // PRG to the entry's durable address, not a one-off flash (SLO-103).
+    $response->assertRedirect(tenantHost('acme', '/waitlisted/'.$entry->code));
+
+    expect($entry->code)->toMatch('/^[A-HJKMNP-Z2-9]{8}$/')
+        ->and($entry->position)->toBe(1)
         ->and($entry->status)->toBe(WaitlistStatus::Waiting)
         ->and($entry->party_size)->toBe(1);
 });
@@ -137,21 +140,53 @@ it('404s signing up for another tenant\'s event', function () {
         ->assertNotFound();
 });
 
-it('redirects the waitlist confirmation to home without a flashed position', function () {
-    Tenant::factory()->active()->create(['slug' => 'acme']);
+it('shows a waitlist place at its durable address, as it is now (SLO-103)', function () {
+    [$tenant, $service, $event] = bookEventService(['capacity' => 5, 'booked_count' => 5, 'waitlist_enabled' => true]);
+    $entry = WaitlistEntry::factory()->forTenant($tenant)->create([
+        'event_id' => $event->id,
+        'service_id' => $service->id,
+        'customer_id' => null,
+        'guest_name' => 'Kovács Anna',
+        'guest_email' => 'anna@example.test',
+        'party_size' => 2,
+    ]);
 
-    $this->get(tenantHost('acme', '/waitlisted'))
-        ->assertRedirect(tenantHost('acme', ''));
+    $url = tenantHost('acme', '/waitlisted/'.$entry->code);
+
+    // Refresh-safe: the same URL renders twice, no session needed.
+    foreach ([1, 2] as $visit) {
+        $this->get($url)
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Tenant/Waitlisted')
+                ->where('waitlist.code', $entry->code)
+                ->where('waitlist.status', 'waiting')
+                ->where('waitlist.service', $service->name)
+                ->where('waitlist.starts_local', '2026-09-10 20:00')
+                ->where('waitlist.party_size', 2)
+                ->where('waitlist.offered_until_local', null)
+                // The code is an access key to the PLACE, never to the person.
+                ->missing('waitlist.guest_name')
+                ->missing('waitlist.guest_email'));
+    }
+
+    // An offer made since shows up on the same bookmark, with its deadline.
+    $entry->forceFill([
+        'status' => WaitlistStatus::Offered,
+        'offered_until' => Carbon::parse('2026-09-02 10:00:00'),
+    ])->save();
+
+    $this->get($url)->assertInertia(fn (Assert $page) => $page
+        ->where('waitlist.status', 'offered')
+        ->where('waitlist.offered_until_local', '2026-09-02 12:00'));
 });
 
-it('renders the waitlist confirmation with the flashed position', function () {
-    Tenant::factory()->active()->create(['slug' => 'acme']);
+it('404s an unknown waitlist code and another tenant\'s, and has no codeless page', function () {
+    [$tenant, $service, $event] = bookEventService(['capacity' => 5, 'booked_count' => 5, 'waitlist_enabled' => true]);
+    $other = Tenant::factory()->active()->create(['slug' => 'other']);
+    $foreign = WaitlistEntry::factory()->forTenant($other)->create(['event_id' => null, 'service_id' => null]);
 
-    $this->withSession(['waitlist' => ['position' => 3, 'service' => 'Jóga', 'starts_local' => '2026-09-10 18:00']])
-        ->get(tenantHost('acme', '/waitlisted'))
-        ->assertOk()
-        ->assertInertia(fn (Assert $page) => $page
-            ->component('Tenant/Waitlisted')
-            ->where('waitlist.position', 3)
-            ->where('waitlist.service', 'Jóga'));
+    $this->get(tenantHost('acme', '/waitlisted/'.$foreign->code))->assertNotFound();
+    $this->get(tenantHost('acme', '/waitlisted/ZZZZZZZZ'))->assertNotFound();
+    $this->get(tenantHost('acme', '/waitlisted'))->assertNotFound();
 });

@@ -355,14 +355,16 @@ it('joins a waitlist as a guest when the email belongs to another account (SLO-2
     [$tenant, $service, $event] = guestWaitlistEvent();
     User::factory()->create(['tenant_id' => null, 'email' => 'taken@example.test']);
 
-    $this->post(tenantHost('acme', '/events/'.$event->id.'/waitlist'), [
+    $response = $this->post(tenantHost('acme', '/events/'.$event->id.'/waitlist'), [
         'service_id' => $service->id,
         'name' => 'Teszt Vendég',
         'email' => 'taken@example.test',
         'party_size' => 1,
-    ])->assertRedirect(tenantHost('acme', '/waitlisted'))->assertSessionHasNoErrors();
+    ])->assertSessionHasNoErrors();
 
     $entry = WaitlistEntry::withoutGlobalScopes()->where('event_id', $event->id)->sole();
+    // Same answer shape as for any other visitor: the place's own page (SLO-103).
+    $response->assertRedirect(tenantHost('acme', '/waitlisted/'.$entry->code));
 
     expect($entry->tenant_id)->toBe($tenant->id)
         ->and($entry->customer_id)->toBeNull()
@@ -386,19 +388,29 @@ it('answers a waitlist join identically whether or not the email already exists 
     ]);
 
     $taken = $join('taken@example.test');
-    $takenFlash = session('waitlist');
     $this->flushSession();
     $unknown = $join('unknown@example.test');
-    $unknownFlash = session('waitlist');
 
     $taken->assertSessionHasNoErrors();
     $unknown->assertSessionHasNoErrors();
 
-    // Same status, same redirect, and the same confirmation — only the place in
-    // the queue differs, and that is about the queue, not the address.
+    // Same status and the same shape of redirect — each to its own place's page
+    // (SLO-103), which differs only by the place's own code.
+    $pattern = '#^'.preg_quote(tenantHost('acme', '/waitlisted/'), '#').'[A-HJKMNP-Z2-9]{8}$#';
+
     expect($taken->status())->toBe($unknown->status())
-        ->and($taken->headers->get('Location'))->toBe($unknown->headers->get('Location'))
-        ->and(array_keys($takenFlash))->toBe(array_keys($unknownFlash))
-        ->and($takenFlash['position'])->toBe(1)
-        ->and($unknownFlash['position'])->toBe(2);
+        ->and($taken->headers->get('Location'))->toMatch($pattern)
+        ->and($unknown->headers->get('Location'))->toMatch($pattern);
+
+    // And the page behind each says the same things about the place, nothing
+    // about the address: only the position in the queue differs.
+    $props = fn ($response): array => $this->get((string) $response->headers->get('Location'))
+        ->viewData('page')['props']['waitlist'];
+
+    $takenPage = $props($taken);
+    $unknownPage = $props($unknown);
+
+    expect(array_keys($takenPage))->toBe(array_keys($unknownPage))
+        ->and($takenPage['position'])->toBe(1)
+        ->and($unknownPage['position'])->toBe(2);
 });
