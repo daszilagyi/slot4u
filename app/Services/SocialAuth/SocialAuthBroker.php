@@ -129,6 +129,41 @@ final class SocialAuthBroker
         ];
     }
 
+    /** How long the confirmation link in the address mail stays valid. */
+    public const EMAIL_CONFIRMATION_TTL_SECONDS = 1800;
+
+    /**
+     * The token in the "confirm this address" mail (SLO-252): which pending
+     * attempt it confirms, and which address.
+     */
+    public function issueEmailConfirmation(string $pendingId, string $email): string
+    {
+        $token = Str::random(64);
+
+        Cache::put($this->emailCacheKey($token), [
+            'pending_id' => $pendingId,
+            'email' => $email,
+        ], self::EMAIL_CONFIRMATION_TTL_SECONDS);
+
+        return $token;
+    }
+
+    /**
+     * Redeem a confirmation link, once.
+     *
+     * @return array{pending_id: string, email: string}|null
+     */
+    public function takeEmailConfirmation(string $token): ?array
+    {
+        $data = $this->spend('email', $token);
+
+        if ($data === null || ! isset($data['pending_id'], $data['email'])) {
+            return null;
+        }
+
+        return ['pending_id' => (string) $data['pending_id'], 'email' => (string) $data['email']];
+    }
+
     /**
      * Read a cache entry and burn it in the same breath. Tokens are random
      * `[A-Za-z0-9]` strings; anything else is refused before the cache is asked.
@@ -141,9 +176,13 @@ final class SocialAuthBroker
             return null;
         }
 
-        $cacheKey = $kind === 'flow' ? $this->flowCacheKey($handle) : $this->handoffCacheKey($handle);
+        $cacheKey = match ($kind) {
+            'flow' => $this->flowCacheKey($handle),
+            'email' => $this->emailCacheKey($handle),
+            default => $this->handoffCacheKey($handle),
+        };
 
-        if (! Cache::add($cacheKey.':spent', true, self::FLOW_TTL_SECONDS)) {
+        if (! Cache::add($cacheKey.':spent', true, self::EMAIL_CONFIRMATION_TTL_SECONDS)) {
             return null;
         }
 
@@ -156,6 +195,11 @@ final class SocialAuthBroker
     private function flowCacheKey(string $key): string
     {
         return 'social_login:flow:'.hash('sha256', $key);
+    }
+
+    private function emailCacheKey(string $token): string
+    {
+        return 'social_login:email:'.hash('sha256', $token);
     }
 
     private function handoffCacheKey(string $token): string

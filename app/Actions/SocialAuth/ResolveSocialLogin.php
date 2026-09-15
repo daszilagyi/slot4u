@@ -65,8 +65,9 @@ final class ResolveSocialLogin
         }
 
         // ⚠️ Facebook may return no address at all (a phone-number account).
-        // The address-confirmation step for that case is SLO-252; until it
-        // exists, no address means no account — never a link on a guess.
+        // No address means no link and no account on a guess: the caller asks
+        // for one and has it confirmed by mail first (SLO-252), then resolves
+        // again with the confirmed address as a verified one.
         if ($identity->email === null) {
             return SocialLoginOutcome::fail('no_email');
         }
@@ -143,7 +144,7 @@ final class ResolveSocialLogin
                     $this->endSessions($user);
                 }
 
-                $this->link($user, $identity);
+                LinkSocialIdentity::attach($user, $identity);
             });
         } catch (UniqueConstraintViolationException) {
             // A parallel attempt linked the same identity first.
@@ -174,7 +175,7 @@ final class ResolveSocialLogin
 
                 $customer->forceFill(['email_verified_at' => Carbon::now()])->save();
 
-                $this->link($customer, $identity);
+                LinkSocialIdentity::attach($customer, $identity);
 
                 return $customer;
             });
@@ -191,17 +192,6 @@ final class ResolveSocialLogin
         ]);
 
         return SocialLoginOutcome::signIn($customer->id);
-    }
-
-    private function link(User $user, SocialIdentity $identity): void
-    {
-        SocialAccount::query()->withoutGlobalScopes()->create([
-            'tenant_id' => $user->tenant_id,
-            'user_id' => $user->id,
-            'provider' => $identity->provider,
-            'provider_user_id' => $identity->id,
-            ...$this->profile($identity),
-        ]);
     }
 
     /** @return array{email: string|null, name: string|null, avatar_url: string|null} */

@@ -30,7 +30,17 @@ final readonly class SocialLoginFlow
         public ?string $returnPath,
         /** sha256 of the nonce held in the starting host's session. */
         public string $nonceHash,
+        /** The signed-in user who started a Link flow; null for the others. */
+        public ?int $userId = null,
     ) {}
+
+    /** Where a refusal is shown: the page the flow started from, if known. */
+    public function failurePath(): string
+    {
+        return $this->intent === SocialIntent::Login
+            ? $this->intent->fallbackPath()
+            : ($this->returnPath ?? $this->intent->fallbackPath());
+    }
 
     /** @return array<string, mixed> */
     public function toArray(): array
@@ -42,6 +52,7 @@ final readonly class SocialLoginFlow
             'consume_url' => $this->consumeUrl,
             'return_path' => $this->returnPath,
             'nonce_hash' => $this->nonceHash,
+            'user_id' => $this->userId,
         ];
     }
 
@@ -55,6 +66,7 @@ final readonly class SocialLoginFlow
             (string) $data['consume_url'],
             isset($data['return_path']) ? (string) $data['return_path'] : null,
             (string) $data['nonce_hash'],
+            isset($data['user_id']) ? (int) $data['user_id'] : null,
         );
     }
 }

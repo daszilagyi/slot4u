@@ -10,6 +10,9 @@ use App\Services\Notification\MessageTemplateCatalog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
+use Laravel\Socialite\Facades\Socialite;
+use Laravel\Socialite\Two\User as SocialiteUser;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 /*
@@ -187,4 +190,72 @@ function expectDemoMailTemplatesToRender(Tenant $tenant): void
         ->and($mail->greeting)->toBe('Szia Teszt Elek!')
         // Greeted once: by the template path, not again by the body.
         ->and(implode("\n", $mail->introLines))->not->toContain('Teszt Elek');
+}
+
+/*
+|--------------------------------------------------------------------------
+| Social sign-in (SLO-251, SLO-252)
+|--------------------------------------------------------------------------
+|
+| Shared by the sign-in and the linking/booking test files. The provider is
+| faked (Socialite::fake); the flow, the nonce, the token and the resolution
+| run for real.
+|
+*/
+
+function socialCentral(string $path = '/'): string
+{
+    return 'http://'.config('tenancy.central_domain').$path;
+}
+
+function socialTenantUrl(string $slug, string $path = '/'): string
+{
+    return 'http://'.$slug.'.'.config('tenancy.central_domain').$path;
+}
+
+/** @param  array<string, mixed>  $attributes */
+function socialFakeUser(string $provider = 'google', array $attributes = []): void
+{
+    Socialite::fake($provider, SocialiteUser::fake(array_merge([
+        'id' => 'g-1001',
+        'name' => 'Kiss Anna',
+        'email' => 'anna@example.test',
+        'email_verified' => true,
+        'avatar' => 'https://example.test/anna.png',
+    ], $attributes)));
+}
+
+function socialStaff(Tenant $tenant, string $role, array $attributes = []): User
+{
+    app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getKey());
+    $user = User::factory()->create(['tenant_id' => $tenant->id, ...$attributes]);
+    $user->assignRole($role);
+    app(PermissionRegistrar::class)->setPermissionsTeamId(null);
+
+    return $user;
+}
+
+/**
+ * Click the button on `$startUrl` and let the provider call back. Returns the
+ * consume URL the callback redirected to (on the starting host, with the token).
+ */
+function socialStartAndCallback(string $startUrl, string $provider = 'google'): string
+{
+    $test = test();
+
+    $test->get($startUrl)->assertRedirect("https://socialite.fake/{$provider}/authorize");
+
+    $nonces = (array) session('social_login.nonces');
+    $state = (string) array_key_last($nonces);
+
+    $response = $test->get(socialCentral("/auth/{$provider}/callback?".http_build_query(['state' => $state, 'code' => 'fake-code'])));
+    $response->assertRedirect();
+
+    return (string) $response->headers->get('Location');
+}
+
+/** The whole round trip; returns the consume response. */
+function socialRoundTrip(string $startUrl, string $provider = 'google')
+{
+    return test()->get(socialStartAndCallback($startUrl, $provider));
 }

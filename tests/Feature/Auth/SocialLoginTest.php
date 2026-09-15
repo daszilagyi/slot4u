@@ -16,8 +16,6 @@ use Database\Seeders\PermissionSeeder;
 use Illuminate\Support\Facades\Hash;
 use Inertia\Testing\AssertableInertia as Assert;
 use Laravel\Pennant\Feature as Pennant;
-use Laravel\Socialite\Facades\Socialite;
-use Laravel\Socialite\Two\User as SocialiteUser;
 use Spatie\Permission\PermissionRegistrar;
 
 /*
@@ -44,63 +42,6 @@ afterEach(function () {
     app(PermissionRegistrar::class)->setPermissionsTeamId(null);
     app(TenantManager::class)->forget();
 });
-
-function socialCentral(string $path = '/'): string
-{
-    return 'http://'.config('tenancy.central_domain').$path;
-}
-
-function socialTenantUrl(string $slug, string $path = '/'): string
-{
-    return 'http://'.$slug.'.'.config('tenancy.central_domain').$path;
-}
-
-/** @param  array<string, mixed>  $attributes */
-function socialFakeUser(string $provider = 'google', array $attributes = []): void
-{
-    Socialite::fake($provider, SocialiteUser::fake(array_merge([
-        'id' => 'g-1001',
-        'name' => 'Kiss Anna',
-        'email' => 'anna@example.test',
-        'email_verified' => true,
-        'avatar' => 'https://example.test/anna.png',
-    ], $attributes)));
-}
-
-function socialStaff(Tenant $tenant, string $role, array $attributes = []): User
-{
-    app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getKey());
-    $user = User::factory()->create(['tenant_id' => $tenant->id, ...$attributes]);
-    $user->assignRole($role);
-    app(PermissionRegistrar::class)->setPermissionsTeamId(null);
-
-    return $user;
-}
-
-/**
- * Click the button on `$startUrl` and let the provider call back. Returns the
- * consume URL the callback redirected to (on the starting host, with the token).
- */
-function socialStartAndCallback(string $startUrl, string $provider = 'google'): string
-{
-    $test = test();
-
-    $test->get($startUrl)->assertRedirect("https://socialite.fake/{$provider}/authorize");
-
-    $nonces = (array) session('social_login.nonces');
-    $state = (string) array_key_last($nonces);
-
-    $response = $test->get(socialCentral("/auth/{$provider}/callback?".http_build_query(['state' => $state, 'code' => 'fake-code'])));
-    $response->assertRedirect();
-
-    return (string) $response->headers->get('Location');
-}
-
-/** The whole round trip; returns the consume response. */
-function socialRoundTrip(string $startUrl, string $provider = 'google')
-{
-    return test()->get(socialStartAndCallback($startUrl, $provider));
-}
 
 // --- Members: registration and linking ------------------------------------
 
@@ -275,15 +216,16 @@ it('does not link on an address the provider has not verified', function () {
     expect(SocialAccount::query()->withoutGlobalScopes()->count())->toBe(0);
 });
 
-it('does not sign in or register a Facebook account without an address', function () {
+it('asks for an address instead of signing in a Facebook account without one', function () {
     Tenant::factory()->active()->create(['slug' => 'acme']);
     socialFakeUser('facebook', ['id' => 'fb-1', 'email' => null]);
 
     socialRoundTrip(socialTenantUrl('acme', '/auth/facebook/redirect'), 'facebook')
-        ->assertSessionHasErrors(['social' => __('app.auth.social.errors.no_email')]);
+        ->assertRedirect('/auth/social/email');
 
     $this->assertGuest();
-    expect(User::query()->count())->toBe(0);
+    expect(User::query()->count())->toBe(0)
+        ->and(SocialAccount::query()->withoutGlobalScopes()->count())->toBe(0);
 });
 
 it('refuses another tenant\'s user with the neutral message', function () {
