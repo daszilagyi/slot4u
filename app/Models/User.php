@@ -27,6 +27,7 @@ use Spatie\Permission\Traits\HasRoles;
  * @property string $email
  * @property string|null $phone
  * @property string|null $locale
+ * @property string|null $password null for a customer who signed up with Google or Facebook (SLO-251)
  * @property Carbon|null $email_verified_at
  * @property Carbon|null $anonymized_at the erasure instant (SLO-159); null while the account holds real personal data
  * @property Carbon|null $created_at
@@ -125,6 +126,25 @@ class User extends Authenticatable implements MustVerifyEmail
     public function bookings(): HasMany
     {
         return $this->hasMany(Booking::class, 'customer_id');
+    }
+
+    /**
+     * The Google / Facebook identities this user can sign in with (SLO-251).
+     *
+     * @return HasMany<SocialAccount, $this>
+     */
+    public function socialAccounts(): HasMany
+    {
+        return $this->hasMany(SocialAccount::class);
+    }
+
+    /**
+     * Whether the account can sign in with a password. False for a customer
+     * who signed up through Google or Facebook (SLO-251).
+     */
+    public function hasPassword(): bool
+    {
+        return $this->password !== null;
     }
 
     /**

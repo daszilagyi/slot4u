@@ -28,6 +28,25 @@ return [
         'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
     ],
 
+    /*
+    | Social login (SLO-251, docs/28). A provider without both keys is off: no
+    | button, and its routes 404. The redirect URI is always the central domain
+    | (`{scheme}://{APP_CENTRAL_DOMAIN}/auth/{provider}/callback`) — the
+    | providers accept only exact URIs, never a wildcard subdomain or a tenant's
+    | own domain — and is built by SocialAuthUrls, not configured here.
+    */
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => null,
+    ],
+
+    'facebook' => [
+        'client_id' => env('FACEBOOK_CLIENT_ID'),
+        'client_secret' => env('FACEBOOK_CLIENT_SECRET'),
+        'redirect' => null,
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
