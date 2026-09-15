@@ -17,6 +17,7 @@ use App\Enums\BookingStatus;
 use App\Enums\ConsentContext;
 use App\Enums\EventStatus;
 use App\Enums\Feature;
+use App\Enums\WaitlistStatus;
 use App\Exceptions\SlotUnavailableException;
 use App\Http\Controllers\Controller;
 use App\Http\Controllers\Tenant\Concerns\BuildsSlotView;
@@ -28,6 +29,7 @@ use App\Models\Booking;
 use App\Models\Event;
 use App\Models\Service;
 use App\Models\User;
+use App\Models\WaitlistEntry;
 use App\Services\Booking\AvailabilityService;
 use App\Services\Booking\OnlineCancellation;
 use App\Services\Feature\FeatureResolver;
@@ -382,27 +384,42 @@ class BookingController extends Controller
         // same acceptance. Asking without recording would be the worst of both.
         $this->recordLegalConsent($request, $contact->customer, $contact->email, ConsentContext::EventBooking);
 
-        return redirect('/waitlisted')->with('waitlist', [
-            'position' => $entry->position,
-            'service' => $service->name,
-            'starts_local' => $this->localDateTime($event->starts_at, $tenantModel->timezone),
-        ]);
+        // PRG to the entry's durable page (SLO-103): refresh, bookmark and share
+        // all keep working, like /booked/{code}.
+        return redirect('/waitlisted/'.$entry->code);
     }
 
     /**
-     * Waitlist join confirmation (SLO-100), reached by PRG redirect from
-     * storeWaitlist with the position flashed. A direct visit (no flash) falls
-     * back to the tenant home.
+     * Waitlist place confirmation (SLO-100), at a durable, shareable address
+     * (SLO-103). The code is the access key, as on /booked/{code}: the page shows
+     * the place and the event, never the waiter's contact details.
+     *
+     * Read live, not from the moment of joining: a place moves (an offer, a
+     * booking, an expired window), and a bookmarked page should say so.
      */
-    public function waitlisted(Request $request): Response|RedirectResponse
+    public function waitlisted(string $tenant, WaitlistEntry $waitlistEntry): Response
     {
-        $waitlist = $request->session()->get('waitlist');
+        $waitlistEntry->load(['event:id,starts_at,service_id', 'event.service:id,name', 'service:id,name']);
+        $timezone = app(TenantManager::class)->current()->timezone;
+        // An event entry names its service through the event; a service-level
+        // entry (no event) names it directly.
+        $service = $waitlistEntry->event !== null ? $waitlistEntry->event->service : $waitlistEntry->service;
 
-        if (! is_array($waitlist)) {
-            return redirect('/');
-        }
-
-        return Inertia::render('Tenant/Waitlisted', ['waitlist' => $waitlist]);
+        return Inertia::render('Tenant/Waitlisted', [
+            'waitlist' => [
+                'code' => $waitlistEntry->code,
+                'position' => $waitlistEntry->position,
+                'status' => $waitlistEntry->status->value,
+                'service' => $service?->name,
+                'service_id' => $service?->id,
+                'starts_local' => $this->localDateTime($waitlistEntry->event?->starts_at, $timezone),
+                'party_size' => $waitlistEntry->party_size,
+                // Only while an offer is live does its deadline mean anything.
+                'offered_until_local' => $waitlistEntry->status === WaitlistStatus::Offered
+                    ? $this->localDateTime($waitlistEntry->offered_until, $timezone)
+                    : null,
+            ],
+        ]);
     }
 
     /**

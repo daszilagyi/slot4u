@@ -278,7 +278,7 @@ Adatszivárgás nem volt (üres payloaddal a saját és az idegen id ugyanazt ad
 Javítás: **`App\Models\TenantUser`** (ugyanaz a minta, mint a `Customer`) — a binding csak az aktuális
 tenant staff-tagjára old fel, minden más 404 **még a validáció előtt**.
 
-**Kód-címezhető publikus végpontok** (`/booked/{code}`, `/booked/{code}/ics`, `/pay/{code}`,
+**Kód-címezhető publikus végpontok** (`/booked/{code}`, `/booked/{code}/ics`, `/waitlisted/{code}`, `/pay/{code}`,
 `/payments/sandbox/{provider_ref}`): itt **a kód maga a hitelesítő**, mint egy kitalálhatatlan link a
 visszaigazoló emailben. Ez két feltételen áll, és **mindkettőt teszt rögzíti**: (1) a foglalási kód
 **8 karakter egy 31 elemű ábécéből ≈ 2^39,6 lehetőség**, `random_int` CSPRNG-vel; (2) minden ilyen

@@ -8,6 +8,7 @@ use App\Enums\BookingStatus;
 use App\Events\BookingCreated;
 use App\Models\Concerns\BelongsToTenant;
 use App\Models\Concerns\HasGuestContact;
+use App\Models\Concerns\HasPublicCode;
 use Database\Factories\BookingFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -54,7 +55,7 @@ use Illuminate\Support\Facades\Auth;
 class Booking extends Model
 {
     /** @use HasFactory<BookingFactory> */
-    use BelongsToTenant, HasFactory, HasGuestContact;
+    use BelongsToTenant, HasFactory, HasGuestContact, HasPublicCode;
 
     /**
      * Transient (never persisted, never an attribute — it is a declared property, so
@@ -131,13 +132,7 @@ class Booking extends Model
 
     protected static function booted(): void
     {
-        // Assign a public, non-guessable code before insert (status defaults via
-        // $attributes / the create flow).
-        static::creating(function (Booking $booking): void {
-            if (blank($booking->code)) {
-                $booking->code = self::generateUniqueCode();
-            }
-        });
+        // The public, non-guessable code is assigned by HasPublicCode.
 
         // The initial status is the first history entry (from null); fire the
         // domain event so M5 listeners (email, Reverb) can hook in later.
@@ -150,28 +145,6 @@ class Booking extends Model
 
             BookingCreated::dispatch($booking, $booking->notifyCustomer);
         });
-    }
-
-    /** Code alphabet without visually ambiguous characters (no 0/O/1/I/L). */
-    private const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-
-    /**
-     * A short, non-guessable public code (no ambiguous characters), unique across
-     * the platform since it appears in customer-facing URLs. Retries on the (very
-     * unlikely) collision; the DB unique index is the final backstop.
-     */
-    public static function generateUniqueCode(): string
-    {
-        $max = strlen(self::CODE_ALPHABET) - 1;
-
-        do {
-            $code = '';
-            for ($i = 0; $i < 8; $i++) {
-                $code .= self::CODE_ALPHABET[random_int(0, $max)];
-            }
-        } while (self::withoutGlobalScopes()->where('code', $code)->exists());
-
-        return $code;
     }
 
     /**

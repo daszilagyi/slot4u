@@ -24,6 +24,7 @@ use App\Models\Tenant;
 use App\Models\TenantDomain;
 use App\Models\TenantFeature;
 use App\Models\User;
+use App\Models\WaitlistEntry;
 use App\Tenancy\TenantManager;
 use Database\Seeders\BasePlanSeeder;
 use Database\Seeders\PermissionSeeder;
@@ -133,6 +134,8 @@ function sweepRecords(Tenant $tenant): array
         'staff' => $staff,
         'tenantDomain' => TenantDomain::factory()->create(['tenant_id' => $tenant->id]),
         'user' => $customer,
+        // A waitlist place, addressed by its public code (SLO-103).
+        'waitlistEntry' => WaitlistEntry::factory()->forTenant($tenant)->create(['customer_id' => $customer->getKey()]),
     ];
 
     app(PermissionRegistrar::class)->setPermissionsTeamId(null);
