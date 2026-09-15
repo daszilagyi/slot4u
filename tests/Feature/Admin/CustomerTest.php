@@ -264,6 +264,26 @@ it('lets an admin update a customer via the endpoint', function () {
         ->and($customer->fresh()->phone)->toBe('+36209999999');
 });
 
+it('drops the verification of an address an admin changes, and only then (SLO-254)', function () {
+    $tenant = custTenant(['slug' => 'acme']);
+    $admin = custUser($tenant, Role::TenantAdmin);
+    $kept = makeCustomer(['email' => 'kept@example.test']);
+    $changed = makeCustomer(['email' => 'old@example.test']);
+    $kept->forceFill(['email_verified_at' => now()])->save();
+    $changed->forceFill(['email_verified_at' => now()])->save();
+    app(TenantManager::class)->forget();
+
+    $this->actingAs($admin)
+        ->put(tenantHost('acme', "/customers/{$kept->id}"), ['name' => 'Új Név', 'email' => 'kept@example.test'])
+        ->assertSessionHasNoErrors();
+    $this->actingAs($admin)
+        ->put(tenantHost('acme', "/customers/{$changed->id}"), ['name' => 'Más', 'email' => 'new@example.test'])
+        ->assertSessionHasNoErrors();
+
+    expect($kept->fresh()->email_verified_at)->not->toBeNull()
+        ->and($changed->fresh()->email_verified_at)->toBeNull();
+});
+
 // --- Authorization ---
 
 it('forbids the customer list without customer.view (403)', function () {

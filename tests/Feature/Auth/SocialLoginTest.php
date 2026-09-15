@@ -257,6 +257,27 @@ it('revokes the password of a never-verified account it links to (pre-hijack)', 
         ->and($squatted->email_verified_at)->not->toBeNull();
 });
 
+it('revokes the password an admin knows when the real owner of a changed address signs in (SLO-254)', function () {
+    $tenant = Tenant::factory()->active()->create(['slug' => 'acme']);
+    $admin = socialStaff($tenant, Role::TenantAdmin->value);
+    // A verified customer whose password the admin set or knows…
+    $account = socialStaff($tenant, Role::Customer->value, ['email' => 'someone@example.test']);
+
+    // …gets the address of a person who never had anything to do with it.
+    $this->actingAs($admin)
+        ->put(socialTenantUrl('acme', "/customers/{$account->id}"), ['name' => 'Kiss Anna', 'email' => 'anna@example.test'])
+        ->assertSessionHasNoErrors();
+    auth()->logout();
+    $this->flushSession();
+
+    socialFakeUser();
+    socialRoundTrip(socialTenantUrl('acme', '/auth/google/redirect'))->assertRedirect('/my/bookings');
+
+    $account->refresh();
+    expect($account->hasPassword())->toBeFalse()
+        ->and($account->email_verified_at)->not->toBeNull();
+});
+
 it('reports a cancelled consent screen back on the starting host', function () {
     Tenant::factory()->active()->create(['slug' => 'acme']);
     socialFakeUser();

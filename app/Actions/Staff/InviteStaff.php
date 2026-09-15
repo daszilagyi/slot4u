@@ -18,9 +18,9 @@ use Spatie\Permission\PermissionRegistrar;
  * employee role inside the current tenant's team, links it to the staff record,
  * and emails a "set your password" link scoped to the tenant subdomain.
  *
- * The email itself proves address ownership, so the user is created already
- * verified. The password is a throwaway — the invite link (a password-reset
- * token) is the only way in until the employee sets their own.
+ * The address is verified when the invitation's link is used, not when it is
+ * sent (SLO-254). The password is a throwaway — the invite link (a
+ * password-reset token) is the only way in until the employee sets their own.
  */
 class InviteStaff
 {
@@ -44,10 +44,10 @@ class InviteStaff
                 'locale' => $tenant->locale,
             ]);
 
-            // The invitation email proves address ownership; mark verified so the
-            // employee is not walled off by MustVerifyEmail. (email_verified_at is
-            // not mass-assignable, hence the explicit call.)
-            $user->markEmailAsVerified();
+            // NOT verified yet (SLO-254). Sending the invitation proves nothing
+            // about who reads it — clicking its link does, and that is where
+            // the address is marked verified (ResetUserPassword). Nothing walls
+            // an unverified user off in the meantime: no route requires it.
 
             $this->assignEmployeeRole($user, $tenant->getKey());
 

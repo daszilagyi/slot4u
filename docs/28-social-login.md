@@ -80,7 +80,8 @@ Sorrendben — a sorrend maga a biztonsági modell:
 2. **Nincs e-mail** (Facebook telefonos fiók) → a feloldás megáll, és az e-mail-bekérő lépés jön (§5.3). Megerősítés előtt semmi nem jön létre és nem kapcsolódik.
 3. **A provider nem vállalja az e-mailt** → `email_unverified`. Google: `email_verified`. Facebook: csak megerősített címet ad vissza, ezért a meglévő cím verifikáltnak számít (Daniel döntése, SLO-250).
 4. **Verifikált e-mail egyezik egy fiókkal** → kapcsolás + belépés, szerepkörtől függetlenül (admin, staff, ügyfél).
-   - ⚠️ **Pre-hijack:** ha a fiók e-mailje *sosem volt megerősítve*, a kapcsoláskor a jelszó `NULL` lesz, a `remember_token` és minden session törlődik. Aki a más e-mailjével előre regisztrált, nem marad bent. (Meghívott staffnál az e-mail a meghíváskor verifikált, őket ez nem érinti.)
+   - ⚠️ **Pre-hijack:** ha a fiók e-mailje *sosem volt megerősítve*, a kapcsoláskor a jelszó `NULL` lesz, a `remember_token` és minden session törlődik. Aki a más e-mailjével előre regisztrált, nem marad bent.
+   - ⚠️ A „verifikált” jelzés ezért csak bizonyított postafiókot jelenthet (SLO-254): a cím **a reset/meghívó link használatakor** lesz verifikált (`ResetUserPassword`), nem a meghívó kiküldésekor, és ha az admin **átírja** egy ügyfél e-mailjét, a jelzés törlődik (`UpdateCustomer`). Enélkül egy admin idegen címet írhatna egy általa ismert jelszavú fiókra, és a cím valódi tulajdonosának Google-belépése ebbe a fiókba kapcsolódna a régi jelszóval együtt.
    - Ha a fióknak már van **másik** identitása ugyanennél a providernél → `not_available` (a csendes csere a fiókot adná át).
 5. **Nincs fiók**
    - központi domainen → `no_account`. Céget az űrlap regisztrál, nem egy Google-fiók.

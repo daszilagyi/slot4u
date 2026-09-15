@@ -97,7 +97,8 @@ it('invites an employee login user when an email is supplied', function () {
     $invited = User::findOrFail($staff->user_id);
     expect($invited->tenant_id)->toBe($tenant->id)
         ->and($invited->email)->toBe('csilla@example.com')
-        ->and($invited->email_verified_at)->not->toBeNull();
+        // Sending an invitation proves nothing about who reads it (SLO-254).
+        ->and($invited->email_verified_at)->toBeNull();
 
     app(PermissionRegistrar::class)->setPermissionsTeamId($tenant->getKey());
     expect($invited->hasRole(Role::Employee->value))->toBeTrue()
