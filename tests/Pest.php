@@ -1,6 +1,12 @@
 <?php
 
+use App\Enums\NotificationType;
+use App\Models\Booking;
+use App\Models\MessageTemplate;
+use App\Models\Tenant;
 use App\Models\User;
+use App\Notifications\BookingConfirmedNotification;
+use App\Services\Notification\MessageTemplateCatalog;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
@@ -139,4 +145,46 @@ function ssrRendererReachable(): bool
     fclose($conn);
 
     return true;
+}
+
+/**
+ * A demo persona's own mail wording has to render as mail, not as a template
+ * (SLO-247): the GlamZone and garage overrides were written with `{{customer_name}}`
+ * while the renderer substitutes `:name`, so the showcase mail printed the braces
+ * and greeted twice. Checks every override the tenant has, and renders the
+ * confirmation for one of its real bookings.
+ */
+function expectDemoMailTemplatesToRender(Tenant $tenant): void
+{
+    $catalog = app(MessageTemplateCatalog::class);
+    $templates = MessageTemplate::withoutGlobalScopes()->where('tenant_id', $tenant->getKey())->get();
+
+    expect($templates)->not->toBeEmpty();
+
+    foreach ($templates as $template) {
+        $text = $template->subject."\n".$template->body;
+        preg_match_all('/:([a-z_]+)/', $text, $matches);
+
+        expect($text)->not->toContain('{{')
+            ->and(array_values(array_diff($matches[1], $catalog->variables($template->key))))
+            ->toBe([], "{$template->key->value} uses a variable its notification does not pass")
+            // The template path writes the greeting itself.
+            ->and($template->body)->not->toMatch('/^\s*(Szia|Kedves)\b/u');
+    }
+
+    if ($templates->doesntContain('key', NotificationType::BookingConfirmed)) {
+        return;
+    }
+
+    $booking = Booking::withoutGlobalScopes()->where('tenant_id', $tenant->getKey())
+        ->whereNotNull('service_id')->whereNotNull('starts_at')->firstOrFail();
+    $mail = (new BookingConfirmedNotification($booking, $tenant))->toMail((object) ['name' => 'Teszt Elek']);
+    $rendered = $mail->subject."\n".$mail->greeting."\n".implode("\n", [...$mail->introLines, ...$mail->outroLines]);
+
+    expect($rendered)->not->toContain('{{')
+        ->not->toMatch('/(?<![\\w\/]):[a-z_]+/')
+        ->toContain($booking->code)
+        ->and($mail->greeting)->toBe('Szia Teszt Elek!')
+        // Greeted once: by the template path, not again by the body.
+        ->and(implode("\n", $mail->introLines))->not->toContain('Teszt Elek');
 }

@@ -979,14 +979,15 @@ final class AutoServiceDemoPersona extends DemoPersona
             'channel' => NotificationChannel::Email,
             'locale' => 'hu',
             'subject' => 'Foglalásod megvan — Csavarkulcs Autószerviz',
-            'body' => "Kedves {{customer_name}}!\n\n"
-                ."Az időpontodat rögzítettük:\n\n"
-                ."• Munka: {{service_name}}\n"
-                ."• Időpont: {{booking_date}} {{booking_time}}\n"
-                ."• Szerelő: {{staff_name}}\n\n"
+            // `:name`-style variables from the catalogue (SLO-247), and no
+            // greeting line: the template path writes "Szia :name!" itself.
+            'body' => "Az időpontodat rögzítettük:\n"
+                ."- Munka: :service\n"
+                ."- Időpont: :when\n"
+                ."- Foglalási kód: :code\n"
                 .'Az autót a foglalt időpontra hozd be, a kulcsot a pultnál add le. '
                 .'A munkadíj alkatrész nélkül értendő — ha menet közben kiderül, hogy alkatrész is kell, '
-                ."előtte felhívunk.\n\n"
+                ."előtte felhívunk.\n"
                 .'Csavarkulcs Autószerviz',
             'enabled' => true,
         ]);

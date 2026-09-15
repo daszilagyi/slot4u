@@ -102,6 +102,9 @@ it('builds the workshop the data sheet describes', function () {
     $tenant = garage();
     $id = $tenant->getKey();
 
+    // The workshop's own wording on the confirmation mail renders (SLO-247).
+    expectDemoMailTemplatesToRender($tenant);
+
     expect($tenant->is_demo)->toBeTrue()
         ->and(Location::withoutGlobalScopes()->where('tenant_id', $id)->count())->toBe(1)
         ->and(Room::withoutGlobalScopes()->where('tenant_id', $id)->count())->toBe(3)

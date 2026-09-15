@@ -431,13 +431,14 @@ final class SalonDemoPersona extends DemoPersona
             'key' => NotificationType::BookingConfirmed,
             'channel' => NotificationChannel::Email,
             'locale' => 'hu',
-            'subject' => 'Szia {{customer_name}}! Foglalásod megvan a GlamZone-ban ✨',
-            'body' => "Szia {{customer_name}}!\n\n"
-                ."Várunk szeretettel a GlamZone-ban:\n\n"
-                ."• Szolgáltatás: {{service_name}}\n"
-                ."• Időpont: {{booking_date}} {{booking_time}}\n"
-                ."• Kollégád: {{staff_name}}\n\n"
-                ."Ha közbejön valami, a foglalásod oldalán egy kattintással le tudod mondani.\n\n"
+            // `:name`-style variables from the catalogue (SLO-247), and no
+            // greeting line: the template path writes "Szia :name!" itself.
+            'subject' => 'Szia :name! Foglalásod megvan a GlamZone-ban ✨',
+            'body' => "Várunk szeretettel a GlamZone-ban:\n"
+                ."- Szolgáltatás: :service\n"
+                ."- Időpont: :when\n"
+                ."- Foglalási kód: :code\n"
+                ."Ha közbejön valami, a foglalásod oldalán egy kattintással le tudod mondani.\n"
                 .'Puszi, a GlamZone csapata',
             'enabled' => true,
         ]);
