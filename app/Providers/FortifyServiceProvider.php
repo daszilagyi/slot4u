@@ -9,13 +9,17 @@ use App\Http\Responses\LoginResponse;
 use App\Http\Responses\RegisterResponse;
 use App\Http\Responses\TwoFactorLoginResponse;
 use App\Http\Responses\VerifyEmailResponse;
+use App\Models\User;
+use App\Services\SocialAuth\SocialAuthUrls;
 use App\Tenancy\TenantHostResolver;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Laravel\Fortify\Actions\DisableTwoFactorAuthentication as FortifyDisableTwoFactorAuthentication;
 use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
@@ -59,7 +63,41 @@ class FortifyServiceProvider extends ServiceProvider
         Fortify::resetUserPasswordsUsing(ResetUserPassword::class);
 
         // Headless Fortify: render our own Inertia pages (i18n via lang files).
-        Fortify::loginView(fn () => Inertia::render('Auth/Login'));
+        Fortify::loginView(fn (Request $request) => Inertia::render('Auth/Login', [
+            'socialProviders' => SocialAuthUrls::offeredOn($request),
+        ]));
+
+        // The password login, with one question Fortify's default cannot ask
+        // (SLO-251): an account created through Google or Facebook has no
+        // password, and "wrong password" would send its owner hunting for one
+        // that never existed.
+        //
+        // ⚠️ Only for an account of THIS host's tenant. The e-mail lookup is
+        // platform-wide, so answering it everywhere would let any tenant's login
+        // form tell whether an address signed up through a provider at some
+        // other business. Everyone else — no account, another tenant's account,
+        // the central domain — gets the generic failure.
+        Fortify::authenticateUsing(function (Request $request): ?User {
+            $user = User::query()->where('email', (string) $request->input(Fortify::username()))->first();
+
+            if ($user === null) {
+                return null;
+            }
+
+            if (! $user->hasPassword()) {
+                $tenant = app(TenantHostResolver::class)->resolve($request->getHost());
+
+                if ($tenant !== null && $user->tenant_id === $tenant->id) {
+                    throw ValidationException::withMessages([
+                        Fortify::username() => __('auth.social_only'),
+                    ]);
+                }
+
+                return null;
+            }
+
+            return Hash::check((string) $request->input('password'), (string) $user->getAuthPassword()) ? $user : null;
+        });
         // Host-aware (SLO-95): a tenant subdomain registers a customer, the
         // central domain registers a new tenant. The Fortify route is domain-less,
         // so the tenant is resolved from the request host.
@@ -74,7 +112,9 @@ class FortifyServiceProvider extends ServiceProvider
                         ->toResponse($request)->setStatusCode(503);
                 }
 
-                return Inertia::render('Auth/RegisterCustomer');
+                return Inertia::render('Auth/RegisterCustomer', [
+                    'socialProviders' => SocialAuthUrls::offeredOn($request),
+                ]);
             }
 
             return Inertia::render('Auth/Register', [

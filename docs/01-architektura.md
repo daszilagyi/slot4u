@@ -114,6 +114,8 @@ tenantból, SOHA a request-inputból) és ad neki tenant-admin role-t; a slug eg
 subdomain közt megosztott (`SESSION_DOMAIN=.{central}`). Login/regisztráció után a `LoginResponse` /
 `RegisterResponse` (közös `RedirectsToUserHome`) domain-tudatosan irányít: super-admin → `admin.{central}`,
 tenant-user → a saját `{slug}.{central}/dashboard`-ja (cross-origin esetben Inertia location-redirect).
+**Google/Facebook belépés (SLO-251):** az induló hoston kezdődik, a provider a központi domainre hív vissza, és egy
+egyszer használható token lépteti be a látogatót az induló hoston (saját domainen is) — részletek: `docs/28`.
 
 - `EnsureUserBelongsToTenant` (`ensure.user.tenant`): az `auth` után fut. Super-admin → redirect az
   admin panelre (tenant-impersonation az SLO-14-gyel jön); másik tenant usere → `abort(403)`.

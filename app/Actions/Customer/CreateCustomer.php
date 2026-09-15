@@ -17,7 +17,8 @@ use Spatie\Permission\PermissionRegistrar;
  * the current tenant's team. tenant_id is stamped from the current tenant, never
  * from input. An admin-created customer gets a throwaway password (can't log in
  * until they reset it); a self-registered customer (SLO-95) passes their own
- * `password`, which is used verbatim.
+ * `password`, which is used verbatim; a customer created through Google or
+ * Facebook (SLO-251) passes `passwordless` and gets none.
  */
 class CreateCustomer
 {
@@ -43,7 +44,13 @@ class CreateCustomer
                 'phone' => $data['phone'] ?? null,
                 'locale' => $tenant->locale,
             ]);
-            $customer->password = Hash::make($data['password'] ?? Str::random(40));
+            // A social sign-up (SLO-251) has no password at all, rather than a
+            // throwaway one: "can this account sign in with a password" is a
+            // question the product asks (unlinking the last provider, set vs.
+            // change password).
+            $customer->password = ($data['passwordless'] ?? false) === true
+                ? null
+                : Hash::make($data['password'] ?? Str::random(40));
             $customer->save();
 
             $this->assignCustomerRole($customer, $tenant->getKey());

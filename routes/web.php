@@ -1,5 +1,9 @@
 <?php
 
+use App\Enums\SocialProvider;
+use App\Http\Controllers\Auth\SocialCallbackController;
+use App\Http\Controllers\Auth\SocialConsumeController;
+use App\Http\Controllers\Auth\SocialRedirectController;
 use App\Http\Controllers\ConsentController;
 use App\Http\Controllers\CookieConsentController;
 use App\Http\Controllers\DeployHealthController;
@@ -44,6 +48,20 @@ Route::domain(config('tenancy.central_domain'))->group(function () {
     Route::get('/legal/{legalDocument}', [LegalController::class, 'show'])
         ->whereNumber('legalDocument')
         ->name('legal.show');
+
+    // Social sign-in (SLO-251, docs/28). The redirect and consume steps exist on
+    // every host a person can sign in on (the tenant copies are in
+    // routes/tenant.php); the provider callback exists ONLY here, because it
+    // is the single redirect URI Google and Meta accept.
+    Route::middleware('throttle:social')->group(function () {
+        Route::get('/auth/social/consume', SocialConsumeController::class)->name('social.consume');
+        Route::get('/auth/{provider}/redirect', SocialRedirectController::class)
+            ->whereIn('provider', array_column(SocialProvider::cases(), 'value'))
+            ->name('social.redirect');
+        Route::get('/auth/{provider}/callback', SocialCallbackController::class)
+            ->whereIn('provider', array_column(SocialProvider::cases(), 'value'))
+            ->name('social.callback');
+    });
 
     // The cookie decision (SLO-165). Public and outside auth: someone declining
     // to be tracked cannot be asked to identify themselves first.

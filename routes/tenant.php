@@ -2,6 +2,7 @@
 
 use App\Enums\Feature;
 use App\Enums\Permission;
+use App\Enums\SocialProvider;
 use App\Http\Controllers\Admin\AnalyticsSettingsController;
 use App\Http\Controllers\Admin\BillingController;
 use App\Http\Controllers\Admin\BookingApprovalController;
@@ -29,6 +30,8 @@ use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\StaffController;
 use App\Http\Controllers\Admin\UserRbacController;
 use App\Http\Controllers\Admin\WaitlistController;
+use App\Http\Controllers\Auth\SocialConsumeController;
+use App\Http\Controllers\Auth\SocialRedirectController;
 use App\Http\Controllers\ConsentController;
 use App\Http\Controllers\CookieConsentController;
 use App\Http\Controllers\LegalController;
@@ -72,6 +75,17 @@ Route::middleware(['identify.tenant', 'ensure.tenant.active'])->group(function (
     Route::get('/demo/login', DemoLoginController::class)
         ->middleware(['signed', 'throttle:demo-login'])
         ->name('tenant.demo.login');
+
+    // Social sign-in on the tenant's hosts (SLO-251, docs/28) — the subdomain
+    // and, through the host rewrite, the tenant's own domain. Only the start
+    // and the token redemption: the provider callback is central-only
+    // (routes/web.php).
+    Route::middleware('throttle:social')->group(function () {
+        Route::get('/auth/social/consume', SocialConsumeController::class)->name('tenant.social.consume');
+        Route::get('/auth/{provider}/redirect', SocialRedirectController::class)
+            ->whereIn('provider', array_column(SocialProvider::cases(), 'value'))
+            ->name('tenant.social.redirect');
+    });
 
     // Per-tenant SEO machine assets (SLO-89). Not Inertia. The branded OG PNG is
     // lazily rendered with GD and cached to the public disk; a light throttle caps

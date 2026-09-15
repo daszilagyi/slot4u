@@ -2,12 +2,20 @@ import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import type { FormEvent } from 'react';
 
 import AuthLayout from '@/Layouts/AuthLayout';
+import {
+    SocialDivider,
+    SocialLoginButtons,
+} from '@/components/auth/SocialLoginButtons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useTranslations } from '@/lib/i18n';
 
-export default function Login() {
+export default function Login({
+    socialProviders = [],
+}: {
+    socialProviders?: string[];
+}) {
     const t = useTranslations();
     const { status } = usePage().props;
     const form = useForm({ email: '', password: '', remember: false });
@@ -36,6 +44,13 @@ export default function Login() {
 
             {status ? (
                 <p className="mb-4 text-sm font-medium text-primary">{status}</p>
+            ) : null}
+
+            {socialProviders.length > 0 ? (
+                <>
+                    <SocialLoginButtons providers={socialProviders} />
+                    <SocialDivider />
+                </>
             ) : null}
 
             <form onSubmit={submit} className="flex flex-col gap-4">
