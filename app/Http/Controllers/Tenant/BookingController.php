@@ -32,6 +32,8 @@ use App\Services\Booking\AvailabilityService;
 use App\Services\Booking\OnlineCancellation;
 use App\Services\Feature\FeatureResolver;
 use App\Services\Legal\LegalDocumentRegistry;
+use App\Services\SocialAuth\SocialAuthUrls;
+use App\Services\SocialAuth\SocialLoginCompleter;
 use App\Settings\TenantSettings;
 use App\Support\Analytics\PageAnalytics;
 use App\Support\IcsBuilder;
@@ -124,6 +126,11 @@ class BookingController extends Controller
                 'notes_hint' => $service->notesHint(),
             ],
             'timezone' => $timezone,
+            // "Continue with Google / Facebook" on the details step (SLO-252):
+            // offered to a guest only, and the name + address handed back when
+            // the provider account could not sign in here.
+            'social_providers' => $request->user() === null ? SocialAuthUrls::offeredOn($request) : [],
+            'social_prefill' => $request->session()->get(SocialLoginCompleter::PREFILL_KEY),
             'filters' => [
                 'staff' => $filters['staff'] ?? null,
                 'room' => $filters['room'] ?? null,
