@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Admin;
 
 use App\Enums\Permission;
+use App\Enums\SchedulableType;
 use App\Http\Requests\Concerns\ScopesSchedulable;
 use App\Models\Room;
 use App\Models\Schedule;
@@ -35,12 +36,11 @@ class ScheduleRequest extends FormRequest
     public function rules(): array
     {
         $tenantId = app(TenantManager::class)->id();
-        $type = (string) $this->input('schedulable_type');
-        // Map the morph alias to its backing table for the tenant-scoped exists rule.
-        $table = $type === 'room' ? 'rooms' : 'staff';
+        // The morph alias's backing table, for the tenant-scoped exists rule.
+        $table = SchedulableType::tryFrom((string) $this->input('schedulable_type'))?->table() ?? SchedulableType::Staff->table();
 
         return [
-            'schedulable_type' => ['required', Rule::in(['staff', 'room'])],
+            'schedulable_type' => ['required', Rule::enum(SchedulableType::class)],
             'schedulable_id' => [
                 'required',
                 'integer',
@@ -135,7 +135,7 @@ class ScheduleRequest extends FormRequest
         $type = (string) $this->input('schedulable_type');
         $schedulableId = $this->integer('schedulable_id');
 
-        if ($type === 'room') {
+        if ($type === SchedulableType::Room->value) {
             $room = Room::find($schedulableId);
             if ($room !== null && $room->location_id !== $locationId) {
                 $validator->errors()->add('location_id', __('app.admin.schedule.error.room_location'));

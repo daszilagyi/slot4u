@@ -2047,6 +2047,8 @@ return [
             'exceptions_subtitle' => 'Szabadság, ünnepnap vagy eseti extra nyitás.',
             'add_exception' => 'Kivétel hozzáadása',
             'no_exceptions' => 'Nincs rögzített kivétel.',
+            // SLO-81: a lista a jövőt és az elmúlt 3 hónapot mutatja.
+            'exceptions_since' => 'A :date előtti kivételek nem jelennek meg.',
             'exception' => [
                 'new_title' => 'Új kivétel',
                 'form_desc' => 'Adj meg egy dátumot és a kivétel típusát.',

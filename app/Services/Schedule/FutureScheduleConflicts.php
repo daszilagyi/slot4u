@@ -2,7 +2,9 @@
 
 namespace App\Services\Schedule;
 
+use App\Enums\SchedulableType;
 use App\Tenancy\TenantManager;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
@@ -27,14 +29,16 @@ class FutureScheduleConflicts
             return [];
         }
 
-        // M3 refines this to "bookings no longer covered by the new availability".
         // Column mapping mirrors docs/04: staff_id / room_id on the bookings table.
-        $column = $schedulableType === 'room' ? 'room_id' : 'staff_id';
+        $column = (SchedulableType::tryFrom($schedulableType) ?? SchedulableType::Staff)->bookingColumn();
+
+        $tenant = app(TenantManager::class)->current();
+        $timezone = $tenant !== null ? $tenant->timezone : (string) config('app.timezone');
 
         // This raw query bypasses the BelongsToTenant global scope, so scope it
-        // to the current tenant explicitly (defense-in-depth for the M3 engine).
+        // to the current tenant explicitly.
         return DB::table('bookings')
-            ->where('tenant_id', app(TenantManager::class)->id())
+            ->where('tenant_id', $tenant?->getKey())
             ->where($column, $schedulableId)
             ->where('starts_at', '>', now())
             ->whereNotIn('status', ['canceled', 'no_show'])
@@ -44,7 +48,10 @@ class FutureScheduleConflicts
             ->map(fn ($row) => [
                 'id' => (int) $row->id,
                 'code' => $row->code,
-                'starts_at' => (string) $row->starts_at,
+                // Stored in UTC; the admin reads it in the tenant's time (docs/01 §7).
+                // The raw column went out as-is and showed a Budapest admin a
+                // booking two hours early in summer (SLO-81).
+                'starts_at' => Carbon::parse((string) $row->starts_at, 'UTC')->setTimezone($timezone)->format('Y-m-d H:i'),
             ])
             ->all();
     }

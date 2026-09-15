@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Admin;
 
 use App\Enums\Permission;
+use App\Enums\SchedulableType;
 use App\Enums\ScheduleExceptionType;
 use App\Http\Requests\Concerns\ScopesSchedulable;
 use App\Tenancy\TenantManager;
@@ -31,10 +32,10 @@ class ScheduleExceptionRequest extends FormRequest
     public function rules(): array
     {
         $tenantId = app(TenantManager::class)->id();
-        $table = $this->input('schedulable_type') === 'room' ? 'rooms' : 'staff';
+        $table = SchedulableType::tryFrom((string) $this->input('schedulable_type'))?->table() ?? SchedulableType::Staff->table();
 
         return [
-            'schedulable_type' => ['required', Rule::in(['staff', 'room'])],
+            'schedulable_type' => ['required', Rule::enum(SchedulableType::class)],
             'schedulable_id' => [
                 'required',
                 'integer',

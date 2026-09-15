@@ -37,6 +37,8 @@ type IndexProps = {
     schedules: ScheduleBand[];
     exceptions: ScheduleExceptionEntry[];
     exceptionTypes: ScheduleExceptionTypeValue[];
+    /** The earliest exception date listed (Y-m-d); older ones are left out (SLO-81). */
+    exceptionsSince: string;
     conflicts: ScheduleConflict[];
     /** The lists hold the actor's own resources only (SLO-177, employee "saját"). */
     restricted: boolean;
@@ -71,6 +73,7 @@ export default function ScheduleIndex({
     schedules,
     exceptions,
     exceptionTypes,
+    exceptionsSince,
     conflicts,
     restricted,
 }: IndexProps) {
@@ -495,6 +498,11 @@ export default function ScheduleIndex({
                             </h2>
                             <p className="text-sm text-muted-foreground">
                                 {t('admin.schedule.exceptions_subtitle')}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                                {t('admin.schedule.exceptions_since', {
+                                    date: exceptionsSince,
+                                })}
                             </p>
                         </div>
                         <Button variant="outline" onClick={openCreateException}>

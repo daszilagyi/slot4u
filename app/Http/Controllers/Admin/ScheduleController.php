@@ -18,9 +18,11 @@ use App\Models\Staff;
 use App\Models\User;
 use App\Services\Schedule\FutureScheduleConflicts;
 use App\Support\ScheduleVisibility;
+use App\Tenancy\TenantManager;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Gate;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -41,6 +43,9 @@ use Inertia\Response;
  */
 class ScheduleController extends Controller
 {
+    /** How far back the exception list reaches; the future is always listed. */
+    private const int EXCEPTION_HISTORY_MONTHS = 3;
+
     public function index(Request $request): Response
     {
         Gate::authorize('viewAny', Schedule::class);
@@ -53,8 +58,14 @@ class ScheduleController extends Controller
             ->orderBy('start_time')
             ->get();
 
+        // The future and a short past only (SLO-81). Every past holiday for years
+        // back came along on each visit to a page staff open daily, a query that
+        // only grows. "Today" is the tenant's, not the server's.
+        $since = Carbon::now($this->tenantTimezone())->subMonths(self::EXCEPTION_HISTORY_MONTHS)->toDateString();
+
         $exceptions = ScheduleException::query()
             ->tap(fn ($query) => ScheduleVisibility::apply($query, $actor))
+            ->whereDate('date', '>=', $since)
             ->orderBy('date')
             ->get();
 
@@ -64,6 +75,7 @@ class ScheduleController extends Controller
             'schedules' => $schedules->map(fn (Schedule $schedule) => $this->scheduleData($schedule))->values(),
             'exceptions' => $exceptions->map(fn (ScheduleException $exception) => $this->exceptionData($exception))->values(),
             'exceptionTypes' => ScheduleExceptionType::values(),
+            'exceptionsSince' => $since,
             // Whether the page is showing the actor's own resources only (SLO-177).
             // The lists above are already narrowed; this only lets the UI say the
             // right thing when they come back empty — "ask an admin to link you to
@@ -199,5 +211,10 @@ class ScheduleController extends Controller
     private function backWithConflicts(FutureScheduleConflicts $conflicts, string $type, int $id): RedirectResponse
     {
         return back()->with('scheduleConflicts', $conflicts->forSchedulable($type, $id));
+    }
+
+    private function tenantTimezone(): string
+    {
+        return app(TenantManager::class)->current()->timezone ?? (string) config('app.timezone');
     }
 }
