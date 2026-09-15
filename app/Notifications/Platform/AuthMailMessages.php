@@ -30,9 +30,9 @@ final class AuthMailMessages
     public static function verifyEmail(object $notifiable, string $url): MailMessage
     {
         return self::text('verify_email')->applyTo(
-            (new MailMessage)->greeting(__('app.mail.verify_email.greeting', ['name' => $notifiable->name])),
+            new MailMessage,
             ['name' => $notifiable->name, 'count' => config('auth.verification.expire', 60)],
-            [__('app.mail.verify_email.action'), $url],
+            $url,
         );
     }
 
@@ -47,9 +47,9 @@ final class AuthMailMessages
         $expire = config('auth.passwords.'.config('auth.defaults.passwords').'.expire');
 
         return self::text('reset_password')->applyTo(
-            (new MailMessage)->greeting(__('app.mail.reset_password.greeting', ['name' => $notifiable->name])),
+            new MailMessage,
             ['name' => $notifiable->name, 'count' => $expire],
-            [__('app.mail.reset_password.action'), $url],
+            $url,
         );
     }
 

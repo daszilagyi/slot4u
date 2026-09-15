@@ -5,6 +5,7 @@ namespace App\Notifications;
 use App\Models\Message;
 use App\Models\Tenant;
 use App\Notifications\Concerns\SuppressedForDemoTenant;
+use App\Services\Mail\MailTextStore;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -12,7 +13,7 @@ use Illuminate\Notifications\Notification;
 
 /**
  * Tells a staff member that a customer wrote (SLO-36). Staff-facing, so not a
- * tenant-editable template. Like the customer mail, it carries the customer's
+ * tenant-editable template; the superadmin edits it (SLO-258). Like the customer mail, it carries the customer's
  * name but not the message text ({@see MessageReceivedNotification}).
  */
 class CustomerMessageNotification extends Notification implements ShouldQueue
@@ -37,14 +38,12 @@ class CustomerMessageNotification extends Notification implements ShouldQueue
 
     public function toMail(object $notifiable): MailMessage
     {
-        $mail = (new MailMessage)
-            ->subject(__('app.mail.customer_message.subject', ['customer' => $this->customerName]))
-            ->greeting(__('app.mail.customer_message.greeting', ['name' => $notifiable->name]))
-            ->line(__('app.mail.customer_message.intro', [
-                'customer' => $this->customerName,
-                'tenant' => $this->tenant->name,
-            ]))
-            ->action(__('app.mail.customer_message.action'), $this->threadUrl());
+        // The superadmin's wording if edited (SLO-258), else the lang default.
+        $mail = app(MailTextStore::class)->resolve('customer_message', (string) $this->tenant->locale)->applyTo(
+            new MailMessage,
+            ['name' => $notifiable->name, 'customer' => $this->customerName, 'tenant' => $this->tenant->name],
+            $this->threadUrl(),
+        );
 
         return $this->suppressWhenDemo($mail, $this->tenant);
     }

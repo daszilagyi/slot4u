@@ -35,7 +35,21 @@ class MailTextStore
     {
         $row = $this->rows($locale)[$key] ?? null;
 
-        return $row === null ? null : new MailText($row['subject'], $row['body'], $row['outro']);
+        if ($row === null) {
+            return null;
+        }
+
+        // A part left empty — a row saved before the greeting and the label
+        // were editable (SLO-258) — keeps its lang default.
+        $default = $this->catalog->default($key);
+
+        return new MailText(
+            subject: $row['subject'],
+            body: $row['body'],
+            outro: $this->catalog->hasOutro($key) ? $row['outro'] : null,
+            greeting: $row['greeting'] ?? $default->greeting,
+            actionLabel: $this->catalog->hasButton($key) ? ($row['action_label'] ?? $default->actionLabel) : null,
+        );
     }
 
     /** What a mail renders with: the stored text, else the lang default. */
@@ -48,13 +62,16 @@ class MailTextStore
     {
         $before = $this->stored($key, $locale) ?? $this->catalog->default($key);
         $outro = $this->catalog->hasOutro($key) ? $text->outro : null;
+        $actionLabel = $this->catalog->hasButton($key) ? $text->actionLabel : null;
 
-        DB::transaction(function () use ($key, $locale, $text, $outro, $before): void {
+        DB::transaction(function () use ($key, $locale, $text, $outro, $actionLabel, $before): void {
             $row = PlatformMailText::query()->updateOrCreate(
                 ['key' => $key, 'locale' => $locale],
                 [
                     'subject' => $text->subject,
+                    'greeting' => $text->greeting,
                     'body' => $text->body,
+                    'action_label' => $actionLabel,
                     'outro' => $outro,
                     'updated_by' => Auth::id(),
                 ],
@@ -64,7 +81,7 @@ class MailTextStore
                 AuditAction::MailTextUpdated,
                 $row,
                 ['key' => $key, 'locale' => $locale, ...$this->values($before)],
-                ['key' => $key, 'locale' => $locale, 'subject' => $text->subject, 'body' => $text->body, 'outro' => $outro],
+                ['key' => $key, 'locale' => $locale, ...$this->values(new MailText($text->subject, $text->body, $outro, $text->greeting, $actionLabel))],
             );
         });
 
@@ -95,18 +112,20 @@ class MailTextStore
     }
 
     /**
-     * @return array<string, array{subject: string, body: string, outro: string|null}>
+     * @return array<string, array{subject: string, greeting: string|null, body: string, action_label: string|null, outro: string|null}>
      */
     private function rows(string $locale): array
     {
         try {
-            /** @var array<string, array{subject: string, body: string, outro: string|null}> */
+            /** @var array<string, array{subject: string, greeting: string|null, body: string, action_label: string|null, outro: string|null}> */
             return Cache::rememberForever(self::CACHE_PREFIX.$locale, fn (): array => PlatformMailText::query()
                 ->where('locale', $locale)
-                ->get(['key', 'subject', 'body', 'outro'])
+                ->get(['key', 'subject', 'greeting', 'body', 'action_label', 'outro'])
                 ->mapWithKeys(fn (PlatformMailText $row): array => [$row->key => [
                     'subject' => $row->subject,
+                    'greeting' => $row->greeting,
                     'body' => $row->body,
+                    'action_label' => $row->action_label,
                     'outro' => $row->outro,
                 ]])
                 ->all());
@@ -116,10 +135,16 @@ class MailTextStore
     }
 
     /**
-     * @return array{subject: string, body: string, outro: string|null}
+     * @return array{subject: string, greeting: string, body: string, action_label: string|null, outro: string|null}
      */
     private function values(MailText $text): array
     {
-        return ['subject' => $text->subject, 'body' => $text->body, 'outro' => $text->outro];
+        return [
+            'subject' => $text->subject,
+            'greeting' => $text->greeting,
+            'body' => $text->body,
+            'action_label' => $text->actionLabel,
+            'outro' => $text->outro,
+        ];
     }
 }

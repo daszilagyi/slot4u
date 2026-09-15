@@ -36,9 +36,9 @@ class SocialEmailConfirmationNotification extends Notification
     {
         // The superadmin's wording if edited (SLO-246), else the lang default.
         return app(MailTextStore::class)->resolve('social_email_confirmation', app()->getLocale())->applyTo(
-            (new MailMessage)->greeting(__('app.mail.social_email_confirmation.greeting', ['name' => $this->name])),
+            new MailMessage,
             ['name' => $this->name, 'tenant' => $this->siteName, 'count' => $this->minutes],
-            [__('app.mail.social_email_confirmation.action'), $this->url],
+            $this->url,
         );
     }
 }

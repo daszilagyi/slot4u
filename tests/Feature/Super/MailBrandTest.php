@@ -63,7 +63,9 @@ it('shows the built-in brand to the superadmin', function () {
             ->where('brand.header_background', '#0D1B2A')
             ->where('brand.button_background', '#F4B942')
             ->where('brand.has_logo', false)
-            ->where('customised', false));
+            ->where('customised', false)
+            // The switch to the texts page names how many mails it holds (SLO-258).
+            ->where('mail_count', 19));
 });
 
 it('keeps a tenant admin out of the mail brand, even holding every permission', function () {

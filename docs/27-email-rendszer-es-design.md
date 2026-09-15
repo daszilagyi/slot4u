@@ -26,6 +26,7 @@ Minden levél `MailMessage`-alapú notification, tehát **mind ugyanazon a keret
 | `CommissionInvoiceNotification` (3 változat) | tenant adminok | slot4u |
 | `TenantArchivedNotification` | tenant adminok | slot4u |
 | `CustomerMessageNotification` | staff | slot4u |
+| `SocialEmailConfirmationNotification`, `SocialAccountChangedNotification` (2 változat) | social belépő / fióktulajdonos | slot4u |
 | 8 × `TenantMailNotification` (foglalás visszaigazolva / módosítva / lemondva / elutasítva, várólista-ajánlat, árajánlat, 24 órás emlékeztető, új üzenet) | ügyfél / vendég | **tenant** |
 
 ## 3. A keret (SLO-244)
@@ -70,18 +71,22 @@ Minden levél `MailMessage`-alapú notification, tehát **mind ugyanazon a keret
 
 **Hibatűrés:** ha a beállítás nem olvasható (pl. deploy a kódváltás és a migráció között), a binding `QueryException`-re a kódbeli alapmárkát adja, és a levél kimegy.
 
-## 5. Superadmin levélszöveg-szerkesztő (SLO-246)
+## 5. Superadmin levélszöveg-szerkesztő (SLO-246, SLO-258)
 
-**Hol:** `admin.{central}/emails/templates` (a vezérlőpult „Levélszövegek” linkje). Jogosultság: host (`ensure.superadmin` + `ensure.2fa`) + `PlatformMailTextPolicy::manage`. Tenant admin minden jogosultsággal is 403, ismeretlen levélkulcs 404.
+**Hol:** `admin.{central}/emails/templates` (a vezérlőpult „Levélszövegek” linkje). Mindkét email-oldal tetején „Vissza a vezérlőpultra” link és egy fülsor van: **Email-design** (a közös keret, §4) ↔ **Levélszövegek (N levél)** (`MailSettingsNav`, SLO-258). Enélkül a design-oldal úgy tűnt, mintha az lenne az egyetlen sablon. Jogosultság: host (`ensure.superadmin` + `ensure.2fa`) + `PlatformMailTextPolicy::manage`. Tenant admin minden jogosultsággal is 403, ismeretlen levélkulcs 404.
 
 **Mit szerkeszt** (`App\Services\Mail\MailTextCatalog`):
 
 | Csoport | Levelek | Szerkeszthető rész |
 |---|---|---|
-| slot4u levelei | `verify_email`, `reset_password`, `staff_invitation`, `commission_invoice_issued` / `_overdue` / `_suspended`, `tenant_archived`, `social_email_confirmation`, `social_account_linked` / `_unlinked` (SLO-252, docs/28 §5) | tárgy, szöveg a gomb **előtt**, szöveg a gomb **után** (az archiválásnál nincs gomb → nincs „után” rész) |
-| Ügyféllevelek (alapszöveg) | a tenant szerkesztő (SLO-114) 8 típusa: `booking_confirmed`, `booking_modified`, `booking_canceled`, `booking_rejected`, `waitlist_offer`, `reminder_24h`, `quote_ready`, `message_received` | tárgy + szöveg, ugyanaz az alak, mint a tenant felülírásé |
+| Tenantnak, dolgozóknak, fiókhoz (11) | `verify_email`, `reset_password`, `staff_invitation`, `commission_invoice_issued` / `_overdue` / `_suspended`, `tenant_archived`, `social_email_confirmation`, `social_account_linked` / `_unlinked` (SLO-252, docs/28 §5), `customer_message` (dolgozónak: ügyfél üzenetet írt, SLO-258) | tárgy, **köszönés**, szöveg a gomb **előtt**, **gombfelirat**, szöveg a gomb **után** (gomb nélküli levélnél — archiválás, social link/unlink — nincs felirat és nincs „után” rész) |
+| Ügyféllevelek (alapszöveg, 8) | a tenant szerkesztő (SLO-114) 8 típusa: `booking_confirmed`, `booking_modified`, `booking_canceled`, `booking_rejected`, `waitlist_offer`, `reminder_24h`, `quote_ready`, `message_received` | tárgy + szöveg (ugyanaz az alak, mint a tenant felülírásé), **köszönés**, **gombfelirat** |
 
-**Nem szerkeszthető:** a köszönés, a gomb felirata és URL-je, az ügyféllevél záró „válaszolj erre” sora (SLO-171), és a keret. Így szövegszerkesztéssel link és elrendezés nem rontható el. A `customer_message` (staffnak szóló értesítő) nincs a listában.
+Ez a **teljes leltár (19 levél)**: minden `MailMessage`-t építő notification szerepel (§2). A `payment_*` típusok még nem küldenek levelet.
+
+**Nem szerkeszthető:** a gomb URL-je, az ügyféllevél záró „válaszolj erre” sora (SLO-171), és a keret. Így szövegszerkesztéssel link és elrendezés nem rontható el.
+
+**Köszönés és gombfelirat ügyféllevélnél (SLO-258):** a tenant csak tárgyat és szöveget ír felül, ezért a köszönés és a gombfelirat a superadmin szövegéből jön **akkor is, ha a tenantnak saját felülírása van**. Ha a superadmin nem szerkesztette a levelet, a lang alap marad (`app.mail.greeting`, `<típus>.action`). Mindkettőben használhatók a levél változói (pl. `Nézd meg: :code`).
 
 **Feloldási sorrend ügyféllevélnél** (`TenantMailNotification::toMail`): tenant engedélyezett felülírása → a superadmin szövege a tenant nyelvén → a notification beépített `defaultMail`-je. ⚠️ Csak a beépített alapnak vannak feltételes sorai (lemondási tipp, „ugyanezt az email címet add meg”). A szerkesztett szöveg egy fix törzs, pontosan úgy, ahogy a tenant felülírása is mindig volt.
 
@@ -99,7 +104,7 @@ Az előnézet ezeket nem tiltja, hanem megmutatja.
 
 **Nyelv:** a superadmin a platform nyelvén (`app.locale`) szerkeszt. Más nyelvű tenant sort nem talál, ezért a saját nyelve lang alapját kapja.
 
-**Tárolás:** `platform_mail_texts` (`key` + `locale` unique, `subject`, `body`, `outro` nullable, `updated_by`). **Nem `BelongsToTenant`**. Nyelvenként egy cache-bejegyzés (`rememberForever`), íráskor a commit után felejtődik. Ha a tábla nem olvasható, minden levél a lang alapon megy ki.
+**Tárolás:** `platform_mail_texts` (`key` + `locale` unique, `subject`, `greeting` nullable, `body`, `action_label` nullable, `outro` nullable, `updated_by`). Az SLO-258 előtt mentett sorban a `greeting`/`action_label` null → az a rész a lang alapot kapja. Gombfeliratot csak gombos levélhez tárolunk; a köszönés és (gombos levélnél) a felirat mentéskor kötelező. **Nem `BelongsToTenant`**. Nyelvenként egy cache-bejegyzés (`rememberForever`), íráskor a commit után felejtődik. Ha a tábla nem olvasható, minden levél a lang alapon megy ki.
 
 **Audit:** `platform.mail_text_updated` / `platform.mail_text_reset` (kulcs, nyelv, régi és új szöveg), `tenant_id = null`. Soha nem szerkesztett levél visszaállítása nem naplóz.
 

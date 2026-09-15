@@ -4,6 +4,7 @@ import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import AppLayout from '@/Layouts/AppLayout';
+import MailSettingsNav from '@/components/super/MailSettingsNav';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +21,7 @@ type EditProps = {
     };
     defaults: Record<ColourKey, string>;
     customised: boolean;
+    mail_count: number;
 };
 
 type Sample = 'platform' | 'tenant';
@@ -46,6 +48,7 @@ export default function SuperMailBrandEdit({
     brand,
     defaults,
     customised,
+    mail_count,
 }: EditProps) {
     const t = useTranslations();
 
@@ -151,6 +154,8 @@ export default function SuperMailBrandEdit({
             <Head title={t('super.mail_brand.title')} />
 
             <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6">
+                <MailSettingsNav current="design" mailCount={mail_count} />
+
                 <header className="flex flex-col gap-2">
                     <div className="flex flex-wrap items-center gap-3">
                         <h1 className="text-xl font-semibold tracking-tight">

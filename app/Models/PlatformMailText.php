@@ -16,7 +16,9 @@ use Illuminate\Support\Carbon;
  * @property string $key
  * @property string $locale
  * @property string $subject
+ * @property string|null $greeting
  * @property string $body
+ * @property string|null $action_label
  * @property string|null $outro
  * @property int|null $updated_by
  * @property Carbon|null $created_at
@@ -24,7 +26,7 @@ use Illuminate\Support\Carbon;
  */
 class PlatformMailText extends Model
 {
-    protected $fillable = ['key', 'locale', 'subject', 'body', 'outro', 'updated_by'];
+    protected $fillable = ['key', 'locale', 'subject', 'greeting', 'body', 'action_label', 'outro', 'updated_by'];
 
     protected function casts(): array
     {

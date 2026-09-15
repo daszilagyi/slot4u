@@ -17,7 +17,9 @@ class PreviewMailTextRequest extends UpdateMailTextRequest
     {
         return [
             'subject' => ['nullable', 'string', 'max:255'],
+            'greeting' => ['nullable', 'string', 'max:255'],
             'body' => ['nullable', 'string', 'max:5000'],
+            'action_label' => ['nullable', 'string', 'max:120'],
             'outro' => ['nullable', 'string', 'max:2000'],
         ];
     }

@@ -42,7 +42,7 @@ class MailTextController extends Controller
                 'key' => $key,
                 'group' => $this->catalog->group($key),
                 'has_outro' => $this->catalog->hasOutro($key),
-                'has_button' => $this->catalog->actionLabel($key) !== null,
+                'has_button' => $this->catalog->hasButton($key),
                 'variables' => $this->catalog->variables($key),
                 'default' => $this->text($default),
                 'stored' => $stored === null ? null : $this->text($stored),
@@ -57,11 +57,7 @@ class MailTextController extends Controller
 
     public function update(UpdateMailTextRequest $request, string $key): RedirectResponse
     {
-        $this->store->save($key, $this->locale(), new MailText(
-            subject: (string) $request->validated('subject'),
-            body: (string) $request->validated('body'),
-            outro: $request->validated('outro'),
-        ));
+        $this->store->save($key, $this->locale(), $request->mailText());
 
         return back()->with('status', __('app.super.mail_texts.saved'));
     }
@@ -78,11 +74,7 @@ class MailTextController extends Controller
 
     public function preview(PreviewMailTextRequest $request, MailTextPreviewRenderer $renderer, string $key): JsonResponse
     {
-        return response()->json($renderer->render($key, new MailText(
-            subject: (string) $request->validated('subject'),
-            body: (string) $request->validated('body'),
-            outro: $this->catalog->hasOutro($key) ? $request->validated('outro') : null,
-        )));
+        return response()->json($renderer->render($key, $request->mailText()));
     }
 
     /**
@@ -95,10 +87,16 @@ class MailTextController extends Controller
     }
 
     /**
-     * @return array{subject: string, body: string, outro: string|null}
+     * @return array{subject: string, greeting: string, body: string, action_label: string|null, outro: string|null}
      */
     private function text(MailText $text): array
     {
-        return ['subject' => $text->subject, 'body' => $text->body, 'outro' => $text->outro];
+        return [
+            'subject' => $text->subject,
+            'greeting' => $text->greeting,
+            'body' => $text->body,
+            'action_label' => $text->actionLabel,
+            'outro' => $text->outro,
+        ];
     }
 }
