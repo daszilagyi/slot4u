@@ -29,6 +29,13 @@ class OgImageGenerator
     private const HEIGHT = 630;
 
     /**
+     * Part of the cache key, so a change to how the image is DRAWN — not only to
+     * the branding it is drawn from — reaches every tenant's cached file and the
+     * crawlers' `?v=` copies. v2: the shared contrast rule (SLO-180).
+     */
+    private const RENDER_VERSION = 'v2';
+
+    /**
      * Resolved branding per tenant, memoised so a single OG-image request (which
      * computes the cacheKey and then renders) resolves the feature-gate once.
      *
@@ -61,7 +68,21 @@ class OgImageGenerator
     {
         $branding = $this->effectiveBranding($tenant);
 
-        return substr(sha1($tenant->name.'|'.$branding->primaryColor.'|'.($branding->logoPath ?? '')), 0, 12);
+        return substr(sha1(self::RENDER_VERSION.'|'.$tenant->name.'|'.$branding->primaryColor.'|'.($branding->logoPath ?? '')), 0, 12);
+    }
+
+    /**
+     * Whether the text on this brand colour is near-black rather than white.
+     *
+     * The same question the booking page answers for its buttons, so it takes
+     * the same answer: {@see TenantBranding::readableForeground()}. This used to
+     * be a formula of its own (un-linearised luminance > 0.6), and on colours
+     * like orange (#FF8800) the share image put white text where the page put black
+     * (SLO-180).
+     */
+    public function usesDarkText(string $hex): bool
+    {
+        return TenantBranding::readableForeground($hex) === '#000000';
     }
 
     /**
@@ -98,8 +119,7 @@ class OgImageGenerator
         imagefilledrectangle($img, 0, self::HEIGHT - 96, self::WIDTH, self::HEIGHT, $band);
 
         // Contrast-aware text colour: light brands get near-black text, dark ones white.
-        $useDark = $this->relativeLuminance($r, $g, $b) > 0.6;
-        $text = $useDark
+        $text = $this->usesDarkText($branding->primaryColor)
             ? imagecolorallocate($img, 17, 17, 17)
             : imagecolorallocate($img, 255, 255, 255);
 
@@ -291,11 +311,5 @@ class OgImageGenerator
             (int) hexdec(substr($hex, 2, 2)),
             (int) hexdec(substr($hex, 4, 2)),
         ];
-    }
-
-    private function relativeLuminance(int $r, int $g, int $b): float
-    {
-        // Simple perceptual luminance (sRGB coefficients), 0..1.
-        return (0.2126 * $r + 0.7152 * $g + 0.0722 * $b) / 255;
     }
 }
