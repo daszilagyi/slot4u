@@ -55,14 +55,19 @@ it('shows a platform document on a tenant host too', function () {
     Tenant::factory()->active()->create(['slug' => 'acme']);
     $platform = LegalDocument::factory()->platform()->terms()->create();
 
-    $this->get(tenantHost('acme', '/legal/'.$platform->id))->assertSuccessful();
+    // …inside that tenant's own public shell (SLO-255).
+    $this->get(tenantHost('acme', '/legal/'.$platform->id))
+        ->assertSuccessful()
+        ->assertInertia(fn ($page) => $page->where('onPlatform', false));
 });
 
 it('shows a platform document on the central domain', function () {
     $platform = LegalDocument::factory()->platform()->terms()->create();
 
+    // No tenant to brand it with: the slot4u shell, not an empty tenant one (SLO-255).
     $this->get('http://'.config('tenancy.central_domain').'/legal/'.$platform->id)
-        ->assertSuccessful();
+        ->assertSuccessful()
+        ->assertInertia(fn ($page) => $page->where('onPlatform', true));
 });
 
 it('404s on a tenant document from the central domain', function () {
