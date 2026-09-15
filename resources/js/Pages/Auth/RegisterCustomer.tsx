@@ -2,6 +2,10 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import { type FormEvent } from 'react';
 
 import AuthLayout from '@/Layouts/AuthLayout';
+import {
+    SocialDivider,
+    SocialLoginButtons,
+} from '@/components/auth/SocialLoginButtons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,7 +18,11 @@ import { useLegalConsentFields } from '@/lib/legal';
  * `/register` route is host-aware: on `{tenant}.{central}` it creates a
  * customer for that tenant and lands them in the members area.
  */
-export default function RegisterCustomer() {
+export default function RegisterCustomer({
+    socialProviders = [],
+}: {
+    socialProviders?: string[];
+}) {
     const t = useTranslations();
     const legalFields = useLegalConsentFields();
     const form = useForm({
@@ -44,6 +52,13 @@ export default function RegisterCustomer() {
             }
         >
             <Head title={t('auth.register_customer.title')} />
+
+            {socialProviders.length > 0 ? (
+                <>
+                    <SocialLoginButtons providers={socialProviders} />
+                    <SocialDivider />
+                </>
+            ) : null}
 
             <form onSubmit={submit} className="flex flex-col gap-4">
                 <div className="flex flex-col gap-2">
