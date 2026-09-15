@@ -1,6 +1,7 @@
 <?php
 
 use App\Enums\SocialProvider;
+use App\Http\Controllers\Auth\FacebookDataDeletionController;
 use App\Http\Controllers\Auth\SocialCallbackController;
 use App\Http\Controllers\Auth\SocialConsumeController;
 use App\Http\Controllers\Auth\SocialEmailController;
@@ -67,6 +68,20 @@ Route::domain(config('tenancy.central_domain'))->group(function () {
         Route::get('/auth/{provider}/callback', SocialCallbackController::class)
             ->whereIn('provider', array_column(SocialProvider::cases(), 'value'))
             ->name('social.callback');
+    });
+
+    // Meta's user data deletion callback and its pages (SLO-253, docs/28 §6).
+    // The POST is signed by Meta (signed_request) and CSRF-exempt
+    // (bootstrap/app.php); the pages are public, like a privacy notice.
+    Route::post('/auth/facebook/data-deletion', [FacebookDataDeletionController::class, 'callback'])
+        ->middleware('throttle:webhook')
+        ->name('social.facebook.data_deletion');
+    Route::middleware('throttle:public')->group(function () {
+        Route::get('/facebook/data-deletion', [FacebookDataDeletionController::class, 'instructions'])
+            ->name('social.facebook.data_deletion.instructions');
+        Route::get('/facebook/data-deletion/{code}', [FacebookDataDeletionController::class, 'status'])
+            ->where('code', '[A-Za-z0-9]{20}')
+            ->name('social.facebook.data_deletion.status');
     });
 
     // The cookie decision (SLO-165). Public and outside auth: someone declining
