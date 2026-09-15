@@ -1,11 +1,13 @@
 <?php
 
+use App\Enums\Role;
 use App\Models\CommissionSetting;
 use App\Models\Tenant;
 use App\Models\User;
 use Database\Seeders\CommissionSettingSeeder;
 use Illuminate\Support\Carbon;
 use Inertia\Testing\AssertableInertia as Assert;
+use Spatie\Permission\PermissionRegistrar;
 
 /*
 |--------------------------------------------------------------------------
@@ -161,8 +163,8 @@ it('offers the registration the landing sends people to', function () {
 |
 */
 
-/** A staff user inside a tenant, signed in the way the shared cookie leaves them. */
-function welcomeVisitorFrom(bool $isDemo, string $slug): User
+/** A tenant user, signed in the way the shared cookie leaves them. Staff by default. */
+function welcomeVisitorFrom(bool $isDemo, string $slug, Role $role = Role::TenantAdmin): User
 {
     $tenant = Tenant::factory()->active()->create(['slug' => $slug]);
 
@@ -171,7 +173,14 @@ function welcomeVisitorFrom(bool $isDemo, string $slug): User
         $tenant->save();
     }
 
-    return User::factory()->create(['tenant_id' => $tenant->getKey()]);
+    $user = User::factory()->create(['tenant_id' => $tenant->getKey()]);
+
+    $registrar = app(PermissionRegistrar::class);
+    $registrar->setPermissionsTeamId($tenant->getKey());
+    $user->assignRole($role->value);
+    $registrar->setPermissionsTeamId(null);
+
+    return $user;
 }
 
 it('⚠️ still treats someone who only tried the demo as a prospect', function () {
@@ -204,5 +213,32 @@ it('sends a real customer back to their own workspace, on their own subdomain', 
                 'auth.user.workspace_url',
                 'http://valodi-ugyfel.'.config('tenancy.central_domain').'/dashboard',
             )
+        );
+});
+
+it('⚠️ sends a superadmin to the admin panel, not back to the page already open', function () {
+    // The production bug (SLO-249). A superadmin has no tenant, so the prop was
+    // null and the header button fell back to `/` — the home page they were
+    // already on. The button looked dead.
+    $this->actingAs(superAdmin());
+
+    $this->get(centralUrl())
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('auth.user.is_demo_visitor', false)
+            ->where('auth.user.workspace_url', superUrl('/'))
+        );
+});
+
+it('sends a customer to their members area, not a staff dashboard that refuses them', function () {
+    // A customer account on a real tenant: `/dashboard` sits behind
+    // ensure.staff, so the old link was a 403 (SLO-249). Signing in already
+    // sends them to /my/bookings; the button now agrees.
+    $this->actingAs(welcomeVisitorFrom(isDemo: false, slug: 'vendeg-ugyfel', role: Role::Customer));
+
+    $this->get(centralUrl())
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->where('auth.user.workspace_url', tenantHost('vendeg-ugyfel', '/my/bookings'))
         );
 });

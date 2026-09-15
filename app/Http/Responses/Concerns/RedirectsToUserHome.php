@@ -3,6 +3,7 @@
 namespace App\Http\Responses\Concerns;
 
 use App\Models\User;
+use App\Support\UserHomeUrl;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -32,23 +33,8 @@ trait RedirectsToUserHome
 
     private function userHomeUrl(User $user, Request $request): string
     {
-        $scheme = $request->getScheme();
-        $central = config('tenancy.central_domain');
-
-        if ($user->isSuperAdmin()) {
-            return $scheme.'://'.config('tenancy.admin_subdomain').'.'.$central.'/';
-        }
-
         // A non-super-admin always carries a tenant (invariant); guard against a
         // broken record producing a bogus `http://.{central}` host.
-        $tenant = $user->tenant;
-
-        if ($tenant === null) {
-            abort(403);
-        }
-
-        $path = $user->isStaff() ? '/dashboard' : '/my/bookings';
-
-        return $scheme.'://'.$tenant->slug.'.'.$central.$path;
+        return UserHomeUrl::for($user, $request->getScheme()) ?? abort(403);
     }
 }

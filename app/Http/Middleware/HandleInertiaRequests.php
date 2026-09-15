@@ -14,6 +14,7 @@ use App\Support\ConsentScope;
 use App\Support\CookieConsent;
 use App\Support\MarketingSurface;
 use App\Support\MessageVisibility;
+use App\Support\UserHomeUrl;
 use App\Tenancy\TenantManager;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
@@ -267,8 +268,9 @@ class HandleInertiaRequests extends Middleware
      *
      * - `is_demo_visitor` — they signed into a demo. That is a trial, not an
      *   account, so the marketing site should keep treating them as a prospect.
-     * - `workspace_url` — for a real customer, where their own workspace lives.
-     *   The central domain cannot derive it; it is on their own subdomain.
+     * - `workspace_url` — for everyone else, where signing in would have sent
+     *   them: a superadmin's admin panel, a staff member's dashboard, a
+     *   customer's members area. Never this host, so always absolute.
      *
      * ⚠️ Only computed on the central domain. Everywhere else the marketing
      * shell is not rendered, and this would be a tenant lookup on every single
@@ -284,21 +286,17 @@ class HandleInertiaRequests extends Middleware
 
         $tenant = $user->tenant;
 
-        if ($tenant === null) {
-            // A superadmin: no workspace of their own, and no demo about it.
-            return ['is_demo_visitor' => false, 'workspace_url' => null];
-        }
-
-        $scheme = request()->isSecure() ? 'https' : 'http';
-
         return [
-            'is_demo_visitor' => $tenant->is_demo,
+            // A superadmin has no tenant, so no demo either.
+            'is_demo_visitor' => $tenant !== null && $tenant->is_demo,
             // A demo tenant gets no workspace link: sending a prospect into the
             // demo dashboard is not the same offer as sending a customer to
-            // their own, and one button cannot honestly mean both.
-            'workspace_url' => $tenant->is_demo
+            // their own, and one button cannot honestly mean both. Everyone
+            // else goes where signing in would have sent them — a superadmin to
+            // the admin panel, a customer to the members area (SLO-249).
+            'workspace_url' => $tenant?->is_demo
                 ? null
-                : $scheme.'://'.$tenant->slug.'.'.config('tenancy.central_domain').'/dashboard',
+                : UserHomeUrl::for($user, request()->isSecure() ? 'https' : 'http'),
         ];
     }
 
