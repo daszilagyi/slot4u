@@ -3,11 +3,11 @@
 namespace App\Notifications;
 
 use App\Enums\NotificationType;
-use App\Models\MessageTemplate;
 use App\Models\Tenant;
 use App\Notifications\Concerns\RecordsDelivery;
 use App\Notifications\Concerns\SuppressedForDemoTenant;
 use App\Notifications\Concerns\TracksDelivery;
+use App\Services\Mail\MailTextStore;
 use App\Services\Notification\MessageTemplateRenderer;
 use App\Settings\TenantSettings;
 use App\Tenancy\TenantPublicUrl;
@@ -82,17 +82,28 @@ abstract class TenantMailNotification extends Notification implements RecordsDel
     abstract protected function defaultMail(object $notifiable): MailMessage;
 
     /**
-     * Render the mail: a tenant's enabled template override if one exists, otherwise
-     * the built-in default. Both paths end in the same CTA button.
+     * Render the mail from the first wording that exists (docs/27 §1): the
+     * tenant's enabled override, the superadmin's base text (SLO-246), or the
+     * built-in default. Every path ends in the same CTA button.
+     *
+     * The built-in default is the only one with conditional lines (a cancel
+     * hint, a same-email reminder); an edited text is one fixed body, exactly
+     * as a tenant's override has always been.
      */
     public function toMail(object $notifiable): MailMessage
     {
         $override = app(MessageTemplateRenderer::class)
             ->resolve($this->tenant, $this->templateType(), $this->locale);
 
-        $mail = $override === null
-            ? $this->defaultMail($notifiable)
-            : $this->renderFromTemplate($override, $notifiable);
+        $platform = $override === null
+            ? app(MailTextStore::class)->stored($this->templateType()->value, (string) $this->locale)
+            : null;
+
+        $mail = match (true) {
+            $override !== null => $this->renderFromTemplate($override->subject, $override->body, $notifiable),
+            $platform !== null => $this->renderFromTemplate($platform->subject, $platform->body, $notifiable),
+            default => $this->defaultMail($notifiable),
+        };
 
         // The demo diversion goes last, so it applies to the tenant's own
         // template override exactly as it does to the built-in body (SLO-182).
@@ -193,20 +204,21 @@ abstract class TenantMailNotification extends Notification implements RecordsDel
     }
 
     /**
-     * Build the mail from a tenant override: subject + body with placeholders
-     * substituted, an automatic greeting, and the fixed CTA button.
+     * Build the mail from an edited wording — a tenant override or the
+     * superadmin's base text: subject + body with placeholders substituted, an
+     * automatic greeting, and the fixed CTA button.
      */
-    protected function renderFromTemplate(MessageTemplate $template, object $notifiable): MailMessage
+    protected function renderFromTemplate(string $subject, string $body, object $notifiable): MailMessage
     {
         $renderer = app(MessageTemplateRenderer::class);
         $vars = $this->templateVars($notifiable);
         [$actionLabel, $actionUrl] = $this->templateAction();
 
         $mail = (new MailMessage)
-            ->subject($renderer->substitute($template->subject, $vars))
+            ->subject($renderer->substitute($subject, $vars))
             ->greeting($renderer->substitute(__('app.mail.greeting'), $vars));
 
-        foreach ($renderer->bodyLines($renderer->substitute($template->body, $vars)) as $line) {
+        foreach ($renderer->bodyLines($renderer->substitute($body, $vars)) as $line) {
             $mail->line($line);
         }
 

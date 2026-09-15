@@ -88,4 +88,12 @@ enum AuditAction: string
      */
     case MailBrandUpdated = 'platform.mail_brand_updated';
     case MailBrandReset = 'platform.mail_brand_reset';
+
+    /*
+     * The words of the system emails (SLO-246), per mail and locale. Platform-
+     * wide for the same reason: the base text reaches every tenant that has not
+     * written its own.
+     */
+    case MailTextUpdated = 'platform.mail_text_updated';
+    case MailTextReset = 'platform.mail_text_reset';
 }

@@ -2,6 +2,8 @@
 
 namespace App\Notifications\Platform;
 
+use App\Services\Mail\MailTextStore;
+use App\Support\Mail\MailText;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -27,13 +29,11 @@ final class AuthMailMessages
 
     public static function verifyEmail(object $notifiable, string $url): MailMessage
     {
-        return (new MailMessage)
-            ->subject(__('app.mail.verify_email.subject'))
-            ->greeting(__('app.mail.verify_email.greeting', ['name' => $notifiable->name]))
-            ->line(__('app.mail.verify_email.intro'))
-            ->action(__('app.mail.verify_email.action'), $url)
-            ->line(__('app.mail.verify_email.expire', ['count' => config('auth.verification.expire', 60)]))
-            ->line(__('app.mail.verify_email.outro'));
+        return self::text('verify_email')->applyTo(
+            (new MailMessage)->greeting(__('app.mail.verify_email.greeting', ['name' => $notifiable->name])),
+            ['name' => $notifiable->name, 'count' => config('auth.verification.expire', 60)],
+            [__('app.mail.verify_email.action'), $url],
+        );
     }
 
     public static function resetPassword(object $notifiable, string $token): MailMessage
@@ -46,12 +46,16 @@ final class AuthMailMessages
 
         $expire = config('auth.passwords.'.config('auth.defaults.passwords').'.expire');
 
-        return (new MailMessage)
-            ->subject(__('app.mail.reset_password.subject'))
-            ->greeting(__('app.mail.reset_password.greeting', ['name' => $notifiable->name]))
-            ->line(__('app.mail.reset_password.intro'))
-            ->action(__('app.mail.reset_password.action'), $url)
-            ->line(__('app.mail.reset_password.expire', ['count' => $expire]))
-            ->line(__('app.mail.reset_password.outro'));
+        return self::text('reset_password')->applyTo(
+            (new MailMessage)->greeting(__('app.mail.reset_password.greeting', ['name' => $notifiable->name])),
+            ['name' => $notifiable->name, 'count' => $expire],
+            [__('app.mail.reset_password.action'), $url],
+        );
+    }
+
+    /** The superadmin's wording if they edited it (SLO-246), else the lang default. */
+    private static function text(string $key): MailText
+    {
+        return app(MailTextStore::class)->resolve($key, app()->getLocale());
     }
 }

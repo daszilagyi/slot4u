@@ -5,6 +5,7 @@ namespace App\Notifications;
 use App\Models\CommissionInvoice;
 use App\Models\Tenant;
 use App\Notifications\Concerns\SuppressedForDemoTenant;
+use App\Services\Mail\MailTextStore;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -47,19 +48,18 @@ class CommissionInvoiceNotification extends Notification
     {
         $variant = $this->variant;
 
-        $mail = (new MailMessage)
-            ->subject(__("app.mail.commission_invoice.{$variant}.subject", ['period' => $this->invoice->period]))
-            ->greeting(__("app.mail.commission_invoice.{$variant}.greeting", ['name' => $notifiable->name]))
-            ->line(__("app.mail.commission_invoice.{$variant}.intro", [
+        // The superadmin's wording if edited (SLO-246), else the lang default.
+        $mail = app(MailTextStore::class)->resolve("commission_invoice_{$variant}", $this->tenant->locale)->applyTo(
+            (new MailMessage)->greeting(__("app.mail.commission_invoice.{$variant}.greeting", ['name' => $notifiable->name])),
+            [
+                'name' => $notifiable->name,
                 'tenant' => $this->tenant->name,
                 'period' => $this->invoice->period,
-            ]))
-            ->line(__('app.mail.commission_invoice.amount', [
                 'amount' => $this->money($this->invoice->total_gross_minor),
                 'due' => $this->dueDate(),
-            ]))
-            ->action(__('app.mail.commission_invoice.action'), $this->billingUrl())
-            ->line(__("app.mail.commission_invoice.{$variant}.outro"));
+            ],
+            [__('app.mail.commission_invoice.action'), $this->billingUrl()],
+        );
 
         return $this->suppressWhenDemo($mail, $this->tenant);
     }

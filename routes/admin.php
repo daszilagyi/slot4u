@@ -8,6 +8,7 @@ use App\Http\Controllers\Super\DashboardController;
 use App\Http\Controllers\Super\ImpersonationController;
 use App\Http\Controllers\Super\LegalDocumentController;
 use App\Http\Controllers\Super\MailBrandController;
+use App\Http\Controllers\Super\MailTextController;
 use App\Http\Controllers\Super\StatisticsController;
 use App\Http\Controllers\Super\TenantController;
 use Illuminate\Support\Facades\Route;
@@ -69,6 +70,13 @@ Route::middleware(['auth', 'ensure.superadmin'])->group(function () {
         Route::post('/emails/design', [MailBrandController::class, 'update'])->name('super.mail-brand.update');
         Route::delete('/emails/design', [MailBrandController::class, 'destroy'])->name('super.mail-brand.destroy');
         Route::post('/emails/design/preview', [MailBrandController::class, 'preview'])->middleware('throttle:120,1')->name('super.mail-brand.preview');
+
+        // The words of every system email (SLO-246, docs/27 §5), one mail at a
+        // time. The key is checked against the catalogue (unknown → 404).
+        Route::get('/emails/templates', [MailTextController::class, 'index'])->name('super.mail-texts.index');
+        Route::put('/emails/templates/{key}', [MailTextController::class, 'update'])->where('key', '[a-z0-9_]+')->name('super.mail-texts.update');
+        Route::delete('/emails/templates/{key}', [MailTextController::class, 'destroy'])->where('key', '[a-z0-9_]+')->name('super.mail-texts.destroy');
+        Route::post('/emails/templates/{key}/preview', [MailTextController::class, 'preview'])->where('key', '[a-z0-9_]+')->middleware('throttle:120,1')->name('super.mail-texts.preview');
 
         Route::get('/audit-logs', [AuditLogController::class, 'index'])->name('super.audit-logs.index');
 
