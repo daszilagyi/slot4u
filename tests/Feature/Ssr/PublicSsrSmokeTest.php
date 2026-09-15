@@ -458,7 +458,14 @@ it('⚠️ offers no workspace button to a visitor who only tried the demo', fun
 it('offers a real customer their own workspace instead of a second login', function () {
     $tenant = Tenant::factory()->active()->create(['slug' => 'valodi-ssr']);
 
-    $this->actingAs(User::factory()->create(['tenant_id' => $tenant->getKey()]));
+    // Staff: a role-less user is a customer, whose home is /my/bookings (SLO-249).
+    $user = User::factory()->create(['tenant_id' => $tenant->getKey()]);
+    $registrar = app(PermissionRegistrar::class);
+    $registrar->setPermissionsTeamId($tenant->getKey());
+    $user->assignRole(Role::TenantAdmin->value);
+    $registrar->setPermissionsTeamId(null);
+
+    $this->actingAs($user);
 
     $rendered = renderedMarkupOnly(
         (string) $this->get('http://'.config('tenancy.central_domain'))->assertOk()->getContent()
